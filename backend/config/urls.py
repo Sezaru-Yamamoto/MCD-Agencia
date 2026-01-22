@@ -1,0 +1,147 @@
+"""
+URL Configuration for MCD-Agencia Backend.
+
+This module defines the URL routing for the entire Django application.
+All API endpoints are prefixed with /api/v1/ for versioning.
+
+URL Structure:
+    /api/v1/auth/          - Authentication endpoints (login, register, OAuth)
+    /api/v1/users/         - User management endpoints
+    /api/v1/catalog/       - Product and service catalog endpoints
+    /api/v1/orders/        - Order management endpoints
+    /api/v1/quotes/        - Quotation (RFQ) endpoints
+    /api/v1/inventory/     - Inventory management endpoints
+    /api/v1/content/       - CMS content endpoints (landing page, etc.)
+    /api/v1/payments/      - Payment processing endpoints
+    /api/v1/webhooks/      - Webhook endpoints for external services
+    /api/v1/chatbot/       - Chatbot and lead capture endpoints
+    /api/docs/             - API documentation (Swagger/ReDoc)
+    /admin/                - Django admin interface
+
+For more information on Django URL dispatching, see:
+https://docs.djangoproject.com/en/5.0/topics/http/urls/
+"""
+
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+
+# =============================================================================
+# API VERSION 1 URL PATTERNS
+# =============================================================================
+
+api_v1_patterns = [
+    # Authentication & Users
+    path('auth/', include('apps.users.urls.auth_urls')),
+    path('users/', include('apps.users.urls.user_urls')),
+
+    # Catalog (Products & Services)
+    path('catalog/', include('apps.catalog.urls')),
+
+    # Orders & E-commerce
+    path('orders/', include('apps.orders.urls')),
+
+    # Quotations (RFQ)
+    path('quotes/', include('apps.quotes.urls')),
+
+    # Inventory
+    path('inventory/', include('apps.inventory.urls')),
+
+    # CMS Content (Landing page, FAQ, etc.)
+    path('content/', include('apps.content.urls')),
+
+    # Payments & Webhooks
+    path('payments/', include('apps.payments.urls')),
+
+    # Chatbot & Leads
+    path('chatbot/', include('apps.chatbot.urls')),
+
+    # Audit Log
+    path('audit/', include('apps.audit.urls')),
+]
+
+
+# =============================================================================
+# ADMIN API URL PATTERNS
+# =============================================================================
+
+api_admin_patterns = [
+    # Admin user management
+    path('users/', include('apps.users.urls.user_urls', namespace='admin-users')),
+
+    # Admin order management
+    path('orders/', include('apps.orders.urls', namespace='admin-orders')),
+
+    # Admin payment management
+    path('payments/', include('apps.payments.urls', namespace='admin-payments')),
+]
+
+
+# =============================================================================
+# API DOCUMENTATION URL PATTERNS
+# =============================================================================
+
+docs_patterns = [
+    # OpenAPI schema
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    # Swagger UI
+    path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    # ReDoc
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+]
+
+
+# =============================================================================
+# MAIN URL PATTERNS
+# =============================================================================
+
+urlpatterns = [
+    # Django Admin
+    path('admin/', admin.site.urls),
+
+    # Django-allauth (OAuth, email verification, etc.)
+    path('accounts/', include('allauth.urls')),
+
+    # API v1
+    path('api/v1/', include(api_v1_patterns)),
+
+    # Admin API (requires staff permissions)
+    path('api/v1/admin/', include(api_admin_patterns)),
+
+    # API Documentation
+    path('api/docs/', include(docs_patterns)),
+
+    # Health check endpoint
+    path('health/', include('apps.core.urls')),
+]
+
+
+# =============================================================================
+# DEVELOPMENT-ONLY URL PATTERNS
+# =============================================================================
+
+if settings.DEBUG:
+    # Serve media files during development
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+    # Django Debug Toolbar
+    if 'debug_toolbar' in settings.INSTALLED_APPS:
+        import debug_toolbar
+        urlpatterns = [
+            path('__debug__/', include(debug_toolbar.urls)),
+        ] + urlpatterns
+
+
+# =============================================================================
+# ADMIN SITE CONFIGURATION
+# =============================================================================
+
+admin.site.site_header = 'MCD-Agencia Admin'
+admin.site.site_title = 'MCD-Agencia'
+admin.site.index_title = 'Panel de Administración'

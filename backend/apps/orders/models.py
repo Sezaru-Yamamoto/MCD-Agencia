@@ -1,0 +1,750 @@
+"""
+Order Models for MCD-Agencia.
+
+This module defines the e-commerce order system including:
+    - Cart: Shopping cart for authenticated users
+    - CartItem: Individual items in the cart
+    - Order: Main order model with FSM states
+    - OrderLine: Line items in an order
+    - Address: Shipping and billing addresses
+
+Order States (FSM):
+    Draft → PendingPayment → Paid/PartiallyPaid → InProduction → Ready → Completed
+    Any pre-production state → Cancelled
+    Paid/Completed → Refunded
+"""
+
+import uuid
+from decimal import Decimal
+
+from django.conf import settings
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+from apps.core.models import TimeStampedModel, SoftDeleteModel
+
+
+class Cart(TimeStampedModel):
+    """
+    Shopping cart for authenticated users.
+
+    Carts are associated with authenticated users and persist
+    across sessions. Guest carts are handled client-side and
+    merged on authentication.
+
+    Attributes:
+        user: Cart owner
+        session_key: Session key for guest carts (future use)
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='cart',
+        null=True,
+        blank=True,
+        help_text=_('Cart owner.')
+    )
+    session_key = models.CharField(
+        _('session key'),
+        max_length=40,
+        blank=True,
+        db_index=True,
+        help_text=_('Session key for guest carts.')
+    )
+
+    class Meta:
+        verbose_name = _('cart')
+        verbose_name_plural = _('carts')
+
+    def __str__(self):
+        if self.user:
+            return f"Cart for {self.user.email}"
+        return f"Guest cart {self.session_key[:8]}"
+
+    @property
+    def subtotal(self):
+        """Calculate cart subtotal (before tax)."""
+        return sum(item.line_total for item in self.items.all())
+
+    @property
+    def tax_amount(self):
+        """Calculate tax amount (IVA 16%)."""
+        return self.subtotal * Decimal(settings.TAX_RATE)
+
+    @property
+    def total(self):
+        """Calculate cart total (subtotal + tax)."""
+        return self.subtotal + self.tax_amount
+
+    @property
+    def item_count(self):
+        """Get total number of items in cart."""
+        return self.items.aggregate(total=models.Sum('quantity'))['total'] or 0
+
+    def clear(self):
+        """Remove all items from cart."""
+        self.items.all().delete()
+
+
+class CartItem(TimeStampedModel):
+    """
+    Individual item in a shopping cart.
+
+    Represents a product variant and quantity in the cart.
+    Validates stock availability on add/update.
+
+    Attributes:
+        cart: Parent cart
+        variant: Product variant
+        quantity: Item quantity
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    cart = models.ForeignKey(
+        Cart,
+        on_delete=models.CASCADE,
+        related_name='items',
+        help_text=_('Parent cart.')
+    )
+    variant = models.ForeignKey(
+        'catalog.ProductVariant',
+        on_delete=models.CASCADE,
+        related_name='cart_items',
+        help_text=_('Product variant.')
+    )
+    quantity = models.PositiveIntegerField(
+        _('quantity'),
+        default=1,
+        help_text=_('Item quantity.')
+    )
+
+    class Meta:
+        verbose_name = _('cart item')
+        verbose_name_plural = _('cart items')
+        unique_together = ['cart', 'variant']
+
+    def __str__(self):
+        return f"{self.quantity}x {self.variant.sku}"
+
+    @property
+    def unit_price(self):
+        """Get unit price from variant."""
+        return self.variant.price
+
+    @property
+    def line_total(self):
+        """Calculate line total (unit_price * quantity)."""
+        return self.unit_price * self.quantity
+
+
+class Address(TimeStampedModel):
+    """
+    Reusable address model for shipping and billing.
+
+    Addresses can be saved to user profiles for reuse
+    across multiple orders.
+
+    Attributes:
+        user: Address owner (optional for guest checkout)
+        type: shipping or billing
+        is_default: Whether this is the default address
+        name: Recipient name
+        phone: Contact phone
+        street: Street address
+        exterior_number: Exterior number
+        interior_number: Interior number
+        neighborhood: Neighborhood (colonia)
+        city: City
+        state: State
+        postal_code: Postal code
+        country: Country code
+    """
+
+    TYPE_CHOICES = [
+        ('shipping', _('Shipping')),
+        ('billing', _('Billing')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='addresses',
+        null=True,
+        blank=True,
+        help_text=_('Address owner.')
+    )
+    type = models.CharField(
+        _('type'),
+        max_length=10,
+        choices=TYPE_CHOICES,
+        default='shipping',
+        help_text=_('Address type.')
+    )
+    is_default = models.BooleanField(
+        _('is default'),
+        default=False,
+        help_text=_('Default address for this type.')
+    )
+
+    # Recipient
+    name = models.CharField(
+        _('name'),
+        max_length=255,
+        help_text=_('Recipient name.')
+    )
+    phone = models.CharField(
+        _('phone'),
+        max_length=20,
+        help_text=_('Contact phone.')
+    )
+
+    # Address
+    street = models.CharField(
+        _('street'),
+        max_length=255,
+        help_text=_('Street name.')
+    )
+    exterior_number = models.CharField(
+        _('exterior number'),
+        max_length=20,
+        help_text=_('Exterior number.')
+    )
+    interior_number = models.CharField(
+        _('interior number'),
+        max_length=20,
+        blank=True,
+        help_text=_('Interior number.')
+    )
+    neighborhood = models.CharField(
+        _('neighborhood'),
+        max_length=100,
+        help_text=_('Neighborhood (colonia).')
+    )
+    city = models.CharField(
+        _('city'),
+        max_length=100,
+        help_text=_('City.')
+    )
+    state = models.CharField(
+        _('state'),
+        max_length=100,
+        help_text=_('State.')
+    )
+    postal_code = models.CharField(
+        _('postal code'),
+        max_length=10,
+        help_text=_('Postal code.')
+    )
+    country = models.CharField(
+        _('country'),
+        max_length=3,
+        default='MEX',
+        help_text=_('Country code (ISO 3166-1 alpha-3).')
+    )
+
+    # Reference
+    reference = models.TextField(
+        _('reference'),
+        blank=True,
+        help_text=_('Delivery reference (landmarks, instructions).')
+    )
+
+    class Meta:
+        verbose_name = _('address')
+        verbose_name_plural = _('addresses')
+        ordering = ['-is_default', '-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.street} {self.exterior_number}"
+
+    @property
+    def full_address(self):
+        """Return formatted full address."""
+        parts = [
+            f"{self.street} {self.exterior_number}",
+            self.interior_number and f"Int. {self.interior_number}",
+            self.neighborhood,
+            f"{self.city}, {self.state}",
+            f"C.P. {self.postal_code}",
+            self.country,
+        ]
+        return ", ".join(filter(None, parts))
+
+    def save(self, *args, **kwargs):
+        """Ensure only one default address per type per user."""
+        if self.is_default and self.user:
+            Address.objects.filter(
+                user=self.user,
+                type=self.type,
+                is_default=True
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+
+class Order(TimeStampedModel, SoftDeleteModel):
+    """
+    Main order model for e-commerce transactions.
+
+    Orders follow a finite state machine (FSM) workflow from
+    creation through fulfillment. States ensure valid transitions.
+
+    Order States:
+        - draft: Order created, in checkout
+        - pending_payment: Sent to payment gateway
+        - paid: Full payment confirmed
+        - partially_paid: Deposit confirmed
+        - in_production: Being produced/prepared
+        - ready: Ready for delivery/pickup
+        - in_delivery: In transit
+        - completed: Delivered, order closed
+        - cancelled: Cancelled before production
+        - refunded: Payment refunded
+
+    Attributes:
+        order_number: Human-readable order number
+        user: Order owner
+        status: Current order status
+        shipping_address: Delivery address
+        billing_address: Billing address
+        subtotal: Order subtotal before tax
+        tax_rate: Applied tax rate
+        tax_amount: Tax amount
+        total: Order total
+        amount_paid: Amount already paid
+        payment_method: Selected payment method
+        notes: Customer notes
+        internal_notes: Staff notes
+        quote: Source quotation (if converted from quote)
+    """
+
+    # Order statuses following FSM pattern
+    STATUS_DRAFT = 'draft'
+    STATUS_PENDING_PAYMENT = 'pending_payment'
+    STATUS_PAID = 'paid'
+    STATUS_PARTIALLY_PAID = 'partially_paid'
+    STATUS_IN_PRODUCTION = 'in_production'
+    STATUS_READY = 'ready'
+    STATUS_IN_DELIVERY = 'in_delivery'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_REFUNDED = 'refunded'
+
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, _('Draft')),
+        (STATUS_PENDING_PAYMENT, _('Pending Payment')),
+        (STATUS_PAID, _('Paid')),
+        (STATUS_PARTIALLY_PAID, _('Partially Paid')),
+        (STATUS_IN_PRODUCTION, _('In Production')),
+        (STATUS_READY, _('Ready')),
+        (STATUS_IN_DELIVERY, _('In Delivery')),
+        (STATUS_COMPLETED, _('Completed')),
+        (STATUS_CANCELLED, _('Cancelled')),
+        (STATUS_REFUNDED, _('Refunded')),
+    ]
+
+    # Valid status transitions
+    STATUS_TRANSITIONS = {
+        STATUS_DRAFT: [STATUS_PENDING_PAYMENT, STATUS_CANCELLED],
+        STATUS_PENDING_PAYMENT: [STATUS_PAID, STATUS_PARTIALLY_PAID, STATUS_CANCELLED],
+        STATUS_PAID: [STATUS_IN_PRODUCTION, STATUS_REFUNDED],
+        STATUS_PARTIALLY_PAID: [STATUS_PAID, STATUS_IN_PRODUCTION, STATUS_CANCELLED],
+        STATUS_IN_PRODUCTION: [STATUS_READY, STATUS_CANCELLED],
+        STATUS_READY: [STATUS_IN_DELIVERY, STATUS_COMPLETED],
+        STATUS_IN_DELIVERY: [STATUS_COMPLETED],
+        STATUS_COMPLETED: [STATUS_REFUNDED],
+        STATUS_CANCELLED: [],
+        STATUS_REFUNDED: [],
+    }
+
+    PAYMENT_METHOD_CHOICES = [
+        ('mercadopago', _('Mercado Pago')),
+        ('paypal', _('PayPal')),
+        ('bank_transfer', _('Bank Transfer')),
+        ('cash', _('Cash')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    order_number = models.CharField(
+        _('order number'),
+        max_length=20,
+        unique=True,
+        db_index=True,
+        help_text=_('Human-readable order number.')
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='orders',
+        help_text=_('Order owner.')
+    )
+    status = models.CharField(
+        _('status'),
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_DRAFT,
+        db_index=True,
+        help_text=_('Current order status.')
+    )
+
+    # Addresses (copied at order time for immutability)
+    shipping_address = models.JSONField(
+        _('shipping address'),
+        default=dict,
+        help_text=_('Shipping address snapshot.')
+    )
+    billing_address = models.JSONField(
+        _('billing address'),
+        default=dict,
+        help_text=_('Billing address snapshot.')
+    )
+
+    # Financials
+    subtotal = models.DecimalField(
+        _('subtotal'),
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text=_('Order subtotal before tax.')
+    )
+    tax_rate = models.DecimalField(
+        _('tax rate'),
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal('0.1600'),
+        help_text=_('Applied tax rate (e.g., 0.16 for 16%).')
+    )
+    tax_amount = models.DecimalField(
+        _('tax amount'),
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text=_('Tax amount.')
+    )
+    total = models.DecimalField(
+        _('total'),
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text=_('Order total.')
+    )
+    amount_paid = models.DecimalField(
+        _('amount paid'),
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text=_('Amount already paid.')
+    )
+    currency = models.CharField(
+        _('currency'),
+        max_length=3,
+        default='MXN',
+        help_text=_('Currency code.')
+    )
+
+    # Payment
+    payment_method = models.CharField(
+        _('payment method'),
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        blank=True,
+        help_text=_('Selected payment method.')
+    )
+
+    # Notes
+    notes = models.TextField(
+        _('customer notes'),
+        blank=True,
+        help_text=_('Notes from customer.')
+    )
+    internal_notes = models.TextField(
+        _('internal notes'),
+        blank=True,
+        help_text=_('Notes for staff (not visible to customer).')
+    )
+
+    # Source
+    quote = models.ForeignKey(
+        'quotes.Quote',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        help_text=_('Source quotation (if converted from quote).')
+    )
+
+    # Tracking
+    tracking_number = models.CharField(
+        _('tracking number'),
+        max_length=100,
+        blank=True,
+        help_text=_('Shipment tracking number.')
+    )
+    tracking_url = models.URLField(
+        _('tracking URL'),
+        blank=True,
+        help_text=_('Shipment tracking URL.')
+    )
+
+    # Dates
+    paid_at = models.DateTimeField(
+        _('paid at'),
+        null=True,
+        blank=True,
+        help_text=_('When payment was confirmed.')
+    )
+    completed_at = models.DateTimeField(
+        _('completed at'),
+        null=True,
+        blank=True,
+        help_text=_('When order was completed.')
+    )
+
+    class Meta:
+        verbose_name = _('order')
+        verbose_name_plural = _('orders')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['order_number']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Order {self.order_number}"
+
+    def save(self, *args, **kwargs):
+        """Generate order number if not set."""
+        if not self.order_number:
+            self.order_number = self._generate_order_number()
+        super().save(*args, **kwargs)
+
+    def _generate_order_number(self):
+        """Generate a unique order number."""
+        import datetime
+        import random
+        date_str = datetime.datetime.now().strftime('%Y%m%d')
+        random_str = ''.join(random.choices('0123456789', k=4))
+        return f"MCD-{date_str}-{random_str}"
+
+    @property
+    def balance_due(self):
+        """Calculate remaining balance to be paid."""
+        return self.total - self.amount_paid
+
+    @property
+    def is_fully_paid(self):
+        """Check if order is fully paid."""
+        return self.amount_paid >= self.total
+
+    def can_transition_to(self, new_status):
+        """
+        Check if transition to new status is valid.
+
+        Args:
+            new_status: Target status
+
+        Returns:
+            bool: Whether transition is allowed
+        """
+        return new_status in self.STATUS_TRANSITIONS.get(self.status, [])
+
+    def transition_to(self, new_status):
+        """
+        Transition order to new status.
+
+        Args:
+            new_status: Target status
+
+        Raises:
+            ValueError: If transition is not allowed
+        """
+        if not self.can_transition_to(new_status):
+            raise ValueError(
+                f"Cannot transition from {self.status} to {new_status}"
+            )
+        self.status = new_status
+        self.save(update_fields=['status', 'updated_at'])
+
+    def calculate_totals(self):
+        """
+        Recalculate order totals from line items.
+
+        Updates subtotal, tax_amount, and total fields.
+        """
+        self.subtotal = sum(line.line_total for line in self.lines.all())
+        self.tax_amount = self.subtotal * self.tax_rate
+        self.total = self.subtotal + self.tax_amount
+
+
+class OrderLine(TimeStampedModel):
+    """
+    Individual line item in an order.
+
+    Line items store a snapshot of product information at order time
+    to maintain accuracy even if products change later.
+
+    Attributes:
+        order: Parent order
+        variant: Product variant (reference)
+        sku: SKU at time of order
+        name: Product name at time of order
+        quantity: Ordered quantity
+        unit_price: Price at time of order
+        tax_rate: Tax rate at time of order
+        line_total: Line total (quantity * unit_price)
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='lines',
+        help_text=_('Parent order.')
+    )
+    variant = models.ForeignKey(
+        'catalog.ProductVariant',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='order_lines',
+        help_text=_('Product variant reference.')
+    )
+
+    # Snapshot data (preserved even if product changes)
+    sku = models.CharField(
+        _('SKU'),
+        max_length=100,
+        help_text=_('SKU at time of order.')
+    )
+    name = models.CharField(
+        _('name'),
+        max_length=255,
+        help_text=_('Product name at time of order.')
+    )
+    variant_name = models.CharField(
+        _('variant name'),
+        max_length=255,
+        blank=True,
+        help_text=_('Variant details (e.g., "Blue, Large").')
+    )
+    quantity = models.PositiveIntegerField(
+        _('quantity'),
+        default=1,
+        help_text=_('Ordered quantity.')
+    )
+    unit_price = models.DecimalField(
+        _('unit price'),
+        max_digits=12,
+        decimal_places=2,
+        help_text=_('Price per unit at time of order.')
+    )
+
+    # Line totals
+    line_total = models.DecimalField(
+        _('line total'),
+        max_digits=12,
+        decimal_places=2,
+        help_text=_('Line total (quantity * unit_price).')
+    )
+
+    # Optional metadata
+    metadata = models.JSONField(
+        _('metadata'),
+        default=dict,
+        blank=True,
+        help_text=_('Additional line item data.')
+    )
+
+    class Meta:
+        verbose_name = _('order line')
+        verbose_name_plural = _('order lines')
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.quantity}x {self.name}"
+
+    def save(self, *args, **kwargs):
+        """Calculate line total before saving."""
+        self.line_total = self.unit_price * self.quantity
+        super().save(*args, **kwargs)
+
+
+class OrderStatusHistory(TimeStampedModel):
+    """
+    Track order status changes for audit trail.
+
+    Records every status change with timestamp and actor.
+
+    Attributes:
+        order: Parent order
+        from_status: Previous status
+        to_status: New status
+        changed_by: User who made the change
+        notes: Optional notes about the change
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='status_history',
+        help_text=_('Parent order.')
+    )
+    from_status = models.CharField(
+        _('from status'),
+        max_length=20,
+        choices=Order.STATUS_CHOICES,
+        help_text=_('Previous status.')
+    )
+    to_status = models.CharField(
+        _('to status'),
+        max_length=20,
+        choices=Order.STATUS_CHOICES,
+        help_text=_('New status.')
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='order_status_changes',
+        help_text=_('User who made the change.')
+    )
+    notes = models.TextField(
+        _('notes'),
+        blank=True,
+        help_text=_('Notes about the change.')
+    )
+
+    class Meta:
+        verbose_name = _('order status history')
+        verbose_name_plural = _('order status histories')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.order.order_number}: {self.from_status} → {self.to_status}"

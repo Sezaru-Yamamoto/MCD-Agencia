@@ -1,0 +1,35 @@
+"""
+Chatbot URLs for MCD-Agencia.
+
+This module provides URL routing for chatbot endpoints:
+    - Leads
+    - Conversations
+    - Chat messaging
+"""
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+from .views import (
+    LeadViewSet,
+    PublicLeadCreateView,
+    ConversationViewSet,
+    ChatView,
+    MessageViewSet,
+)
+
+app_name = 'chatbot'
+
+router = DefaultRouter()
+router.register('leads', LeadViewSet, basename='leads')
+router.register('conversations', ConversationViewSet, basename='conversations')
+router.register('messages', MessageViewSet, basename='messages')
+
+urlpatterns = [
+    # Public endpoints
+    path('leads/create/', PublicLeadCreateView.as_view(), name='lead_create'),
+    path('chat/', ChatView.as_view(), name='chat'),
+
+    # ViewSets
+    path('', include(router.urls)),
+]
