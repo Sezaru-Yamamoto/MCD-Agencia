@@ -91,7 +91,7 @@ export default function ChatWidget() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/chatbot/web-chat/config/?language=${locale}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/chatbot/web-chat/config/?language=${locale}`);
         if (response.ok) {
           const data = await response.json();
           setConfig(data);
@@ -161,7 +161,7 @@ export default function ChatWidget() {
         content: m.content
       }));
 
-      const response = await fetch(`${API_BASE_URL}/api/chatbot/web-chat/message/`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chatbot/web-chat/message/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

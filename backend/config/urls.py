@@ -80,6 +80,9 @@ api_admin_patterns = [
 
     # Admin payment management
     path('payments/', include('apps.payments.urls', namespace='admin-payments')),
+
+    # Admin quote requests
+    path('quote-requests/', include('apps.quotes.urls', namespace='admin-quotes')),
 ]
 
 
