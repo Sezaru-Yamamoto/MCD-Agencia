@@ -192,7 +192,7 @@ export function QuoteForm() {
   };
 
   return (
-    <section id="cotizar" className="section bg-gradient-to-br from-cmyk-black to-cmyk-black">
+    <section id="cotizar" className="section py-10 sm:py-14 md:py-18 lg:py-24">
       <div className="container-custom">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="mb-4">{t('title')}</h2>

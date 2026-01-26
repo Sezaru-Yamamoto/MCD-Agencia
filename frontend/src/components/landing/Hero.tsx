@@ -36,12 +36,7 @@ export function Hero() {
   };
 
   return (
-    <section className="relative min-h-screen lg:min-h-screen flex items-center bg-gradient-to-br from-cmyk-black to-cmyk-black pt-20 sm:pt-20 md:pt-20 pb-6 sm:pb-8 overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 sm:top-20 right-5 sm:right-10 w-48 sm:w-72 h-48 sm:h-72 bg-cmyk-cyan/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 sm:bottom-20 left-5 sm:left-10 w-64 sm:w-96 h-64 sm:h-96 bg-cmyk-magenta/5 rounded-full blur-3xl"></div>
-      </div>
+    <section className="relative min-h-screen lg:min-h-screen flex items-center pt-20 sm:pt-20 md:pt-20 pb-6 sm:pb-8 overflow-hidden">
 
       <div className="container-custom relative z-10 px-4 sm:px-6 md:px-0">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 items-center">

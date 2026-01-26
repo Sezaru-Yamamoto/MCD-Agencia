@@ -5,7 +5,8 @@
 export { UnifiedHeader as Header } from '../UnifiedHeader';
 export { Hero } from './Hero';
 export { Services } from './Services';
-export { HowItWorks } from './HowItWorks';
+export { AboutUs } from './AboutUs';
+export { BackgroundGlow } from './BackgroundGlow';
 export { Portfolio } from './Portfolio';
 export { Clients } from './Clients';
 export { FAQ } from './FAQ';

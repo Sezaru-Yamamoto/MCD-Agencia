@@ -3,6 +3,8 @@
  * This is a minimal layout for non-localized routes (like /auth/callback)
  */
 
+import '@/styles/globals.css';
+
 export default function RootLayout({
   children,
 }: {

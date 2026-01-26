@@ -4,7 +4,7 @@
  * Landing page with:
  * - Hero carousel
  * - Services section
- * - How it works
+ * - About us
  * - Portfolio
  * - Clients
  * - FAQ
@@ -24,7 +24,8 @@ import {
   Header,
   Hero,
   Services,
-  HowItWorks,
+  AboutUs,
+  BackgroundGlow,
   Portfolio,
   Clients,
   FAQ,
@@ -49,7 +50,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="landing-page">
+    <div className="landing-page relative bg-cmyk-black min-h-screen">
       {/* Hide the default layout header/footer - landing has its own */}
       <style jsx global>{`
         .landing-page ~ header,
@@ -61,12 +62,15 @@ export default function HomePage() {
           display: none !important;
         }
       `}</style>
-      
+
+      {/* Background glows distributed across the page */}
+      <BackgroundGlow />
+
       <Header />
-      <main>
+      <main className="relative">
         <Hero />
         <Services />
-        <HowItWorks />
+        <AboutUs />
         <Portfolio />
         <Clients />
         <FAQ />

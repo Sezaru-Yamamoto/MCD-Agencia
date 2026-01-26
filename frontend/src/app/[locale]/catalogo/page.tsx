@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Squares2X2Icon, ListBulletIcon } from '@heroicons/react/24/outline';
+import { Squares2X2Icon, ListBulletIcon, ShoppingCartIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 import { getProducts, getCategories, getAttributes, ProductFilters as IProductFilters } from '@/lib/api/catalog';
 import { ProductCard, ProductFilters } from '@/components/catalog';
 import { Breadcrumb, Pagination, LoadingPage, Button, Select } from '@/components/ui';
 import { cn, debounce } from '@/lib/utils';
 
+type SaleMode = 'ALL' | 'BUY' | 'QUOTE';
+
 const SORT_OPTIONS = [
   { value: '-created_at', label: 'Más recientes' },
   { value: 'name', label: 'Nombre (A-Z)' },
   { value: '-name', label: 'Nombre (Z-A)' },
-  { value: 'base_price', label: 'Precio: Menor a Mayor' },
-  { value: '-base_price', label: 'Precio: Mayor a Menor' },
 ];
 
 export default function CatalogPage() {
@@ -37,6 +37,7 @@ export default function CatalogPage() {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>({});
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState(initialFilters.search || '');
+  const [saleMode, setSaleMode] = useState<SaleMode>('BUY');
 
   // Fetch data
   const { data: productsData, isLoading: isLoadingProducts } = useQuery({
@@ -125,9 +126,13 @@ export default function CatalogPage() {
     router.push('/catalogo');
   };
 
-  const products = productsData?.results || [];
-  const totalProducts = productsData?.count || 0;
-  const totalPages = Math.ceil(totalProducts / (filters.page_size || 12));
+  const allProducts = productsData?.results || [];
+  // Filter products by sale mode
+  const products = saleMode === 'ALL'
+    ? allProducts
+    : allProducts.filter(p => p.sale_mode === saleMode);
+  const totalProducts = products.length;
+  const totalPages = Math.ceil((productsData?.count || 0) / (filters.page_size || 12));
   const categories = categoriesData?.results || [];
   const attributes = attributesData?.results || [];
 
@@ -216,6 +221,41 @@ export default function CatalogPage() {
 
           {/* Products Grid */}
           <div className="flex-1">
+            {/* Sale Mode Tabs */}
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setSaleMode('BUY')}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200',
+                  saleMode === 'BUY'
+                    ? 'bg-yellow-400 text-neutral-900 shadow-lg shadow-yellow-400/20'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white'
+                )}
+              >
+                <ShoppingCartIcon className="h-5 w-5" />
+                Comprar
+              </button>
+              <button
+                onClick={() => setSaleMode('QUOTE')}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200',
+                  saleMode === 'QUOTE'
+                    ? 'bg-cyan-500 text-neutral-900 shadow-lg shadow-cyan-500/20'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white'
+                )}
+              >
+                <DocumentTextIcon className="h-5 w-5" />
+                Cotizar
+              </button>
+            </div>
+
+            {/* Sale Mode Description */}
+            <p className="text-neutral-400 text-sm mb-6">
+              {saleMode === 'BUY'
+                ? 'Productos disponibles para compra directa. Agrégalos al carrito y completa tu pedido.'
+                : 'Productos personalizados que requieren cotización. Solicita un presupuesto sin compromiso.'}
+            </p>
+
             {isLoadingProducts ? (
               <LoadingPage message="Cargando productos..." />
             ) : products.length === 0 ? (

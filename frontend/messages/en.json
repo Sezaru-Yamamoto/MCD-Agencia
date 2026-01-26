@@ -91,22 +91,27 @@
         }
       }
     },
-    "howItWorks": {
-      "title": "Get a quote and receive in 3 simple steps",
-      "subtitle": "A simple and transparent process to get your print products.",
-      "startQuote": "Start quote →",
-      "steps": {
-        "step1": {
-          "title": "Tell us what you need",
-          "description": "Fill out the form or message us on WhatsApp"
-        },
-        "step2": {
-          "title": "Quote in less than 24h",
-          "description": "We send you a detailed quote to your email and WhatsApp"
-        },
-        "step3": {
-          "title": "Receive or pick up",
-          "description": "Home delivery or pickup at our offices"
+    "aboutUs": {
+      "title": "About Us",
+      "description": "We are a creative agency born in Acapulco, Guerrero, specialized in visual communication solutions through print and digital advertising, with a focus on innovation and quality.",
+      "mission": {
+        "title": "Mission",
+        "description": "To offer comprehensive solutions with innovative products and advanced technology, driving the professional development of our team."
+      },
+      "vision": {
+        "title": "Vision",
+        "description": "To be leaders in the transnational advertising sector, standing out for innovation and quality."
+      },
+      "values": {
+        "title": "Our Values",
+        "items": {
+          "leadership": "Leadership",
+          "commitment": "Commitment",
+          "dedication": "Dedication",
+          "innovation": "Innovation",
+          "customerFocus": "Customer Focus",
+          "creativity": "Creativity",
+          "quality": "Quality"
         }
       }
     },

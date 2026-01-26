@@ -91,22 +91,27 @@
         }
       }
     },
-    "howItWorks": {
-      "title": "Cotiza y recibe en 3 simples pasos",
-      "subtitle": "Un proceso sencillo y transparente para obtener tus productos de impresión.",
-      "startQuote": "Iniciar cotización →",
-      "steps": {
-        "step1": {
-          "title": "Cuéntanos qué necesitas",
-          "description": "Llena el formulario o escríbenos por WhatsApp"
-        },
-        "step2": {
-          "title": "Cotización en menos de 24h",
-          "description": "Te enviamos presupuesto detallado a tu email y WhatsApp"
-        },
-        "step3": {
-          "title": "Recibe o recoge",
-          "description": "Envío a domicilio o recolección en nuestras oficinas"
+    "aboutUs": {
+      "title": "Acerca de Nosotros",
+      "description": "Somos una agencia creativa nacida en Acapulco, Guerrero, especializada en soluciones de comunicación visual a través de publicidad impresa y digital, con un enfoque en innovación y calidad.",
+      "mission": {
+        "title": "Misión",
+        "description": "Ofrecer soluciones integrales con productos innovadores y tecnología avanzada, impulsando el desarrollo profesional de nuestro equipo."
+      },
+      "vision": {
+        "title": "Visión",
+        "description": "Ser líderes en el sector publicitario transnacional, destacando por innovación y calidad."
+      },
+      "values": {
+        "title": "Nuestros Valores",
+        "items": {
+          "leadership": "Liderazgo",
+          "commitment": "Compromiso",
+          "dedication": "Dedicación",
+          "innovation": "Innovación",
+          "customerFocus": "Orientación al cliente",
+          "creativity": "Creatividad",
+          "quality": "Calidad"
         }
       }
     },

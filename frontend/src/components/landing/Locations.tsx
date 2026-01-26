@@ -19,7 +19,7 @@ export function Locations() {
   const selectedLocation = getLocationData(selectedLocationId);
 
   return (
-    <section id="ubicaciones" className="section bg-cmyk-black py-12 sm:py-16 md:py-20 lg:py-24">
+    <section id="ubicaciones" className="section py-12 sm:py-16 md:py-20 lg:py-24">
       <div className="container-custom">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-12 px-4 sm:px-0">

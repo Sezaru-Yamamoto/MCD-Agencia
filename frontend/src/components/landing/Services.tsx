@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
-import { SERVICE_IDS, SERVICE_IMAGES, SERVICE_ICONS, type ServiceId } from '@/lib/service-data';
+import { LANDING_SERVICE_IDS, SERVICE_IMAGES, SERVICE_ICONS, type ServiceId } from '@/lib/service-data';
 import { CONTACT_INFO } from '@/lib/constants';
 
 export function Services() {
@@ -23,7 +23,7 @@ export function Services() {
   const selectedService = selectedServiceId ? getServiceData(selectedServiceId) : null;
 
   return (
-    <section id="servicios" className="section bg-gradient-to-b from-cmyk-black to-cmyk-black py-12 sm:py-16 md:py-20 lg:py-24">
+    <section id="servicios" className="section py-12 sm:py-16 md:py-20 lg:py-24">
       <div className="container-custom">
         <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-10 md:mb-12 px-4 sm:px-0">
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
@@ -34,7 +34,7 @@ export function Services() {
 
         {/* Grid de Servicios */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 px-4 sm:px-0">
-          {SERVICE_IDS.map((serviceId, index) => {
+          {LANDING_SERVICE_IDS.map((serviceId, index) => {
             const service = getServiceData(serviceId);
             return (
               <button

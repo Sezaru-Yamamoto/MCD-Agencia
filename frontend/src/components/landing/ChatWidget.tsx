@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, ExternalLink } from 'lucide-react';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 interface Message {
   id: string;
@@ -241,11 +242,7 @@ export default function ChatWidget() {
         className={`fixed bottom-24 right-6 z-40 w-14 h-14 bg-cyan-500 hover:bg-cyan-600 rounded-full shadow-2xl transform hover:scale-110 transition-all duration-300 ${isOpen ? 'hidden' : 'flex'} items-center justify-center group`}
         aria-label="Abrir chat"
       >
-        <img 
-          src="/images/chatbot-mascot.png" 
-          alt="Chat" 
-          className="w-10 h-10 object-contain"
-        />
+        <ChatBubbleLeftRightIcon className="w-10 h-10 text-white" />
         <span className="absolute -top-1 -right-1 flex h-4 w-4">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
           <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white"></span>
@@ -259,7 +256,7 @@ export default function ChatWidget() {
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
-                <img src="/images/chatbot-mascot.png" alt="Bot" className="w-11 h-11 object-contain" />
+                <ChatBubbleLeftRightIcon className="w-11 h-11 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-base sm:text-sm">{texts.title}</h3>
@@ -289,7 +286,7 @@ export default function ChatWidget() {
                       ? 'bg-primary-500 text-white' 
                       : 'bg-gray-600'
                   }`}>
-                    {message.role === 'user' ? <User className="w-5 h-5" /> : <img src="/images/chatbot-mascot.png" alt="Bot" className="w-8 h-8 object-contain" />}
+                    {message.role === 'user' ? <User className="w-5 h-5" /> : <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" />}
                   </div>
                   
                   {/* Message bubble */}
@@ -314,7 +311,7 @@ export default function ChatWidget() {
               <div className="flex justify-start">
                 <div className="flex items-end gap-2">
                   <div className="w-9 h-9 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
-                    <img src="/images/chatbot-mascot.png" alt="Bot" className="w-8 h-8 object-contain" />
+                    <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" />
                   </div>
                   <div className="bg-gray-700 rounded-2xl px-4 py-3 shadow-sm rounded-bl-sm">
                     <div className="flex gap-1">

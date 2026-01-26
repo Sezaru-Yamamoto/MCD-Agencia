@@ -4,11 +4,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShoppingCartIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
-import { useTranslations, useLocale } from 'next-intl';
+import { useLocale } from 'next-intl';
 
 import { ProductListItem } from '@/lib/api/catalog';
-import { Button, Badge } from '@/components/ui';
-import { formatPrice } from '@/lib/utils';
+import { Button } from '@/components/ui';
 
 interface ProductCardProps {
   product: ProductListItem;
@@ -16,24 +15,12 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
-  const t = useTranslations('catalog');
   const locale = useLocale();
   const router = useRouter();
 
   const name = locale === 'en' && product.name_en ? product.name_en : product.name;
-  const description =
-    locale === 'en' && product.short_description_en
-      ? product.short_description_en
-      : product.short_description;
 
   const imageUrl = product.primary_image?.image || '/images/placeholder-product.jpg';
-
-  const getPrice = () => {
-    if (product.price_range.has_range && product.price_range.min) {
-      return `Desde ${formatPrice(product.price_range.min)}`;
-    }
-    return formatPrice(product.base_price);
-  };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -58,15 +45,6 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
               className="object-cover group-hover:scale-110 transition-transform duration-300"
               sizes="160px"
             />
-
-            {/* Discount Badge */}
-            {product.has_discount && product.discount_percentage && (
-              <div className="absolute top-1 left-1">
-                <Badge variant="magenta" size="sm">
-                  -{product.discount_percentage}%
-                </Badge>
-              </div>
-            )}
           </div>
 
           {/* Content - Right side, vertical layout */}
@@ -81,57 +59,30 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
               )}
             </div>
 
-            {/* Footer: Price & Buttons */}
-            <div className="flex items-end justify-between gap-2 mt-1">
-              {/* Price */}
-              <div className="flex-1">
-                {product.sale_mode !== 'QUOTE' ? (
-                  <div>
-                    <span className="text-base font-bold text-cyan-400">{getPrice()}</span>
-                    {product.compare_at_price && (
-                      <div className="text-xs text-neutral-500 line-through">
-                        {formatPrice(product.compare_at_price)}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-xs text-neutral-400">Cotizar</span>
-                )}
-              </div>
-
-              {/* Button */}
-              <div className="flex-shrink-0">
-                {product.sale_mode === 'BUY' && (
-                  <Button
-                    size="xs"
-                    className="bg-yellow-400 hover:bg-yellow-500 text-neutral-900 text-xs px-2 py-1 font-semibold"
-                    onClick={handleQuickAdd}
-                  >
-                    <ShoppingCartIcon className="h-3 w-3" />
-                  </Button>
-                )}
-                {product.sale_mode === 'QUOTE' && (
-                  <Link href={`/?producto=${product.id}#cotizar`}>
-                    <Button
-                      size="xs"
-                      className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-2 py-1"
-                    >
-                      <DocumentTextIcon className="h-3 w-3" />
-                    </Button>
-                  </Link>
-                )}
-              </div>
+            {/* Footer: Button */}
+            <div className="flex items-end justify-end gap-2 mt-2">
+              {product.sale_mode === 'BUY' && (
+                <Button
+                  size="xs"
+                  className="bg-yellow-400 hover:bg-yellow-500 text-neutral-900 text-xs px-3 py-1.5 font-semibold"
+                  onClick={handleQuickAdd}
+                >
+                  <ShoppingCartIcon className="h-3.5 w-3.5 mr-1" />
+                  Ver producto
+                </Button>
+              )}
+              {product.sale_mode === 'QUOTE' && (
+                <Button
+                  size="xs"
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5"
+                  onClick={handleQuickAdd}
+                >
+                  <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
+                  Cotizar
+                </Button>
+              )}
             </div>
           </div>
-
-          {/* Quote badge - Top right */}
-          {product.sale_mode === 'QUOTE' && (
-            <div className="absolute top-1 right-1">
-              <Badge variant="warning" size="sm">
-                Cotizar
-              </Badge>
-            </div>
-          )}
         </div>
       </Link>
     );
@@ -154,23 +105,6 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
 
-          {/* Badges - Compact */}
-          <div className="absolute top-2 left-2 flex flex-col gap-1">
-            {product.has_discount && product.discount_percentage && (
-              <Badge variant="magenta" size="sm">
-                -{product.discount_percentage}%
-              </Badge>
-            )}
-          </div>
-
-          {/* Quote mode indicator */}
-          {product.sale_mode === 'QUOTE' && (
-            <div className="absolute top-2 right-2">
-              <Badge variant="warning" size="sm">
-                Cotizar
-              </Badge>
-            </div>
-          )}
         </div>
 
         {/* Content - Minimal and compact */}
@@ -180,24 +114,13 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             {name}
           </h3>
 
-          {/* Price Section */}
-          <div className="mt-2">
-            {product.sale_mode !== 'QUOTE' ? (
-              <div className="flex flex-col">
-                <span className="text-lg font-bold text-cyan-400">{getPrice()}</span>
-                {product.compare_at_price && (
-                  <span className="text-xs text-neutral-500 line-through mt-0.5">
-                    {formatPrice(product.compare_at_price)}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <span className="text-xs text-neutral-400">Solicitar precio</span>
-            )}
-          </div>
+          {/* Category */}
+          {product.category && (
+            <p className="text-xs text-neutral-500 mt-1">{product.category.name}</p>
+          )}
 
           {/* Action Button - Minimal */}
-          <div className="mt-2">
+          <div className="mt-3">
             {product.sale_mode === 'BUY' && (
               <Button
                 size="xs"
@@ -205,19 +128,18 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
                 onClick={handleQuickAdd}
               >
                 <ShoppingCartIcon className="h-3.5 w-3.5 mr-1" />
-                Agregar
+                Ver producto
               </Button>
             )}
             {product.sale_mode === 'QUOTE' && (
-              <Link href={`/?producto=${product.id}#cotizar`} className="block">
-                <Button
-                  size="xs"
-                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs py-1.5"
-                >
-                  <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-                  Cotizar
-                </Button>
-              </Link>
+              <Button
+                size="xs"
+                className="w-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs py-1.5"
+                onClick={handleQuickAdd}
+              >
+                <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
+                Cotizar
+              </Button>
             )}
           </div>
         </div>
