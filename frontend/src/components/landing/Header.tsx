@@ -32,8 +32,8 @@ export function Header() {
   const { itemCount } = useCart();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Check user role
-  const isAdmin = user?.role?.name && ['superadmin', 'admin'].includes(user.role.name);
+  // Check user role - 3 roles: admin, sales, customer
+  const isAdmin = user?.role?.name === 'admin';
   const isSales = user?.role?.name === 'sales';
 
   // Language switcher

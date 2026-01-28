@@ -30,7 +30,9 @@ load_dotenv(BASE_DIR / '.env')
 # =============================================================================
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-me-in-production')
+# In production, this MUST be set via environment variable
+_INSECURE_SECRET_KEY = 'django-insecure-change-me-in-production'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', _INSECURE_SECRET_KEY)
 
 # Application definition
 DJANGO_APPS = [
@@ -449,6 +451,20 @@ ADMIN_PAGE_SIZE = 50
 # File upload limits
 MAX_UPLOAD_SIZE_MB = 10
 ALLOWED_UPLOAD_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd']
+
+
+# =============================================================================
+# RECAPTCHA CONFIGURATION
+# =============================================================================
+
+# reCAPTCHA v3 (invisible CAPTCHA)
+# Get keys from: https://www.google.com/recaptcha/admin
+RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '')
+RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '')
+
+# Minimum score threshold (0.0 = likely bot, 1.0 = likely human)
+# 0.5 is recommended default
+RECAPTCHA_SCORE_THRESHOLD = float(os.getenv('RECAPTCHA_SCORE_THRESHOLD', '0.5'))
 
 
 # =============================================================================

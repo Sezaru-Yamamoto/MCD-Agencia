@@ -8,20 +8,27 @@ import {
   EyeIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ShieldCheckIcon,
+  UserPlusIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAdminUsers, activateUser, deactivateUser } from '@/lib/api/admin';
+import { getAdminUsers, activateUser, deactivateUser, changeUserRole } from '@/lib/api/admin';
+import { apiClient } from '@/lib/api/client';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage, Modal } from '@/components/ui';
-import { formatDate, getInitials, cn } from '@/lib/utils';
+import { formatDate, getInitials } from '@/lib/utils';
 
+interface Role {
+  id: number;
+  name: string;
+  display_name: string;
+}
+
+// Only 3 roles: admin, sales, customer
 const ROLE_OPTIONS = [
   { value: '', label: 'Todos los roles' },
   { value: 'customer', label: 'Cliente' },
   { value: 'sales', label: 'Ventas' },
-  { value: 'operations', label: 'Operaciones' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'superadmin', label: 'Super Admin' },
+  { value: 'admin', label: 'Administrador' },
 ];
 
 const STATUS_OPTIONS = [
@@ -39,6 +46,8 @@ export default function AdminUsersPage() {
     page: 1,
   });
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [userToPromote, setUserToPromote] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users', filters],
@@ -48,23 +57,52 @@ export default function AdminUsersPage() {
     }),
   });
 
+  // Fetch roles to get the sales role ID
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => apiClient.get<{ results: Role[] }>('/users/roles/'),
+  });
+
+  const salesRole = rolesData?.results?.find((r) => r.name === 'sales');
+
   const activateMutation = useMutation({
     mutationFn: activateUser,
     onSuccess: () => {
-      toast.success('Usuario activado');
+      toast.success('Vendedor activado');
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
-    onError: () => toast.error('Error al activar usuario'),
+    onError: () => toast.error('Error al activar vendedor'),
   });
 
   const deactivateMutation = useMutation({
     mutationFn: deactivateUser,
     onSuccess: () => {
-      toast.success('Usuario desactivado');
+      toast.success('Vendedor desactivado');
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
-    onError: () => toast.error('Error al desactivar usuario'),
+    onError: () => toast.error('Error al desactivar vendedor'),
   });
+
+  const promoteToSalesMutation = useMutation({
+    mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) =>
+      changeUserRole(userId, roleId),
+    onSuccess: () => {
+      toast.success('Usuario promovido a Vendedor');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setShowPromoteModal(false);
+      setUserToPromote(null);
+    },
+    onError: () => toast.error('Error al cambiar rol'),
+  });
+
+  const handlePromoteToSales = () => {
+    if (userToPromote && salesRole) {
+      promoteToSalesMutation.mutate({
+        userId: userToPromote.id,
+        roleId: salesRole.id.toString(),
+      });
+    }
+  };
 
   const users = data?.results || [];
   const totalPages = Math.ceil((data?.count || 0) / 20);
@@ -72,11 +110,19 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Usuarios</h1>
-        <p className="text-neutral-400">
-          Gestiona los usuarios del sistema
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Usuarios</h1>
+          <p className="text-neutral-400">
+            Gestiona los usuarios del sistema
+          </p>
+        </div>
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3">
+          <p className="text-sm text-yellow-400">
+            <UserPlusIcon className="h-4 w-4 inline mr-2" />
+            Para agregar vendedores: usa el botón <ArrowPathIcon className="h-4 w-4 inline mx-1" /> en un cliente registrado
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -156,7 +202,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <Badge variant={user.role?.name === 'admin' || user.role?.name === 'superadmin' ? 'cyan' : 'default'}>
+                      <Badge variant={user.role?.name === 'admin' ? 'cyan' : user.role?.name === 'sales' ? 'yellow' : 'default'}>
                         {user.role?.display_name || 'Cliente'}
                       </Badge>
                     </td>
@@ -177,26 +223,46 @@ export default function AdminUsersPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => setSelectedUser(user.id)}
+                          title="Ver detalles"
                         >
                           <EyeIcon className="h-5 w-5" />
                         </Button>
-                        {user.is_active ? (
+
+                        {/* Solo mostrar activar/desactivar para vendedores */}
+                        {user.role?.name === 'sales' && (
+                          user.is_active ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deactivateMutation.mutate(user.id)}
+                              title="Desactivar vendedor"
+                            >
+                              <XCircleIcon className="h-5 w-5 text-red-400" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => activateMutation.mutate(user.id)}
+                              title="Activar vendedor"
+                            >
+                              <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                            </Button>
+                          )
+                        )}
+
+                        {/* Opción para promover cliente a vendedor */}
+                        {user.role?.name === 'customer' && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => deactivateMutation.mutate(user.id)}
-                            title="Desactivar"
+                            onClick={() => {
+                              setUserToPromote({ id: user.id, name: user.full_name || user.email });
+                              setShowPromoteModal(true);
+                            }}
+                            title="Promover a Vendedor"
                           >
-                            <XCircleIcon className="h-5 w-5 text-red-400" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => activateMutation.mutate(user.id)}
-                            title="Activar"
-                          >
-                            <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                            <ArrowPathIcon className="h-5 w-5 text-yellow-400" />
                           </Button>
                         )}
                       </div>
@@ -217,6 +283,42 @@ export default function AdminUsersPage() {
           )}
         </>
       )}
+
+      {/* Modal para promover a vendedor */}
+      <Modal
+        isOpen={showPromoteModal}
+        onClose={() => {
+          setShowPromoteModal(false);
+          setUserToPromote(null);
+        }}
+        title="Promover a Vendedor"
+      >
+        <div className="space-y-4">
+          <p className="text-neutral-300">
+            ¿Estás seguro de que deseas promover a <strong className="text-white">{userToPromote?.name}</strong> al rol de Vendedor?
+          </p>
+          <p className="text-sm text-neutral-400">
+            Esta acción le dará acceso al panel de ventas y la capacidad de gestionar cotizaciones y pedidos.
+          </p>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPromoteModal(false);
+                setUserToPromote(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handlePromoteToSales}
+              isLoading={promoteToSalesMutation.isPending}
+            >
+              Promover a Vendedor
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

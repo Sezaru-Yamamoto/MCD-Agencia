@@ -130,4 +130,6 @@ def debug_task(self):
         >>> from config.celery import debug_task
         >>> debug_task.delay()
     """
-    print(f'Request: {self.request!r}')
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.debug(f'Celery debug task executed. Task ID: {self.request.id}')

@@ -321,3 +321,44 @@ class UserAdminSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'last_login', 'last_login_ip', 'created_at', 'updated_at']
+
+
+# =============================================================================
+# JWT Token Serializers
+# =============================================================================
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+class EmailVerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Custom JWT token serializer that enforces email verification.
+
+    Users who registered via email/password must verify their email
+    before they can log in. OAuth users (Google) are automatically
+    verified since Google already verified their email.
+    """
+
+    def validate(self, attrs):
+        """
+        Validate credentials and check email verification status.
+
+        Raises:
+            serializers.ValidationError: If email is not verified.
+        """
+        # First, validate credentials (this sets self.user)
+        data = super().validate(attrs)
+
+        # Check if email is verified
+        if not self.user.is_email_verified:
+            raise serializers.ValidationError(
+                {
+                    'detail': _(
+                        'Please verify your email address before logging in. '
+                        'Check your inbox for the verification email.'
+                    ),
+                    'code': 'email_not_verified'
+                }
+            )
+
+        return data

@@ -16,12 +16,15 @@ from rest_framework_simplejwt.views import (
 )
 
 from ..views import UserRegistrationView, GoogleOAuthCallbackView
+from ..serializers import EmailVerifiedTokenObtainPairSerializer
 
 app_name = 'auth'
 
 urlpatterns = [
-    # JWT Token endpoints
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain'),
+    # JWT Token endpoints - uses custom serializer to enforce email verification
+    path('token/', TokenObtainPairView.as_view(
+        serializer_class=EmailVerifiedTokenObtainPairSerializer
+    ), name='token_obtain'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 

@@ -90,10 +90,10 @@ const mockOrders: Order[] = [
 ];
 
 const statusColors: Record<Order['status'], string> = {
-  pending: 'bg-yellow-500/20 text-yellow-400',
-  confirmed: 'bg-blue-500/20 text-blue-400',
+  pending: 'bg-cmyk-yellow/20 text-cmyk-yellow',
+  confirmed: 'bg-cmyk-cyan/20 text-cmyk-cyan',
   in_production: 'bg-purple-500/20 text-purple-400',
-  ready: 'bg-cyan-500/20 text-cyan-400',
+  ready: 'bg-cmyk-cyan/20 text-cmyk-cyan',
   shipped: 'bg-indigo-500/20 text-indigo-400',
   delivered: 'bg-green-500/20 text-green-400',
   cancelled: 'bg-red-500/20 text-red-400',
@@ -133,7 +133,7 @@ export default function OrdersListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const isSalesOrAdmin = user?.role?.name && ['superadmin', 'admin', 'sales'].includes(user.role.name);
+  const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
   useEffect(() => {
     if (!authLoading) {
@@ -241,7 +241,7 @@ export default function OrdersListPage() {
                 placeholder="Buscar por número, cliente o email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+                className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
               />
             </div>
 
@@ -251,7 +251,7 @@ export default function OrdersListPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="pl-10 pr-8 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                className="pl-10 pr-8 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan appearance-none cursor-pointer"
               >
                 <option value="all">Todos los estados</option>
                 <option value="pending">Pendiente</option>
@@ -270,7 +270,7 @@ export default function OrdersListPage() {
         <Card className="overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-500 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cmyk-cyan mx-auto"></div>
               <p className="mt-4 text-neutral-400">Cargando pedidos...</p>
             </div>
           ) : filteredOrders.length === 0 ? (

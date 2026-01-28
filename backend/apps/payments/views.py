@@ -208,8 +208,12 @@ class MercadoPagoWebhookView(APIView):
         )
 
         try:
-            # Verify signature (in production)
-            # self._verify_signature(request)
+            # Verify webhook signature
+            if not self._verify_signature(request):
+                logger.warning("Invalid Mercado Pago webhook signature")
+                webhook_log.processing_error = "Invalid signature"
+                webhook_log.save(update_fields=['processing_error', 'updated_at'])
+                return Response({'error': 'Invalid signature'}, status=status.HTTP_401_UNAUTHORIZED)
 
             event_type = request.data.get('type')
             data = request.data.get('data', {})
@@ -300,6 +304,75 @@ class MercadoPagoWebhookView(APIView):
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
 
+    def _verify_signature(self, request):
+        """
+        Verify Mercado Pago webhook signature.
+
+        Mercado Pago sends signature in x-signature header with format:
+        ts=timestamp,v1=signature
+
+        The signature is HMAC-SHA256 of: id.request_id.ts.data
+
+        Returns:
+            bool: True if signature is valid
+
+        Raises:
+            ValueError: If webhook secret is not configured in production
+        """
+        secret = getattr(settings, 'MERCADOPAGO_WEBHOOK_SECRET', '')
+
+        # In production (DEBUG=False), webhook secret MUST be configured
+        if not secret:
+            if not settings.DEBUG:
+                logger.error("CRITICAL: Mercado Pago webhook secret not configured in production!")
+                raise ValueError("Webhook signature verification is required in production")
+            logger.warning("Mercado Pago webhook secret not configured, skipping verification (development only)")
+            return True
+
+        # Get signature components from headers
+        x_signature = request.headers.get('x-signature', '')
+        x_request_id = request.headers.get('x-request-id', '')
+
+        if not x_signature:
+            logger.warning("Missing x-signature header in Mercado Pago webhook")
+            return False
+
+        # Parse signature header
+        signature_parts = {}
+        for part in x_signature.split(','):
+            if '=' in part:
+                key, value = part.split('=', 1)
+                signature_parts[key.strip()] = value.strip()
+
+        ts = signature_parts.get('ts', '')
+        v1 = signature_parts.get('v1', '')
+
+        if not ts or not v1:
+            logger.warning("Invalid x-signature format in Mercado Pago webhook")
+            return False
+
+        # Get data ID from payload
+        data_id = request.data.get('data', {}).get('id', '')
+
+        # Build the manifest string: id.request_id.ts.data_id
+        # Note: Mercado Pago uses specific format for signing
+        manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+
+        # Calculate expected signature
+        expected_signature = hmac.new(
+            secret.encode('utf-8'),
+            manifest.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+        # Compare signatures
+        is_valid = hmac.compare_digest(expected_signature, v1)
+
+        if not is_valid:
+            logger.warning(f"Mercado Pago signature mismatch. Expected prefix of computed signature.")
+
+        return is_valid
+
 
 class PayPalWebhookView(APIView):
     """
@@ -323,8 +396,12 @@ class PayPalWebhookView(APIView):
         )
 
         try:
-            # Verify webhook (in production)
-            # self._verify_webhook(request)
+            # Verify webhook signature
+            if not self._verify_webhook(request):
+                logger.warning("Invalid PayPal webhook signature")
+                webhook_log.processing_error = "Invalid signature"
+                webhook_log.save(update_fields=['processing_error', 'updated_at'])
+                return Response({'error': 'Invalid signature'}, status=status.HTTP_401_UNAUTHORIZED)
 
             event_type = request.data.get('event_type')
             resource = request.data.get('resource', {})
@@ -384,6 +461,85 @@ class PayPalWebhookView(APIView):
                 after_state=PaymentSerializer(payment).data,
                 metadata={'webhook': True, 'provider': 'paypal'}
             )
+
+    def _verify_webhook(self, request):
+        """
+        Verify PayPal webhook signature.
+
+        PayPal uses a certificate-based signature verification.
+        Headers: paypal-transmission-id, paypal-transmission-time,
+                 paypal-transmission-sig, paypal-cert-url
+
+        For production, this should verify against PayPal's API.
+        See: https://developer.paypal.com/docs/api-basics/notifications/webhooks/rest/
+
+        Returns:
+            bool: True if signature is valid or verification is disabled
+        """
+        import requests
+        import base64
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        webhook_id = getattr(settings, 'PAYPAL_WEBHOOK_ID', '')
+
+        # Skip verification if webhook ID is not configured (development)
+        if not webhook_id:
+            logger.warning("PayPal webhook ID not configured, skipping verification")
+            return True
+
+        # Get required headers
+        transmission_id = request.headers.get('paypal-transmission-id', '')
+        transmission_time = request.headers.get('paypal-transmission-time', '')
+        transmission_sig = request.headers.get('paypal-transmission-sig', '')
+        cert_url = request.headers.get('paypal-cert-url', '')
+
+        if not all([transmission_id, transmission_time, transmission_sig, cert_url]):
+            logger.warning("Missing required PayPal webhook headers")
+            return False
+
+        # Validate cert URL is from PayPal
+        if not cert_url.startswith('https://api.paypal.com/') and not cert_url.startswith('https://api.sandbox.paypal.com/'):
+            logger.warning(f"Invalid PayPal certificate URL: {cert_url}")
+            return False
+
+        try:
+            # Fetch the certificate
+            cert_response = requests.get(cert_url, timeout=10)
+            cert_response.raise_for_status()
+            cert_pem = cert_response.content
+
+            # Load the certificate
+            cert = x509.load_pem_x509_certificate(cert_pem)
+            public_key = cert.public_key()
+
+            # Build the message to verify
+            # Format: transmission_id|transmission_time|webhook_id|crc32(payload)
+            import zlib
+            payload_bytes = request.body if hasattr(request, 'body') else json.dumps(request.data).encode()
+            crc = zlib.crc32(payload_bytes) & 0xffffffff
+            message = f"{transmission_id}|{transmission_time}|{webhook_id}|{crc}"
+
+            # Decode the signature
+            signature = base64.b64decode(transmission_sig)
+
+            # Verify the signature
+            public_key.verify(
+                signature,
+                message.encode('utf-8'),
+                padding.PKCS1v15(),
+                hashes.SHA256()
+            )
+
+            return True
+
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch PayPal certificate: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"PayPal signature verification failed: {e}")
+            return False
 
     def _get_client_ip(self, request):
         """Get client IP address."""

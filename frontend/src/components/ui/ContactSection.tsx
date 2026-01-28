@@ -270,7 +270,7 @@ export default function ContactSection({ branches, config }: ContactSectionProps
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <MapPinIcon className="h-6 w-6 text-cyan-500 flex-shrink-0" />
+                    <MapPinIcon className="h-6 w-6 text-cmyk-cyan flex-shrink-0" />
                     <div>
                       <p className="text-gray-700">{mainBranch.full_address}</p>
                       {mainBranch.google_maps_url && (
@@ -287,7 +287,7 @@ export default function ContactSection({ branches, config }: ContactSectionProps
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <PhoneIcon className="h-6 w-6 text-cyan-500" />
+                    <PhoneIcon className="h-6 w-6 text-cmyk-cyan" />
                     <a
                       href={`tel:${mainBranch.phone}`}
                       className="text-gray-700 hover:text-cyan-600"
@@ -297,7 +297,7 @@ export default function ContactSection({ branches, config }: ContactSectionProps
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <EnvelopeIcon className="h-6 w-6 text-cyan-500" />
+                    <EnvelopeIcon className="h-6 w-6 text-cmyk-cyan" />
                     <a
                       href={`mailto:${mainBranch.email}`}
                       className="text-gray-700 hover:text-cyan-600"
@@ -307,7 +307,7 @@ export default function ContactSection({ branches, config }: ContactSectionProps
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <ClockIcon className="h-6 w-6 text-cyan-500 flex-shrink-0" />
+                    <ClockIcon className="h-6 w-6 text-cmyk-cyan flex-shrink-0" />
                     <p className="text-gray-700 whitespace-pre-line">
                       {locale === 'en' && mainBranch.hours_en
                         ? mainBranch.hours_en

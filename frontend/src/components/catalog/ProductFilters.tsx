@@ -13,14 +13,25 @@ import { Category, Attribute } from '@/lib/api/catalog';
 import { Button, Input } from '@/components/ui';
 import { cn, formatPrice } from '@/lib/utils';
 
+type SaleMode = 'BUY' | 'QUOTE' | 'HYBRID';
+
+const SALE_MODE_OPTIONS: { value: SaleMode | ''; label: string }[] = [
+  { value: '', label: 'Todos los modos' },
+  { value: 'BUY', label: 'Compra directa' },
+  { value: 'QUOTE', label: 'Solo cotización' },
+  { value: 'HYBRID', label: 'Compra o cotización' },
+];
+
 interface ProductFiltersProps {
   categories: Category[];
   attributes: Attribute[];
   selectedCategory?: string;
+  selectedSaleMode?: SaleMode;
   selectedAttributes: Record<string, string[]>;
   priceRange: { min?: number; max?: number };
   searchQuery: string;
   onCategoryChange: (categorySlug?: string) => void;
+  onSaleModeChange: (saleMode?: SaleMode) => void;
   onAttributeChange: (attributeSlug: string, values: string[]) => void;
   onPriceRangeChange: (range: { min?: number; max?: number }) => void;
   onSearchChange: (query: string) => void;
@@ -31,10 +42,12 @@ export function ProductFilters({
   categories,
   attributes,
   selectedCategory,
+  selectedSaleMode,
   selectedAttributes,
   priceRange,
   searchQuery,
   onCategoryChange,
+  onSaleModeChange,
   onAttributeChange,
   onPriceRangeChange,
   onSearchChange,
@@ -44,6 +57,7 @@ export function ProductFilters({
 
   const hasActiveFilters =
     selectedCategory ||
+    selectedSaleMode ||
     Object.keys(selectedAttributes).length > 0 ||
     priceRange.min ||
     priceRange.max ||
@@ -77,8 +91,8 @@ export function ProductFilters({
                   onClick={() => onCategoryChange(undefined)}
                   className={cn(
                     'block w-full text-left px-3 py-2 text-sm rounded-lg transition-colors',
-                    !selectedCategory
-                      ? 'bg-cyan-500/20 text-cyan-400'
+                      !selectedCategory
+                        ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
                       : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                   )}
                 >
@@ -91,11 +105,43 @@ export function ProductFilters({
                     className={cn(
                       'block w-full text-left px-3 py-2 text-sm rounded-lg transition-colors',
                       selectedCategory === category.slug
-                        ? 'bg-cyan-500/20 text-cyan-400'
+                        ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
                         : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                     )}
                   >
                     {category.name}
+                  </button>
+                ))}
+              </div>
+            </Disclosure.Panel>
+          </>
+        )}
+      </Disclosure>
+
+      {/* Sale Mode */}
+      <Disclosure defaultOpen>
+        {({ open }) => (
+          <>
+            <Disclosure.Button className="flex w-full items-center justify-between py-3 text-left border-b border-neutral-800">
+              <span className="text-sm font-medium text-white">Modo de venta</span>
+              <ChevronDownIcon
+                className={cn('h-5 w-5 text-neutral-400', open && 'rotate-180')}
+              />
+            </Disclosure.Button>
+            <Disclosure.Panel className="pt-4 pb-2">
+              <div className="space-y-2">
+                {SALE_MODE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value || 'all'}
+                    onClick={() => onSaleModeChange(option.value || undefined)}
+                    className={cn(
+                      'block w-full text-left px-3 py-2 text-sm rounded-lg transition-colors',
+                      (option.value === '' && !selectedSaleMode) || selectedSaleMode === option.value
+                        ? 'bg-cmyk-yellow/20 text-cmyk-yellow'
+                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                    )}
+                  >
+                    {option.label}
                   </button>
                 ))}
               </div>
@@ -180,7 +226,7 @@ export function ProductFilters({
                                 : [...current, value.slug];
                               onAttributeChange(attribute.slug, updated);
                             }}
-                            className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-yellow-400 focus:ring-yellow-400 focus:ring-offset-neutral-950"
+                            className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-cmyk-yellow focus:ring-cmyk-yellow focus:ring-offset-neutral-950"
                           />
                           <span className="ml-3 text-sm text-neutral-400 group-hover:text-white">
                             {value.color_code && (
@@ -267,7 +313,7 @@ export function ProductFilters({
         >
           Filtros
           {hasActiveFilters && (
-            <span className="ml-2 bg-yellow-400 text-neutral-900 text-xs px-2 py-0.5 rounded-full font-medium">
+            <span className="ml-2 bg-cmyk-yellow text-neutral-900 text-xs px-2 py-0.5 rounded-full font-medium">
               Activos
             </span>
           )}

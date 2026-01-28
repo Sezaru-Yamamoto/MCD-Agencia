@@ -9,7 +9,6 @@ import {
   ShoppingBagIcon,
   DocumentTextIcon,
   UsersIcon,
-  ArchiveBoxIcon,
   Cog6ToothIcon,
   ClipboardDocumentListIcon,
   ChatBubbleLeftRightIcon,
@@ -17,23 +16,32 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowLeftOnRectangleIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions, getRoleDisplayName } from '@/hooks/usePermissions';
 import { LoadingPage, Button } from '@/components/ui';
 import { cn, getInitials } from '@/lib/utils';
 
-const MENU_ITEMS = [
-  { href: '/admin', label: 'Dashboard', icon: HomeIcon, exact: true },
-  { href: '/admin/catalogo', label: 'Catálogo', icon: CubeIcon },
-  { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
-  { href: '/admin/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
-  { href: '/admin/inventario', label: 'Inventario', icon: ArchiveBoxIcon },
-  { href: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon },
-  { href: '/admin/contenido', label: 'Contenido', icon: PhotoIcon },
-  { href: '/admin/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon },
-  { href: '/admin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
-  { href: '/admin/configuracion', label: 'Configuración', icon: Cog6ToothIcon },
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  exact?: boolean;
+  permission: 'canAccessAdmin' | 'canViewCatalog' | 'canViewAllOrders' | 'canViewAllQuotes' | 'canViewUsers' | 'canViewAudit' | 'canEditContent' | 'canViewLeads' | 'canViewSettings';
+}
+
+const MENU_ITEMS: MenuItem[] = [
+  { href: '/admin', label: 'Dashboard', icon: HomeIcon, exact: true, permission: 'canAccessAdmin' },
+  { href: '/admin/catalogo', label: 'Catálogo', icon: CubeIcon, permission: 'canViewCatalog' },
+  { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBagIcon, permission: 'canViewAllOrders' },
+  { href: '/admin/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon, permission: 'canViewAllQuotes' },
+  { href: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon, permission: 'canViewUsers' },
+  { href: '/admin/contenido', label: 'Contenido', icon: PhotoIcon, permission: 'canEditContent' },
+  { href: '/admin/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon, permission: 'canViewLeads' },
+  { href: '/admin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon, permission: 'canViewAudit' },
+  { href: '/admin/configuracion', label: 'Configuración', icon: Cog6ToothIcon, permission: 'canViewSettings' },
 ];
 
 interface AdminLayoutProps {
@@ -44,25 +52,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const permissions = usePermissions();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const isAdmin = user?.role?.name && ['superadmin', 'admin', 'sales', 'operations'].includes(user.role.name);
 
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
         router.push('/login?redirect=/admin');
-      } else if (!isAdmin) {
+      } else if (!permissions.canAccessAdmin) {
         router.push('/');
       }
     }
-  }, [isLoading, isAuthenticated, isAdmin, router]);
+  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, router]);
 
   if (isLoading) {
     return <LoadingPage message="Cargando..." />;
   }
 
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated || !permissions.canAccessAdmin) {
     return null;
   }
 
@@ -104,23 +111,29 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </button>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Show ALL items to everyone */}
         <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
           {MENU_ITEMS.map((item) => {
             const isActive = item.exact
               ? pathname === item.href || pathname === `${item.href}/`
               : pathname.startsWith(item.href);
 
-            // Check role permissions
-            const allowedRoles: Record<string, string[]> = {
-              '/admin/usuarios': ['superadmin', 'admin'],
-              '/admin/auditoria': ['superadmin', 'admin'],
-              '/admin/configuracion': ['superadmin', 'admin'],
-            };
+            // Check if user has permission for this item
+            const hasPermission = permissions[item.permission];
 
-            const requiredRoles = allowedRoles[item.href];
-            if (requiredRoles && user?.role?.name && !requiredRoles.includes(user.role.name)) {
-              return null;
+            // If no permission, show disabled state with lock icon
+            if (!hasPermission) {
+              return (
+                <div
+                  key={item.href}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-neutral-600 cursor-not-allowed"
+                  title="No tienes permisos para acceder"
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="flex-1">{item.label}</span>
+                  <LockClosedIcon className="h-4 w-4" />
+                </div>
+              );
             }
 
             return (
@@ -152,8 +165,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <p className="text-sm font-medium text-white truncate">
                 {user?.full_name || user?.email}
               </p>
-              <p className="text-xs text-neutral-400 capitalize">
-                {user?.role?.display_name || user?.role?.name}
+              <p className="text-xs text-neutral-400">
+                {getRoleDisplayName(permissions.role)}
               </p>
             </div>
             <button

@@ -88,7 +88,7 @@ export default function TestimonialsSection({ testimonials }: TestimonialsSectio
             >
               {/* Quote Icon */}
               <div className="absolute -top-6 left-8">
-                <div className="w-12 h-12 bg-cyan-500 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-cmyk-cyan rounded-full flex items-center justify-center">
                   <svg
                     className="w-6 h-6 text-white"
                     fill="currentColor"
@@ -181,7 +181,7 @@ export default function TestimonialsSection({ testimonials }: TestimonialsSectio
                 onClick={() => setCurrentIndex(index)}
                 className={`w-2 h-2 rounded-full transition-all ${
                   index === currentIndex
-                    ? 'bg-cyan-500 w-6'
+                    ? 'bg-cmyk-cyan w-6'
                     : 'bg-white/30 hover:bg-white/50'
                 }`}
                 aria-label={`Go to testimonial ${index + 1}`}

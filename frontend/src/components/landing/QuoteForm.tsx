@@ -10,6 +10,7 @@ import { trackEvent, trackingEvents } from '@/lib/tracking';
 import { CONTACT_INFO } from '@/lib/constants';
 import { SERVICE_IDS } from '@/lib/service-data';
 import { RouteSelector } from './RouteSelector';
+import { useRecaptcha } from '@/hooks';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -18,6 +19,7 @@ export function QuoteForm() {
   const tServices = useTranslations('landing.services');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
   const [formStatus, setFormStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -122,6 +124,17 @@ export function QuoteForm() {
       setFormStatus('submitting');
       trackEvent(trackingEvents.FORM_START);
 
+      // Execute reCAPTCHA verification
+      let recaptchaToken: string | null = null;
+      if (recaptchaEnabled) {
+        recaptchaToken = await executeRecaptcha('quote_request');
+        if (!recaptchaToken) {
+          setFormStatus('error');
+          setErrorMessage('Error de verificación. Por favor, intenta de nuevo.');
+          return;
+        }
+      }
+
       const metadata = {
         utm_source: new URLSearchParams(window.location.search).get('utm_source') || undefined,
         utm_medium: new URLSearchParams(window.location.search).get('utm_medium') || undefined,
@@ -149,6 +162,7 @@ export function QuoteForm() {
         if (data.fechaObjetivo) formData.append('fechaObjetivo', data.fechaObjetivo);
         if (data.comentarios) formData.append('comentarios', data.comentarios);
         if (data.website) formData.append('website', data.website);
+        if (recaptchaToken) formData.append('recaptcha_token', recaptchaToken);
         formData.append('metadata', JSON.stringify(metadata));
         formData.append('archivo', selectedFile);
         body = formData;
@@ -156,6 +170,7 @@ export function QuoteForm() {
         body = JSON.stringify({
           ...data,
           metadata,
+          recaptcha_token: recaptchaToken,
         });
         headers['Content-Type'] = 'application/json';
       }

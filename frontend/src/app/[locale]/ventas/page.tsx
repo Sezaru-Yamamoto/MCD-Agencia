@@ -20,14 +20,14 @@ const salesMenuItems = [
     description: 'Crear y gestionar cotizaciones',
     href: '/ventas/cotizaciones',
     icon: DocumentTextIcon,
-    color: 'bg-cyan-500/20 text-cyan-400',
+    color: 'bg-cmyk-cyan/20 text-cmyk-cyan',
   },
   {
     title: 'Pedidos',
     description: 'Ver y procesar pedidos',
     href: '/ventas/pedidos',
     icon: ShoppingBagIcon,
-    color: 'bg-blue-500/20 text-blue-400',
+    color: 'bg-cmyk-cyan/20 text-cmyk-cyan',
   },
   {
     title: 'Clientes',
@@ -50,7 +50,8 @@ export default function SalesDashboard() {
   const locale = useLocale();
   const { user, isAuthenticated, isLoading } = useAuth();
 
-  const isSalesOrAdmin = user?.role?.name && ['superadmin', 'admin', 'sales'].includes(user.role.name);
+  // Only admin and sales can access sales panel
+  const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
   useEffect(() => {
     if (!isLoading) {
@@ -105,7 +106,7 @@ export default function SalesDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {salesMenuItems.map((item) => (
             <Link key={item.href} href={`/${locale}${item.href}`}>
-              <Card className="p-6 hover:border-cyan-500/50 transition-colors cursor-pointer h-full">
+              <Card className="p-6 hover:border-cmyk-cyan/50 transition-colors cursor-pointer h-full">
                 <div className={`inline-flex p-3 rounded-lg ${item.color} mb-4`}>
                   <item.icon className="h-6 w-6" />
                 </div>
@@ -122,7 +123,7 @@ export default function SalesDashboard() {
           <div className="flex flex-wrap gap-4">
             <Link
               href={`/${locale}/ventas/cotizaciones/nueva`}
-              className="px-6 py-3 bg-cyan-500 text-black font-medium rounded-lg hover:bg-cyan-400 transition-colors"
+              className="px-6 py-3 bg-cmyk-cyan text-black font-medium rounded-lg hover:bg-cmyk-cyan transition-colors"
             >
               Nueva Cotización
             </Link>

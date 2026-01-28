@@ -25,6 +25,7 @@ from urllib.parse import urlencode
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardResultsSetPagination
 from .models import Role, UserConsent, FiscalData
+from .tasks import send_verification_email
 from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
@@ -80,6 +81,9 @@ class UserRegistrationView(APIView):
             request=request,
             metadata={'source': 'registration'}
         )
+
+        # Send verification email asynchronously
+        send_verification_email.delay(str(user.id))
 
         return Response(
             {
@@ -439,23 +443,24 @@ class GoogleOAuthCallbackView(APIView):
 
     def get(self, request):
         """Handle OAuth callback after Google authentication."""
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Check if user is authenticated via allauth
         if not request.user.is_authenticated:
             # Redirect to frontend with error
             frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
             error_params = urlencode({'error': 'authentication_failed'})
-            print(f"[GoogleOAuthCallbackView] Usuario no autenticado, redirigiendo con error")
+            logger.warning("OAuth callback: User not authenticated, redirecting with error")
             return redirect(f'{frontend_url}/auth/callback?{error_params}')
 
         user = request.user
-        print(f"[GoogleOAuthCallbackView] Usuario autenticado: {user.email}")
+        logger.info(f"OAuth callback: User authenticated (id={user.id})")
 
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
-        
-        print(f"[GoogleOAuthCallbackView] Tokens generados para {user.email}")
 
         # Log OAuth login
         try:
@@ -467,7 +472,7 @@ class GoogleOAuthCallbackView(APIView):
                 metadata={'provider': 'google', 'oauth': True}
             )
         except Exception as e:
-            print(f"[GoogleOAuthCallbackView] Error al registrar audit log: {e}")
+            logger.error(f"OAuth callback: Failed to log audit entry: {type(e).__name__}")
             pass  # Don't fail if audit logging fails
 
         # Logout from Django session (we're using JWT for auth)
@@ -480,9 +485,9 @@ class GoogleOAuthCallbackView(APIView):
             'access': access_token,
             'refresh': refresh_token,
         })
-        
+
         redirect_url = f'{frontend_url}/auth/callback?{params}'
-        print(f"[GoogleOAuthCallbackView] Redirigiendo a: {redirect_url}")
+        logger.info(f"OAuth callback: Redirecting user (id={user.id}) to frontend")
 
         return redirect(redirect_url)
 

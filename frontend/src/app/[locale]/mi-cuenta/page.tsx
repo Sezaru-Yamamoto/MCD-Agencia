@@ -219,7 +219,7 @@ export default function ProfilePage() {
                   toast.error('Error al actualizar');
                 }
               }}
-              className="w-5 h-5 rounded border-neutral-700 bg-neutral-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-neutral-950"
+              className="w-5 h-5 rounded border-neutral-700 bg-neutral-900 text-cmyk-cyan focus:ring-cmyk-cyan focus:ring-offset-neutral-950"
             />
           </label>
         </CardContent>

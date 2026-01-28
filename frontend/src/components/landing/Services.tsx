@@ -1,24 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { useTranslations } from 'next-intl';
-import { LANDING_SERVICE_IDS, SERVICE_IMAGES, SERVICE_ICONS, type ServiceId } from '@/lib/service-data';
+import {
+  LANDING_SERVICE_IDS,
+  SERVICE_CAROUSEL_IMAGES,
+  SERVICE_SUBCATEGORIES,
+  type LandingServiceId
+} from '@/lib/service-data';
 import { CONTACT_INFO } from '@/lib/constants';
+import { ServiceCardCarousel } from './ServiceCardCarousel';
 
 export function Services() {
   const t = useTranslations('landing.services');
-  const [selectedServiceId, setSelectedServiceId] = useState<ServiceId | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<LandingServiceId | null>(null);
 
-  // Get translated service data
-  const getServiceData = (id: ServiceId) => ({
-    id,
-    title: t(`items.${id}.title`),
-    description: t(`items.${id}.description`),
-    useCases: t.raw(`items.${id}.useCases`) as string[],
-    image: SERVICE_IMAGES[id],
-    icon: SERVICE_ICONS[id],
-  });
+  // Get translated service data with subcategories
+  const getServiceData = (id: LandingServiceId) => {
+    const subcategories = SERVICE_SUBCATEGORIES[id] || [];
+    return {
+      id,
+      title: t(`items.${id}.title`),
+      description: t(`items.${id}.description`),
+      subcategories: subcategories.map(sub => ({
+        ...sub,
+        title: t(`subcategories.${sub.titleKey}`),
+      })),
+      carouselImages: SERVICE_CAROUSEL_IMAGES[id],
+    };
+  };
 
   const selectedService = selectedServiceId ? getServiceData(selectedServiceId) : null;
 
@@ -37,22 +47,26 @@ export function Services() {
           {LANDING_SERVICE_IDS.map((serviceId, index) => {
             const service = getServiceData(serviceId);
             return (
-              <button
+              <div
                 key={serviceId}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedServiceId(serviceId)}
-                className="group overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 border-2 border-cmyk-cyan/40 hover:border-cmyk-cyan/80"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setSelectedServiceId(serviceId);
+                  }
+                }}
+                className="group overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 border-2 border-cmyk-cyan/40 hover:border-cmyk-cyan/80 cursor-pointer text-left"
                 style={{
                   animationDelay: `${index * 50}ms`,
                 }}
               >
-                {/* Imagen */}
+                {/* Carrusel de imágenes */}
                 <div className="relative w-full h-56 overflow-hidden bg-gray-200">
-                  <Image
-                    src={service.image}
+                  <ServiceCardCarousel
+                    images={service.carouselImages}
                     alt={service.title}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-300"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 </div>
 
@@ -65,15 +79,17 @@ export function Services() {
                     {service.description}
                   </p>
 
-                  {/* Tags */}
+                  {/* Subcategorías clickeables */}
                   <div className="flex flex-wrap gap-2 pt-2">
-                    {service.useCases.slice(0, 2).map((useCase) => (
-                      <span
-                        key={useCase}
-                        className="text-xs bg-cmyk-cyan/30 text-cmyk-cyan px-2 sm:px-3 py-1 sm:py-1.5 rounded-full font-medium"
+                    {service.subcategories.slice(0, 3).map((subcategory) => (
+                      <a
+                        key={subcategory.id}
+                        href={subcategory.href}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs bg-cmyk-cyan/30 text-cmyk-cyan px-2 sm:px-3 py-1 sm:py-1.5 rounded-full font-medium hover:bg-cmyk-cyan hover:text-white transition-colors"
                       >
-                        {useCase}
-                      </span>
+                        {subcategory.title}
+                      </a>
                     ))}
                   </div>
 
@@ -87,7 +103,7 @@ export function Services() {
                     </span>
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -104,14 +120,12 @@ export function Services() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-              {/* Imagen Grande */}
+              {/* Carrusel Grande */}
               <div className="relative h-80 md:h-full min-h-96 overflow-hidden">
-                <Image
-                  src={selectedService.image}
+                <ServiceCardCarousel
+                  images={selectedService.carouselImages}
                   alt={selectedService.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  interval={4000}
                 />
                 {/* Overlay con cierre */}
                 <button
@@ -160,15 +174,17 @@ export function Services() {
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-100">{t('useCases')}</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-100">{t('subcategoriesLabel')}</h3>
                     <div className="flex flex-wrap gap-3">
-                      {selectedService.useCases.map((useCase) => (
-                        <span
-                          key={useCase}
-                          className="bg-cmyk-cyan/20 text-cmyk-cyan px-5 py-3 rounded-full font-medium text-sm"
+                      {selectedService.subcategories.map((subcategory) => (
+                        <a
+                          key={subcategory.id}
+                          href={subcategory.href}
+                          onClick={() => setSelectedServiceId(null)}
+                          className="bg-cmyk-cyan/20 text-cmyk-cyan px-5 py-3 rounded-full font-medium text-sm hover:bg-cmyk-cyan hover:text-white transition-colors"
                         >
-                          {useCase}
-                        </span>
+                          {subcategory.title}
+                        </a>
                       ))}
                     </div>
                   </div>

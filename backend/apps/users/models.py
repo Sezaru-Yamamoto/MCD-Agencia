@@ -93,12 +93,14 @@ class Role(TimeStampedModel):
     Roles define what actions a user can perform in the system.
     Each role has a set of permissions defined as a JSON field.
 
-    Predefined roles:
-        - superadmin: Full system access
-        - admin: Administrative access (except critical security)
+    Active roles (3 roles):
+        - admin: Full administrative access
         - sales: Commercial operations (quotes, orders, customers)
-        - operations: Production and inventory management
-        - customer: End-user access (purchases, own orders/quotes)
+        - customer: End-user access (own orders/quotes)
+
+    Deprecated roles (kept for migration compatibility):
+        - superadmin: Use 'admin' instead
+        - operations: Use 'admin' instead
 
     Attributes:
         name: Unique role name (e.g., 'admin', 'sales')
@@ -108,19 +110,22 @@ class Role(TimeStampedModel):
         is_system: Whether this is a system role (cannot be deleted)
     """
 
-    # Role type choices
-    SUPERADMIN = 'superadmin'
+    # Role type choices - only 3 active roles
     ADMIN = 'admin'
     SALES = 'sales'
-    OPERATIONS = 'operations'
     CUSTOMER = 'customer'
 
+    # Deprecated roles - kept for migration compatibility
+    SUPERADMIN = 'superadmin'  # Deprecated: use ADMIN
+    OPERATIONS = 'operations'  # Deprecated: use ADMIN
+
     ROLE_CHOICES = [
-        (SUPERADMIN, _('Super Administrator')),
         (ADMIN, _('Administrator')),
         (SALES, _('Sales')),
-        (OPERATIONS, _('Operations')),
         (CUSTOMER, _('Customer')),
+        # Deprecated choices - kept for existing data
+        (SUPERADMIN, _('Super Administrator (Deprecated)')),
+        (OPERATIONS, _('Operations (Deprecated)')),
     ]
 
     name = models.CharField(
@@ -169,8 +174,8 @@ class Role(TimeStampedModel):
         Returns:
             bool: True if role has the permission
         """
-        # Superadmin has all permissions
-        if self.name == self.SUPERADMIN:
+        # Admin has all permissions (also superadmin for backward compatibility)
+        if self.name in [self.ADMIN, self.SUPERADMIN]:
             return True
 
         # Check permission in JSON structure
@@ -351,10 +356,10 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel, SoftDeleteModel
         return self.role.has_permission(permission)
 
     def is_admin(self):
-        """Check if user has admin role or higher."""
+        """Check if user has admin role (includes superadmin for backward compatibility)."""
         if not self.role:
             return False
-        return self.role.name in [Role.SUPERADMIN, Role.ADMIN]
+        return self.role.name in [Role.ADMIN, Role.SUPERADMIN]
 
     def is_sales(self):
         """Check if user has sales role."""
@@ -362,11 +367,18 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel, SoftDeleteModel
             return False
         return self.role.name == Role.SALES
 
-    def is_operations(self):
-        """Check if user has operations role."""
+    def is_staff_member(self):
+        """Check if user is staff (admin or sales)."""
         if not self.role:
             return False
-        return self.role.name == Role.OPERATIONS
+        return self.role.name in [Role.ADMIN, Role.SUPERADMIN, Role.SALES]
+
+    def is_operations(self):
+        """DEPRECATED: Check if user has operations role. Use is_admin() instead."""
+        if not self.role:
+            return False
+        # Treat operations as admin for backward compatibility
+        return self.role.name in [Role.OPERATIONS, Role.ADMIN, Role.SUPERADMIN]
 
 
 class UserConsent(TimeStampedModel):

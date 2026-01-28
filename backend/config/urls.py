@@ -71,15 +71,20 @@ api_v1_patterns = [
 # ADMIN API URL PATTERNS
 # =============================================================================
 
+# Import admin-specific URL patterns
+from apps.users.urls import admin_urlpatterns as users_admin_urlpatterns
+from apps.orders.urls import admin_urlpatterns as orders_admin_urlpatterns
+from apps.payments.urls import admin_urlpatterns as payments_admin_urlpatterns
+
 api_admin_patterns = [
     # Admin user management
-    path('users/', include('apps.users.urls.user_urls', namespace='admin-users')),
+    path('users/', include((users_admin_urlpatterns, 'admin-users'))),
 
     # Admin order management
-    path('orders/', include('apps.orders.urls', namespace='admin-orders')),
+    path('orders/', include((orders_admin_urlpatterns, 'admin-orders'))),
 
     # Admin payment management
-    path('payments/', include('apps.payments.urls', namespace='admin-payments')),
+    path('payments/', include((payments_admin_urlpatterns, 'admin-payments'))),
 
     # Admin quote requests
     path('quote-requests/', include('apps.quotes.urls', namespace='admin-quotes')),

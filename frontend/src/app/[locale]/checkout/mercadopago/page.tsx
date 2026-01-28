@@ -106,7 +106,6 @@ export default function MercadoPagoCallbackPage() {
         });
       } catch {
         // Silent fail - backend webhook should handle this
-        console.log('Failed to notify backend of payment');
       }
     };
 

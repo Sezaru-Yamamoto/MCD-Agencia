@@ -20,74 +20,79 @@
     },
     "services": {
       "title": "Printing solutions for every need",
-      "subtitle": "We offer 12 specialized printing services to boost your brand and grow your business.",
+      "subtitle": "We offer specialized printing and advertising services to boost your brand and grow your business.",
       "viewDetails": "View details",
       "close": "Close",
-      "useCases": "Use cases",
+      "subcategoriesLabel": "Available types",
       "materials": "Available materials",
       "requestQuote": "Request quote",
       "whatsappConsult": "Ask via WhatsApp",
       "tip": "Contact us for personalized information about prices and delivery times.",
+      "subcategories": {
+        "letras3d": "3D Letters",
+        "cajasLuz": "Light boxes",
+        "neonLed": "LED Neon",
+        "unipolar": "Unipole",
+        "azotea": "Rooftop",
+        "mural": "Advertising mural",
+        "vallasMoviles": "Mobile billboards",
+        "publibuses": "Bus advertising",
+        "perifoneo": "Mobile audio",
+        "lonaFrontlit": "Frontlit banner",
+        "lonaBacklit": "Backlit banner",
+        "lonaMesh": "Mesh banner",
+        "vinilAutoadhesivo": "Self-adhesive vinyl",
+        "vinilMicroperforado": "Perforated vinyl",
+        "rotulacionVehicular": "Vehicle wrapping"
+      },
       "items": {
         "gran-formato": {
           "title": "Large Format Printing",
-          "description": "High resolution prints for banners, canvas and more.",
-          "useCases": ["Banners", "Canvas", "Posters"]
+          "description": "High resolution prints for banners, canvas and more."
         },
         "diseno-grafico": {
           "title": "Graphic Design",
-          "description": "Custom design creation for your brand.",
-          "useCases": ["Logos", "Designs", "Branding"]
+          "description": "Custom design creation for your brand."
         },
         "impresion-uv": {
           "title": "UV Printing",
-          "description": "Durable prints on various materials.",
-          "useCases": ["UV Resistant", "Durable", "Materials"]
+          "description": "Durable prints on various materials."
         },
         "rotulacion-digital": {
           "title": "Digital Lettering",
-          "description": "Precise lettering for vehicles and surfaces.",
-          "useCases": ["Vehicles", "Surfaces", "Lettering"]
+          "description": "Precise lettering for vehicles and surfaces."
         },
         "router-cnc": {
           "title": "CNC Router Service",
-          "description": "Precise cutting for various materials.",
-          "useCases": ["Cutting", "Precision", "Materials"]
+          "description": "Precise cutting for various materials."
         },
         "laser": {
           "title": "Laser Cutting & Engraving",
-          "description": "Fine details on wood, acrylic and more.",
-          "useCases": ["Wood", "Acrylic", "Custom"]
+          "description": "Fine details on wood, acrylic and more."
         },
         "espectaculares": {
           "title": "Billboards",
-          "description": "Large format ads in strategic locations.",
-          "useCases": ["Advertising", "High Impact", "Strategic"]
+          "description": "Large format ads in strategic locations for maximum visual impact."
         },
-        "vallas-moviles": {
-          "title": "Mobile Billboards",
-          "description": "Mobile advertising for maximum visibility.",
-          "useCases": ["Mobile", "Advertising", "Impact"]
+        "publicidad-movil": {
+          "title": "Mobile Advertising",
+          "description": "Take your message where your audience is with high-impact advertising vehicles."
         },
         "publibuses": {
           "title": "Bus Advertising",
-          "description": "Urban campaigns on buses, trucks and vans with great visual impact.",
-          "useCases": ["Transportation", "Urban", "Massive"]
+          "description": "Urban campaigns on buses, trucks and vans with great visual impact."
         },
         "anuncios-iluminados": {
           "title": "Illuminated Sign Manufacturing",
-          "description": "Custom illuminated signs for your brand.",
-          "useCases": ["LED", "Illuminated", "Brand"]
+          "description": "Custom LED illuminated signs to make your brand stand out day and night."
         },
         "lonas": {
           "title": "Banner Printing & Installation",
-          "description": "Durable banners with professional installation.",
-          "useCases": ["Installation", "Professional", "Durable"]
+          "description": "High quality banners with professional installation for indoor and outdoor use."
         },
         "vinilos": {
           "title": "Vinyl & Adhesives",
-          "description": "Vehicle, storefront and surface decoration with high durability vinyl.",
-          "useCases": ["Vehicles", "Storefronts", "Decoration"]
+          "description": "Vehicle, storefront and surface decoration with high durability vinyl."
         }
       }
     },

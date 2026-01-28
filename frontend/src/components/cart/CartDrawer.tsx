@@ -166,7 +166,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                         <ShoppingBagIcon className="h-6 w-6" />
                         Carrito
                         {displayItemCount > 0 && (
-                          <span className="bg-cyan-500 text-black text-xs font-bold px-2 py-0.5 rounded-full">
+                          <span className="bg-cmyk-cyan text-black text-xs font-bold px-2 py-0.5 rounded-full">
                             {displayItemCount}
                           </span>
                         )}

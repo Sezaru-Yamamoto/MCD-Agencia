@@ -107,12 +107,47 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class CatalogImageSerializer(serializers.ModelSerializer):
-    """Serializer for CatalogImage model."""
+    """Serializer for CatalogImage model with automatic image optimization."""
+
+    catalog_item_id = serializers.UUIDField(write_only=True, required=False)
 
     class Meta:
         model = CatalogImage
-        fields = ['id', 'image', 'alt_text', 'alt_text_en', 'is_primary', 'position']
+        fields = ['id', 'catalog_item_id', 'image', 'alt_text', 'alt_text_en', 'is_primary', 'position']
         read_only_fields = ['id']
+
+    def validate_image(self, value):
+        """Validate and optimize the uploaded image."""
+        from .image_utils import validate_image, optimize_image
+
+        # Validate image
+        is_valid, error = validate_image(value)
+        if not is_valid:
+            raise serializers.ValidationError(error)
+
+        # Optimize image (resize, compress, convert to WebP)
+        optimized_file, _ = optimize_image(
+            value,
+            max_size=(1200, 1200),
+            quality=85,
+            convert_to_webp=True
+        )
+
+        return optimized_file
+
+    def create(self, validated_data):
+        """Create image and set as primary if first image."""
+        catalog_item_id = validated_data.pop('catalog_item_id', None)
+
+        if catalog_item_id:
+            validated_data['catalog_item_id'] = catalog_item_id
+
+            # If this is the first image for the product, make it primary
+            existing_images = CatalogImage.objects.filter(catalog_item_id=catalog_item_id).count()
+            if existing_images == 0:
+                validated_data['is_primary'] = True
+
+        return super().create(validated_data)
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):

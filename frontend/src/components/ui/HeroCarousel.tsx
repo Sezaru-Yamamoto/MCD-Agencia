@@ -102,6 +102,8 @@ export default function HeroCarousel({
               fill
               className="object-cover hidden md:block"
               priority={currentIndex === 0}
+              sizes="100vw"
+              quality={90}
             />
             <Image
               src={currentSlide.mobile_image || currentSlide.image}
@@ -109,6 +111,8 @@ export default function HeroCarousel({
               fill
               className="object-cover md:hidden"
               priority={currentIndex === 0}
+              sizes="100vw"
+              quality={85}
             />
             {/* Overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
@@ -198,6 +202,19 @@ export default function HeroCarousel({
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
+        </div>
+      )}
+
+      {/* Preload next slide for smooth transitions */}
+      {slides.length > 1 && (
+        <div className="hidden">
+          <Image
+            src={slides[(currentIndex + 1) % slides.length].image}
+            alt=""
+            width={1920}
+            height={1080}
+            priority={false}
+          />
         </div>
       )}
     </section>

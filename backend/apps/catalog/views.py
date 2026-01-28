@@ -322,6 +322,80 @@ class CatalogItemViewSet(viewsets.ModelViewSet):
         item.save(update_fields=['is_featured', 'updated_at'])
         return Response({'is_featured': item.is_featured})
 
+    @action(detail=True, methods=['post'], url_path='upload-images')
+    def upload_images(self, request, pk=None):
+        """
+        Upload multiple images to a catalog item.
+
+        POST /api/v1/catalog/items/{id}/upload-images/
+
+        Accepts multipart/form-data with 'images' field containing one or more files.
+        Images are automatically optimized (resized, compressed, converted to WebP).
+        """
+        item = self.get_object()
+        images = request.FILES.getlist('images')
+
+        if not images:
+            return Response(
+                {'error': _('No images provided.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created_images = []
+        errors = []
+
+        for i, image_file in enumerate(images):
+            serializer = CatalogImageSerializer(data={
+                'catalog_item_id': str(item.id),
+                'image': image_file,
+                'alt_text': item.name,
+                'is_primary': i == 0 and not item.images.exists(),
+            })
+
+            if serializer.is_valid():
+                created_images.append(serializer.save())
+            else:
+                errors.append({
+                    'file': image_file.name,
+                    'errors': serializer.errors
+                })
+
+        response_data = {
+            'uploaded': len(created_images),
+            'images': CatalogImageSerializer(created_images, many=True).data,
+        }
+
+        if errors:
+            response_data['errors'] = errors
+            return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='delete-image/(?P<image_id>[^/.]+)')
+    def delete_image(self, request, pk=None, image_id=None):
+        """Delete an image from a catalog item."""
+        item = self.get_object()
+
+        try:
+            image = item.images.get(id=image_id)
+        except CatalogImage.DoesNotExist:
+            return Response(
+                {'error': _('Image not found.')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        was_primary = image.is_primary
+        image.delete()
+
+        # If deleted image was primary, set another one as primary
+        if was_primary:
+            next_image = item.images.first()
+            if next_image:
+                next_image.is_primary = True
+                next_image.save(update_fields=['is_primary', 'updated_at'])
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class ProductVariantViewSet(viewsets.ModelViewSet):
     """

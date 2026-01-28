@@ -134,7 +134,8 @@ class AssignLeadSerializer(serializers.Serializer):
         try:
             user = User.objects.get(id=value, is_active=True)
             # Check if user has sales role
-            if user.role and user.role.name not in ['superadmin', 'admin', 'sales']:
+            # Only admin and sales can be assigned leads
+            if user.role and user.role.name not in ['admin', 'sales']:
                 raise serializers.ValidationError(
                     _('User cannot be assigned leads.')
                 )

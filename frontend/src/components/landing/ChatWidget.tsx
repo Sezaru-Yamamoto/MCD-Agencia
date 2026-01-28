@@ -239,7 +239,7 @@ export default function ChatWidget() {
       {/* Chat Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-24 right-6 z-40 w-14 h-14 bg-cyan-500 hover:bg-cyan-600 rounded-full shadow-2xl transform hover:scale-110 transition-all duration-300 ${isOpen ? 'hidden' : 'flex'} items-center justify-center group`}
+        className={`fixed bottom-24 right-6 z-40 w-14 h-14 bg-cmyk-cyan hover:bg-cmyk-cyan rounded-full shadow-2xl transform hover:scale-110 transition-all duration-300 ${isOpen ? 'hidden' : 'flex'} items-center justify-center group`}
         aria-label="Abrir chat"
       >
         <ChatBubbleLeftRightIcon className="w-10 h-10 text-white" />
@@ -283,7 +283,7 @@ export default function ChatWidget() {
                   {/* Avatar */}
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
                     message.role === 'user' 
-                      ? 'bg-primary-500 text-white' 
+                      ? 'bg-cmyk-cyan text-white' 
                       : 'bg-gray-600'
                   }`}>
                     {message.role === 'user' ? <User className="w-5 h-5" /> : <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" />}
@@ -292,7 +292,7 @@ export default function ChatWidget() {
                   {/* Message bubble */}
                   <div className={`rounded-2xl px-4 py-2.5 ${
                     message.role === 'user'
-                      ? 'bg-primary-500 text-white rounded-br-sm'
+                      ? 'bg-cmyk-cyan text-white rounded-br-sm'
                       : 'bg-gray-700 text-gray-100 shadow-sm rounded-bl-sm'
                   }`}>
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>

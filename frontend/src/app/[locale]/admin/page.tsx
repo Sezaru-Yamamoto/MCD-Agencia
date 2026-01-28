@@ -11,9 +11,11 @@ import {
   ChartBarIcon,
   DocumentTextIcon,
   CogIcon,
+  UserPlusIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions, getRoleDisplayName } from '@/hooks/usePermissions';
 import { Card, LoadingPage } from '@/components/ui';
 
 const adminMenuItems = [
@@ -25,9 +27,9 @@ const adminMenuItems = [
     color: 'bg-blue-500/20 text-blue-400',
   },
   {
-    title: 'Productos',
+    title: 'Catálogo',
     description: 'Administrar catálogo de productos',
-    href: '/admin/productos',
+    href: '/admin/catalogo',
     icon: CubeIcon,
     color: 'bg-green-500/20 text-green-400',
   },
@@ -44,6 +46,13 @@ const adminMenuItems = [
     href: '/admin/cotizaciones',
     icon: DocumentTextIcon,
     color: 'bg-yellow-500/20 text-yellow-400',
+  },
+  {
+    title: 'Leads',
+    description: 'Gestionar leads capturados',
+    href: '/admin/leads',
+    icon: UserPlusIcon,
+    color: 'bg-orange-500/20 text-orange-400',
   },
   {
     title: 'Reportes',
@@ -65,24 +74,23 @@ export default function AdminDashboard() {
   const router = useRouter();
   const locale = useLocale();
   const { user, isAuthenticated, isLoading } = useAuth();
-
-  const isAdmin = user?.role?.name && ['superadmin', 'admin'].includes(user.role.name);
+  const permissions = usePermissions();
 
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
         router.push(`/${locale}/login?redirect=/${locale}/admin`);
-      } else if (!isAdmin) {
+      } else if (!permissions.canAccessAdmin) {
         router.push(`/${locale}`);
       }
     }
-  }, [isLoading, isAuthenticated, isAdmin, router, locale]);
+  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, router, locale]);
 
   if (isLoading) {
     return <LoadingPage message="Cargando..." />;
   }
 
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated || !permissions.canAccessAdmin) {
     return null;
   }
 
@@ -93,7 +101,7 @@ export default function AdminDashboard() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Panel de Administración</h1>
           <p className="text-neutral-400">
-            Bienvenido, {user?.first_name || user?.email}
+            Bienvenido, {user?.first_name || user?.email} ({getRoleDisplayName(permissions.role)})
           </p>
         </div>
 

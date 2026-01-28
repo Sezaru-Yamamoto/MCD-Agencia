@@ -30,9 +30,9 @@ const config: Config = {
       colors: {
         // CMYK colors for landing page
         cmyk: {
-          cyan: '#0DD9E8',
-          magenta: '#E500D9',
-          yellow: '#FFD700',
+          cyan: '#0DA3EF',
+          magenta: '#EC2D8D',
+          yellow: '#FFE884',
           black: '#141414',
         },
         base: {

@@ -8,10 +8,12 @@
  *   - Login/logout functionality
  *   - Token management
  *   - Protected route handling
+ *   - Session timeout (15 minutes of inactivity)
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import {
   User,
   LoginCredentials,
@@ -23,6 +25,10 @@ import {
 } from '@/lib/api/auth';
 import { clearTokens } from '@/lib/api/client';
 
+// Session timeout configuration
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const WARNING_BEFORE_TIMEOUT_MS = 2 * 60 * 1000; // Show warning 2 minutes before
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -31,6 +37,8 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  resetSessionTimer: () => void;
+  sessionTimeRemaining: number | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +51,97 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionTimeRemaining, setSessionTimeRemaining] = useState<number | null>(null);
+
+  // Session timeout refs
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const warningRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // Clear all session timers
+  const clearSessionTimers = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (warningRef.current) clearTimeout(warningRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setSessionTimeRemaining(null);
+  }, []);
+
+  // Logout with session expired message
+  const sessionExpiredLogout = useCallback(() => {
+    clearSessionTimers();
+    apiLogout();
+    setUser(null);
+    toast.error('Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.', {
+      duration: 5000,
+    });
+    router.push('/login');
+  }, [clearSessionTimers, router]);
+
+  // Reset session timer (called on user activity)
+  const resetSessionTimer = useCallback(() => {
+    if (!user) return;
+
+    lastActivityRef.current = Date.now();
+    clearSessionTimers();
+
+    // Set warning timer (fires 2 minutes before timeout)
+    warningRef.current = setTimeout(() => {
+      toast('Tu sesión expirará en 2 minutos por inactividad.', {
+        icon: '⚠️',
+        duration: 10000,
+      });
+
+      // Start countdown
+      let remaining = WARNING_BEFORE_TIMEOUT_MS;
+      setSessionTimeRemaining(remaining);
+
+      countdownRef.current = setInterval(() => {
+        remaining -= 1000;
+        setSessionTimeRemaining(remaining);
+
+        if (remaining <= 0) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+        }
+      }, 1000);
+    }, SESSION_TIMEOUT_MS - WARNING_BEFORE_TIMEOUT_MS);
+
+    // Set logout timer
+    timeoutRef.current = setTimeout(sessionExpiredLogout, SESSION_TIMEOUT_MS);
+  }, [user, clearSessionTimers, sessionExpiredLogout]);
+
+  // Track user activity
+  useEffect(() => {
+    if (!user) {
+      clearSessionTimers();
+      return;
+    }
+
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+
+    const handleActivity = () => {
+      const now = Date.now();
+      // Only reset if at least 1 second has passed (debounce)
+      if (now - lastActivityRef.current > 1000) {
+        resetSessionTimer();
+      }
+    };
+
+    // Add event listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    // Start initial timer
+    resetSessionTimer();
+
+    return () => {
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      clearSessionTimers();
+    };
+  }, [user, resetSessionTimer, clearSessionTimers]);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -69,6 +168,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback(async (credentials: LoginCredentials) => {
     const { user: loggedInUser } = await apiLogin(credentials);
     setUser(loggedInUser);
+    // Session timer will start automatically via useEffect
   }, []);
 
   const register = useCallback(async (data: RegisterData) => {
@@ -77,10 +177,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const logout = useCallback(() => {
+    clearSessionTimers();
     apiLogout();
     setUser(null);
     router.push('/');
-  }, [router]);
+  }, [router, clearSessionTimers]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -100,6 +201,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     refreshUser,
+    resetSessionTimer,
+    sessionTimeRemaining,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -153,13 +256,13 @@ export function useRequireAdmin() {
     if (!isLoading) {
       if (!isAuthenticated) {
         router.push('/login');
-      } else if (user?.role?.name && !['superadmin', 'admin'].includes(user.role.name)) {
+      } else if (user?.role?.name !== 'admin') {
         router.push('/');
       }
     }
   }, [isLoading, isAuthenticated, user, router]);
 
-  const isAdmin = user?.role?.name && ['superadmin', 'admin'].includes(user.role.name);
+  const isAdmin = user?.role?.name === 'admin';
 
   return { isAdmin, isLoading };
 }

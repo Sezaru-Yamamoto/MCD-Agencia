@@ -74,7 +74,7 @@ export function Pagination({
           className={cn(
             'min-w-[40px] h-10 rounded-lg font-medium transition-colors',
             page === currentPage
-              ? 'bg-cyan-500 text-black'
+              ? 'bg-cmyk-cyan text-black'
               : page === '...'
               ? 'text-neutral-600 cursor-default'
               : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'

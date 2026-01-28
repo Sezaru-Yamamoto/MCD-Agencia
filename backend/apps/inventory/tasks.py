@@ -84,7 +84,7 @@ def check_low_stock_alerts():
         # Get inventory managers
         manager_emails = list(
             User.objects.filter(
-                role__name__in=['superadmin', 'admin', 'operations'],
+                role__name__in=['admin'],
                 is_active=True,
             ).values_list('email', flat=True)
         )
@@ -156,7 +156,7 @@ def send_stock_alert_notification(self, alert_id: str):
 
         manager_emails = list(
             User.objects.filter(
-                role__name__in=['superadmin', 'admin', 'operations'],
+                role__name__in=['admin'],
                 is_active=True,
             ).values_list('email', flat=True)
         )
@@ -256,7 +256,7 @@ def generate_inventory_value_report():
     # Send report to managers
     manager_emails = list(
         User.objects.filter(
-            role__name__in=['superadmin', 'admin'],
+            role__name__in=['admin'],
             is_active=True,
         ).values_list('email', flat=True)
     )

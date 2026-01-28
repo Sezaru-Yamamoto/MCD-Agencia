@@ -26,7 +26,7 @@ from .models import (
 
 
 class CarouselSlideSerializer(serializers.ModelSerializer):
-    """Serializer for CarouselSlide model."""
+    """Serializer for CarouselSlide model with automatic image optimization."""
 
     class Meta:
         model = CarouselSlide
@@ -36,6 +36,32 @@ class CarouselSlideSerializer(serializers.ModelSerializer):
             'cta_url', 'position', 'is_active'
         ]
         read_only_fields = ['id']
+
+    def validate_image(self, value):
+        """Optimize hero image for landing page (1920x1080, high quality WebP)."""
+        from apps.catalog.image_utils import validate_image, optimize_for_landing
+
+        is_valid, error = validate_image(value)
+        if not is_valid:
+            raise serializers.ValidationError(error)
+
+        optimized_file, _ = optimize_for_landing(value, image_type='hero')
+        return optimized_file
+
+    def validate_mobile_image(self, value):
+        """Optimize mobile image (smaller size)."""
+        if not value:
+            return value
+
+        from apps.catalog.image_utils import validate_image, optimize_image
+
+        is_valid, error = validate_image(value)
+        if not is_valid:
+            raise serializers.ValidationError(error)
+
+        # Mobile: 800x600 for better mobile performance
+        optimized_file, _ = optimize_image(value, max_size=(800, 600), quality=85)
+        return optimized_file
 
 
 class CarouselSlidePublicSerializer(serializers.ModelSerializer):
@@ -95,7 +121,7 @@ class ClientLogoPublicSerializer(serializers.ModelSerializer):
 
 
 class ServiceSerializer(serializers.ModelSerializer):
-    """Serializer for Service model."""
+    """Serializer for Service model with image optimization."""
 
     class Meta:
         model = Service
@@ -105,6 +131,20 @@ class ServiceSerializer(serializers.ModelSerializer):
             'cta_url', 'is_featured', 'position', 'is_active'
         ]
         read_only_fields = ['id']
+
+    def validate_image(self, value):
+        """Optimize service image for landing page."""
+        if not value:
+            return value
+
+        from apps.catalog.image_utils import validate_image, optimize_for_landing
+
+        is_valid, error = validate_image(value)
+        if not is_valid:
+            raise serializers.ValidationError(error)
+
+        optimized_file, _ = optimize_for_landing(value, image_type='landing')
+        return optimized_file
 
 
 class ServicePublicSerializer(serializers.ModelSerializer):

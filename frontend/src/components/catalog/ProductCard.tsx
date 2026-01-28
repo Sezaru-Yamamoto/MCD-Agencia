@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingCartIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useLocale } from 'next-intl';
 
 import { ProductListItem } from '@/lib/api/catalog';
@@ -22,9 +22,9 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
 
   const imageUrl = product.primary_image?.image || '/images/placeholder-product.jpg';
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
+  const handleQuote = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Redirigir a la página de detalle para seleccionar variante y agregar al carrito
+    // Redirigir a la página de detalle para solicitar cotización
     router.push(`/catalogo/${product.category?.slug || 'productos'}/${product.slug}`);
   };
 
@@ -35,7 +35,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
         href={`/catalogo/${product.category?.slug || 'productos'}/${product.slug}`}
         className="group block"
       >
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden hover:border-yellow-400/50 hover:shadow-lg hover:shadow-yellow-400/10 transition-all duration-200 h-40 flex flex-row">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden hover:border-cmyk-yellow/50 hover:shadow-lg hover:shadow-cmyk-yellow/10 transition-all duration-200 h-40 flex flex-row">
           {/* Image Container - Left side, square and small */}
           <div className="relative w-40 h-40 flex-shrink-0 overflow-hidden bg-neutral-800">
             <Image
@@ -51,7 +51,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
           <div className="p-2 flex-1 flex flex-col justify-between">
             {/* Header: Name & Category */}
             <div className="min-w-0">
-              <h3 className="text-sm font-medium text-white group-hover:text-cyan-400 transition-colors line-clamp-2">
+              <h3 className="text-sm font-medium text-white group-hover:text-cmyk-cyan transition-colors line-clamp-2">
                 {name}
               </h3>
               {product.category && (
@@ -61,26 +61,14 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
 
             {/* Footer: Button */}
             <div className="flex items-end justify-end gap-2 mt-2">
-              {product.sale_mode === 'BUY' && (
-                <Button
-                  size="xs"
-                  className="bg-yellow-400 hover:bg-yellow-500 text-neutral-900 text-xs px-3 py-1.5 font-semibold"
-                  onClick={handleQuickAdd}
-                >
-                  <ShoppingCartIcon className="h-3.5 w-3.5 mr-1" />
-                  Ver producto
-                </Button>
-              )}
-              {product.sale_mode === 'QUOTE' && (
-                <Button
-                  size="xs"
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs px-3 py-1.5"
-                  onClick={handleQuickAdd}
-                >
-                  <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-                  Cotizar
-                </Button>
-              )}
+              <Button
+                size="xs"
+                className="bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs px-3 py-1.5"
+                onClick={handleQuote}
+              >
+                <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
+                Cotizar
+              </Button>
             </div>
           </div>
         </div>
@@ -94,7 +82,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
       href={`/catalogo/${product.category?.slug || 'productos'}/${product.slug}`}
       className="group block"
     >
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 transition-all duration-200 h-full flex flex-col">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden hover:border-cmyk-cyan/50 hover:shadow-lg hover:shadow-cmyk-cyan/10 transition-all duration-200 h-full flex flex-col">
         {/* Image Container - More compact */}
         <div className="relative aspect-square overflow-hidden bg-neutral-800">
           <Image
@@ -110,7 +98,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
         {/* Content - Minimal and compact */}
         <div className="p-3 flex-1 flex flex-col justify-between">
           {/* Name - Single line, compact */}
-          <h3 className="text-sm font-medium text-white group-hover:text-cyan-400 transition-colors line-clamp-2 min-h-10">
+          <h3 className="text-sm font-medium text-white group-hover:text-cmyk-cyan transition-colors line-clamp-2 min-h-10">
             {name}
           </h3>
 
@@ -121,26 +109,14 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
 
           {/* Action Button - Minimal */}
           <div className="mt-3">
-            {product.sale_mode === 'BUY' && (
-              <Button
-                size="xs"
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-neutral-900 text-xs py-1.5 font-semibold"
-                onClick={handleQuickAdd}
-              >
-                <ShoppingCartIcon className="h-3.5 w-3.5 mr-1" />
-                Ver producto
-              </Button>
-            )}
-            {product.sale_mode === 'QUOTE' && (
-              <Button
-                size="xs"
-                className="w-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs py-1.5"
-                onClick={handleQuickAdd}
-              >
-                <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-                Cotizar
-              </Button>
-            )}
+            <Button
+              size="xs"
+              className="w-full bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs py-1.5"
+              onClick={handleQuote}
+            >
+              <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
+              Cotizar
+            </Button>
           </div>
         </div>
       </div>

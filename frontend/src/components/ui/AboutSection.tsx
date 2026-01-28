@@ -71,8 +71,8 @@ export default function AboutSection({ config, locale = 'es' }: AboutSectionProp
               />
             </div>
             {/* Decorative Elements */}
-            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-cyan-500 rounded-xl -z-10" />
-            <div className="absolute -top-6 -left-6 w-24 h-24 bg-magenta-500 rounded-xl -z-10" />
+            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-cmyk-cyan rounded-xl -z-10" />
+            <div className="absolute -top-6 -left-6 w-24 h-24 bg-cmyk-magenta rounded-xl -z-10" />
           </motion.div>
 
           {/* Text Content */}

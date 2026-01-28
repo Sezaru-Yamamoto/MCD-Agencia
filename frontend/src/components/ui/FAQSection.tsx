@@ -75,7 +75,7 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
                 onClick={() => setSelectedCategory(category)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   selectedCategory === category
-                    ? 'bg-cyan-500 text-white'
+                    ? 'bg-cmyk-cyan text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-100'
                 }`}
               >

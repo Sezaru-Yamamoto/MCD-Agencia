@@ -100,7 +100,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
                     className={cn(
                       'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
                       isActive
-                        ? 'bg-cyan-500/20 text-cyan-400'
+                        ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
                         : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                     )}
                   >

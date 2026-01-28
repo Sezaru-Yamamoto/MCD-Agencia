@@ -72,7 +72,7 @@ export default function NewQuotePage() {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isSalesOrAdmin = user?.role?.name && ['superadmin', 'admin', 'sales'].includes(user.role.name);
+  const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
   useEffect(() => {
     if (!authLoading) {
@@ -241,7 +241,7 @@ export default function NewQuotePage() {
                         setShowClientDropdown(true);
                       }}
                       onFocus={() => setShowClientDropdown(true)}
-                      className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+                      className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
                     />
                   </div>
 
@@ -294,7 +294,7 @@ export default function NewQuotePage() {
                       setShowProductDropdown(true);
                     }}
                     onFocus={() => setShowProductDropdown(true)}
-                    className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
                   />
                 </div>
 
@@ -338,7 +338,7 @@ export default function NewQuotePage() {
                           min="1"
                           value={item.quantity}
                           onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                          className="w-16 px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-center focus:outline-none focus:border-cyan-500"
+                          className="w-16 px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-center focus:outline-none focus:border-cmyk-cyan"
                         />
                       </div>
 
@@ -350,7 +350,7 @@ export default function NewQuotePage() {
                           step="0.01"
                           value={item.unit_price}
                           onChange={(e) => updatePrice(item.id, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-right focus:outline-none focus:border-cyan-500"
+                          className="w-24 px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan"
                         />
                       </div>
 

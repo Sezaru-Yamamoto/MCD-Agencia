@@ -6,23 +6,60 @@
  * This page handles the callback from OAuth providers (Google).
  * It receives JWT tokens from the backend and stores them in localStorage,
  * then redirects immediately to the landing page.
- * 
+ *
  * This page is invisible during normal operation - it only shows UI on error.
  */
 
 import { useEffect, useState } from 'react';
 
+// Whitelist of allowed redirect path prefixes to prevent open redirect attacks
+const ALLOWED_REDIRECT_PREFIXES = [
+  '/es',
+  '/en',
+  '/catalogo',
+  '/mi-cuenta',
+  '/ventas',
+  '/admin',
+  '/checkout',
+  '/cart',
+];
+
+/**
+ * Validates a redirect URL to prevent open redirect attacks.
+ * Only allows internal paths that start with allowed prefixes.
+ */
+function isValidRedirectUrl(url: string): boolean {
+  // Must start with a single forward slash (not //)
+  if (!url.startsWith('/') || url.startsWith('//')) {
+    return false;
+  }
+
+  // Check for protocol injection attempts
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('javascript:') || lowerUrl.includes('data:') || lowerUrl.includes('vbscript:')) {
+    return false;
+  }
+
+  // Must match one of the allowed prefixes
+  return ALLOWED_REDIRECT_PREFIXES.some(prefix =>
+    url === prefix || url.startsWith(`${prefix}/`) || url.startsWith(`${prefix}?`)
+  );
+}
+
 export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Default safe redirect
+    const DEFAULT_REDIRECT = '/es';
+
     // Process immediately on mount
     const urlParams = new URLSearchParams(window.location.search);
-    
+
     // Check for error from OAuth
     const oauthError = urlParams.get('error');
     if (oauthError) {
-      setError(oauthError === 'authentication_failed' 
+      setError(oauthError === 'authentication_failed'
         ? 'Error de autenticación. Por favor intenta de nuevo.'
         : 'Ocurrió un error durante el inicio de sesión.');
       return;
@@ -46,8 +83,8 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    // Get destination URL
-    let nextUrl = urlParams.get('next') || '/es';
+    // Get destination URL with validation
+    let nextUrl = urlParams.get('next') || DEFAULT_REDIRECT;
     try {
       const storedRedirect = sessionStorage.getItem('oauth_redirect');
       if (storedRedirect) {
@@ -58,8 +95,8 @@ export default function AuthCallbackPage() {
       // Ignore sessionStorage errors
     }
 
-    // Redirect immediately
-    const destination = nextUrl.startsWith('/') ? nextUrl : `/${nextUrl}`;
+    // Validate redirect URL to prevent open redirect attacks
+    const destination = isValidRedirectUrl(nextUrl) ? nextUrl : DEFAULT_REDIRECT;
     window.location.replace(destination);
   }, []);
 

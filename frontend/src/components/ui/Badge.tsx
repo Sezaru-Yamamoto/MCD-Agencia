@@ -18,11 +18,11 @@ export function Badge({
   const variants = {
     default: 'bg-neutral-800 text-neutral-300',
     success: 'bg-green-500/20 text-green-400 border border-green-500/30',
-    warning: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+    warning: 'bg-cmyk-yellow/20 text-cmyk-yellow border border-cmyk-yellow/30',
     error: 'bg-red-500/20 text-red-400 border border-red-500/30',
-    info: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
-    cyan: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
-    magenta: 'bg-magenta-500/20 text-magenta-400 border border-magenta-500/30',
+    info: 'bg-cmyk-cyan/20 text-cmyk-cyan border border-cmyk-cyan/30',
+    cyan: 'bg-cmyk-cyan/20 text-cmyk-cyan border border-cmyk-cyan/30',
+    magenta: 'bg-cmyk-magenta/20 text-cmyk-magenta border border-cmyk-magenta/30',
   };
 
   const sizes = {

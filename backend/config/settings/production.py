@@ -10,6 +10,17 @@ IMPORTANT: Ensure all environment variables are properly set before deploying.
 from .base import *
 
 # =============================================================================
+# CRITICAL SECURITY VALIDATION
+# =============================================================================
+
+# Validate SECRET_KEY is not the insecure default
+if SECRET_KEY == _INSECURE_SECRET_KEY or not SECRET_KEY:
+    raise ValueError(
+        'CRITICAL: DJANGO_SECRET_KEY must be set to a secure random value in production. '
+        'Generate one with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
+    )
+
+# =============================================================================
 # DEBUG CONFIGURATION
 # =============================================================================
 
@@ -230,6 +241,13 @@ if not MERCADOPAGO_ACCESS_TOKEN:
 
 if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
     raise ValueError('PayPal credentials must be set in production')
+
+# Validate webhook secrets for secure payment notifications
+if not os.getenv('MERCADOPAGO_WEBHOOK_SECRET'):
+    raise ValueError('MERCADOPAGO_WEBHOOK_SECRET must be set in production for secure payment webhooks')
+
+if not os.getenv('PAYPAL_WEBHOOK_ID'):
+    raise ValueError('PAYPAL_WEBHOOK_ID must be set in production for secure payment webhooks')
 
 
 # =============================================================================

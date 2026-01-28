@@ -3,14 +3,14 @@
 import { useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Squares2X2Icon, ListBulletIcon, ShoppingCartIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { Squares2X2Icon, ListBulletIcon } from '@heroicons/react/24/outline';
 
-import { getProducts, getCategories, getAttributes, ProductFilters as IProductFilters } from '@/lib/api/catalog';
+import { getProducts, getCategories, getAttributes, ProductFilters as IProductFilters, Product } from '@/lib/api/catalog';
+
+type SaleMode = 'BUY' | 'QUOTE' | 'HYBRID';
 import { ProductCard, ProductFilters } from '@/components/catalog';
 import { Breadcrumb, Pagination, LoadingPage, Button, Select } from '@/components/ui';
 import { cn, debounce } from '@/lib/utils';
-
-type SaleMode = 'ALL' | 'BUY' | 'QUOTE';
 
 const SORT_OPTIONS = [
   { value: '-created_at', label: 'Más recientes' },
@@ -23,8 +23,10 @@ export default function CatalogPage() {
   const searchParams = useSearchParams();
 
   // Parse URL params
+  const saleModeParam = searchParams.get('modo') as SaleMode | null;
   const initialFilters: IProductFilters = {
     category_slug: searchParams.get('categoria') || undefined,
+    sale_mode: saleModeParam || undefined,
     search: searchParams.get('buscar') || undefined,
     min_price: searchParams.get('precio_min') ? Number(searchParams.get('precio_min')) : undefined,
     max_price: searchParams.get('precio_max') ? Number(searchParams.get('precio_max')) : undefined,
@@ -37,7 +39,6 @@ export default function CatalogPage() {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>({});
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState(initialFilters.search || '');
-  const [saleMode, setSaleMode] = useState<SaleMode>('BUY');
 
   // Fetch data
   const { data: productsData, isLoading: isLoadingProducts } = useQuery({
@@ -59,6 +60,7 @@ export default function CatalogPage() {
   const updateUrl = useCallback((newFilters: IProductFilters) => {
     const params = new URLSearchParams();
     if (newFilters.category_slug) params.set('categoria', newFilters.category_slug);
+    if (newFilters.sale_mode) params.set('modo', newFilters.sale_mode);
     if (newFilters.search) params.set('buscar', newFilters.search);
     if (newFilters.min_price) params.set('precio_min', String(newFilters.min_price));
     if (newFilters.max_price) params.set('precio_max', String(newFilters.max_price));
@@ -86,6 +88,12 @@ export default function CatalogPage() {
 
   const handleCategoryChange = (categorySlug?: string) => {
     const newFilters = { ...filters, category_slug: categorySlug, page: 1 };
+    setFilters(newFilters);
+    updateUrl(newFilters);
+  };
+
+  const handleSaleModeChange = (saleMode?: SaleMode) => {
+    const newFilters = { ...filters, sale_mode: saleMode, page: 1 };
     setFilters(newFilters);
     updateUrl(newFilters);
   };
@@ -120,29 +128,25 @@ export default function CatalogPage() {
   };
 
   const handleClearFilters = () => {
-    setFilters({ ordering: '-created_at', page: 1, page_size: 12 });
+    setFilters({ ordering: '-created_at', page: 1, page_size: 20 });
     setSelectedAttributes({});
     setSearchQuery('');
     router.push('/catalogo');
   };
 
-  const allProducts = productsData?.results || [];
-  // Filter products by sale mode
-  const products = saleMode === 'ALL'
-    ? allProducts
-    : allProducts.filter(p => p.sale_mode === saleMode);
-  const totalProducts = products.length;
+  const products = productsData?.results || [];
+  const totalProducts = productsData?.count || 0;
   const totalPages = Math.ceil((productsData?.count || 0) / (filters.page_size || 12));
   const categories = categoriesData?.results || [];
   const attributes = attributesData?.results || [];
 
   return (
-    <div className="min-h-screen py-8">
+    <div className="min-h-screen pt-24 pb-8">
       <div className="container mx-auto px-4">
         {/* Breadcrumb */}
         <Breadcrumb
           items={[
-            { label: 'Catálogo' },
+            { label: 'Catálogo', href: filters.category_slug ? '/catalogo' : undefined },
             ...(filters.category_slug
               ? [{ label: categories.find((c) => c.slug === filters.category_slug)?.name || '' }]
               : []),
@@ -208,10 +212,12 @@ export default function CatalogPage() {
               categories={categories}
               attributes={attributes}
               selectedCategory={filters.category_slug}
+              selectedSaleMode={filters.sale_mode}
               selectedAttributes={selectedAttributes}
               priceRange={{ min: filters.min_price, max: filters.max_price }}
               searchQuery={searchQuery}
               onCategoryChange={handleCategoryChange}
+              onSaleModeChange={handleSaleModeChange}
               onAttributeChange={handleAttributeChange}
               onPriceRangeChange={handlePriceRangeChange}
               onSearchChange={handleSearchChange}
@@ -221,40 +227,13 @@ export default function CatalogPage() {
 
           {/* Products Grid */}
           <div className="flex-1">
-            {/* Sale Mode Tabs */}
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => setSaleMode('BUY')}
-                className={cn(
-                  'flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200',
-                  saleMode === 'BUY'
-                    ? 'bg-yellow-400 text-neutral-900 shadow-lg shadow-yellow-400/20'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white'
-                )}
-              >
-                <ShoppingCartIcon className="h-5 w-5" />
-                Comprar
-              </button>
-              <button
-                onClick={() => setSaleMode('QUOTE')}
-                className={cn(
-                  'flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200',
-                  saleMode === 'QUOTE'
-                    ? 'bg-cyan-500 text-neutral-900 shadow-lg shadow-cyan-500/20'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white'
-                )}
-              >
-                <DocumentTextIcon className="h-5 w-5" />
-                Cotizar
-              </button>
+            {/* Info Banner */}
+            <div className="bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg p-4 mb-6">
+              <p className="text-neutral-300 text-sm">
+                Todos nuestros productos y servicios requieren cotización personalizada.
+                Selecciona el producto de tu interés y solicita tu presupuesto sin compromiso.
+              </p>
             </div>
-
-            {/* Sale Mode Description */}
-            <p className="text-neutral-400 text-sm mb-6">
-              {saleMode === 'BUY'
-                ? 'Productos disponibles para compra directa. Agrégalos al carrito y completa tu pedido.'
-                : 'Productos personalizados que requieren cotización. Solicita un presupuesto sin compromiso.'}
-            </p>
 
             {isLoadingProducts ? (
               <LoadingPage message="Cargando productos..." />

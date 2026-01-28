@@ -11,6 +11,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
 import {
   Cart,
@@ -64,7 +65,7 @@ function saveGuestCartToStorage(items: GuestCartItem[]): void {
   try {
     localStorage.setItem(GUEST_CART_KEY, JSON.stringify(items));
   } catch {
-    console.error('Failed to save guest cart to localStorage');
+    // Silent fail - localStorage might be unavailable
   }
 }
 
@@ -73,7 +74,7 @@ function clearGuestCartFromStorage(): void {
   try {
     localStorage.removeItem(GUEST_CART_KEY);
   } catch {
-    console.error('Failed to clear guest cart from localStorage');
+    // Silent fail - localStorage might be unavailable
   }
 }
 
@@ -90,14 +91,12 @@ export function CartProvider({ children }: CartProviderProps) {
     const items = getGuestCartFromStorage();
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
     setGuestCart({ items, itemCount });
-    console.log('[CartContext] Loaded guest cart from storage:', items);
   }, []);
 
   // Handle authentication change - merge guest cart when user logs in
   useEffect(() => {
     // Wait for auth to finish loading before doing anything
     if (authLoading) {
-      console.log('[CartContext] Auth still loading, waiting...');
       return;
     }
 
@@ -110,39 +109,37 @@ export function CartProvider({ children }: CartProviderProps) {
     lastAuthStateRef.current = isAuthenticated;
 
     const handleAuthChange = async () => {
-      console.log('[CartContext] Auth state changed:', { 
-        from: prevAuthState, 
-        to: isAuthenticated, 
-        hasMerged: hasMergedRef.current 
-      });
-      
       if (isAuthenticated) {
         // User is now authenticated
         const guestItems = getGuestCartFromStorage();
-        console.log('[CartContext] Guest items in storage:', guestItems);
-        
+
         if (guestItems.length > 0 && !hasMergedRef.current) {
           // We have guest items and haven't merged yet - do merge
           setIsLoading(true);
           hasMergedRef.current = true; // Mark as merged to prevent duplicate merges
           try {
-            console.log('[CartContext] Calling merge API...');
             const mergedCart = await mergeGuestCart(guestItems);
-            console.log('[CartContext] Merge successful, cart:', mergedCart);
             setCart(mergedCart);
             // Clear guest cart after successful merge
             clearGuestCartFromStorage();
             setGuestCart({ items: [], itemCount: 0 });
+            if (mergedCart.item_count > 0) {
+              toast.success(`Se agregaron ${mergedCart.item_count} productos a tu carrito`);
+            }
           } catch (error) {
-            console.error('[CartContext] Error merging guest cart:', error);
+            console.error('Error merging guest cart:', error);
             hasMergedRef.current = false; // Reset so we can try again
+            // Clear invalid guest cart items
+            clearGuestCartFromStorage();
+            setGuestCart({ items: [], itemCount: 0 });
             // Still try to fetch the regular cart
             try {
               const fetchedCart = await getCart();
               setCart(fetchedCart);
-            } catch (fetchError) {
-              console.error('[CartContext] Error fetching cart after merge failure:', fetchError);
+            } catch {
+              // Silent fail - cart will be empty
             }
+            toast.error('Algunos productos del carrito no pudieron ser recuperados');
           } finally {
             setIsLoading(false);
           }
@@ -150,19 +147,16 @@ export function CartProvider({ children }: CartProviderProps) {
           // No guest cart to merge - just fetch user's existing cart
           setIsLoading(true);
           try {
-            console.log('[CartContext] Fetching user cart (no merge needed)...');
             const fetchedCart = await getCart();
-            console.log('[CartContext] User cart fetched:', fetchedCart);
             setCart(fetchedCart);
-          } catch (error) {
-            console.error('[CartContext] Error fetching cart:', error);
+          } catch {
+            // Silent fail - cart will be empty
           } finally {
             setIsLoading(false);
           }
         }
       } else {
         // User logged out - clear server cart state and reset merge flag
-        console.log('[CartContext] User logged out, clearing cart');
         setCart(null);
         hasMergedRef.current = false; // Reset for next login
       }
@@ -186,8 +180,8 @@ export function CartProvider({ children }: CartProviderProps) {
     try {
       const fetchedCart = await getCart();
       setCart(fetchedCart);
-    } catch (error) {
-      console.error('Error fetching cart:', error);
+    } catch {
+      // Silent fail - cart will remain in current state
     } finally {
       setIsLoading(false);
     }
@@ -198,13 +192,13 @@ export function CartProvider({ children }: CartProviderProps) {
       // Handle guest cart with localStorage
       const currentItems = getGuestCartFromStorage();
       const existingIndex = currentItems.findIndex(item => item.variant_id === variantId);
-      
+
       if (existingIndex >= 0) {
         currentItems[existingIndex].quantity += quantity;
       } else {
         currentItems.push({ variant_id: variantId, quantity });
       }
-      
+
       saveGuestCartToStorage(currentItems);
       const itemCount = currentItems.reduce((sum, item) => sum + item.quantity, 0);
       setGuestCart({ items: currentItems, itemCount });
@@ -215,6 +209,9 @@ export function CartProvider({ children }: CartProviderProps) {
     try {
       const updatedCart = await apiAddToCart(variantId, quantity);
       setCart(updatedCart);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      throw error; // Re-throw to let the UI handle it
     } finally {
       setIsLoading(false);
     }

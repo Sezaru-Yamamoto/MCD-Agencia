@@ -253,7 +253,7 @@ def generate_daily_report():
     # Send report to administrators
     admin_emails = list(
         User.objects.filter(
-            role__name__in=['superadmin', 'admin'],
+            role__name__in=['admin'],
             is_active=True,
         ).values_list('email', flat=True)
     )
@@ -367,7 +367,7 @@ def notify_admin_new_order(self, order_id: str):
 
         admin_emails = list(
             User.objects.filter(
-                role__name__in=['superadmin', 'admin', 'sales'],
+                role__name__in=['admin', 'sales'],
                 is_active=True,
             ).values_list('email', flat=True)
         )

@@ -128,7 +128,7 @@ export default function OrderDetailPage() {
                     <div
                       className={cn(
                         'w-3 h-3 rounded-full',
-                        index === 0 ? 'bg-cyan-500' : 'bg-neutral-700'
+                        index === 0 ? 'bg-cmyk-cyan' : 'bg-neutral-700'
                       )}
                     />
                     {index < order.status_history.length - 1 && (
@@ -177,7 +177,7 @@ export default function OrderDetailPage() {
                     <span>Pagado</span>
                     <span>{formatPrice(order.amount_paid)}</span>
                   </div>
-                  <div className="flex justify-between text-yellow-500">
+                  <div className="flex justify-between text-cmyk-yellow">
                     <span>Saldo pendiente</span>
                     <span>{formatPrice(order.balance_due)}</span>
                   </div>

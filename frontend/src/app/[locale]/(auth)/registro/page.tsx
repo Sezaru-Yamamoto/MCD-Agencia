@@ -20,6 +20,7 @@ import {
 
 import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRecaptcha } from '@/hooks';
 
 const registerSchema = z
   .object({
@@ -53,6 +54,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const locale = useLocale();
   const { register: registerUser } = useAuth();
+  const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +73,19 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      await registerUser(data);
+      // Execute reCAPTCHA verification
+      let recaptchaToken: string | null = null;
+      if (recaptchaEnabled) {
+        recaptchaToken = await executeRecaptcha('register');
+        if (!recaptchaToken) {
+          toast.error('Error de verificación. Por favor, intenta de nuevo.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Include recaptcha token with registration data
+      await registerUser({ ...data, recaptcha_token: recaptchaToken });
       toast.success('¡Registro exitoso! Revisa tu email para verificar tu cuenta.');
       router.push(`/${locale}/login?registered=true`);
     } catch (error: unknown) {

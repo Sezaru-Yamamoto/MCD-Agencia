@@ -45,9 +45,10 @@ export function UnifiedHeader() {
   const { itemCount } = useCart();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Check user role
-  const isAdmin = user?.role?.name && ['superadmin', 'admin'].includes(user.role.name);
+  // Check user role - only 3 roles: admin, sales, customer
+  const isAdmin = user?.role?.name === 'admin';
   const isSales = user?.role?.name === 'sales';
+  const isStaff = isAdmin || isSales;
 
   // Language switcher
   const otherLocale = locale === 'es' ? 'en' : 'es';
@@ -197,7 +198,7 @@ export function UnifiedHeader() {
             {!isSales && (
               <Link
                 href={`/${locale}/catalogo`}
-                className="px-4 py-2 bg-yellow-400 text-neutral-900 font-semibold rounded-lg hover:bg-yellow-500 transition-all hover:shadow-lg"
+                className="px-4 py-2 bg-cmyk-yellow text-neutral-900 font-semibold rounded-lg hover:bg-cmyk-yellow transition-all hover:shadow-lg"
               >
                 {t('nav.buy') || 'Comprar'}
               </Link>

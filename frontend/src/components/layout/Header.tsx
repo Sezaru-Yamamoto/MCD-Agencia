@@ -57,8 +57,8 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  // Check user role
-  const isAdmin = user?.role?.name && ['superadmin', 'admin'].includes(user.role.name);
+  // Check user role - 3 roles: admin, sales, customer
+  const isAdmin = user?.role?.name === 'admin';
   const isSales = user?.role?.name === 'sales';
 
   // Handle scroll effect
@@ -144,7 +144,7 @@ export function Header() {
               >
                 <ShoppingCartIcon className="h-6 w-6" />
                 {/* Cart badge - show when items in cart */}
-                {/* <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-black">
+                {/* <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-cmyk-cyan text-xs font-bold text-black">
                   0
                 </span> */}
               </Link>
@@ -354,7 +354,7 @@ export function Header() {
                     href={`/${locale}${item.href}`}
                     className={`rounded-lg px-4 py-3 text-base font-medium transition-colors ${
                       pathname === `/${locale}${item.href}`
-                        ? 'bg-primary-500/10 text-primary-400'
+                        ? 'bg-cmyk-cyan/10 text-cmyk-cyan'
                         : 'text-neutral-300 hover:bg-neutral-800'
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}

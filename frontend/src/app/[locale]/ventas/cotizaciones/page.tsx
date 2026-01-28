@@ -79,11 +79,11 @@ const mockQuotes: Quote[] = [
 
 const statusColors: Record<Quote['status'], string> = {
   draft: 'bg-neutral-500/20 text-neutral-400',
-  sent: 'bg-blue-500/20 text-blue-400',
+  sent: 'bg-cmyk-cyan/20 text-cmyk-cyan',
   viewed: 'bg-purple-500/20 text-purple-400',
   accepted: 'bg-green-500/20 text-green-400',
   rejected: 'bg-red-500/20 text-red-400',
-  expired: 'bg-yellow-500/20 text-yellow-400',
+  expired: 'bg-cmyk-yellow/20 text-cmyk-yellow',
 };
 
 const statusLabels: Record<Quote['status'], string> = {
@@ -105,7 +105,7 @@ export default function QuotesListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const isSalesOrAdmin = user?.role?.name && ['superadmin', 'admin', 'sales'].includes(user.role.name);
+  const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
   useEffect(() => {
     if (!authLoading) {
@@ -195,7 +195,7 @@ export default function QuotesListPage() {
                 placeholder="Buscar por número, cliente o email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+                className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
               />
             </div>
 
@@ -205,7 +205,7 @@ export default function QuotesListPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="pl-10 pr-8 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                className="pl-10 pr-8 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan appearance-none cursor-pointer"
               >
                 <option value="all">Todos los estados</option>
                 <option value="draft">Borrador</option>
@@ -223,7 +223,7 @@ export default function QuotesListPage() {
         <Card className="overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-500 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cmyk-cyan mx-auto"></div>
               <p className="mt-4 text-neutral-400">Cargando cotizaciones...</p>
             </div>
           ) : filteredQuotes.length === 0 ? (

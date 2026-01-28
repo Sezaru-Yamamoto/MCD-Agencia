@@ -316,11 +316,17 @@ class PayPalService:
 
         Returns:
             bool: True if signature is valid.
+
+        Raises:
+            ValueError: If webhook ID is not configured in production.
         """
         webhook_id = getattr(settings, 'PAYPAL_WEBHOOK_ID', None)
         if not webhook_id:
-            logger.warning("PAYPAL_WEBHOOK_ID not configured")
-            return True  # Skip verification in development
+            if not settings.DEBUG:
+                logger.error("CRITICAL: PAYPAL_WEBHOOK_ID not configured in production!")
+                raise ValueError("Webhook signature verification is required in production")
+            logger.warning("PAYPAL_WEBHOOK_ID not configured, skipping verification (development only)")
+            return True
 
         try:
             headers = {
@@ -331,8 +337,12 @@ class PayPalService:
                 'PAYPAL-TRANSMISSION-TIME': request.headers.get('PAYPAL-TRANSMISSION-TIME'),
             }
 
-            # Skip if headers are missing (development)
+            # In production, require all headers
             if not all(headers.values()):
+                if not settings.DEBUG:
+                    logger.error("Missing PayPal webhook headers in production")
+                    return False
+                logger.warning("Missing PayPal webhook headers, skipping verification (development only)")
                 return True
 
             verify_data = {

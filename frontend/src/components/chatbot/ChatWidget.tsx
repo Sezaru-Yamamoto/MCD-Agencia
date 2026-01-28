@@ -296,7 +296,7 @@ export function ChatWidget() {
                         className={cn(
                           'max-w-[80%] rounded-2xl px-4 py-2',
                           message.type === 'user'
-                            ? 'bg-cyan-500 text-black rounded-br-sm'
+                            ? 'bg-cmyk-cyan text-black rounded-br-sm'
                             : 'bg-neutral-800 text-white rounded-bl-sm'
                         )}
                       >

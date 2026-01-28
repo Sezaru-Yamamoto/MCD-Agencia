@@ -159,7 +159,7 @@ export default function FeaturedProducts({
                             e.preventDefault();
                             onAddToCart?.(product.id);
                           }}
-                          className="p-2 bg-white rounded-full hover:bg-cyan-500 hover:text-white transition-colors"
+                          className="p-2 bg-white rounded-full hover:bg-cmyk-cyan hover:text-white transition-colors"
                           aria-label={t('addToCart')}
                           disabled={product.sale_mode === 'QUOTE'}
                         >
@@ -167,7 +167,7 @@ export default function FeaturedProducts({
                         </button>
                         <Link
                           href={`/catalog/${product.slug}`}
-                          className="p-2 bg-white rounded-full hover:bg-cyan-500 hover:text-white transition-colors"
+                          className="p-2 bg-white rounded-full hover:bg-cmyk-cyan hover:text-white transition-colors"
                           aria-label={t('viewDetails')}
                         >
                           <EyeIcon className="h-5 w-5" />

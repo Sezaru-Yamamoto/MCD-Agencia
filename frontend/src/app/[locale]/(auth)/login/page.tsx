@@ -12,6 +12,7 @@ import { useTranslations, useLocale } from 'next-intl';
 
 import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRecaptcha } from '@/hooks';
 
 const loginSchema = z.object({
   email: z.string().email('Ingresa un email válido'),
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
+  const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -42,9 +44,21 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await login(data);
+      // Execute reCAPTCHA verification
+      let recaptchaToken: string | null = null;
+      if (recaptchaEnabled) {
+        recaptchaToken = await executeRecaptcha('login');
+        if (!recaptchaToken) {
+          toast.error('Error de verificación. Por favor, intenta de nuevo.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Include recaptcha token with login data
+      await login({ ...data, recaptcha_token: recaptchaToken });
       toast.success('¡Bienvenido de nuevo!');
-      
+
       // Si hay un producto pendiente, redirigir a su página de detalle
       // para que se pueda seleccionar variante y agregar desde ahí
       const pending = localStorage.getItem('pendingAddToCart');
@@ -54,11 +68,11 @@ export default function LoginPage() {
           localStorage.removeItem('pendingAddToCart');
           router.push(`/${locale}/catalogo/${categorySlug}/${productSlug}`);
           return;
-        } catch (error) {
-          console.error('Error al procesar producto pendiente:', error);
+        } catch {
+          // Invalid pending item, ignore and continue with redirect
         }
       }
-      
+
       router.push(redirectTo);
     } catch (error: unknown) {
       const err = error as { message?: string; data?: { detail?: string } };

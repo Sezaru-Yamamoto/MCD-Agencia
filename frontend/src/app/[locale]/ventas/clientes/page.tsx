@@ -114,7 +114,7 @@ export default function ClientsListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const isSalesOrAdmin = user?.role?.name && ['superadmin', 'admin', 'sales'].includes(user.role.name);
+  const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
   useEffect(() => {
     if (!authLoading) {
@@ -224,7 +224,7 @@ export default function ClientsListPage() {
               placeholder="Buscar por nombre, email, teléfono o empresa..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500"
+              className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
             />
           </div>
         </Card>
@@ -232,7 +232,7 @@ export default function ClientsListPage() {
         {/* Clients Grid */}
         {isLoading ? (
           <Card className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-500 mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cmyk-cyan mx-auto"></div>
             <p className="mt-4 text-neutral-400">Cargando clientes...</p>
           </Card>
         ) : filteredClients.length === 0 ? (
@@ -250,7 +250,7 @@ export default function ClientsListPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredClients.map((client) => (
-              <Card key={client.id} className="p-6 hover:border-cyan-500/50 transition-colors">
+              <Card key={client.id} className="p-6 hover:border-cmyk-cyan/50 transition-colors">
                 {/* Client Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div>

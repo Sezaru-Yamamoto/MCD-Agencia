@@ -35,7 +35,7 @@ const services: Service[] = [
     titleKey: 'printing.title',
     descriptionKey: 'printing.description',
     href: '/catalog?category=impresion',
-    color: 'bg-cyan-500',
+    color: 'bg-cmyk-cyan',
   },
   {
     id: 'outdoor',
@@ -43,7 +43,7 @@ const services: Service[] = [
     titleKey: 'outdoor.title',
     descriptionKey: 'outdoor.description',
     href: '/catalog?category=publicidad-exterior',
-    color: 'bg-magenta-500',
+    color: 'bg-cmyk-magenta',
   },
   {
     id: 'signage',
@@ -51,7 +51,7 @@ const services: Service[] = [
     titleKey: 'signage.title',
     descriptionKey: 'signage.description',
     href: '/catalog?category=senaletica',
-    color: 'bg-yellow-500',
+    color: 'bg-cmyk-yellow',
   },
   {
     id: 'promotional',
@@ -59,7 +59,7 @@ const services: Service[] = [
     titleKey: 'promotional.title',
     descriptionKey: 'promotional.description',
     href: '/catalog?category=articulos-promocionales',
-    color: 'bg-cyan-500',
+    color: 'bg-cmyk-cyan',
   },
   {
     id: 'delivery',
@@ -67,7 +67,7 @@ const services: Service[] = [
     titleKey: 'delivery.title',
     descriptionKey: 'delivery.description',
     href: '/services/delivery',
-    color: 'bg-magenta-500',
+    color: 'bg-cmyk-magenta',
   },
   {
     id: 'installation',
@@ -75,7 +75,7 @@ const services: Service[] = [
     titleKey: 'installation.title',
     descriptionKey: 'installation.description',
     href: '/services/installation',
-    color: 'bg-yellow-500',
+    color: 'bg-cmyk-yellow',
   },
 ];
 
@@ -145,7 +145,7 @@ export default function ServicesSection() {
                 className="group"
               >
                 <Link href={service.href}>
-                  <div className="card h-full p-6 hover:shadow-lg transition-shadow group-hover:border-cyan-500">
+                  <div className="card h-full p-6 hover:shadow-lg transition-shadow group-hover:border-cmyk-cyan">
                     <div
                       className={`w-14 h-14 ${service.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
                     >

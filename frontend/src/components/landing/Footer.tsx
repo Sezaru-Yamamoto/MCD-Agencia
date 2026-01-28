@@ -63,7 +63,7 @@ export function Footer() {
                   href={SOCIAL_LINKS.facebookAcapulco}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-blue-500 transition-colors"
+                  className="text-gray-400 hover:text-cmyk-cyan transition-colors"
                   aria-label="Facebook Acapulco"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -118,7 +118,7 @@ export function Footer() {
                   href={SOCIAL_LINKS.facebookTecoanapa}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-blue-500 transition-colors"
+                  className="text-gray-400 hover:text-cmyk-cyan transition-colors"
                   aria-label="Facebook Tecoanapa"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
