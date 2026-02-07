@@ -1,0 +1,337 @@
+/**
+ * Admin API Service for MCD-Agencia.
+ *
+ * This module provides admin-specific API calls.
+ */
+
+import { apiClient } from './client';
+import { User } from './auth';
+import { PaginatedResponse } from './catalog';
+import { Order } from './orders';
+import { QuoteRequest, Quote } from './quotes';
+
+// Types
+export interface AdminUser extends User {
+  is_active: boolean;
+  last_login?: string;
+  orders_count: number;
+  quotes_count: number;
+}
+
+export interface AdminOrder extends Order {
+  customer: {
+    id: string;
+    email: string;
+    full_name: string;
+  };
+}
+
+export interface AdminQuoteRequest extends Omit<QuoteRequest, 'assigned_to'> {
+  assigned_to?: {
+    id: string;
+    full_name: string;
+  };
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  actor?: {
+    id: string;
+    email: string;
+    full_name: string;
+  };
+  actor_email?: string;
+  actor_ip?: string;
+  actor_user_agent?: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  diff?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DashboardStats {
+  orders: {
+    total: number;
+    pending: number;
+    completed: number;
+    revenue: string;
+  };
+  quotes: {
+    total: number;
+    pending: number;
+    accepted: number;
+    conversion_rate: number;
+  };
+  users: {
+    total: number;
+    new_this_month: number;
+  };
+  products: {
+    total: number;
+    low_stock: number;
+  };
+}
+
+// User Management
+export async function getAdminUsers(filters?: {
+  role?: string;
+  is_active?: boolean;
+  search?: string;
+  page?: number;
+}): Promise<PaginatedResponse<AdminUser>> {
+  return apiClient.get<PaginatedResponse<AdminUser>>('/admin/users/', filters);
+}
+
+export async function getAdminUserById(id: string): Promise<AdminUser> {
+  return apiClient.get<AdminUser>(`/admin/users/${id}/`);
+}
+
+export async function updateAdminUser(id: string, data: Partial<AdminUser>): Promise<AdminUser> {
+  return apiClient.patch<AdminUser>(`/admin/users/${id}/`, data);
+}
+
+export async function activateUser(id: string): Promise<AdminUser> {
+  return apiClient.post<AdminUser>(`/admin/users/${id}/activate/`);
+}
+
+export async function deactivateUser(id: string): Promise<AdminUser> {
+  return apiClient.post<AdminUser>(`/admin/users/${id}/deactivate/`);
+}
+
+export async function changeUserRole(id: string, roleId: string): Promise<AdminUser> {
+  return apiClient.post<AdminUser>(`/admin/users/${id}/change_role/`, { role_id: roleId });
+}
+
+// Order Management
+export async function getAdminOrders(filters?: {
+  status?: string;
+  customer?: string;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+  page?: number;
+}): Promise<PaginatedResponse<AdminOrder>> {
+  return apiClient.get<PaginatedResponse<AdminOrder>>('/admin/orders/', filters);
+}
+
+export async function getAdminOrderById(id: string): Promise<AdminOrder> {
+  return apiClient.get<AdminOrder>(`/admin/orders/${id}/`);
+}
+
+export async function updateOrderStatus(
+  id: string,
+  status: string,
+  notes?: string
+): Promise<AdminOrder> {
+  return apiClient.post<AdminOrder>(`/admin/orders/${id}/update_status/`, { status, notes });
+}
+
+export async function updateOrderTracking(
+  id: string,
+  tracking_number: string,
+  tracking_url?: string
+): Promise<AdminOrder> {
+  return apiClient.patch<AdminOrder>(`/admin/orders/${id}/`, { tracking_number, tracking_url });
+}
+
+// Quote Management
+export async function getAdminQuoteRequests(filters?: {
+  status?: string;
+  assigned_to?: string;
+  search?: string;
+  page?: number;
+}): Promise<PaginatedResponse<AdminQuoteRequest>> {
+  return apiClient.get<PaginatedResponse<AdminQuoteRequest>>('/admin/quote-requests/', filters);
+}
+
+export async function assignQuoteRequest(id: string, userId: string): Promise<AdminQuoteRequest> {
+  return apiClient.post<AdminQuoteRequest>(`/admin/quote-requests/${id}/assign/`, { user_id: userId });
+}
+
+export async function createQuoteFromRequest(
+  requestId: string,
+  data: {
+    lines: Array<{
+      concept: string;
+      description?: string;
+      quantity: number;
+      unit: string;
+      unit_price: string;
+    }>;
+    valid_days: number;
+    terms: string;
+  }
+): Promise<Quote> {
+  return apiClient.post<Quote>(`/admin/quote-requests/${requestId}/create-quote/`, data);
+}
+
+export async function sendQuote(id: string): Promise<Quote> {
+  return apiClient.post<Quote>(`/admin/quotes/${id}/send/`);
+}
+
+// Audit Logs
+export async function getAuditLogs(filters?: {
+  entity_type?: string;
+  entity_id?: string;
+  actor?: string;
+  action?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+}): Promise<PaginatedResponse<AuditLog>> {
+  return apiClient.get<PaginatedResponse<AuditLog>>('/audit/logs/', filters);
+}
+
+// Dashboard
+export async function getDashboardStats(): Promise<DashboardStats> {
+  return apiClient.get<DashboardStats>('/admin/dashboard/stats/');
+}
+
+// Catalog Admin
+export interface CreateProductData {
+  type: 'product' | 'service';
+  name: string;
+  name_en?: string;
+  slug?: string;
+  short_description: string;
+  short_description_en?: string;
+  description?: string;
+  description_en?: string;
+  category_id?: string;
+  tag_ids?: string[];
+  sale_mode: 'BUY' | 'QUOTE' | 'HYBRID';
+  payment_mode: 'FULL' | 'DEPOSIT_ALLOWED';
+  base_price?: string;
+  compare_at_price?: string;
+  deposit_percentage?: number;
+  deposit_amount?: string;
+  track_inventory?: boolean;
+  is_active?: boolean;
+  is_featured?: boolean;
+  meta_title?: string;
+  meta_description?: string;
+}
+
+export async function createProduct(data: CreateProductData): Promise<unknown> {
+  return apiClient.post('/catalog/items/', data);
+}
+
+export async function updateProduct(id: string, data: Partial<CreateProductData>): Promise<unknown> {
+  return apiClient.patch(`/catalog/items/${id}/`, data);
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  return apiClient.delete(`/catalog/items/${id}/`);
+}
+
+// Product Images
+export interface UploadImagesResponse {
+  uploaded: number;
+  images: Array<{
+    id: string;
+    image: string;
+    alt_text: string;
+    is_primary: boolean;
+  }>;
+  errors?: Array<{
+    file: string;
+    errors: Record<string, string[]>;
+  }>;
+}
+
+export async function uploadProductImages(
+  productId: string,
+  images: File[]
+): Promise<UploadImagesResponse> {
+  const formData = new FormData();
+  images.forEach((image) => {
+    formData.append('images', image);
+  });
+
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/catalog/items/${productId}/upload-images/`,
+    {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to upload images');
+  }
+
+  return response.json();
+}
+
+export async function deleteProductImage(
+  productId: string,
+  imageId: string
+): Promise<void> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/catalog/items/${productId}/delete-image/${imageId}/`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+      },
+    }
+  );
+
+  if (!response.ok && response.status !== 204) {
+    throw new Error('Failed to delete image');
+  }
+}
+
+// Inventory Admin
+export interface CreateMovementData {
+  variant_id: string;
+  type: 'IN' | 'OUT' | 'ADJUSTMENT';
+  quantity: number;
+  reason: string;
+  notes?: string;
+  reference_type?: string;
+  reference_id?: string;
+}
+
+export async function createInventoryMovement(data: CreateMovementData): Promise<unknown> {
+  return apiClient.post('/inventory/movements/', data);
+}
+
+// Content Admin
+export async function updateCarouselSlide(id: string, data: FormData): Promise<unknown> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/admin/content/carousel/${id}/`,
+    {
+      method: 'PATCH',
+      body: data,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+      },
+    }
+  );
+  if (!response.ok) throw new Error('Failed to update slide');
+  return response.json();
+}
+
+export async function createCarouselSlide(data: FormData): Promise<unknown> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/admin/content/carousel/`,
+    {
+      method: 'POST',
+      body: data,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+      },
+    }
+  );
+  if (!response.ok) throw new Error('Failed to create slide');
+  return response.json();
+}
