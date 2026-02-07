@@ -71,12 +71,12 @@ function VideoCard({
             </div>
           </div>
 
-          {/* Label */}
-          <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-5 sm:right-5">
+          {/* Label - hidden until content is decided */}
+          {/* <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-5 sm:right-5">
             <p className="text-white font-semibold text-sm sm:text-base drop-shadow-lg">
               {label}
             </p>
-          </div>
+          </div> */}
         </button>
       ) : (
         <iframe
