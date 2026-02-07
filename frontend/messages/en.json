@@ -149,8 +149,9 @@
       "likeThis": "Would you like a similar project?",
       "requestQuote": "Request quote →",
       "playVideo": "Play video",
-      "clickToPlay": "▶ Click to play",
-      "videoAlt": "Video of work done by Agencia MCD"
+      "videoAlt": "Video of work done by Agencia MCD",
+      "video1Label": "Large format printing",
+      "video2Label": "Lettering & vinyl"
     },
     "clients": {
       "title": "They trust us",

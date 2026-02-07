@@ -137,8 +137,9 @@
       "likeThis": "¿Te gustaría un proyecto similar?",
       "requestQuote": "Solicitar cotización →",
       "playVideo": "Reproducir video",
-      "clickToPlay": "▶ Haz clic para reproducir",
-      "videoAlt": "Video de trabajos realizados por Agencia MCD"
+      "videoAlt": "Video de trabajos realizados por Agencia MCD",
+      "video1Label": "Impresión gran formato",
+      "video2Label": "Rotulación y vinilos"
     },
     "clients": {
       "title": "Confían en nosotros",
