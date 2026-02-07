@@ -96,6 +96,12 @@ class CarouselSlide(TimeStampedModel, OrderedModel):
         blank=True,
         help_text=_('CTA button link (internal or external).')
     )
+    service_key = models.CharField(
+        _('service key'),
+        max_length=50,
+        blank=True,
+        help_text=_('Quote service identifier (e.g. "espectaculares"). Links slide to a quotable service.')
+    )
     is_active = models.BooleanField(
         _('is active'),
         default=True,
@@ -650,6 +656,12 @@ class ServiceImage(TimeStampedModel, OrderedModel):
         blank=True,
         help_text=_('Image alt text in English.')
     )
+    subtype_key = models.CharField(
+        _('subtype key'),
+        max_length=100,
+        blank=True,
+        help_text=_('Service subtype key for quote form linking (e.g. "letras-3d").')
+    )
     is_active = models.BooleanField(
         _('is active'),
         default=True,
@@ -680,7 +692,7 @@ class PortfolioVideo(TimeStampedModel, OrderedModel):
         is_active: Whether video is visible
     """
 
-    MAX_VIDEOS = 8
+    MAX_VIDEOS = 2
 
     ORIENTATION_CHOICES = [
         ('vertical', _('Vertical (9:16) — Shorts/Reels')),

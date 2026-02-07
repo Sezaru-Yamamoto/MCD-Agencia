@@ -23,6 +23,7 @@ export interface CarouselSlide {
   cta_text: string;
   cta_text_en: string;
   cta_url: string;
+  service_key: string;
   position: number;
 }
 
@@ -164,6 +165,7 @@ export interface ServiceImage {
   image: string;
   alt_text: string;
   alt_text_en: string;
+  subtype_key: string;
   position: number;
 }
 
@@ -372,6 +374,7 @@ export async function createServiceImage(data: {
   image: File;
   alt_text?: string;
   alt_text_en?: string;
+  subtype_key?: string;
   position?: number;
 }): Promise<ServiceImageAdmin> {
   const formData = new FormData();
@@ -379,6 +382,7 @@ export async function createServiceImage(data: {
   formData.append('image', data.image);
   if (data.alt_text) formData.append('alt_text', data.alt_text);
   if (data.alt_text_en) formData.append('alt_text_en', data.alt_text_en);
+  if (data.subtype_key) formData.append('subtype_key', data.subtype_key);
   formData.append('position', String(data.position ?? 0));
   return apiClient.upload<ServiceImageAdmin>('/content/service-images/', formData);
 }
@@ -467,6 +471,7 @@ export async function createCarouselSlideWithFile(data: {
   cta_text?: string;
   cta_text_en?: string;
   cta_url?: string;
+  service_key?: string;
   position?: number;
   is_active?: boolean;
 }): Promise<CarouselSlideAdmin> {
@@ -480,6 +485,7 @@ export async function createCarouselSlideWithFile(data: {
   if (data.cta_text) formData.append('cta_text', data.cta_text);
   if (data.cta_text_en) formData.append('cta_text_en', data.cta_text_en);
   if (data.cta_url) formData.append('cta_url', data.cta_url);
+  if (data.service_key) formData.append('service_key', data.service_key);
   formData.append('position', String(data.position ?? 0));
   formData.append('is_active', String(data.is_active ?? true));
   return apiClient.upload<CarouselSlideAdmin>('/content/carousel/', formData);

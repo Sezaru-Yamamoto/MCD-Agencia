@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { CONTACT_INFO } from '@/lib/constants';
 import { trackCTA } from '@/lib/tracking';
 import { getCarouselSlides } from '@/lib/api/content';
-import { ImageCarousel } from './ImageCarousel';
+import { ImageCarousel, FullscreenCarousel, type CarouselImage } from './ImageCarousel';
 
 // Fallback images used when the API has no slides yet
-const FALLBACK_IMAGES = [
+const FALLBACK_IMAGES: CarouselImage[] = [
   { src: '/images/carousel/valla-movil.jpg', alt: 'Vallas Móviles', title: 'Vallas Móviles' },
   { src: 'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=800&q=80', alt: 'Banners', title: 'Banners' },
   { src: 'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=800&q=80', alt: 'Gran Formato', title: 'Gran Formato' },
@@ -19,22 +19,23 @@ const FALLBACK_IMAGES = [
 export function Hero() {
   const t = useTranslations('landing.hero');
   const [carouselHeight, setCarouselHeight] = useState(300);
+  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
 
-  // Fetch carousel slides from API
   const { data: apiSlides } = useQuery({
     queryKey: ['carousel-slides'],
     queryFn: getCarouselSlides,
-    staleTime: 10 * 60 * 1000, // 10 min
+    staleTime: 10 * 60 * 1000,
     retry: 1,
   });
 
-  // Use API slides if available, otherwise fallback
-  const carouselImages = useMemo(() => {
+  // Build carousel images: title links to quote form if slide has service_key
+  const carouselImages: CarouselImage[] = useMemo(() => {
     if (apiSlides && apiSlides.length > 0) {
       return apiSlides.map((s) => ({
         src: s.image,
         alt: s.title || 'Agencia MCD',
         title: s.title,
+        titleHref: s.service_key ? `#cotizar?servicio=${s.service_key}` : '#cotizar',
       }));
     }
     return FALLBACK_IMAGES;
@@ -43,27 +44,19 @@ export function Hero() {
   useEffect(() => {
     const updateHeight = () => {
       if (typeof window !== 'undefined') {
-        if (window.innerWidth < 640) {
-          setCarouselHeight(280);
-        } else if (window.innerWidth < 1024) {
-          setCarouselHeight(350);
-        } else {
-          setCarouselHeight(420);
-        }
+        if (window.innerWidth < 640) setCarouselHeight(280);
+        else if (window.innerWidth < 1024) setCarouselHeight(350);
+        else setCarouselHeight(420);
       }
     };
-
     updateHeight();
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
-  const handleWhatsAppClick = () => {
-    trackCTA('whatsapp', 'hero');
-  };
 
-  const handleQuoteClick = () => {
-    trackCTA('quote', 'hero');
-  };
+  const handleWhatsAppClick = () => { trackCTA('whatsapp', 'hero'); };
+  const handleQuoteClick = () => { trackCTA('quote', 'hero'); };
+  const handleImageClick = useCallback((index: number) => { setFullscreenIndex(index); }, []);
 
   return (
     <section className="relative min-h-screen lg:min-h-screen flex items-center pt-20 sm:pt-20 md:pt-20 pb-6 sm:pb-8 overflow-hidden">
@@ -143,10 +136,20 @@ export function Hero() {
               autoPlay
               interval={5000}
               height={carouselHeight}
+              onImageClick={handleImageClick}
             />
           </div>
         </div>
       </div>
+
+      {/* Fullscreen lightbox */}
+      {fullscreenIndex !== null && (
+        <FullscreenCarousel
+          images={carouselImages}
+          initialIndex={fullscreenIndex}
+          onClose={() => setFullscreenIndex(null)}
+        />
+      )}
     </section>
   );
 }

@@ -4,101 +4,55 @@ import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  PhotoIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  PlayIcon,
-  FilmIcon,
+  PlusIcon, PencilIcon, TrashIcon, PhotoIcon,
+  EyeIcon, EyeSlashIcon, PlayIcon, FilmIcon,
 } from '@heroicons/react/24/outline';
 
 import {
-  // Carousel
-  getAdminCarouselSlides,
-  createCarouselSlideWithFile,
-  updateCarouselSlideWithFile,
-  updateCarouselSlide,
-  deleteCarouselSlide,
-  CarouselSlideAdmin,
-  // Services
-  getAdminServices,
-  createService,
-  updateService,
-  deleteService,
-  ServiceAdmin,
-  // Service Images
-  getAdminServiceImages,
-  createServiceImage,
-  deleteServiceImage,
-  ServiceImageAdmin,
-  // Portfolio Videos
-  getAdminPortfolioVideos,
-  createPortfolioVideo,
-  updatePortfolioVideo,
-  deletePortfolioVideo,
-  PortfolioVideoAdmin,
+  getAdminCarouselSlides, createCarouselSlideWithFile, updateCarouselSlideWithFile,
+  updateCarouselSlide, deleteCarouselSlide, CarouselSlideAdmin,
+  getAdminServices, createService, updateService, deleteService, ServiceAdmin,
+  getAdminServiceImages, createServiceImage, deleteServiceImage, ServiceImageAdmin,
+  getAdminPortfolioVideos, createPortfolioVideo, updatePortfolioVideo,
+  deletePortfolioVideo, PortfolioVideoAdmin,
 } from '@/lib/api/content';
 import { Card, Button, Input, Textarea, Modal, Badge, LoadingPage } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import {
+  SERVICE_IDS, SERVICE_LABELS, type ServiceId,
+  SERVICE_SUBCATEGORIES, LANDING_SERVICE_IDS,
+} from '@/lib/service-ids';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Constants
-// ═══════════════════════════════════════════════════════════════════════════
-
 const MAX_HERO_SLIDES = 10;
 const MAX_SERVICE_IMAGES = 5;
-const MAX_PORTFOLIO_VIDEOS = 8;
+const MAX_PORTFOLIO_VIDEOS = 2;
 const MAX_IMAGE_SIZE_MB = 5;
-
 const HERO_DIMENSIONS = '1920 × 800 px';
 const SERVICE_DIMENSIONS = '800 × 600 px (4:3)';
 
 type ContentTab = 'carousel' | 'services' | 'videos';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// File Input Helper
-// ═══════════════════════════════════════════════════════════════════════════
-
-function ImageUploadInput({
-  label,
-  required,
-  hint,
-  currentUrl,
-  onChange,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  currentUrl?: string;
+function ImageUploadInput({ label, required, hint, currentUrl, onChange }: {
+  label: string; required?: boolean; hint?: string; currentUrl?: string;
   onChange: (file: File | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] || null;
-      if (file) {
-        if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
-          toast.error(`Imagen muy grande. Máximo ${MAX_IMAGE_SIZE_MB} MB.`);
-          return;
-        }
-        setPreview(URL.createObjectURL(file));
-        setFileName(file.name);
-      } else {
-        setPreview(null);
-        setFileName('');
-      }
-      onChange(file);
-    },
-    [onChange]
-  );
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) { toast.error(`Máximo ${MAX_IMAGE_SIZE_MB} MB.`); return; }
+      setPreview(URL.createObjectURL(file));
+      setFileName(file.name);
+    } else { setPreview(null); setFileName(''); }
+    onChange(file);
+  }, [onChange]);
 
   const displayUrl = preview || currentUrl;
-
   return (
     <div>
       <label className="block text-sm font-medium text-neutral-300 mb-1">
@@ -109,16 +63,11 @@ function ImageUploadInput({
           {displayUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={displayUrl} alt="preview" className="w-full h-full object-cover" />
-          ) : (
-            <PhotoIcon className="h-6 w-6 text-neutral-600" />
-          )}
+          ) : <PhotoIcon className="h-6 w-6 text-neutral-600" />}
         </div>
         <div className="flex-1">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-sm text-neutral-200 rounded-lg border border-neutral-700 transition-colors"
-          >
+          <button type="button" onClick={() => inputRef.current?.click()}
+            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-sm text-neutral-200 rounded-lg border border-neutral-700 transition-colors">
             {fileName || 'Seleccionar imagen…'}
           </button>
           {hint && <p className="text-xs text-neutral-500 mt-1">{hint}</p>}
@@ -130,33 +79,17 @@ function ImageUploadInput({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Main Page
+// MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════
-
 export default function AdminContentPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ContentTab>('carousel');
 
-  const { data: slides = [], isLoading: loadingSlides } = useQuery({
-    queryKey: ['admin-carousel'],
-    queryFn: getAdminCarouselSlides,
-  });
+  const { data: slides = [], isLoading: l1 } = useQuery({ queryKey: ['admin-carousel'], queryFn: getAdminCarouselSlides });
+  const { data: services = [], isLoading: l2 } = useQuery({ queryKey: ['admin-services'], queryFn: getAdminServices });
+  const { data: videos = [], isLoading: l3 } = useQuery({ queryKey: ['admin-portfolio-videos'], queryFn: getAdminPortfolioVideos });
 
-  const { data: services = [], isLoading: loadingServices } = useQuery({
-    queryKey: ['admin-services'],
-    queryFn: getAdminServices,
-  });
-
-  const { data: videos = [], isLoading: loadingVideos } = useQuery({
-    queryKey: ['admin-portfolio-videos'],
-    queryFn: getAdminPortfolioVideos,
-  });
-
-  const isLoading = loadingSlides || loadingServices || loadingVideos;
-
-  if (isLoading) {
-    return <LoadingPage message="Cargando contenido..." />;
-  }
+  if (l1 || l2 || l3) return <LoadingPage message="Cargando contenido..." />;
 
   const tabs: { id: ContentTab; label: string; count: number }[] = [
     { id: 'carousel', label: '🖼️ Hero Carrusel', count: slides.length },
@@ -168,23 +101,21 @@ export default function AdminContentPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Contenido del Landing</h1>
-        <p className="text-neutral-400">
-          Gestiona imágenes del carrusel, servicios y videos del portafolio
+        <p className="text-neutral-400">Gestiona imágenes del carrusel, servicios y videos del portafolio</p>
+      </div>
+
+      {/* Info banner */}
+      <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
+        <p className="text-sm text-cyan-300">
+          💡 El landing muestra <strong>contenido por defecto</strong> mientras estas secciones estén vacías. Agrega tu propio contenido aquí para reemplazarlo.
         </p>
       </div>
 
       <div className="flex gap-2 border-b border-neutral-800 pb-2 overflow-x-auto">
         {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm',
-              activeTab === tab.id
-                ? 'bg-cyan-500/20 text-cyan-400'
-                : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-            )}
-          >
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={cn('px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm',
+              activeTab === tab.id ? 'bg-cyan-500/20 text-cyan-400' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white')}>
             {tab.label} ({tab.count})
           </button>
         ))}
@@ -198,27 +129,24 @@ export default function AdminContentPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAROUSEL TAB
+// CAROUSEL TAB — Admin selects a service from dropdown, title auto-fills
 // ═══════════════════════════════════════════════════════════════════════════
-
 function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; queryClient: ReturnType<typeof useQueryClient> }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<CarouselSlideAdmin | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [form, setForm] = useState({ title: '', title_en: '', subtitle: '', subtitle_en: '', cta_text: '', cta_text_en: '', cta_url: '', position: 0, is_active: true });
+  const [form, setForm] = useState({ service_key: '', title: '', title_en: '', position: 0, is_active: true });
 
   const createMut = useMutation({
     mutationFn: createCarouselSlideWithFile,
     onSuccess: () => { toast.success('Slide creado'); queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }); closeModal(); },
     onError: () => toast.error('Error al crear slide'),
   });
-
   const updateMut = useMutation({
     mutationFn: ({ id, data, file }: { id: string; data: Record<string, unknown>; file?: File }) => updateCarouselSlideWithFile(id, data, file),
     onSuccess: () => { toast.success('Slide actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }); closeModal(); },
     onError: () => toast.error('Error al actualizar'),
   });
-
   const deleteMut = useMutation({
     mutationFn: deleteCarouselSlide,
     onSuccess: () => { toast.success('Slide eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }); },
@@ -229,17 +157,36 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
     updateCarouselSlide(slide.id, { is_active: !slide.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }));
   };
 
-  const openCreate = () => { setEditing(null); setImageFile(null); setForm({ title: '', title_en: '', subtitle: '', subtitle_en: '', cta_text: '', cta_text_en: '', cta_url: '', position: slides.length, is_active: true }); setShowModal(true); };
-  const openEdit = (s: CarouselSlideAdmin) => { setEditing(s); setImageFile(null); setForm({ title: s.title, title_en: s.title_en, subtitle: s.subtitle, subtitle_en: s.subtitle_en, cta_text: s.cta_text, cta_text_en: s.cta_text_en, cta_url: s.cta_url, position: s.position, is_active: s.is_active }); setShowModal(true); };
+  const openCreate = () => {
+    setEditing(null); setImageFile(null);
+    setForm({ service_key: '', title: '', title_en: '', position: slides.length, is_active: true });
+    setShowModal(true);
+  };
+  const openEdit = (s: CarouselSlideAdmin) => {
+    setEditing(s); setImageFile(null);
+    setForm({ service_key: s.service_key || '', title: s.title, title_en: s.title_en, position: s.position, is_active: s.is_active });
+    setShowModal(true);
+  };
   const closeModal = () => { setShowModal(false); setEditing(null); setImageFile(null); };
+
+  const handleServiceSelect = (key: string) => {
+    const label = SERVICE_LABELS[key as ServiceId] || key;
+    setForm((f) => ({ ...f, service_key: key, title: label, title_en: label }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      ...form,
+      subtitle: '', subtitle_en: '',
+      cta_text: 'Cotizar', cta_text_en: 'Quote',
+      cta_url: form.service_key ? `#cotizar?servicio=${form.service_key}` : '#cotizar',
+    };
     if (editing) {
-      updateMut.mutate({ id: editing.id, data: form, file: imageFile || undefined });
+      updateMut.mutate({ id: editing.id, data: payload, file: imageFile || undefined });
     } else {
       if (!imageFile) { toast.error('Selecciona una imagen'); return; }
-      createMut.mutate({ ...form, image: imageFile });
+      createMut.mutate({ ...payload, image: imageFile });
     }
   };
 
@@ -249,7 +196,7 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-sm text-neutral-400">Slides del carrusel Hero. Recomendado: <strong>{HERO_DIMENSIONS}</strong>.</p>
+          <p className="text-sm text-neutral-400">Cada slide representa un servicio cotizable. Recomendado: <strong>{HERO_DIMENSIONS}</strong>.</p>
           <p className="text-xs text-neutral-500 mt-1">Máximo {MAX_HERO_SLIDES} slides · JPEG, PNG o WebP · Máx {MAX_IMAGE_SIZE_MB} MB</p>
         </div>
         <Button onClick={openCreate} disabled={slides.length >= MAX_HERO_SLIDES}><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Slide</Button>
@@ -258,7 +205,7 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
       {sorted.length === 0 ? (
         <Card className="text-center py-12">
           <PhotoIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" />
-          <p className="text-neutral-400">No hay slides</p>
+          <p className="text-neutral-400">No hay slides — el landing muestra imágenes por defecto</p>
           <Button variant="outline" className="mt-4" onClick={openCreate}>Agregar primer slide</Button>
         </Card>
       ) : (
@@ -275,7 +222,7 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
                     <h3 className="font-medium text-white truncate">{slide.title || 'Sin título'}</h3>
                     <Badge variant={slide.is_active ? 'success' : 'default'}>{slide.is_active ? 'Activo' : 'Inactivo'}</Badge>
                   </div>
-                  <p className="text-sm text-neutral-400 truncate">{slide.subtitle || '—'}</p>
+                  {slide.service_key && <p className="text-xs text-cyan-400">Servicio: {SERVICE_LABELS[slide.service_key as ServiceId] || slide.service_key}</p>}
                   <p className="text-xs text-neutral-500 mt-0.5">Pos: {slide.position + 1}</p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -292,24 +239,29 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
       <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Editar Slide' : 'Nuevo Slide'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <ImageUploadInput label="Imagen" required={!editing} hint={`Recomendado: ${HERO_DIMENSIONS}. Máx ${MAX_IMAGE_SIZE_MB} MB.`} currentUrl={editing?.image} onChange={setImageFile} />
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-1">Servicio que representa <span className="text-red-400">*</span></label>
+            <select value={form.service_key} onChange={(e) => handleServiceSelect(e.target.value)} required
+              className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm">
+              <option value="">— Selecciona un servicio —</option>
+              {SERVICE_IDS.map((sid) => (
+                <option key={sid} value={sid}>{SERVICE_LABELS[sid]}</option>
+              ))}
+            </select>
+            <p className="text-xs text-neutral-500 mt-1">El título se auto-genera del servicio. Al dar clic, redirige al cotizador.</p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Input label="Título (ES)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
             <Input label="Título (EN)" value={form.title_en} onChange={(e) => setForm({ ...form, title_en: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Subtítulo (ES)" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
-            <Input label="Subtítulo (EN)" value={form.subtitle_en} onChange={(e) => setForm({ ...form, subtitle_en: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Texto botón (ES)" value={form.cta_text} onChange={(e) => setForm({ ...form, cta_text: e.target.value })} />
-            <Input label="Texto botón (EN)" value={form.cta_text_en} onChange={(e) => setForm({ ...form, cta_text_en: e.target.value })} />
-          </div>
-          <Input label="URL del botón" value={form.cta_url} onChange={(e) => setForm({ ...form, cta_url: e.target.value })} placeholder="#cotizar" />
+
           <div className="grid grid-cols-2 gap-4">
             <Input type="number" label="Posición" value={form.position.toString()} onChange={(e) => setForm({ ...form, position: parseInt(e.target.value) || 0 })} />
             <div className="flex items-center gap-2 pt-8">
-              <input type="checkbox" id="slide-active" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
-              <label htmlFor="slide-active" className="text-sm text-white">Activo</label>
+              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
+              <label className="text-sm text-white">Activo</label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-4">
@@ -325,7 +277,6 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVICES TAB
 // ═══════════════════════════════════════════════════════════════════════════
-
 function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; queryClient: ReturnType<typeof useQueryClient> }) {
   const [showModal, setShowModal] = useState(false);
   const [editingSvc, setEditingSvc] = useState<ServiceAdmin | null>(null);
@@ -337,13 +288,11 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
     onSuccess: () => { toast.success('Servicio creado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowModal(false); },
     onError: () => toast.error('Error al crear'),
   });
-
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ServiceAdmin> }) => updateService(id, data),
     onSuccess: () => { toast.success('Servicio actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowModal(false); },
     onError: () => toast.error('Error al actualizar'),
   });
-
   const deleteMut = useMutation({
     mutationFn: deleteService,
     onSuccess: () => { toast.success('Servicio eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); },
@@ -355,17 +304,15 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
     setForm({ name: '', name_en: '', description: '', description_en: '', icon: '', cta_text: 'Cotizar', cta_text_en: 'Quote', cta_url: '#cotizar', is_featured: false, position: services.length, is_active: true });
     setShowModal(true);
   };
-
   const openEdit = (s: ServiceAdmin) => {
     setEditingSvc(s);
     setForm({ name: s.name, name_en: s.name_en, description: s.description, description_en: s.description_en, icon: s.icon, cta_text: s.cta_text, cta_text_en: s.cta_text_en, cta_url: s.cta_url, is_featured: s.is_featured, position: s.position, is_active: s.is_active });
     setShowModal(true);
   };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingSvc) { updateMut.mutate({ id: editingSvc.id, data: form }); }
-    else { createMut.mutate(form as unknown as Omit<ServiceAdmin, 'id'>); }
+    if (editingSvc) updateMut.mutate({ id: editingSvc.id, data: form });
+    else createMut.mutate(form as unknown as Omit<ServiceAdmin, 'id'>);
   };
 
   const sorted = [...services].sort((a, b) => a.position - b.position);
@@ -374,14 +321,14 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-sm text-neutral-400">Servicios del landing. Clic en un servicio para gestionar sus <strong>imágenes del carrusel</strong>.</p>
+          <p className="text-sm text-neutral-400">Servicios del landing. Clic para gestionar <strong>imágenes del carrusel</strong> (cada imagen = un subtipo).</p>
           <p className="text-xs text-neutral-500 mt-1">Máx {MAX_SERVICE_IMAGES} imágenes por servicio · Recomendado: <strong>{SERVICE_DIMENSIONS}</strong></p>
         </div>
         <Button onClick={openCreate}><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Servicio</Button>
       </div>
 
       {sorted.length === 0 ? (
-        <Card className="text-center py-12"><PhotoIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" /><p className="text-neutral-400">No hay servicios</p></Card>
+        <Card className="text-center py-12"><PhotoIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" /><p className="text-neutral-400">No hay servicios — el landing usa datos por defecto</p></Card>
       ) : (
         <div className="grid gap-3">
           {sorted.map((svc) => (
@@ -399,9 +346,7 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
                     <p className="text-xs text-cyan-400 mt-0.5 flex items-center gap-1"><PhotoIcon className="h-3.5 w-3.5" /> Clic para gestionar imágenes</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => updateMut.mutate({ id: svc.id, data: { is_active: !svc.is_active } })}>
-                      {svc.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => updateMut.mutate({ id: svc.id, data: { is_active: !svc.is_active } })}>{svc.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}</Button>
                     <Button variant="ghost" size="sm" onClick={() => openEdit(svc)}><PencilIcon className="h-5 w-5" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar servicio y sus imágenes?')) deleteMut.mutate(svc.id); }}><TrashIcon className="h-5 w-5 text-red-400" /></Button>
                   </div>
@@ -453,20 +398,17 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
   );
 }
 
-// ── Service Images Sub-Panel ───────────────────────────────────────────
-
+// ── Service Images Sub-Panel (with subtype selector) ───────────────────
 function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId: string; serviceName: string; queryClient: ReturnType<typeof useQueryClient> }) {
   const { data: images = [], isLoading } = useQuery({
     queryKey: ['admin-service-images', serviceId],
     queryFn: () => getAdminServiceImages(serviceId),
   });
-
   const uploadMut = useMutation({
     mutationFn: createServiceImage,
     onSuccess: () => { toast.success('Imagen subida'); queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] }); },
     onError: () => toast.error('Error al subir imagen'),
   });
-
   const deleteMut = useMutation({
     mutationFn: deleteServiceImage,
     onSuccess: () => { toast.success('Imagen eliminada'); queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] }); },
@@ -474,33 +416,50 @@ function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId
   });
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const [selectedSubtype, setSelectedSubtype] = useState('');
+
+  // Find matching landing service for subcategories
+  const matchingLandingId = LANDING_SERVICE_IDS.find((lid) => {
+    const label = SERVICE_LABELS[lid as ServiceId];
+    return label && serviceName.toLowerCase().includes(label.toLowerCase().substring(0, 8));
+  });
+  const subtypes = matchingLandingId ? (SERVICE_SUBCATEGORIES[matchingLandingId] || []) : [];
 
   const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) { toast.error(`Máximo ${MAX_IMAGE_SIZE_MB} MB`); return; }
-    uploadMut.mutate({ service: serviceId, image: file, alt_text: serviceName, position: images.length });
+    uploadMut.mutate({
+      service: serviceId, image: file,
+      alt_text: selectedSubtype ? (subtypes.find(s => s.id === selectedSubtype)?.titleKey || serviceName) : serviceName,
+      subtype_key: selectedSubtype,
+      position: images.length,
+    });
     if (fileRef.current) fileRef.current.value = '';
-  }, [serviceId, serviceName, images.length, uploadMut]);
+  }, [serviceId, serviceName, images.length, uploadMut, selectedSubtype, subtypes]);
 
   if (isLoading) return <p className="text-sm text-neutral-500 py-2">Cargando imágenes…</p>;
-
   const sorted = [...images].sort((a, b) => a.position - b.position);
   const canAdd = images.length < MAX_SERVICE_IMAGES;
 
   return (
     <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h4 className="text-sm font-semibold text-neutral-200">Imágenes del carrusel ({images.length}/{MAX_SERVICE_IMAGES})</h4>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={!canAdd || uploadMut.isPending}
-          className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-colors', canAdd ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' : 'bg-neutral-800 text-neutral-600 cursor-not-allowed')}
-        >
-          <PlusIcon className="h-4 w-4" /> {uploadMut.isPending ? 'Subiendo…' : 'Subir imagen'}
-        </button>
-        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} className="hidden" />
+        <div className="flex items-center gap-2">
+          {subtypes.length > 0 && (
+            <select value={selectedSubtype} onChange={(e) => setSelectedSubtype(e.target.value)}
+              className="rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 px-2 py-1 text-xs">
+              <option value="">Sin subtipo</option>
+              {subtypes.map((st) => <option key={st.id} value={st.id}>{st.titleKey}</option>)}
+            </select>
+          )}
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={!canAdd || uploadMut.isPending}
+            className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-colors', canAdd ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' : 'bg-neutral-800 text-neutral-600 cursor-not-allowed')}>
+            <PlusIcon className="h-4 w-4" /> {uploadMut.isPending ? 'Subiendo…' : 'Subir imagen'}
+          </button>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} className="hidden" />
+        </div>
       </div>
 
       {sorted.length === 0 ? (
@@ -516,7 +475,8 @@ function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId
                   <TrashIcon className="h-4 w-4" />
                 </button>
               </div>
-              <span className="absolute bottom-1 right-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">#{img.position + 1}</span>
+              {img.alt_text && <span className="absolute bottom-1 left-1 text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded truncate max-w-[90%]">{img.alt_text}</span>}
+              <span className="absolute top-1 right-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">#{img.position + 1}</span>
             </div>
           ))}
         </div>
@@ -526,9 +486,8 @@ function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VIDEOS TAB
+// VIDEOS TAB — Max 2 videos
 // ═══════════════════════════════════════════════════════════════════════════
-
 function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; queryClient: ReturnType<typeof useQueryClient> }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<PortfolioVideoAdmin | null>(null);
@@ -539,13 +498,11 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
     onSuccess: () => { toast.success('Video agregado'); queryClient.invalidateQueries({ queryKey: ['admin-portfolio-videos'] }); closeModal(); },
     onError: () => toast.error('Error al crear'),
   });
-
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<PortfolioVideoAdmin> }) => updatePortfolioVideo(id, data),
     onSuccess: () => { toast.success('Video actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-portfolio-videos'] }); closeModal(); },
     onError: () => toast.error('Error al actualizar'),
   });
-
   const deleteMut = useMutation({
     mutationFn: deletePortfolioVideo,
     onSuccess: () => { toast.success('Video eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-portfolio-videos'] }); },
@@ -558,8 +515,8 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) { updateMut.mutate({ id: editing.id, data: form }); }
-    else { createMut.mutate(form as Omit<PortfolioVideoAdmin, 'id' | 'thumbnail_url'>); }
+    if (editing) updateMut.mutate({ id: editing.id, data: form });
+    else createMut.mutate(form as Omit<PortfolioVideoAdmin, 'id' | 'thumbnail_url'>);
   };
 
   const sorted = [...videos].sort((a, b) => a.position - b.position);
@@ -570,17 +527,18 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
         <div>
           <p className="text-sm text-neutral-400">Videos de YouTube para &quot;Trabajos que hablan por nosotros&quot;.</p>
           <p className="text-xs text-neutral-500 mt-1">Máximo {MAX_PORTFOLIO_VIDEOS} videos · Pega URL o solo el ID</p>
+          <p className="text-xs text-neutral-500">Ambos vertical → lado a lado · Si alguno es horizontal → carrusel manual</p>
         </div>
         <Button onClick={openCreate} disabled={videos.length >= MAX_PORTFOLIO_VIDEOS}><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Video</Button>
       </div>
 
       {sorted.length === 0 ? (
-        <Card className="text-center py-12"><FilmIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" /><p className="text-neutral-400">No hay videos</p><Button variant="outline" className="mt-4" onClick={openCreate}>Agregar primer video</Button></Card>
+        <Card className="text-center py-12"><FilmIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" /><p className="text-neutral-400">No hay videos — el landing muestra videos por defecto</p><Button variant="outline" className="mt-4" onClick={openCreate}>Agregar primer video</Button></Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {sorted.map((v) => (
             <Card key={v.id} className="overflow-hidden">
-              <div className={cn('relative bg-neutral-800 overflow-hidden', v.orientation === 'vertical' ? 'aspect-[9/16]' : 'aspect-video')}>
+              <div className={cn('relative bg-neutral-800 overflow-hidden', v.orientation === 'vertical' ? 'aspect-[9/16] max-h-72' : 'aspect-video')}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={v.thumbnail_url} alt={v.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 flex items-center justify-center"><div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center"><PlayIcon className="h-6 w-6 text-white ml-0.5" /></div></div>
@@ -606,12 +564,6 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
       <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Editar Video' : 'Nuevo Video'} size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="URL o ID de YouTube" value={form.youtube_id} onChange={(e) => setForm({ ...form, youtube_id: e.target.value })} placeholder="https://youtube.com/shorts/sqOb-gSSQq8" required />
-          {form.youtube_id.length >= 5 && (
-            <div className="flex justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`https://img.youtube.com/vi/${form.youtube_id.length === 11 ? form.youtube_id : 'placeholder'}/hq720.jpg`} alt="Preview" className="w-32 h-auto rounded-lg border border-neutral-700" />
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-4">
             <Input label="Título (ES)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <Input label="Título (EN)" value={form.title_en} onChange={(e) => setForm({ ...form, title_en: e.target.value })} />

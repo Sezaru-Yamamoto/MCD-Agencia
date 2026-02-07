@@ -35,7 +35,7 @@ class CarouselSlideSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'title_en', 'subtitle', 'subtitle_en',
             'image', 'mobile_image', 'cta_text', 'cta_text_en',
-            'cta_url', 'position', 'is_active'
+            'cta_url', 'service_key', 'position', 'is_active'
         ]
         read_only_fields = ['id']
 
@@ -74,7 +74,7 @@ class CarouselSlidePublicSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'title_en', 'subtitle', 'subtitle_en',
             'image', 'mobile_image', 'cta_text', 'cta_text_en',
-            'cta_url', 'position'
+            'cta_url', 'service_key', 'position'
         ]
         read_only_fields = ['id']
 
@@ -173,7 +173,7 @@ class ServiceImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceImage
-        fields = ['id', 'service', 'image', 'alt_text', 'alt_text_en', 'position', 'is_active']
+        fields = ['id', 'service', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'position', 'is_active']
         read_only_fields = ['id']
 
     def validate_image(self, value):
@@ -202,7 +202,7 @@ class ServiceImagePublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceImage
-        fields = ['id', 'image', 'alt_text', 'alt_text_en', 'position']
+        fields = ['id', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'position']
         read_only_fields = ['id']
 
 
