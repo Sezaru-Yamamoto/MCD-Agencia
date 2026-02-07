@@ -36,19 +36,17 @@ export interface AdminQuoteRequest extends Omit<QuoteRequest, 'assigned_to'> {
 export interface AuditLog {
   id: string;
   timestamp: string;
-  actor?: {
-    id: string;
-    email: string;
-    full_name: string;
-  };
   actor_email?: string;
+  actor_name?: string;
   actor_ip?: string;
   actor_user_agent?: string;
   entity_type: string;
   entity_id: string;
+  entity_repr?: string;
   action: string;
-  before?: Record<string, unknown>;
-  after?: Record<string, unknown>;
+  action_display?: string;
+  before_state?: Record<string, unknown>;
+  after_state?: Record<string, unknown>;
   diff?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 }
@@ -179,11 +177,11 @@ export async function getAuditLogs(filters?: {
   entity_id?: string;
   actor?: string;
   action?: string;
-  date_from?: string;
-  date_to?: string;
+  start_date?: string;
+  end_date?: string;
   page?: number;
 }): Promise<PaginatedResponse<AuditLog>> {
-  return apiClient.get<PaginatedResponse<AuditLog>>('/audit/logs/', filters);
+  return apiClient.get<PaginatedResponse<AuditLog>>('/audit/', filters);
 }
 
 // Dashboard

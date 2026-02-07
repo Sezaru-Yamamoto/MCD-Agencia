@@ -143,10 +143,10 @@ export default function AdminAuditPage() {
                       {formatDateTime(log.timestamp)}
                     </td>
                     <td className="py-4 px-4">
-                      {log.actor ? (
+                      {log.actor_name ? (
                         <div>
-                          <p className="text-white text-sm">{log.actor.full_name}</p>
-                          <p className="text-xs text-neutral-500">{log.actor.email}</p>
+                          <p className="text-white text-sm">{log.actor_name}</p>
+                          <p className="text-xs text-neutral-500">{log.actor_email}</p>
                         </div>
                       ) : (
                         <span className="text-neutral-500 text-sm">
@@ -156,14 +156,14 @@ export default function AdminAuditPage() {
                     </td>
                     <td className="py-4 px-4">
                       <span className={cn('text-sm font-medium capitalize', getActionColor(log.action))}>
-                        {log.action.replace(/_/g, ' ')}
+                        {log.action_display || log.action.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-white text-sm">
-                      {log.entity_type}
+                      {log.entity_repr || log.entity_type}
                     </td>
                     <td className="py-4 px-4 text-neutral-400 text-sm font-mono">
-                      {log.entity_id.substring(0, 8)}...
+                      {log.entity_id.length > 8 ? `${log.entity_id.substring(0, 8)}...` : log.entity_id}
                     </td>
                     <td className="py-4 px-4 text-right">
                       <Button
@@ -208,7 +208,7 @@ export default function AdminAuditPage() {
               <div>
                 <label className="text-neutral-500">Usuario</label>
                 <p className="text-white">
-                  {selectedLog.actor?.full_name || selectedLog.actor_email || 'Sistema'}
+                  {selectedLog.actor_name || selectedLog.actor_email || 'Sistema'}
                 </p>
               </div>
               <div>
@@ -220,12 +220,12 @@ export default function AdminAuditPage() {
               <div>
                 <label className="text-neutral-500">Acción</label>
                 <p className={cn('capitalize', getActionColor(selectedLog.action))}>
-                  {selectedLog.action.replace(/_/g, ' ')}
+                  {selectedLog.action_display || selectedLog.action.replace(/_/g, ' ')}
                 </p>
               </div>
               <div>
                 <label className="text-neutral-500">Entidad</label>
-                <p className="text-white">{selectedLog.entity_type}</p>
+                <p className="text-white">{selectedLog.entity_repr || selectedLog.entity_type}</p>
               </div>
               <div>
                 <label className="text-neutral-500">ID Entidad</label>
@@ -233,20 +233,20 @@ export default function AdminAuditPage() {
               </div>
             </div>
 
-            {selectedLog.before && (
+            {selectedLog.before_state && (
               <div>
                 <label className="text-neutral-500 text-sm">Estado anterior</label>
                 <pre className="mt-1 p-3 bg-neutral-800 rounded-lg text-sm text-neutral-300 overflow-auto max-h-40">
-                  {JSON.stringify(selectedLog.before, null, 2)}
+                  {JSON.stringify(selectedLog.before_state, null, 2)}
                 </pre>
               </div>
             )}
 
-            {selectedLog.after && (
+            {selectedLog.after_state && (
               <div>
                 <label className="text-neutral-500 text-sm">Estado posterior</label>
                 <pre className="mt-1 p-3 bg-neutral-800 rounded-lg text-sm text-neutral-300 overflow-auto max-h-40">
-                  {JSON.stringify(selectedLog.after, null, 2)}
+                  {JSON.stringify(selectedLog.after_state, null, 2)}
                 </pre>
               </div>
             )}
