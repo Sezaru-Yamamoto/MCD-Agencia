@@ -12,6 +12,7 @@ Usage: Set DJANGO_ENV=cloud in environment variables.
 """
 
 from .base import *
+from .base import _INSECURE_SECRET_KEY
 
 # =============================================================================
 # CRITICAL SECURITY VALIDATION
