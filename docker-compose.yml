@@ -58,7 +58,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: mcd-backend
     restart: unless-stopped
     environment:
@@ -93,7 +93,7 @@ services:
   celery:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: mcd-celery
     restart: unless-stopped
     environment:
@@ -121,7 +121,7 @@ services:
   celery-beat:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: mcd-celery-beat
     restart: unless-stopped
     environment:

@@ -69,7 +69,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
       target: production
     container_name: mcd-prod-backend
     restart: always
@@ -143,7 +143,7 @@ services:
   celery:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
       target: production
     container_name: mcd-prod-celery
     restart: always
@@ -191,7 +191,7 @@ services:
   celery-beat:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
       target: production
     container_name: mcd-prod-celery-beat
     restart: always
