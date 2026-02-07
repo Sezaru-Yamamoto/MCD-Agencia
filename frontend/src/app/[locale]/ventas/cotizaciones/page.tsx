@@ -129,7 +129,7 @@ export default function QuotesListPage() {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'MXN',
-    }).format(amount);
+    }).format(Number(amount));
   };
 
   const formatDate = (dateString: string) => {
