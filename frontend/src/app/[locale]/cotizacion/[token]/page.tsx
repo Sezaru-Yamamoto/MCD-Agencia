@@ -206,8 +206,8 @@ export default function QuoteViewPage() {
           <Image
             src="/images/logo.png"
             alt="MCD Agencia"
-            width={120}
-            height={40}
+            width={240}
+            height={80}
             className="mx-auto mb-4"
           />
           <h1 className="text-2xl font-bold text-white">Cotización</h1>

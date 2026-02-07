@@ -24,12 +24,12 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center space-x-2 mb-2 sm:mb-3">
-              <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-20 sm:w-24 h-20 sm:h-24 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Image
                   src="/logo.png"
                   alt="Agencia MCD Logo"
-                  width={48}
-                  height={48}
+                  width={96}
+                  height={96}
                   className="object-contain"
                 />
               </div>

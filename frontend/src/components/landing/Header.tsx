@@ -89,12 +89,12 @@ export function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3 mr-8">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0">
               <Image
                 src="/logo.png"
                 alt="Agencia MCD Logo"
-                width={40}
-                height={40}
+                width={80}
+                height={80}
                 className="object-contain"
                 priority
               />

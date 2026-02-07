@@ -100,9 +100,9 @@ export function Header() {
             <Image
               src="/images/logo.png"
               alt="MCD Agencia"
-              width={120}
-              height={40}
-              className="h-8 w-auto md:h-10"
+              width={240}
+              height={80}
+              className="h-16 w-auto md:h-20"
               priority
             />
           </Link>

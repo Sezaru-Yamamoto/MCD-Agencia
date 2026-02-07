@@ -19,9 +19,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             <Image
               src="/images/logo.png"
               alt="Agencia MCD"
-              width={120}
-              height={40}
-              className="h-10 w-auto"
+              width={240}
+              height={80}
+              className="h-20 w-auto"
             />
           </Link>
         </div>
