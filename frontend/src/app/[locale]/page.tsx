@@ -67,7 +67,7 @@ export default function HomePage() {
       <BackgroundGlow />
 
       <Header />
-      <main className="relative">
+      <main className="relative z-10">
         <Hero />
         <Services />
         <AboutUs />

@@ -28,7 +28,7 @@ const GLOWS = [
 
 export function BackgroundGlow() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
       {GLOWS.map((glow, i) => (
         <div
           key={i}
