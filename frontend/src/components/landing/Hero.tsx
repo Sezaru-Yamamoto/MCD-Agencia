@@ -1,14 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import { CONTACT_INFO } from '@/lib/constants';
 import { trackCTA } from '@/lib/tracking';
+import { getCarouselSlides } from '@/lib/api/content';
 import { ImageCarousel } from './ImageCarousel';
+
+// Fallback images used when the API has no slides yet
+const FALLBACK_IMAGES = [
+  { src: '/images/carousel/valla-movil.jpg', alt: 'Vallas Móviles', title: 'Vallas Móviles' },
+  { src: 'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=800&q=80', alt: 'Banners', title: 'Banners' },
+  { src: 'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=800&q=80', alt: 'Gran Formato', title: 'Gran Formato' },
+  { src: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80', alt: 'Vinilos', title: 'Vinilos' },
+];
 
 export function Hero() {
   const t = useTranslations('landing.hero');
   const [carouselHeight, setCarouselHeight] = useState(300);
+
+  // Fetch carousel slides from API
+  const { data: apiSlides } = useQuery({
+    queryKey: ['carousel-slides'],
+    queryFn: getCarouselSlides,
+    staleTime: 10 * 60 * 1000, // 10 min
+    retry: 1,
+  });
+
+  // Use API slides if available, otherwise fallback
+  const carouselImages = useMemo(() => {
+    if (apiSlides && apiSlides.length > 0) {
+      return apiSlides.map((s) => ({
+        src: s.image,
+        alt: s.title || 'Agencia MCD',
+        title: s.title,
+      }));
+    }
+    return FALLBACK_IMAGES;
+  }, [apiSlides]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -109,28 +139,7 @@ export function Hero() {
           {/* Image/Visual - Responsive Carousel */}
           <div className="relative mt-8 lg:mt-0">
             <ImageCarousel
-              images={[
-                {
-                  src: '/images/carousel/valla-movil.jpg',
-                  alt: t('carousel.mobileBillboards'),
-                  title: t('carousel.mobileBillboards'),
-                },
-                {
-                  src: 'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=800&q=80',
-                  alt: t('carousel.banners'),
-                  title: t('carousel.banners'),
-                },
-                {
-                  src: 'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=800&q=80',
-                  alt: t('carousel.largeFormat'),
-                  title: t('carousel.largeFormat'),
-                },
-                {
-                  src: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
-                  alt: t('carousel.vinyls'),
-                  title: t('carousel.vinyls'),
-                },
-              ]}
+              images={carouselImages}
               autoPlay
               interval={5000}
               height={carouselHeight}

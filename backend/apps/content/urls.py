@@ -23,6 +23,8 @@ from .views import (
     TestimonialViewSet,
     ClientLogoViewSet,
     ServiceViewSet,
+    ServiceImageViewSet,
+    PortfolioVideoViewSet,
     FAQViewSet,
     BranchViewSet,
     LegalPageViewSet,
@@ -34,6 +36,8 @@ app_name = 'content'
 router = DefaultRouter()
 router.register('carousel', CarouselSlideViewSet, basename='carousel')
 router.register('services', ServiceViewSet, basename='services')
+router.register('service-images', ServiceImageViewSet, basename='service-images')
+router.register('portfolio-videos', PortfolioVideoViewSet, basename='portfolio-videos')
 router.register('testimonials', TestimonialViewSet, basename='testimonials')
 router.register('clients', ClientLogoViewSet, basename='clients')
 router.register('faqs', FAQViewSet, basename='faqs')

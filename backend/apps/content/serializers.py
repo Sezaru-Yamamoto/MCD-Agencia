@@ -18,6 +18,8 @@ from .models import (
     Testimonial,
     ClientLogo,
     Service,
+    ServiceImage,
+    PortfolioVideo,
     FAQ,
     Branch,
     LegalPage,
@@ -148,16 +150,115 @@ class ServiceSerializer(serializers.ModelSerializer):
 
 
 class ServicePublicSerializer(serializers.ModelSerializer):
-    """Public serializer for Service (active only)."""
+    """Public serializer for Service (active only), includes carousel images."""
+
+    carousel_images = serializers.SerializerMethodField()
 
     class Meta:
         model = Service
         fields = [
             'id', 'name', 'name_en', 'description', 'description_en',
             'icon', 'image', 'price_from', 'cta_text', 'cta_text_en',
-            'cta_url', 'is_featured', 'position'
+            'cta_url', 'is_featured', 'position', 'carousel_images'
         ]
         read_only_fields = ['id']
+
+    def get_carousel_images(self, obj):
+        images = obj.carousel_images.filter(is_active=True).order_by('position')
+        return ServiceImagePublicSerializer(images, many=True, context=self.context).data
+
+
+class ServiceImageSerializer(serializers.ModelSerializer):
+    """Admin serializer for service images — supports file upload."""
+
+    class Meta:
+        model = ServiceImage
+        fields = ['id', 'service', 'image', 'alt_text', 'alt_text_en', 'position', 'is_active']
+        read_only_fields = ['id']
+
+    def validate_image(self, value):
+        from apps.catalog.image_utils import validate_image, optimize_image
+        is_valid, error = validate_image(value)
+        if not is_valid:
+            raise serializers.ValidationError(error)
+        optimized_file, _ = optimize_image(value, max_size=(800, 600), quality=85)
+        return optimized_file
+
+    def validate(self, attrs):
+        service = attrs.get('service') or (self.instance.service if self.instance else None)
+        if service:
+            existing_count = ServiceImage.objects.filter(service=service).exclude(
+                pk=self.instance.pk if self.instance else None
+            ).count()
+            if existing_count >= ServiceImage.MAX_IMAGES_PER_SERVICE:
+                raise serializers.ValidationError(
+                    f'Maximum {ServiceImage.MAX_IMAGES_PER_SERVICE} images per service.'
+                )
+        return attrs
+
+
+class ServiceImagePublicSerializer(serializers.ModelSerializer):
+    """Public serializer for service images."""
+
+    class Meta:
+        model = ServiceImage
+        fields = ['id', 'image', 'alt_text', 'alt_text_en', 'position']
+        read_only_fields = ['id']
+
+
+class PortfolioVideoSerializer(serializers.ModelSerializer):
+    """Admin serializer for portfolio videos."""
+
+    thumbnail_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PortfolioVideo
+        fields = [
+            'id', 'youtube_id', 'title', 'title_en',
+            'orientation', 'position', 'is_active', 'thumbnail_url'
+        ]
+        read_only_fields = ['id', 'thumbnail_url']
+
+    def get_thumbnail_url(self, obj):
+        return f'https://img.youtube.com/vi/{obj.youtube_id}/hq720.jpg'
+
+    def validate_youtube_id(self, value):
+        import re
+        patterns = [
+            r'(?:youtube\.com/shorts/|youtu\.be/|youtube\.com/watch\?v=)([a-zA-Z0-9_-]{11})',
+            r'^([a-zA-Z0-9_-]{11})$',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, value)
+            if match:
+                return match.group(1)
+        raise serializers.ValidationError('Enter a valid YouTube video ID or URL.')
+
+    def validate(self, attrs):
+        if not self.instance:
+            existing_count = PortfolioVideo.objects.count()
+            if existing_count >= PortfolioVideo.MAX_VIDEOS:
+                raise serializers.ValidationError(
+                    f'Maximum {PortfolioVideo.MAX_VIDEOS} portfolio videos allowed.'
+                )
+        return attrs
+
+
+class PortfolioVideoPublicSerializer(serializers.ModelSerializer):
+    """Public serializer for portfolio videos."""
+
+    thumbnail_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PortfolioVideo
+        fields = [
+            'id', 'youtube_id', 'title', 'title_en',
+            'orientation', 'position', 'thumbnail_url'
+        ]
+        read_only_fields = ['id']
+
+    def get_thumbnail_url(self, obj):
+        return f'https://img.youtube.com/vi/{obj.youtube_id}/hq720.jpg'
 
 
 class FAQSerializer(serializers.ModelSerializer):
@@ -325,4 +426,5 @@ class LandingPageSerializer(serializers.Serializer):
     clients = ClientLogoPublicSerializer(many=True, read_only=True)
     faqs = FAQPublicSerializer(many=True, read_only=True)
     branches = BranchPublicSerializer(many=True, read_only=True)
+    portfolio_videos = PortfolioVideoPublicSerializer(many=True, read_only=True)
     config = SiteConfigurationPublicSerializer(read_only=True)

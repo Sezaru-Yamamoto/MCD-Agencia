@@ -605,6 +605,132 @@ class LegalPage(TimeStampedModel, SEOModel):
         return f"{self.get_type_display()} v{self.version}"
 
 
+class ServiceImage(TimeStampedModel, OrderedModel):
+    """
+    Image for a service's carousel on the landing page.
+
+    Each service can have multiple images that rotate in a carousel.
+    Limited to MAX_IMAGES_PER_SERVICE per service to keep page fast.
+
+    Attributes:
+        service: Parent service
+        image: Uploaded image (auto-optimized to WebP)
+        alt_text: Alt text (Spanish)
+        alt_text_en: Alt text (English)
+        is_active: Whether image is visible
+    """
+
+    MAX_IMAGES_PER_SERVICE = 5
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.CASCADE,
+        related_name='carousel_images',
+        verbose_name=_('service'),
+    )
+    image = models.ImageField(
+        _('image'),
+        upload_to='content/services/carousel/',
+        help_text=_('Service image. Recommended: 800×600 px (4:3). Max 5 MB.')
+    )
+    alt_text = models.CharField(
+        _('alt text'),
+        max_length=255,
+        blank=True,
+        help_text=_('Image alt text in Spanish.')
+    )
+    alt_text_en = models.CharField(
+        _('alt text (English)'),
+        max_length=255,
+        blank=True,
+        help_text=_('Image alt text in English.')
+    )
+    is_active = models.BooleanField(
+        _('is active'),
+        default=True,
+        help_text=_('Whether image is visible on the landing page.')
+    )
+
+    class Meta:
+        verbose_name = _('service image')
+        verbose_name_plural = _('service images')
+        ordering = ['service', 'position']
+
+    def __str__(self):
+        return f"{self.service.name} - Image {self.position + 1}"
+
+
+class PortfolioVideo(TimeStampedModel, OrderedModel):
+    """
+    YouTube video for the portfolio section.
+
+    Supports both vertical (Shorts/Reels) and horizontal videos.
+    Limited to MAX_VIDEOS total to keep the section manageable.
+
+    Attributes:
+        youtube_id: YouTube video ID (e.g., 'sqOb-gSSQq8')
+        title: Video label (Spanish)
+        title_en: Video label (English)
+        orientation: 'vertical' (9:16) or 'horizontal' (16:9)
+        is_active: Whether video is visible
+    """
+
+    MAX_VIDEOS = 8
+
+    ORIENTATION_CHOICES = [
+        ('vertical', _('Vertical (9:16) — Shorts/Reels')),
+        ('horizontal', _('Horizontal (16:9) — Standard')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    youtube_id = models.CharField(
+        _('YouTube video ID'),
+        max_length=20,
+        help_text=_('The video ID from the YouTube URL. E.g. for https://youtube.com/shorts/sqOb-gSSQq8 → sqOb-gSSQq8')
+    )
+    title = models.CharField(
+        _('title'),
+        max_length=255,
+        blank=True,
+        help_text=_('Video label in Spanish (shown below the video).')
+    )
+    title_en = models.CharField(
+        _('title (English)'),
+        max_length=255,
+        blank=True,
+        help_text=_('Video label in English.')
+    )
+    orientation = models.CharField(
+        _('orientation'),
+        max_length=20,
+        choices=ORIENTATION_CHOICES,
+        default='vertical',
+        help_text=_('Video aspect ratio.')
+    )
+    is_active = models.BooleanField(
+        _('is active'),
+        default=True,
+        help_text=_('Whether video is visible on the landing page.')
+    )
+
+    class Meta:
+        verbose_name = _('portfolio video')
+        verbose_name_plural = _('portfolio videos')
+        ordering = ['position']
+
+    def __str__(self):
+        return f"{self.title or self.youtube_id} ({self.get_orientation_display()})"
+
+
 class SiteConfiguration(TimeStampedModel):
     """
     Global site configuration singleton.

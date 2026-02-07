@@ -20,6 +20,8 @@ from .models import (
     Testimonial,
     ClientLogo,
     Service,
+    ServiceImage,
+    PortfolioVideo,
     FAQ,
     Branch,
     LegalPage,
@@ -34,6 +36,10 @@ from .serializers import (
     ClientLogoPublicSerializer,
     ServiceSerializer,
     ServicePublicSerializer,
+    ServiceImageSerializer,
+    ServiceImagePublicSerializer,
+    PortfolioVideoSerializer,
+    PortfolioVideoPublicSerializer,
     FAQSerializer,
     FAQPublicSerializer,
     BranchSerializer,
@@ -65,6 +71,7 @@ class LandingPageView(APIView):
             'clients': ClientLogo.objects.filter(is_active=True).order_by('position'),
             'faqs': FAQ.objects.filter(is_active=True).order_by('category', 'position'),
             'branches': Branch.objects.filter(is_active=True).order_by('position'),
+            'portfolio_videos': PortfolioVideo.objects.filter(is_active=True).order_by('position'),
             'config': SiteConfiguration.get_config(),
         }
 
@@ -86,6 +93,9 @@ class LandingPageView(APIView):
             ).data,
             'branches': BranchPublicSerializer(
                 data['branches'], many=True, context={'request': request}
+            ).data,
+            'portfolio_videos': PortfolioVideoPublicSerializer(
+                data['portfolio_videos'], many=True, context={'request': request}
             ).data,
             'config': SiteConfigurationPublicSerializer(
                 data['config'], context={'request': request}
@@ -274,6 +284,98 @@ class ServiceViewSet(viewsets.ModelViewSet):
         services = Service.objects.filter(is_active=True, is_featured=True).order_by('position')
         serializer = ServicePublicSerializer(services, many=True, context={'request': request})
         return Response(serializer.data)
+
+
+class ServiceImageViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for service carousel image management.
+
+    Supports file upload via multipart/form-data.
+    Limited to MAX_IMAGES_PER_SERVICE per service.
+
+    GET /api/v1/content/service-images/?service=<uuid>  — list images
+    POST /api/v1/content/service-images/                 — upload image
+    """
+
+    serializer_class = ServiceImageSerializer
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        qs = ServiceImage.objects.select_related('service').order_by('service', 'position')
+        service_id = self.request.query_params.get('service')
+        if service_id:
+            qs = qs.filter(service_id=service_id)
+        if not self.request.user.is_staff:
+            qs = qs.filter(is_active=True)
+        return qs
+
+    def get_serializer_class(self):
+        if not self.request.user.is_staff:
+            return ServiceImagePublicSerializer
+        return ServiceImageSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+    def perform_create(self, serializer):
+        image = serializer.save()
+        AuditLog.log(
+            entity=image, action=AuditLog.ACTION_CREATED,
+            actor=self.request.user, request=self.request,
+        )
+
+    def perform_destroy(self, instance):
+        AuditLog.log(
+            entity=instance, action=AuditLog.ACTION_DELETED,
+            actor=self.request.user, request=self.request,
+        )
+        instance.delete()
+
+
+class PortfolioVideoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for portfolio video management.
+
+    Limited to MAX_VIDEOS total.
+    Accepts YouTube video ID or full URL (auto-extracted).
+
+    GET  /api/v1/content/portfolio-videos/  — list videos
+    POST /api/v1/content/portfolio-videos/  — add video
+    """
+
+    serializer_class = PortfolioVideoSerializer
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return PortfolioVideo.objects.all().order_by('position')
+        return PortfolioVideo.objects.filter(is_active=True).order_by('position')
+
+    def get_serializer_class(self):
+        if not self.request.user.is_staff:
+            return PortfolioVideoPublicSerializer
+        return PortfolioVideoSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+    def perform_create(self, serializer):
+        video = serializer.save()
+        AuditLog.log(
+            entity=video, action=AuditLog.ACTION_CREATED,
+            actor=self.request.user, request=self.request,
+        )
+
+    def perform_update(self, serializer):
+        video = serializer.save()
+        AuditLog.log(
+            entity=video, action=AuditLog.ACTION_UPDATED,
+            actor=self.request.user, request=self.request,
+        )
 
 
 class FAQViewSet(viewsets.ModelViewSet):

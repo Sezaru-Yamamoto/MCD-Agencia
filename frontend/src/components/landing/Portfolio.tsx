@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import { trackCTA } from '@/lib/tracking';
+import { getPortfolioVideos, type PortfolioVideo } from '@/lib/api/content';
 
 /**
  * =============================================
- * CONFIGURACIÓN DE VIDEOS
+ * FALLBACK VIDEOS (when API has no videos yet)
  * =============================================
- * Videos en formato vertical (Shorts / Reels / Stories).
- * El ID es la parte final de la URL del Short:
- *   https://youtube.com/shorts/sqOb-gSSQq8
- *                               ^^^^^^^^^^^
  */
-const VIDEOS = [
+const FALLBACK_VIDEOS = [
   { id: 'sqOb-gSSQq8', labelKey: 'video1Label' },
   { id: 'b33fwbyZRQM', labelKey: 'video2Label' },
 ];
@@ -23,11 +21,13 @@ function VideoCard({
   label,
   playLabel,
   altText,
+  orientation = 'vertical',
 }: {
   videoId: string;
   label: string;
   playLabel: string;
   altText: string;
+  orientation?: 'vertical' | 'horizontal';
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -40,7 +40,7 @@ function VideoCard({
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hq720.jpg`;
 
   return (
-    <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-cmyk-cyan/20 bg-neutral-900 group/card">
+    <div className={`relative ${orientation === 'horizontal' ? 'aspect-video' : 'aspect-[9/16]'} rounded-2xl overflow-hidden shadow-2xl border border-cmyk-cyan/20 bg-neutral-900 group/card`}>
       {!isPlaying ? (
         <button
           onClick={handlePlay}
@@ -95,6 +95,26 @@ function VideoCard({
 export function Portfolio() {
   const t = useTranslations('landing.portfolio');
 
+  // Fetch portfolio videos from API
+  const { data: apiVideos } = useQuery({
+    queryKey: ['portfolio-videos'],
+    queryFn: getPortfolioVideos,
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Use API videos if available, otherwise fallback
+  const videos = useMemo(() => {
+    if (apiVideos && apiVideos.length > 0) {
+      return apiVideos.map((v) => ({
+        id: v.youtube_id,
+        labelKey: v.title || v.youtube_id,
+        orientation: v.orientation,
+      }));
+    }
+    return FALLBACK_VIDEOS.map((v) => ({ ...v, orientation: 'vertical' as const }));
+  }, [apiVideos]);
+
   const handleQuoteClick = () => {
     trackCTA('quote', 'portfolio');
   };
@@ -110,18 +130,21 @@ export function Portfolio() {
           </p>
         </div>
 
-        {/* 2 Videos verticales lado a lado */}
-        <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 mb-10 sm:mb-14 px-4 sm:px-0">
-          {VIDEOS.map((video) => (
+        {/* Videos lado a lado */}
+        <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 mb-10 sm:mb-14 px-4 sm:px-0 flex-wrap">
+          {videos.map((video) => (
             <div
               key={video.id}
-              className="w-[45%] sm:w-[40%] md:w-[280px] lg:w-[320px]"
+              className={video.orientation === 'horizontal'
+                ? 'w-full sm:w-[80%] md:w-[560px] lg:w-[640px]'
+                : 'w-[45%] sm:w-[40%] md:w-[280px] lg:w-[320px]'}
             >
               <VideoCard
                 videoId={video.id}
-                label={t(video.labelKey)}
+                label={video.labelKey}
                 playLabel={t('playVideo')}
                 altText={t('videoAlt')}
+                orientation={video.orientation}
               />
             </div>
           ))}

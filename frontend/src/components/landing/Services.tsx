@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import {
   LANDING_SERVICE_IDS,
   SERVICE_CAROUSEL_IMAGES,
@@ -9,15 +10,39 @@ import {
   type LandingServiceId
 } from '@/lib/service-ids';
 import { CONTACT_INFO } from '@/lib/constants';
+import { getLandingPageData } from '@/lib/api/content';
 import { ServiceCardCarousel } from './ServiceCardCarousel';
 
 export function Services() {
   const t = useTranslations('landing.services');
   const [selectedServiceId, setSelectedServiceId] = useState<LandingServiceId | null>(null);
 
+  // Fetch landing data to get services with carousel_images from API
+  const { data: landingData } = useQuery({
+    queryKey: ['landing-data'],
+    queryFn: getLandingPageData,
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Build API images lookup by service position (index)
+  const apiImagesByPosition = useMemo(() => {
+    const map: Record<number, string[]> = {};
+    if (landingData?.services) {
+      landingData.services.forEach((svc, idx) => {
+        if (svc.carousel_images && svc.carousel_images.length > 0) {
+          map[idx] = svc.carousel_images.map((img) => img.image);
+        }
+      });
+    }
+    return map;
+  }, [landingData]);
+
   // Get translated service data with subcategories
-  const getServiceData = (id: LandingServiceId) => {
+  const getServiceData = (id: LandingServiceId, index: number) => {
     const subcategories = SERVICE_SUBCATEGORIES[id] || [];
+    // Use API-provided images if available (matched by position), else hardcoded
+    const carouselImages = apiImagesByPosition[index] ?? SERVICE_CAROUSEL_IMAGES[id];
     return {
       id,
       title: t(`items.${id}.title`),
@@ -26,11 +51,11 @@ export function Services() {
         ...sub,
         title: t(`subcategories.${sub.titleKey}`),
       })),
-      carouselImages: SERVICE_CAROUSEL_IMAGES[id],
+      carouselImages,
     };
   };
 
-  const selectedService = selectedServiceId ? getServiceData(selectedServiceId) : null;
+  const selectedService = selectedServiceId ? getServiceData(selectedServiceId, LANDING_SERVICE_IDS.indexOf(selectedServiceId)) : null;
 
   return (
     <section id="servicios" className="section py-12 sm:py-16 md:py-20 lg:py-24">
@@ -45,7 +70,7 @@ export function Services() {
         {/* Grid de Servicios */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 px-4 sm:px-0">
           {LANDING_SERVICE_IDS.map((serviceId, index) => {
-            const service = getServiceData(serviceId);
+            const service = getServiceData(serviceId, index);
             return (
               <div
                 key={serviceId}

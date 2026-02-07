@@ -114,9 +114,10 @@ async function request<T>(
   const url = buildUrl(endpoint, params);
   let accessToken = getAccessToken();
 
-  // Build headers
+  // Build headers — skip Content-Type for FormData (browser sets it with boundary)
+  const isFormData = restConfig.body instanceof FormData;
   const requestHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...headers,
   };
 
@@ -197,6 +198,14 @@ export const apiClient = {
 
   delete: <T>(endpoint: string) =>
     request<T>(endpoint, { method: 'DELETE' }),
+
+  /** POST with FormData (for file uploads). Content-Type set automatically. */
+  upload: <T>(endpoint: string, formData: FormData) =>
+    request<T>(endpoint, { method: 'POST', body: formData }),
+
+  /** PATCH with FormData (for file uploads). Content-Type set automatically. */
+  uploadPatch: <T>(endpoint: string, formData: FormData) =>
+    request<T>(endpoint, { method: 'PATCH', body: formData }),
 };
 
 export default apiClient;

@@ -135,6 +135,7 @@ export interface Service {
   is_featured: boolean;
   position: number;
   is_active?: boolean;
+  carousel_images?: ServiceImage[];
 }
 
 export interface LandingPageData {
@@ -144,6 +145,7 @@ export interface LandingPageData {
   clients: ClientLogo[];
   faqs: FAQ[];
   branches: Branch[];
+  portfolio_videos: PortfolioVideo[];
   config: SiteConfig;
 }
 
@@ -154,6 +156,35 @@ export interface ContactFormData {
   company?: string;
   message: string;
   privacy_accepted: boolean;
+}
+
+// ── Service Image (carousel images per service) ────────────────────────
+export interface ServiceImage {
+  id: string;
+  image: string;
+  alt_text: string;
+  alt_text_en: string;
+  position: number;
+}
+
+export interface ServiceImageAdmin extends ServiceImage {
+  service: string; // service UUID
+  is_active: boolean;
+}
+
+// ── Portfolio Video ─────────────────────────────────────────────────────
+export interface PortfolioVideo {
+  id: string;
+  youtube_id: string;
+  title: string;
+  title_en: string;
+  orientation: 'vertical' | 'horizontal';
+  position: number;
+  thumbnail_url: string;
+}
+
+export interface PortfolioVideoAdmin extends PortfolioVideo {
+  is_active: boolean;
 }
 
 // API Functions
@@ -316,4 +347,163 @@ export async function getServices(): Promise<Service[]> {
 export async function getFeaturedServices(): Promise<Service[]> {
   const response = await apiClient.get<Service[]>('/content/services/featured/');
   return response;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Service Images API (file uploads via FormData)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get service images (admin), optionally filtered by service.
+ */
+export async function getAdminServiceImages(serviceId?: string): Promise<ServiceImageAdmin[]> {
+  const params = serviceId ? { service: serviceId } : undefined;
+  const response = await apiClient.get<{ results: ServiceImageAdmin[] } | ServiceImageAdmin[]>(
+    '/content/service-images/', params
+  );
+  return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Upload a service image (admin). Uses FormData for file upload.
+ */
+export async function createServiceImage(data: {
+  service: string;
+  image: File;
+  alt_text?: string;
+  alt_text_en?: string;
+  position?: number;
+}): Promise<ServiceImageAdmin> {
+  const formData = new FormData();
+  formData.append('service', data.service);
+  formData.append('image', data.image);
+  if (data.alt_text) formData.append('alt_text', data.alt_text);
+  if (data.alt_text_en) formData.append('alt_text_en', data.alt_text_en);
+  formData.append('position', String(data.position ?? 0));
+  return apiClient.upload<ServiceImageAdmin>('/content/service-images/', formData);
+}
+
+/**
+ * Update a service image (admin).
+ */
+export async function updateServiceImage(
+  id: string,
+  data: Partial<ServiceImageAdmin>
+): Promise<ServiceImageAdmin> {
+  return apiClient.patch<ServiceImageAdmin>(`/content/service-images/${id}/`, data);
+}
+
+/**
+ * Delete a service image (admin).
+ */
+export async function deleteServiceImage(id: string): Promise<void> {
+  return apiClient.delete(`/content/service-images/${id}/`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Portfolio Videos API
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get portfolio videos (public).
+ */
+export async function getPortfolioVideos(): Promise<PortfolioVideo[]> {
+  const response = await apiClient.get<{ results: PortfolioVideo[] } | PortfolioVideo[]>(
+    '/content/portfolio-videos/'
+  );
+  return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Get portfolio videos (admin — includes inactive).
+ */
+export async function getAdminPortfolioVideos(): Promise<PortfolioVideoAdmin[]> {
+  const response = await apiClient.get<{ results: PortfolioVideoAdmin[] } | PortfolioVideoAdmin[]>(
+    '/content/portfolio-videos/'
+  );
+  return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Create portfolio video (admin).
+ */
+export async function createPortfolioVideo(
+  data: Omit<PortfolioVideoAdmin, 'id' | 'thumbnail_url'>
+): Promise<PortfolioVideoAdmin> {
+  return apiClient.post<PortfolioVideoAdmin>('/content/portfolio-videos/', data);
+}
+
+/**
+ * Update portfolio video (admin).
+ */
+export async function updatePortfolioVideo(
+  id: string,
+  data: Partial<PortfolioVideoAdmin>
+): Promise<PortfolioVideoAdmin> {
+  return apiClient.patch<PortfolioVideoAdmin>(`/content/portfolio-videos/${id}/`, data);
+}
+
+/**
+ * Delete portfolio video (admin).
+ */
+export async function deletePortfolioVideo(id: string): Promise<void> {
+  return apiClient.delete(`/content/portfolio-videos/${id}/`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Carousel Slides — file upload variant
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create carousel slide with image file upload (admin).
+ */
+export async function createCarouselSlideWithFile(data: {
+  title: string;
+  title_en?: string;
+  subtitle?: string;
+  subtitle_en?: string;
+  image: File;
+  mobile_image?: File;
+  cta_text?: string;
+  cta_text_en?: string;
+  cta_url?: string;
+  position?: number;
+  is_active?: boolean;
+}): Promise<CarouselSlideAdmin> {
+  const formData = new FormData();
+  formData.append('title', data.title);
+  if (data.title_en) formData.append('title_en', data.title_en);
+  if (data.subtitle) formData.append('subtitle', data.subtitle);
+  if (data.subtitle_en) formData.append('subtitle_en', data.subtitle_en);
+  formData.append('image', data.image);
+  if (data.mobile_image) formData.append('mobile_image', data.mobile_image);
+  if (data.cta_text) formData.append('cta_text', data.cta_text);
+  if (data.cta_text_en) formData.append('cta_text_en', data.cta_text_en);
+  if (data.cta_url) formData.append('cta_url', data.cta_url);
+  formData.append('position', String(data.position ?? 0));
+  formData.append('is_active', String(data.is_active ?? true));
+  return apiClient.upload<CarouselSlideAdmin>('/content/carousel/', formData);
+}
+
+/**
+ * Update carousel slide with optional image file (admin).
+ */
+export async function updateCarouselSlideWithFile(
+  id: string,
+  data: Record<string, unknown>,
+  imageFile?: File,
+  mobileImageFile?: File,
+): Promise<CarouselSlideAdmin> {
+  if (!imageFile && !mobileImageFile) {
+    return apiClient.patch<CarouselSlideAdmin>(`/content/carousel/${id}/`, data);
+  }
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+  if (imageFile) formData.append('image', imageFile);
+  if (mobileImageFile) formData.append('mobile_image', mobileImageFile);
+  return apiClient.uploadPatch<CarouselSlideAdmin>(`/content/carousel/${id}/`, formData);
 }
