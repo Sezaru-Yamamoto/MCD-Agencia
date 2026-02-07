@@ -27,20 +27,103 @@ python manage.py collectstatic --noinput
 echo "=== Running database migrations ==="
 python manage.py migrate --noinput
 
+echo "=== Creating default roles ==="
+python manage.py shell -c "
+from apps.users.models import Role
+
+# Define the 3 active roles with their permissions
+roles_data = [
+    {
+        'name': 'admin',
+        'display_name': 'Administrator',
+        'description': 'Full administrative access to all system features.',
+        'is_system': True,
+        'permissions': {
+            'catalog': {'view': True, 'create': True, 'edit': True, 'delete': True},
+            'orders': {'view': True, 'create': True, 'edit': True, 'delete': True, 'manage': True},
+            'quotes': {'view': True, 'create': True, 'edit': True, 'delete': True, 'respond': True, 'assign': True},
+            'users': {'view': True, 'create': True, 'edit': True, 'delete': True},
+            'inventory': {'view': True, 'create': True, 'edit': True, 'delete': True},
+            'content': {'view': True, 'create': True, 'edit': True, 'delete': True},
+            'payments': {'view': True, 'manage': True},
+            'audit': {'view': True},
+            'chatbot': {'view': True, 'manage': True},
+            'analytics': {'view': True},
+        },
+    },
+    {
+        'name': 'sales',
+        'display_name': 'Sales',
+        'description': 'Commercial operations: quotes, orders, customers.',
+        'is_system': True,
+        'permissions': {
+            'catalog': {'view': True},
+            'orders': {'view': True, 'create': True, 'edit': True},
+            'quotes': {'view': True, 'create': True, 'edit': True, 'respond': True},
+            'users': {'view': True},
+            'inventory': {'view': True},
+            'chatbot': {'view': True},
+        },
+    },
+    {
+        'name': 'customer',
+        'display_name': 'Customer',
+        'description': 'End-user access to own orders and quotes.',
+        'is_system': True,
+        'permissions': {
+            'catalog': {'view': True},
+            'orders': {'view': True, 'create': True},
+            'quotes': {'view': True, 'create': True},
+        },
+    },
+]
+
+for role_data in roles_data:
+    role, created = Role.objects.update_or_create(
+        name=role_data['name'],
+        defaults=role_data,
+    )
+    status = 'Created' if created else 'Updated'
+    print(f'{status} role: {role.display_name}')
+
+print('Default roles ready.')
+"
+
 echo "=== Creating superuser if needed ==="
 python manage.py shell -c "
-from apps.users.models import User
+from apps.users.models import User, Role
 import os
 email = os.getenv('DJANGO_SUPERUSER_EMAIL', '')
 password = os.getenv('DJANGO_SUPERUSER_PASSWORD', '')
 if email and password:
+    admin_role = Role.objects.filter(name='admin').first()
     if not User.objects.filter(email=email).exists():
         user = User.objects.create_superuser(email=email, password=password)
         user.first_name = 'Admin'
+        user.role = admin_role
+        user.is_email_verified = True
         user.save()
-        print(f'Superuser {email} created successfully')
+        print(f'Superuser {email} created with admin role')
     else:
-        print(f'Superuser {email} already exists')
+        user = User.objects.get(email=email)
+        updated = False
+        if user.role != admin_role:
+            user.role = admin_role
+            updated = True
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            updated = True
+        if not user.is_staff:
+            user.is_staff = True
+            updated = True
+        if not user.is_superuser:
+            user.is_superuser = True
+            updated = True
+        if updated:
+            user.save()
+            print(f'Superuser {email} updated with admin role')
+        else:
+            print(f'Superuser {email} already has admin role')
 else:
     print('No DJANGO_SUPERUSER_EMAIL/PASSWORD set, skipping superuser creation')
 "
