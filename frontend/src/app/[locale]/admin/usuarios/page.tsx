@@ -12,7 +12,7 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAdminUsers, activateUser, deactivateUser, changeUserRole } from '@/lib/api/admin';
+import { getAdminUsers, activateUser, deactivateUser, changeUserRole, AdminUser } from '@/lib/api/admin';
 import { apiClient } from '@/lib/api/client';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage, Modal } from '@/components/ui';
 import { formatDate, getInitials } from '@/lib/utils';
@@ -185,7 +185,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {users.map((user: AdminUser) => (
                   <tr
                     key={user.id}
                     className="border-b border-neutral-800 hover:bg-neutral-900/50"
@@ -202,7 +202,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <Badge variant={user.role?.name === 'admin' ? 'cyan' : user.role?.name === 'sales' ? 'yellow' : 'default'}>
+                      <Badge variant={user.role?.name === 'admin' ? 'cyan' : user.role?.name === 'sales' ? 'warning' : 'default'}>
                         {user.role?.display_name || 'Cliente'}
                       </Badge>
                     </td>

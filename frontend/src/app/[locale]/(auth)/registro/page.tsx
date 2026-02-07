@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,6 +52,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const locale = useLocale();
   const { register: registerUser } = useAuth();
   const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
@@ -59,16 +60,29 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Get pre-fill values from URL
+  const prefillEmail = searchParams.get('email') || '';
+  const redirectUrl = searchParams.get('redirect') || '';
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      email: prefillEmail,
       marketing_consent: false,
     },
   });
+
+  // Pre-fill email if provided in URL
+  useEffect(() => {
+    if (prefillEmail) {
+      setValue('email', prefillEmail);
+    }
+  }, [prefillEmail, setValue]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
@@ -87,7 +101,12 @@ export default function RegisterPage() {
       // Include recaptcha token with registration data
       await registerUser({ ...data, recaptcha_token: recaptchaToken });
       toast.success('¡Registro exitoso! Revisa tu email para verificar tu cuenta.');
-      router.push(`/${locale}/login?registered=true`);
+      // Redirect to the specified URL or login page
+      if (redirectUrl) {
+        router.push(`/${locale}/login?registered=true&redirect=${encodeURIComponent(redirectUrl)}`);
+      } else {
+        router.push(`/${locale}/login?registered=true`);
+      }
     } catch (error: unknown) {
       const err = error as { message?: string; data?: Record<string, string[]> };
       if (err.data) {
@@ -107,6 +126,14 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-bold text-white mb-2">Crear Cuenta</h1>
         <p className="text-neutral-400">Únete a Agencia MCD</p>
       </div>
+
+      {prefillEmail && (
+        <div className="mb-6 p-4 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+          <p className="text-neutral-300 text-sm">
+            Crea tu cuenta con <strong className="text-white">{prefillEmail}</strong> para gestionar tus cotizaciones y dar seguimiento a tus pedidos.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">

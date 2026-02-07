@@ -39,7 +39,7 @@ export function ServiceCardCarousel({
 
   return (
     <div
-      className="relative w-full h-56 overflow-hidden bg-gray-200"
+      className="relative w-full h-full min-h-[200px] overflow-hidden bg-gray-200"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

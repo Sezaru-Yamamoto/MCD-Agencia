@@ -180,8 +180,7 @@ export default function ClientsListPage() {
   const avgOrderValue = totalRevenue / clients.reduce((sum, c) => sum + c.total_orders, 0) || 0;
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4">
+    <div>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
@@ -336,7 +335,6 @@ export default function ClientsListPage() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
@@ -15,84 +15,30 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, Button, LoadingPage } from '@/components/ui';
+import { Card, Button, LoadingPage, Pagination } from '@/components/ui';
+import { getAdminQuotes, deleteQuote, duplicateQuote, Quote, QuoteStatus } from '@/lib/api/quotes';
+import { PaginatedResponse } from '@/lib/api/catalog';
 
-// Types
-interface Quote {
-  id: string;
-  quote_number: string;
-  client: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired';
-  total: number;
-  created_at: string;
-  valid_until: string;
-  items_count: number;
-}
-
-// Mock data - Replace with API call
-const mockQuotes: Quote[] = [
-  {
-    id: '1',
-    quote_number: 'COT-2024-001',
-    client: { id: '1', name: 'Juan Pérez', email: 'juan@example.com' },
-    status: 'sent',
-    total: 15000,
-    created_at: '2024-01-15T10:00:00Z',
-    valid_until: '2024-02-15T10:00:00Z',
-    items_count: 3,
-  },
-  {
-    id: '2',
-    quote_number: 'COT-2024-002',
-    client: { id: '2', name: 'María García', email: 'maria@example.com' },
-    status: 'accepted',
-    total: 8500,
-    created_at: '2024-01-14T14:30:00Z',
-    valid_until: '2024-02-14T14:30:00Z',
-    items_count: 2,
-  },
-  {
-    id: '3',
-    quote_number: 'COT-2024-003',
-    client: { id: '3', name: 'Carlos López', email: 'carlos@example.com' },
-    status: 'draft',
-    total: 22000,
-    created_at: '2024-01-16T09:15:00Z',
-    valid_until: '2024-02-16T09:15:00Z',
-    items_count: 5,
-  },
-  {
-    id: '4',
-    quote_number: 'COT-2024-004',
-    client: { id: '4', name: 'Ana Martínez', email: 'ana@example.com' },
-    status: 'rejected',
-    total: 5200,
-    created_at: '2024-01-10T16:45:00Z',
-    valid_until: '2024-02-10T16:45:00Z',
-    items_count: 1,
-  },
-];
-
-const statusColors: Record<Quote['status'], string> = {
+const statusColors: Record<QuoteStatus, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400',
   sent: 'bg-cmyk-cyan/20 text-cmyk-cyan',
   viewed: 'bg-purple-500/20 text-purple-400',
   accepted: 'bg-green-500/20 text-green-400',
   rejected: 'bg-red-500/20 text-red-400',
   expired: 'bg-cmyk-yellow/20 text-cmyk-yellow',
+  changes_requested: 'bg-orange-500/20 text-orange-400',
+  converted: 'bg-blue-500/20 text-blue-400',
 };
 
-const statusLabels: Record<Quote['status'], string> = {
+const statusLabels: Record<QuoteStatus, string> = {
   draft: 'Borrador',
   sent: 'Enviada',
   viewed: 'Vista',
   accepted: 'Aceptada',
   rejected: 'Rechazada',
   expired: 'Expirada',
+  changes_requested: 'Cambios Solicitados',
+  converted: 'Convertida a Pedido',
 };
 
 export default function QuotesListPage() {
@@ -101,11 +47,54 @@ export default function QuotesListPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    totalCount: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; quoteId: string | null; quoteNumber: string }>({
+    show: false,
+    quoteId: null,
+    quoteNumber: '',
+  });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
+
+  const fetchQuotes = useCallback(async (page = 1) => {
+    setIsLoading(true);
+    try {
+      const filters: Record<string, unknown> = { page };
+
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
+      }
+      if (searchTerm) {
+        filters.search = searchTerm;
+      }
+
+      const response: PaginatedResponse<Quote> = await getAdminQuotes(filters as {
+        status?: QuoteStatus;
+        search?: string;
+        page?: number;
+      });
+
+      setQuotes(response.results || []);
+      setPagination({
+        page,
+        totalPages: response.total_pages || Math.ceil((response.count || 0) / 10),
+        totalCount: response.count || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching quotes:', error);
+      setQuotes([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [statusFilter, searchTerm]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -118,19 +107,10 @@ export default function QuotesListPage() {
   }, [authLoading, isAuthenticated, isSalesOrAdmin, router, locale]);
 
   useEffect(() => {
-    // Simulate API call
-    const fetchQuotes = async () => {
-      setIsLoading(true);
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setQuotes(mockQuotes);
-      setIsLoading(false);
-    };
-
     if (isAuthenticated && isSalesOrAdmin) {
-      fetchQuotes();
+      fetchQuotes(1);
     }
-  }, [isAuthenticated, isSalesOrAdmin]);
+  }, [isAuthenticated, isSalesOrAdmin, fetchQuotes]);
 
   if (authLoading) {
     return <LoadingPage message="Cargando..." />;
@@ -140,18 +120,12 @@ export default function QuotesListPage() {
     return null;
   }
 
-  const filteredQuotes = quotes.filter(quote => {
-    const matchesSearch =
-      quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.client.email.toLowerCase().includes(searchTerm.toLowerCase());
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchQuotes(1);
+  };
 
-    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'MXN',
@@ -166,9 +140,39 @@ export default function QuotesListPage() {
     });
   };
 
+  const handleDuplicate = async (quoteId: string) => {
+    setActionLoading(quoteId);
+    try {
+      const newQuote = await duplicateQuote(quoteId);
+      // Redirect to edit the new quote
+      router.push(`/${locale}/ventas/cotizaciones/${newQuote.id}/editar`);
+    } catch (error) {
+      console.error('Error duplicating quote:', error);
+      alert('Error al duplicar la cotización');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.quoteId) return;
+
+    setActionLoading(deleteConfirm.quoteId);
+    try {
+      await deleteQuote(deleteConfirm.quoteId);
+      setDeleteConfirm({ show: false, quoteId: null, quoteNumber: '' });
+      // Refresh the list
+      fetchQuotes(pagination.page);
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      alert('Error al eliminar la cotización');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4">
+    <div>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
@@ -186,7 +190,7 @@ export default function QuotesListPage() {
 
         {/* Filters */}
         <Card className="p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
             <div className="relative flex-1">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
@@ -216,7 +220,11 @@ export default function QuotesListPage() {
                 <option value="expired">Expirada</option>
               </select>
             </div>
-          </div>
+
+            <Button type="submit" variant="outline">
+              Buscar
+            </Button>
+          </form>
         </Card>
 
         {/* Quotes Table */}
@@ -226,7 +234,7 @@ export default function QuotesListPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cmyk-cyan mx-auto"></div>
               <p className="mt-4 text-neutral-400">Cargando cotizaciones...</p>
             </div>
-          ) : filteredQuotes.length === 0 ? (
+          ) : quotes.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-neutral-400">No se encontraron cotizaciones</p>
               {searchTerm || statusFilter !== 'all' ? (
@@ -234,6 +242,7 @@ export default function QuotesListPage() {
                   onClick={() => {
                     setSearchTerm('');
                     setStatusFilter('all');
+                    fetchQuotes(1);
                   }}
                   className="mt-2 text-cyan-400 hover:text-cyan-300"
                 >
@@ -277,27 +286,27 @@ export default function QuotesListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
-                  {filteredQuotes.map((quote) => (
+                  {quotes.map((quote) => (
                     <tr key={quote.id} className="hover:bg-neutral-800/30">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <p className="text-white font-medium">{quote.quote_number}</p>
-                          <p className="text-neutral-500 text-sm">{quote.items_count} productos</p>
+                          <p className="text-neutral-500 text-sm">{quote.lines?.length || 0} productos</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <p className="text-white">{quote.client.name}</p>
-                          <p className="text-neutral-500 text-sm">{quote.client.email}</p>
+                          <p className="text-white">{quote.customer_name}</p>
+                          <p className="text-neutral-500 text-sm">{quote.customer_email}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[quote.status]}`}>
-                          {statusLabels[quote.status]}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[quote.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
+                          {statusLabels[quote.status] || quote.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-white">
-                        {formatCurrency(quote.total)}
+                        {formatCurrency(Number(quote.total) || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
                         {formatDate(quote.created_at)}
@@ -307,30 +316,44 @@ export default function QuotesListPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button
+                          <Link
+                            href={`/${locale}/ventas/cotizaciones/${quote.id}`}
                             title="Ver detalle"
                             className="p-1 text-neutral-400 hover:text-white transition-colors"
                           >
                             <EyeIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            title="Editar"
-                            className="p-1 text-neutral-400 hover:text-white transition-colors"
-                          >
-                            <PencilIcon className="h-5 w-5" />
-                          </button>
+                          </Link>
+                          {quote.status === 'draft' && (
+                            <Link
+                              href={`/${locale}/ventas/cotizaciones/${quote.id}/editar`}
+                              title="Editar"
+                              className="p-1 text-neutral-400 hover:text-white transition-colors"
+                            >
+                              <PencilIcon className="h-5 w-5" />
+                            </Link>
+                          )}
                           <button
                             title="Duplicar"
-                            className="p-1 text-neutral-400 hover:text-white transition-colors"
+                            onClick={() => handleDuplicate(quote.id)}
+                            disabled={actionLoading === quote.id}
+                            className="p-1 text-neutral-400 hover:text-white transition-colors disabled:opacity-50"
                           >
-                            <DocumentDuplicateIcon className="h-5 w-5" />
+                            {actionLoading === quote.id ? (
+                              <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+                            ) : (
+                              <DocumentDuplicateIcon className="h-5 w-5" />
+                            )}
                           </button>
-                          <button
-                            title="Eliminar"
-                            className="p-1 text-neutral-400 hover:text-red-400 transition-colors"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
+                          {quote.status === 'draft' && (
+                            <button
+                              title="Eliminar"
+                              onClick={() => setDeleteConfirm({ show: true, quoteId: quote.id, quoteNumber: quote.quote_number })}
+                              disabled={actionLoading === quote.id}
+                              className="p-1 text-neutral-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -341,11 +364,22 @@ export default function QuotesListPage() {
           )}
         </Card>
 
+        {/* Pagination */}
+        {!isLoading && quotes.length > 0 && pagination.totalPages > 1 && (
+          <div className="mt-6">
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={(page) => fetchQuotes(page)}
+            />
+          </div>
+        )}
+
         {/* Stats Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           <Card className="p-4">
             <p className="text-neutral-400 text-sm">Total Cotizaciones</p>
-            <p className="text-2xl font-bold text-white">{quotes.length}</p>
+            <p className="text-2xl font-bold text-white">{pagination.totalCount}</p>
           </Card>
           <Card className="p-4">
             <p className="text-neutral-400 text-sm">Aceptadas</p>
@@ -354,19 +388,53 @@ export default function QuotesListPage() {
             </p>
           </Card>
           <Card className="p-4">
-            <p className="text-neutral-400 text-sm">Pendientes</p>
-            <p className="text-2xl font-bold text-blue-400">
-              {quotes.filter(q => ['sent', 'viewed'].includes(q.status)).length}
+            <p className="text-neutral-400 text-sm">Borradores</p>
+            <p className="text-2xl font-bold text-neutral-400">
+              {quotes.filter(q => q.status === 'draft').length}
             </p>
           </Card>
           <Card className="p-4">
             <p className="text-neutral-400 text-sm">Valor Total</p>
             <p className="text-2xl font-bold text-cyan-400">
-              {formatCurrency(quotes.reduce((sum, q) => sum + q.total, 0))}
+              {formatCurrency(quotes.reduce((sum, q) => sum + Number(q.total || 0), 0))}
             </p>
           </Card>
         </div>
-      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setDeleteConfirm({ show: false, quoteId: null, quoteNumber: '' })}
+          />
+          <Card className="relative z-10 p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold text-white mb-4">
+              Eliminar Cotización
+            </h3>
+            <p className="text-neutral-400 mb-6">
+              ¿Estás seguro de que deseas eliminar la cotización <strong className="text-white">{deleteConfirm.quoteNumber}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm({ show: false, quoteId: null, quoteNumber: '' })}
+                disabled={actionLoading !== null}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleDeleteConfirm}
+                disabled={actionLoading !== null}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                {actionLoading ? 'Eliminando...' : 'Eliminar'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

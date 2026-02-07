@@ -38,37 +38,17 @@
         "vallasMoviles": "Vallas móviles",
         "publibuses": "Publibuses",
         "perifoneo": "Perifoneo",
-        "lonaFrontlit": "Lona Frontlit",
-        "lonaBacklit": "Lona Backlit",
-        "lonaMesh": "Lona Mesh",
-        "vinilAutoadhesivo": "Vinil autoadhesivo",
-        "vinilMicroperforado": "Vinil microperforado",
-        "rotulacionVehicular": "Rotulación vehicular"
+        "lona": "Lona",
+        "vinil": "Vinil",
+        "tela": "Tela",
+        "rotulacionCompleta": "Rotulación completa",
+        "rotulacionParcial": "Rotulación parcial",
+        "vinilRecortado": "Vinil recortado"
       },
       "items": {
-        "gran-formato": {
-          "title": "Impresión en Gran Formato",
-          "description": "Impresiones de alta resolución para banners, lonas y más."
-        },
-        "diseno-grafico": {
-          "title": "Diseño Gráfico",
-          "description": "Creación de diseños personalizados para tu marca."
-        },
-        "impresion-uv": {
-          "title": "Impresiones UV",
-          "description": "Impresiones duraderas en diversos materiales."
-        },
-        "rotulacion-digital": {
-          "title": "Rotulación Digital",
-          "description": "Rotulación precisa para vehículos y superficies."
-        },
-        "router-cnc": {
-          "title": "Servicio Router CNC",
-          "description": "Corte preciso para materiales diversos."
-        },
-        "laser": {
-          "title": "Corte y Grabado Láser",
-          "description": "Detalles finos en madera, acrílico y más."
+        "fabricacion-anuncios": {
+          "title": "Fabricación de Anuncios",
+          "description": "Anuncios personalizados con iluminación LED, letras 3D, cajas de luz, toldos y más para destacar tu marca."
         },
         "espectaculares": {
           "title": "Espectaculares",
@@ -76,23 +56,31 @@
         },
         "publicidad-movil": {
           "title": "Publicidad Móvil",
-          "description": "Lleva tu mensaje a donde está tu audiencia con vehículos publicitarios de alto impacto."
+          "description": "Lleva tu mensaje a donde está tu audiencia con vallas móviles, publibuses y perifoneo de alto impacto."
         },
-        "publibuses": {
-          "title": "Publibuses",
-          "description": "Campañas urbanas en autobuses, camiones y furgonetas con gran impacto visual."
+        "impresion-gran-formato": {
+          "title": "Impresión en Gran Formato",
+          "description": "Impresiones de alta resolución en lona, vinil y tela para banners, lonas publicitarias y más."
         },
-        "anuncios-iluminados": {
-          "title": "Fabricación de Anuncios Iluminados",
-          "description": "Anuncios personalizados con iluminación LED para destacar tu marca día y noche."
+        "rotulacion-vehicular": {
+          "title": "Rotulación Vehicular",
+          "description": "Rotulación completa o parcial de vehículos con vinil de alta durabilidad."
         },
-        "lonas": {
-          "title": "Impresión e Instalación de Lonas",
-          "description": "Lonas de alta calidad con instalación profesional para exteriores e interiores."
+        "senalizacion": {
+          "title": "Señalización",
+          "description": "Señalética interior y exterior para empresas, comercios e instituciones."
         },
-        "vinilos": {
-          "title": "Vinilos & Adhesivos",
-          "description": "Decoración de vehículos, vidrieras y superficies con vinilo de alta durabilidad."
+        "corte-grabado-cnc-laser": {
+          "title": "Corte y Grabado CNC/Láser",
+          "description": "Corte y grabado de precisión en diversos materiales con tecnología CNC y láser."
+        },
+        "diseno-grafico": {
+          "title": "Diseño Gráfico",
+          "description": "Creación de diseños personalizados para impresión y medios digitales."
+        },
+        "impresion-offset-serigrafia": {
+          "title": "Impresión Offset, Serigrafía y Sublimación",
+          "description": "Tarjetas de presentación, volantes y productos impresos con técnicas tradicionales de alta calidad."
         }
       }
     },

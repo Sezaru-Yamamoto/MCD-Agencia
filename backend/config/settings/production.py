@@ -216,6 +216,20 @@ if SENTRY_DSN:
 # REST FRAMEWORK (Production)
 # =============================================================================
 
+# =============================================================================
+# JWT HARDENING (Production)
+# =============================================================================
+
+from datetime import timedelta as _td
+SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = _td(minutes=15)
+SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = _td(days=1)
+
+# =============================================================================
+# ALLAUTH (Production)
+# =============================================================================
+
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+
 # Stricter throttling in production
 REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
     'anon': '100/hour',
@@ -248,6 +262,16 @@ if not os.getenv('MERCADOPAGO_WEBHOOK_SECRET'):
 
 if not os.getenv('PAYPAL_WEBHOOK_ID'):
     raise ValueError('PAYPAL_WEBHOOK_ID must be set in production for secure payment webhooks')
+
+
+# =============================================================================
+# CELERY (Production - Redis with password)
+# =============================================================================
+
+_redis_password = os.getenv('REDIS_PASSWORD', '')
+if _redis_password:
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', f'redis://:{_redis_password}@localhost:6379/1')
+    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', f'redis://:{_redis_password}@localhost:6379/1')
 
 
 # =============================================================================

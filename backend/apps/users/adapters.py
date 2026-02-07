@@ -19,6 +19,7 @@ ALLOWED_REDIRECT_PREFIXES = [
     '/admin',
     '/checkout',
     '/cart',
+    '/cotizacion',
 ]
 
 
@@ -88,8 +89,25 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def pre_social_login(self, request, sociallogin):
         """
         Called before the social login is processed.
-        Store the next URL from the state with validation.
+        - Connect existing users by email automatically
+        - Store the next URL from the state with validation.
         """
+        from apps.users.models import User
+
+        # If social account already connected, nothing to do
+        if sociallogin.is_existing:
+            return
+
+        # Check if a user with this email already exists
+        email = sociallogin.account.extra_data.get('email')
+        if email:
+            try:
+                existing_user = User.objects.get(email__iexact=email)
+                # Connect the social account to the existing user
+                sociallogin.connect(request, existing_user)
+            except User.DoesNotExist:
+                pass  # New user, will be created
+
         # Default safe redirect
         default_redirect = '/es'
 

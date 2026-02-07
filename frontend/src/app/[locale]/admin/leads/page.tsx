@@ -175,7 +175,7 @@ export default function AdminLeadsPage() {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="min-h-screen py-8">
+    <div className="min-h-screen pt-24 pb-8">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">

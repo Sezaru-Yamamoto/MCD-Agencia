@@ -1,0 +1,549 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useParams } from 'next/navigation';
+import { useLocale } from 'next-intl';
+import {
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  PlusIcon,
+  MinusIcon,
+  PencilIcon,
+  TrashIcon,
+  ChatBubbleLeftRightIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, Button, LoadingPage } from '@/components/ui';
+import {
+  getChangeRequestById,
+  reviewChangeRequest,
+  getAdminQuoteById,
+  QuoteChangeRequest,
+  Quote,
+} from '@/lib/api/quotes';
+
+const statusColors: Record<string, string> = {
+  pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500',
+  approved: 'bg-green-500/20 text-green-400 border-green-500',
+  rejected: 'bg-red-500/20 text-red-400 border-red-500',
+};
+
+const statusLabels: Record<string, string> = {
+  pending: 'Pendiente de revision',
+  approved: 'Aprobada',
+  rejected: 'Rechazada',
+};
+
+export default function ChangeRequestReviewPage() {
+  const router = useRouter();
+  const params = useParams();
+  const locale = useLocale();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  const [changeRequest, setChangeRequest] = useState<QuoteChangeRequest | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState<'approve' | 'reject' | null>(null);
+
+  const quoteId = params.id as string;
+  const changeId = params.changeId as string;
+  const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        router.push(`/${locale}/login?redirect=/${locale}/ventas/cotizaciones/${quoteId}/cambios/${changeId}`);
+      } else if (!isSalesOrAdmin) {
+        router.push(`/${locale}`);
+      }
+    }
+  }, [authLoading, isAuthenticated, isSalesOrAdmin, router, locale, quoteId, changeId]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!changeId || !quoteId || !isAuthenticated || !isSalesOrAdmin) return;
+
+      setIsLoading(true);
+      try {
+        const [changeData, quoteData] = await Promise.all([
+          getChangeRequestById(changeId),
+          getAdminQuoteById(quoteId),
+        ]);
+        setChangeRequest(changeData);
+        setQuote(quoteData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast.error('Error al cargar la solicitud');
+        router.push(`/${locale}/ventas/cotizaciones/${quoteId}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [changeId, quoteId, isAuthenticated, isSalesOrAdmin, router, locale]);
+
+  const handleReview = async (action: 'approve' | 'reject') => {
+    if (!changeRequest) return;
+
+    setIsReviewing(true);
+    try {
+      const result = await reviewChangeRequest(changeRequest.id, action, reviewNotes);
+      setChangeRequest(result.change_request);
+      setShowReviewModal(null);
+      setReviewNotes('');
+      toast.success(action === 'approve' ? 'Solicitud aprobada' : 'Solicitud rechazada');
+
+      if (action === 'approve') {
+        // Redirect to edit the quote
+        router.push(`/${locale}/ventas/cotizaciones/${quoteId}/editar`);
+      }
+    } catch (error) {
+      console.error('Error reviewing request:', error);
+      toast.error('Error al procesar la solicitud');
+    } finally {
+      setIsReviewing(false);
+    }
+  };
+
+  const formatCurrency = (amount: number | string) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+    }).format(Number(amount) || 0);
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('es-MX', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'add':
+        return <PlusIcon className="h-4 w-4 text-green-400" />;
+      case 'delete':
+        return <TrashIcon className="h-4 w-4 text-red-400" />;
+      case 'modify':
+        return <PencilIcon className="h-4 w-4 text-yellow-400" />;
+      default:
+        return null;
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'add':
+        return 'Agregar';
+      case 'delete':
+        return 'Eliminar';
+      case 'modify':
+        return 'Modificar';
+      default:
+        return action;
+    }
+  };
+
+  if (authLoading || isLoading) {
+    return <LoadingPage message="Cargando solicitud de cambios..." />;
+  }
+
+  if (!isAuthenticated || !isSalesOrAdmin || !changeRequest || !quote) {
+    return null;
+  }
+
+  const originalLines = changeRequest.original_snapshot.lines || [];
+
+  return (
+    <div className="max-w-6xl">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/${locale}/ventas/cotizaciones/${quoteId}`}
+              className="p-2 text-neutral-400 hover:text-white transition-colors"
+            >
+              <ArrowLeftIcon className="h-6 w-6" />
+            </Link>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-white">Solicitud de Cambios</h1>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${statusColors[changeRequest.status]}`}>
+                  {changeRequest.status === 'pending' && <ClockIcon className="h-4 w-4" />}
+                  {changeRequest.status === 'approved' && <CheckCircleIcon className="h-4 w-4" />}
+                  {changeRequest.status === 'rejected' && <XCircleIcon className="h-4 w-4" />}
+                  {statusLabels[changeRequest.status]}
+                </span>
+              </div>
+              <p className="text-neutral-400 mt-1">
+                Para cotizacion {changeRequest.quote_number} - Recibida el {formatDate(changeRequest.created_at)}
+              </p>
+            </div>
+          </div>
+
+          {changeRequest.status === 'pending' && (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowReviewModal('reject')}
+                variant="outline"
+                className="text-red-400 border-red-400/50 hover:bg-red-400/10"
+                leftIcon={<XCircleIcon className="h-4 w-4" />}
+              >
+                Rechazar
+              </Button>
+              <Button
+                onClick={() => setShowReviewModal('approve')}
+                className="bg-green-600 hover:bg-green-700"
+                leftIcon={<CheckCircleIcon className="h-4 w-4" />}
+              >
+                Aprobar y Editar
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Customer Info */}
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Datos del Cliente</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-neutral-500 text-sm">Nombre</p>
+                  <p className="text-white font-medium">{changeRequest.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-neutral-500 text-sm">Email</p>
+                  <p className="text-white">{changeRequest.customer_email}</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Proposed Changes */}
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Cambios Solicitados</h2>
+
+              {/* Summary */}
+              <div className="flex flex-wrap gap-3 mb-6">
+                {changeRequest.changes_summary.added > 0 && (
+                  <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-sm">
+                    +{changeRequest.changes_summary.added} agregado(s)
+                  </span>
+                )}
+                {changeRequest.changes_summary.modified > 0 && (
+                  <span className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-400 text-sm">
+                    {changeRequest.changes_summary.modified} modificado(s)
+                  </span>
+                )}
+                {changeRequest.changes_summary.deleted > 0 && (
+                  <span className="px-3 py-1 rounded-full bg-red-500/20 text-red-400 text-sm">
+                    -{changeRequest.changes_summary.deleted} eliminado(s)
+                  </span>
+                )}
+              </div>
+
+              {/* Changes List */}
+              <div className="space-y-4">
+                {changeRequest.proposed_lines.map((line, index) => {
+                  const originalLine = line.id
+                    ? originalLines.find((ol) => ol.id === line.id)
+                    : null;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-lg border ${
+                        line.action === 'add'
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : line.action === 'delete'
+                          ? 'bg-red-500/10 border-red-500/30'
+                          : 'bg-yellow-500/10 border-yellow-500/30'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-1.5 rounded bg-neutral-800">
+                          {getActionIcon(line.action)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              line.action === 'add'
+                                ? 'bg-green-500/30 text-green-400'
+                                : line.action === 'delete'
+                                ? 'bg-red-500/30 text-red-400'
+                                : 'bg-yellow-500/30 text-yellow-400'
+                            }`}>
+                              {getActionLabel(line.action)}
+                            </span>
+                          </div>
+
+                          {line.action === 'add' ? (
+                            <div>
+                              <p className="text-white font-medium">{line.concept}</p>
+                              {line.description && (
+                                <p className="text-neutral-400 text-sm">{line.description}</p>
+                              )}
+                              <p className="text-neutral-300 text-sm mt-1">
+                                Cantidad: {line.quantity} {line.unit}
+                              </p>
+                            </div>
+                          ) : line.action === 'delete' ? (
+                            <div>
+                              <p className="text-white font-medium line-through">
+                                {originalLine?.concept}
+                              </p>
+                              {originalLine?.description && (
+                                <p className="text-neutral-400 text-sm line-through">
+                                  {originalLine.description}
+                                </p>
+                              )}
+                              <p className="text-neutral-500 text-sm mt-1">
+                                {originalLine?.quantity} {originalLine?.unit} x{' '}
+                                {formatCurrency(originalLine?.unit_price || 0)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-white font-medium">{originalLine?.concept}</p>
+
+                              {/* Show what changed */}
+                              <div className="mt-2 space-y-1">
+                                {line.quantity !== undefined &&
+                                  String(line.quantity) !== originalLine?.quantity && (
+                                    <div className="text-sm">
+                                      <span className="text-neutral-500">Cantidad: </span>
+                                      <span className="text-red-400 line-through">
+                                        {originalLine?.quantity}
+                                      </span>
+                                      <span className="text-neutral-500 mx-1">→</span>
+                                      <span className="text-green-400">{line.quantity}</span>
+                                    </div>
+                                  )}
+
+                                {line.description !== undefined &&
+                                  line.description !== originalLine?.description && (
+                                    <div className="text-sm">
+                                      <span className="text-neutral-500">Descripcion cambiada</span>
+                                      {originalLine?.description && (
+                                        <p className="text-red-400/70 line-through text-xs mt-0.5">
+                                          {originalLine.description}
+                                        </p>
+                                      )}
+                                      {line.description && (
+                                        <p className="text-green-400/90 text-xs mt-0.5">
+                                          {line.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+
+            {/* Customer Comments */}
+            {changeRequest.customer_comments && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <ChatBubbleLeftRightIcon className="h-5 w-5 text-cmyk-cyan" />
+                  Comentarios del Cliente
+                </h2>
+                <p className="text-neutral-300 whitespace-pre-wrap">
+                  {changeRequest.customer_comments}
+                </p>
+              </Card>
+            )}
+
+            {/* Original Quote Snapshot */}
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">
+                Cotizacion Original (Antes de los cambios)
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-neutral-500 text-sm border-b border-neutral-700">
+                      <th className="pb-3 pr-4">Concepto</th>
+                      <th className="pb-3 pr-4 text-right">Cant.</th>
+                      <th className="pb-3 pr-4 text-right">P. Unit.</th>
+                      <th className="pb-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800">
+                    {originalLines.map((line) => (
+                      <tr key={line.id}>
+                        <td className="py-3 pr-4">
+                          <p className="text-white font-medium">{line.concept}</p>
+                          {line.description && (
+                            <p className="text-neutral-500 text-sm">{line.description}</p>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-white">{line.quantity}</td>
+                        <td className="py-3 pr-4 text-right text-white">
+                          {formatCurrency(line.unit_price)}
+                        </td>
+                        <td className="py-3 text-right text-white font-medium">
+                          {formatCurrency(line.line_total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 pt-4 border-t border-neutral-700 text-right">
+                <span className="text-neutral-400">Total original: </span>
+                <span className="text-white font-bold">
+                  {formatCurrency(changeRequest.original_snapshot.total)}
+                </span>
+              </div>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Review Info */}
+            {changeRequest.reviewed_at && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">Revision</h2>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-neutral-500 text-sm">Revisada por</p>
+                    <p className="text-white">{changeRequest.reviewed_by_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-neutral-500 text-sm">Fecha</p>
+                    <p className="text-white">{formatDate(changeRequest.reviewed_at)}</p>
+                  </div>
+                  {changeRequest.review_notes && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">Notas</p>
+                      <p className="text-neutral-300">{changeRequest.review_notes}</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Quick Actions */}
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Acciones Rapidas</h2>
+              <div className="space-y-2">
+                <Link
+                  href={`/${locale}/ventas/cotizaciones/${quoteId}`}
+                  className="block"
+                >
+                  <Button variant="outline" className="w-full justify-start">
+                    Ver cotizacion actual
+                  </Button>
+                </Link>
+                {changeRequest.status === 'approved' && (
+                  <Link
+                    href={`/${locale}/ventas/cotizaciones/${quoteId}/editar`}
+                    className="block"
+                  >
+                    <Button className="w-full justify-start">
+                      Editar cotizacion
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </Card>
+
+            {/* Help Card */}
+            {changeRequest.status === 'pending' && (
+              <Card className="p-6 bg-cmyk-cyan/5 border-cmyk-cyan/20">
+                <h3 className="font-semibold text-white mb-2">Como revisar</h3>
+                <ul className="text-sm text-neutral-400 space-y-2">
+                  <li>
+                    <strong className="text-green-400">Aprobar:</strong> La cotizacion
+                    volvera a borrador para que apliques los cambios solicitados.
+                  </li>
+                  <li>
+                    <strong className="text-red-400">Rechazar:</strong> La cotizacion
+                    volvera a su estado anterior y el cliente sera notificado.
+                  </li>
+                </ul>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {/* Review Modal */}
+        {showReviewModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                {showReviewModal === 'approve' ? 'Aprobar Solicitud' : 'Rechazar Solicitud'}
+              </h3>
+
+              <p className="text-neutral-300 mb-4">
+                {showReviewModal === 'approve'
+                  ? 'Al aprobar, la cotizacion volvera a borrador para que puedas aplicar los cambios solicitados.'
+                  : 'El cliente sera notificado de que su solicitud no fue aprobada.'}
+              </p>
+
+              <label className="block text-neutral-400 text-sm mb-2">
+                Notas {showReviewModal === 'reject' ? '(recomendado)' : '(opcional)'}
+              </label>
+              <textarea
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                placeholder={
+                  showReviewModal === 'approve'
+                    ? 'Notas internas sobre la aprobacion...'
+                    : 'Explica brevemente el motivo del rechazo...'
+                }
+                rows={3}
+                className="w-full px-4 py-2 mb-4 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan resize-none"
+              />
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    setShowReviewModal(null);
+                    setReviewNotes('');
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => handleReview(showReviewModal)}
+                  disabled={isReviewing}
+                  isLoading={isReviewing}
+                  className={`flex-1 ${
+                    showReviewModal === 'approve'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {showReviewModal === 'approve' ? 'Aprobar' : 'Rechazar'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+    </div>
+  );
+}

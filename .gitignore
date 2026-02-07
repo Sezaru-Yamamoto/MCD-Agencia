@@ -137,6 +137,14 @@ secrets/
 *.pem
 *.key
 
+# SSL Certificates
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+
+# Certbot
+nginx/certbot/
+
 # Documentation build
 docs/_build/
 

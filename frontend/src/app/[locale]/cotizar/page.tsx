@@ -110,8 +110,16 @@ export default function QuotePage() {
     setIsLoading(true);
     try {
       const result = await submitQuoteRequest({
-        ...data,
+        customer_name: data.name,
+        customer_email: data.email,
+        customer_phone: data.phone,
+        customer_company: data.company,
+        catalog_item_id: data.catalog_item_id,
         quantity: data.quantity ? parseInt(data.quantity) : undefined,
+        dimensions: data.dimensions,
+        material: data.material,
+        includes_installation: data.installation_required,
+        description: data.description,
         attachments: files,
       });
       setRequestNumber(result.request_number);

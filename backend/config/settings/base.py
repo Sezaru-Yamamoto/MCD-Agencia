@@ -72,6 +72,9 @@ THIRD_PARTY_APPS = [
     'django_extensions',
     'import_export',
     'storages',
+
+    # Task scheduling
+    'django_celery_beat',
 ]
 
 LOCAL_APPS = [

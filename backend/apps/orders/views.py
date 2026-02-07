@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
@@ -415,24 +416,30 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class OrderAdminViewSet(viewsets.ModelViewSet):
     """
-    Admin ViewSet for order management.
+    Admin/Sales ViewSet for order management.
 
     GET /api/v1/admin/orders/
     GET /api/v1/admin/orders/{id}/
     PUT /api/v1/admin/orders/{id}/
-    POST /api/v1/admin/orders/{id}/update-status/
+    POST /api/v1/admin/orders/{id}/update_status/ - Change status
     """
 
     queryset = Order.objects.all().prefetch_related(
         'lines', 'status_history', 'payments'
     ).select_related('user')
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['status', 'payment_method', 'user']
-    search_fields = ['order_number', 'user__email']
+    search_fields = ['order_number', 'user__email', 'user__first_name', 'user__last_name']
     ordering = ['-created_at']
+
+    def check_permissions(self, request):
+        """Only admin and sales staff can access."""
+        super().check_permissions(request)
+        if not request.user.is_staff:
+            self.permission_denied(request)
 
     def get_serializer_class(self):
         """Return appropriate serializer."""

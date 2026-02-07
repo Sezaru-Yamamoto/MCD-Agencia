@@ -15,18 +15,26 @@ from .views import (
     QuoteRequestViewSet,
     QuoteViewSet,
     QuotePublicView,
+    QuoteChangeRequestView,
+    QuotePublicPdfView,
+    QuotePublicRejectView,
+    QuoteChangeRequestViewSet,
 )
 
 app_name = 'quotes'
 
 router = DefaultRouter()
 router.register('requests', QuoteRequestViewSet, basename='requests')
+router.register('change-requests', QuoteChangeRequestViewSet, basename='change-requests')
 router.register('', QuoteViewSet, basename='quotes')
 
 urlpatterns = [
-    # Public endpoints
+    # Public endpoints (no authentication required)
     path('request/', QuoteRequestPublicView.as_view(), name='request_public'),
     path('view/<uuid:token>/', QuotePublicView.as_view(), name='view_public'),
+    path('view/<uuid:token>/pdf/', QuotePublicPdfView.as_view(), name='pdf_public'),
+    path('view/<uuid:token>/reject/', QuotePublicRejectView.as_view(), name='reject_public'),
+    path('view/<uuid:token>/change-request/', QuoteChangeRequestView.as_view(), name='change_request'),
 
     # ViewSets
     path('', include(router.urls)),

@@ -26,11 +26,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.http import HttpResponseRedirect
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+
+
+def redirect_to_frontend(request):
+    """Redirect root URL to frontend."""
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+    return HttpResponseRedirect(f'{frontend_url}/es')
 
 # =============================================================================
 # API VERSION 1 URL PATTERNS
@@ -95,14 +102,20 @@ api_admin_patterns = [
 # API DOCUMENTATION URL PATTERNS
 # =============================================================================
 
-docs_patterns = [
-    # OpenAPI schema
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),
-    # Swagger UI
-    path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    # ReDoc
-    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-]
+# In production, API docs require staff authentication
+if settings.DEBUG:
+    docs_patterns = [
+        path('schema/', SpectacularAPIView.as_view(), name='schema'),
+        path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+        path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    ]
+else:
+    from rest_framework.permissions import IsAdminUser
+    docs_patterns = [
+        path('schema/', SpectacularAPIView.as_view(permission_classes=[IsAdminUser]), name='schema'),
+        path('swagger/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[IsAdminUser]), name='swagger-ui'),
+        path('redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=[IsAdminUser]), name='redoc'),
+    ]
 
 
 # =============================================================================
@@ -110,6 +123,9 @@ docs_patterns = [
 # =============================================================================
 
 urlpatterns = [
+    # Root URL - redirect to frontend
+    path('', redirect_to_frontend, name='root'),
+
     # Django Admin
     path('admin/', admin.site.urls),
 

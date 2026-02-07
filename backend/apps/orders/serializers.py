@@ -188,11 +188,13 @@ class OrderSerializer(serializers.ModelSerializer):
     )
     is_fully_paid = serializers.BooleanField(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    customer = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'status', 'status_display',
+            'customer',
             'shipping_address', 'billing_address',
             'subtotal', 'tax_rate', 'tax_amount', 'total',
             'amount_paid', 'balance_due', 'is_fully_paid',
@@ -207,24 +209,50 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at'
         ]
 
+    def get_customer(self, obj):
+        """Get customer info."""
+        if obj.user:
+            return {
+                'id': str(obj.user.id),
+                'email': obj.user.email,
+                'full_name': obj.user.full_name or obj.user.email,
+            }
+        return None
+
 
 class OrderListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for order lists."""
 
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     item_count = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
+    payment_method_display = serializers.CharField(
+        source='get_payment_method_display', read_only=True
+    )
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'status', 'status_display',
-            'total', 'currency', 'item_count', 'created_at'
+            'total', 'amount_paid', 'currency', 'payment_method',
+            'payment_method_display', 'item_count', 'customer',
+            'created_at'
         ]
         read_only_fields = ['id', 'order_number']
 
     def get_item_count(self, obj):
         """Get total number of items in order."""
         return sum(line.quantity for line in obj.lines.all())
+
+    def get_customer(self, obj):
+        """Get customer info."""
+        if obj.user:
+            return {
+                'id': str(obj.user.id),
+                'email': obj.user.email,
+                'full_name': obj.user.full_name or obj.user.email,
+            }
+        return None
 
 
 class CreateOrderSerializer(serializers.Serializer):

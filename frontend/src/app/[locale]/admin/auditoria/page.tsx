@@ -9,7 +9,7 @@ import {
   FunnelIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAuditLogs } from '@/lib/api/admin';
+import { getAuditLogs, AuditLog } from '@/lib/api/admin';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage, Modal } from '@/components/ui';
 import { formatDateTime, cn } from '@/lib/utils';
 
@@ -53,7 +53,7 @@ export default function AdminAuditPage() {
     action: '',
     page: 1,
   });
-  const [selectedLog, setSelectedLog] = useState<typeof logs[0] | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['audit-logs', filters],
@@ -134,7 +134,7 @@ export default function AdminAuditPage() {
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => (
+                {logs.map((log: AuditLog) => (
                   <tr
                     key={log.id}
                     className="border-b border-neutral-800 hover:bg-neutral-900/50"

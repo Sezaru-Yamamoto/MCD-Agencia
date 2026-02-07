@@ -22,6 +22,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
   '/admin',
   '/checkout',
   '/cart',
+  '/cotizacion',
 ];
 
 /**

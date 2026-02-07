@@ -291,6 +291,33 @@ class AuditLog(models.Model):
 
         return diff if diff else None
 
+    @staticmethod
+    def _make_json_serializable(obj):
+        """
+        Recursively convert non-JSON-serializable objects to serializable types.
+
+        Handles UUID, Decimal, datetime, date, and other common types.
+        """
+        from decimal import Decimal
+        from datetime import datetime, date
+        from uuid import UUID
+
+        if obj is None:
+            return None
+        if isinstance(obj, dict):
+            return {k: AuditLog._make_json_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [AuditLog._make_json_serializable(item) for item in obj]
+        if isinstance(obj, UUID):
+            return str(obj)
+        if isinstance(obj, Decimal):
+            return str(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, date):
+            return obj.isoformat()
+        return obj
+
     @classmethod
     def log(cls, entity, action, actor=None, before_state=None, after_state=None,
             request=None, metadata=None):
@@ -325,6 +352,11 @@ class AuditLog(models.Model):
         # Get entity representation
         entity_repr = str(entity)[:255] if entity else ''
 
+        # Make states JSON serializable
+        before_state = cls._make_json_serializable(before_state)
+        after_state = cls._make_json_serializable(after_state)
+        metadata = cls._make_json_serializable(metadata or {})
+
         return cls.objects.create(
             actor=actor,
             actor_ip=actor_ip,
@@ -335,7 +367,7 @@ class AuditLog(models.Model):
             action=action,
             before_state=before_state,
             after_state=after_state,
-            metadata=metadata or {}
+            metadata=metadata
         )
 
     @staticmethod

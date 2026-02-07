@@ -33,7 +33,7 @@ export default function QuotesPage() {
   });
 
   const quotes = data?.results || [];
-  const totalPages = Math.ceil((data?.count || 0) / 10);
+  const totalPages = data?.total_pages || Math.ceil((data?.count || 0) / 10);
 
   if (isLoading) {
     return <LoadingPage message="Cargando cotizaciones..." />;

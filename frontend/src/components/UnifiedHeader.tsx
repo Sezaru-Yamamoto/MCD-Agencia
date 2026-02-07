@@ -17,10 +17,18 @@ import {
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ClipboardDocumentListIcon,
   UserCircleIcon,
   Bars3Icon,
   XMarkIcon,
+  HomeIcon,
+  DocumentTextIcon,
+  ShoppingBagIcon,
+  UsersIcon,
+  CubeIcon,
+  PhotoIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 
 export function UnifiedHeader() {
@@ -29,6 +37,7 @@ export function UnifiedHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<'admin' | 'sales' | null>(null);
   const locale = useLocale();
     const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
@@ -58,6 +67,7 @@ export function UnifiedHeader() {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
+        setOpenSubmenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -217,7 +227,7 @@ export function UnifiedHeader() {
 
               {/* User Dropdown */}
               {isUserMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl overflow-hidden backdrop-blur-sm">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50">
                   {!isAuthenticated ? (
                     <>
                       <Link
@@ -240,70 +250,103 @@ export function UnifiedHeader() {
                         <p className="text-white font-semibold truncate">{user?.email}</p>
                       </div>
 
+                      {/* Mi Cuenta */}
                       <Link
                         href={`/${locale}/mi-cuenta`}
-                        className="block px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
                       >
                         <UserCircleIcon className="w-5 h-5" />
                         {t('myAccount')}
                       </Link>
 
-                      {/* My Orders - Hidden for sales (they have their own panel) */}
-                      {!isSales && (
-                        <Link
-                          href={`/${locale}/mi-cuenta/pedidos`}
-                          className="block px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
-                        >
-                          <ClipboardDocumentListIcon className="w-5 h-5" />
-                          {t('myOrders')}
-                        </Link>
-                      )}
-
-                      {/* Admin Panel */}
+                      {/* Panel de Admin - with hover/click submenu */}
                       {isAdmin && (
-                        <Link
-                          href={`/${locale}/admin`}
-                          className="block px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
+                        <div
+                          className="relative border-b border-cmyk-cyan/10"
+                          onMouseEnter={() => setOpenSubmenu('admin')}
+                          onMouseLeave={() => setOpenSubmenu(null)}
                         >
-                          <Cog6ToothIcon className="w-5 h-5" />
-                          Panel de Admin
-                        </Link>
-                      )}
-
-                      {/* Sales Panel */}
-                      {isSales && (
-                        <>
                           <Link
-                            href={`/${locale}/ventas`}
-                            className="block px-4 py-3 text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
+                            href={`/${locale}/admin`}
+                            onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
+                            className="w-full px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
                           >
                             <Cog6ToothIcon className="w-5 h-5" />
-                            Panel de Ventas
+                            <span className="flex-1 text-left">Panel de Admin</span>
+                            <ChevronRightIcon className="w-4 h-4 text-neutral-500" />
                           </Link>
-                          <Link
-                            href={`/${locale}/ventas/cotizaciones`}
-                            className="block px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
-                          >
-                            <ClipboardDocumentListIcon className="w-5 h-5" />
-                            Cotizaciones
-                          </Link>
-                          <Link
-                            href={`/${locale}/ventas/pedidos`}
-                            className="block px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
-                          >
-                            <ClipboardDocumentListIcon className="w-5 h-5" />
-                            Pedidos
-                          </Link>
-                          <Link
-                            href={`/${locale}/ventas/clientes`}
-                            className="block px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
-                          >
-                            <UserIcon className="w-5 h-5" />
-                            Clientes
-                          </Link>
-                        </>
+                          {/* Submenu */}
+                          {openSubmenu === 'admin' && (
+                            <div className="absolute left-full top-0 ml-0 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50">
+                              {[
+                                { href: '/admin', label: 'Dashboard', icon: HomeIcon },
+                                { href: '/admin/catalogo', label: 'Cat\u00e1logo', icon: CubeIcon },
+                                { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
+                                { href: '/admin/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
+                                { href: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon },
+                                { href: '/admin/contenido', label: 'Contenido', icon: PhotoIcon },
+                                { href: '/admin/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon },
+                                { href: '/admin/auditoria', label: 'Auditor\u00eda', icon: ClipboardDocumentListIcon },
+                                { href: '/admin/configuracion', label: 'Configuraci\u00f3n', icon: Cog6ToothIcon },
+                              ].map((item) => (
+                                <Link
+                                  key={item.href}
+                                  href={`/${locale}${item.href}`}
+                                  onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
+                                  className="px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
+                                >
+                                  <item.icon className="w-5 h-5" />
+                                  {item.label}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
 
+                      {/* Panel de Ventas - with hover/click submenu (for sales OR admin) */}
+                      {isStaff && (
+                        <div
+                          className="relative border-b border-cmyk-cyan/10"
+                          onMouseEnter={() => setOpenSubmenu('sales')}
+                          onMouseLeave={() => setOpenSubmenu(null)}
+                        >
+                          <Link
+                            href={`/${locale}/ventas`}
+                            onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
+                            className="w-full px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
+                          >
+                            <ClipboardDocumentListIcon className="w-5 h-5" />
+                            <span className="flex-1 text-left">Panel de Ventas</span>
+                            <ChevronRightIcon className="w-4 h-4 text-neutral-500" />
+                          </Link>
+                          {/* Submenu */}
+                          {openSubmenu === 'sales' && (
+                            <div className="absolute left-full top-0 ml-0 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50">
+                              {[
+                                { href: '/ventas', label: 'Dashboard', icon: HomeIcon },
+                                { href: '/ventas/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon },
+                                { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
+                                { href: '/ventas/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
+                                { href: '/ventas/clientes', label: 'Clientes', icon: UsersIcon },
+                              ].map((item) => (
+                                <Link
+                                  key={item.href}
+                                  href={`/${locale}${item.href}`}
+                                  onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
+                                  className="px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
+                                >
+                                  <item.icon className="w-5 h-5" />
+                                  {item.label}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Cerrar Sesión */}
                       <button
                         onClick={() => {
                           logout();
@@ -377,40 +420,6 @@ export function UnifiedHeader() {
                 </button>
               )}
 
-              {/* Sales options for mobile */}
-              {isSales && (
-                <>
-                  <Link
-                    href={`/${locale}/ventas`}
-                    className="block px-4 py-2 text-cmyk-cyan font-semibold"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Panel de Ventas
-                  </Link>
-                  <Link
-                    href={`/${locale}/ventas/cotizaciones`}
-                    className="block px-4 py-2 text-white hover:text-cmyk-cyan transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Cotizaciones
-                  </Link>
-                  <Link
-                    href={`/${locale}/ventas/pedidos`}
-                    className="block px-4 py-2 text-white hover:text-cmyk-cyan transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Pedidos
-                  </Link>
-                  <Link
-                    href={`/${locale}/ventas/clientes`}
-                    className="block px-4 py-2 text-white hover:text-cmyk-cyan transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Clientes
-                  </Link>
-                </>
-              )}
-
               <Link
                 href={`/${locale}/#cotizar`}
                 className="block px-4 py-2 bg-cmyk-cyan text-cmyk-black font-semibold rounded-lg hover:bg-cmyk-cyan/90 transition-all text-center"
@@ -451,21 +460,90 @@ export function UnifiedHeader() {
                 </>
               ) : (
                 <>
+                  {/* Mi Cuenta */}
                   <Link
                     href={`/${locale}/mi-cuenta`}
-                    className="block px-4 py-2 text-white hover:text-cmyk-cyan transition-colors"
+                    className="block px-4 py-2 text-white hover:text-cmyk-cyan transition-colors flex items-center gap-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
+                    <UserCircleIcon className="w-5 h-5" />
                     {t('myAccount')}
                   </Link>
+
+                  {/* Panel de Admin - expandable on mobile */}
+                  {isAdmin && (
+                    <details className="group">
+                      <summary className="px-4 py-2 text-white hover:text-cmyk-cyan transition-colors flex items-center gap-2 cursor-pointer list-none">
+                        <Cog6ToothIcon className="w-5 h-5" />
+                        <span className="flex-1">Panel de Admin</span>
+                        <ChevronRightIcon className="w-4 h-4 transition-transform group-open:rotate-90" />
+                      </summary>
+                      <div className="ml-6 space-y-1 pb-1">
+                        {[
+                          { href: '/admin', label: 'Dashboard', icon: HomeIcon },
+                          { href: '/admin/catalogo', label: 'Catálogo', icon: CubeIcon },
+                          { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
+                          { href: '/admin/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
+                          { href: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon },
+                          { href: '/admin/contenido', label: 'Contenido', icon: PhotoIcon },
+                          { href: '/admin/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon },
+                          { href: '/admin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
+                          { href: '/admin/configuracion', label: 'Configuración', icon: Cog6ToothIcon },
+                        ].map((item) => (
+                          <Link
+                            key={item.href}
+                            href={`/${locale}${item.href}`}
+                            className="block px-4 py-1.5 text-sm text-neutral-300 hover:text-cmyk-cyan transition-colors flex items-center gap-2"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                          >
+                            <item.icon className="w-4 h-4" />
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Panel de Ventas - expandable on mobile (for sales OR admin) */}
+                  {isStaff && (
+                    <details className="group">
+                      <summary className="px-4 py-2 text-white hover:text-cmyk-cyan transition-colors flex items-center gap-2 cursor-pointer list-none">
+                        <ClipboardDocumentListIcon className="w-5 h-5" />
+                        <span className="flex-1">Panel de Ventas</span>
+                        <ChevronRightIcon className="w-4 h-4 transition-transform group-open:rotate-90" />
+                      </summary>
+                      <div className="ml-6 space-y-1 pb-1">
+                        {[
+                          { href: '/ventas', label: 'Dashboard', icon: HomeIcon },
+                          { href: '/ventas/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon },
+                          { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
+                          { href: '/ventas/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
+                          { href: '/ventas/clientes', label: 'Clientes', icon: UsersIcon },
+                        ].map((item) => (
+                          <Link
+                            key={item.href}
+                            href={`/${locale}${item.href}`}
+                            className="block px-4 py-1.5 text-sm text-neutral-300 hover:text-cmyk-cyan transition-colors flex items-center gap-2"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                          >
+                            <item.icon className="w-4 h-4" />
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Cerrar Sesión */}
                   <button
                     onClick={() => {
                       logout();
                       setIsMobileMenuOpen(false);
                       router.push(`/${locale}`);
                     }}
-                    className="w-full text-left px-4 py-2 text-white hover:text-cmyk-cyan transition-colors"
+                    className="w-full text-left px-4 py-2 text-white hover:text-cmyk-cyan transition-colors flex items-center gap-2"
                   >
+                    <ArrowRightOnRectangleIcon className="w-5 h-5" />
                     {t('logout')}
                   </button>
                 </>

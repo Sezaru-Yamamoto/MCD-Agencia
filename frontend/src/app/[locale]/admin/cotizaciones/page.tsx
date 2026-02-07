@@ -10,7 +10,7 @@ import {
   PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAdminQuoteRequests } from '@/lib/api/admin';
+import { getAdminQuoteRequests, AdminQuoteRequest } from '@/lib/api/admin';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage } from '@/components/ui';
 import { formatDate, cn } from '@/lib/utils';
 
@@ -119,7 +119,7 @@ export default function AdminQuotesPage() {
                 </tr>
               </thead>
               <tbody>
-                {requests.map((request) => (
+                {requests.map((request: AdminQuoteRequest) => (
                   <tr
                     key={request.id}
                     className="border-b border-neutral-800 hover:bg-neutral-900/50"
@@ -131,10 +131,10 @@ export default function AdminQuotesPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div>
-                        <p className="text-white">{request.name}</p>
-                        <p className="text-sm text-neutral-400">{request.email}</p>
-                        {request.company && (
-                          <p className="text-sm text-neutral-500">{request.company}</p>
+                        <p className="text-white">{request.customer_name}</p>
+                        <p className="text-sm text-neutral-400">{request.customer_email}</p>
+                        {request.customer_company && (
+                          <p className="text-sm text-neutral-500">{request.customer_company}</p>
                         )}
                       </div>
                     </td>
@@ -167,7 +167,7 @@ export default function AdminQuotesPage() {
                             <EyeIcon className="h-5 w-5" />
                           </Button>
                         </Link>
-                        {request.status === 'draft' && (
+                        {request.status === 'pending' && (
                           <Button variant="ghost" size="sm" title="Asignar">
                             <UserPlusIcon className="h-5 w-5" />
                           </Button>

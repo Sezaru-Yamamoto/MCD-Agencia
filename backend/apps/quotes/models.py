@@ -57,21 +57,49 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
     """
 
     STATUS_DRAFT = 'draft'
+    STATUS_PENDING = 'pending'
+    STATUS_ASSIGNED = 'assigned'
     STATUS_IN_REVIEW = 'in_review'
     STATUS_INFO_REQUESTED = 'info_requested'
     STATUS_QUOTED = 'quoted'
     STATUS_ACCEPTED = 'accepted'
     STATUS_REJECTED = 'rejected'
     STATUS_EXPIRED = 'expired'
+    STATUS_CANCELLED = 'cancelled'
 
     STATUS_CHOICES = [
         (STATUS_DRAFT, _('Draft')),
+        (STATUS_PENDING, _('Pending Assignment')),
+        (STATUS_ASSIGNED, _('Assigned')),
         (STATUS_IN_REVIEW, _('In Review')),
         (STATUS_INFO_REQUESTED, _('Info Requested')),
         (STATUS_QUOTED, _('Quote Sent')),
         (STATUS_ACCEPTED, _('Accepted')),
         (STATUS_REJECTED, _('Rejected')),
         (STATUS_EXPIRED, _('Expired')),
+        (STATUS_CANCELLED, _('Cancelled')),
+    ]
+
+    URGENCY_NORMAL = 'normal'
+    URGENCY_MEDIUM = 'medium'
+    URGENCY_HIGH = 'high'
+
+    URGENCY_CHOICES = [
+        (URGENCY_NORMAL, _('Normal')),
+        (URGENCY_MEDIUM, _('Medium')),
+        (URGENCY_HIGH, _('High')),
+    ]
+
+    ASSIGNMENT_MANUAL = 'manual'
+    ASSIGNMENT_AUTO_SPECIALTY = 'auto_specialty'
+    ASSIGNMENT_AUTO_LOAD = 'auto_load'
+    ASSIGNMENT_FALLBACK = 'fallback'
+
+    ASSIGNMENT_CHOICES = [
+        (ASSIGNMENT_MANUAL, _('Manual')),
+        (ASSIGNMENT_AUTO_SPECIALTY, _('Automatic by Specialty')),
+        (ASSIGNMENT_AUTO_LOAD, _('Automatic by Load')),
+        (ASSIGNMENT_FALLBACK, _('Fallback')),
     ]
 
     id = models.UUIDField(
@@ -201,6 +229,57 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         help_text=_('Preferred language for communication.')
     )
 
+    # Service details (dynamic fields from landing form)
+    service_type = models.CharField(
+        _('service type'),
+        max_length=100,
+        blank=True,
+        help_text=_('Type of service requested (from landing form).')
+    )
+    service_details = models.JSONField(
+        _('service details'),
+        default=dict,
+        blank=True,
+        help_text=_('Dynamic service-specific details from landing form.')
+    )
+
+    # Guest/registered tracking
+    is_guest = models.BooleanField(
+        _('is guest'),
+        default=True,
+        help_text=_('Whether customer is a guest (not registered).')
+    )
+
+    # Required date and urgency
+    required_date = models.DateField(
+        _('required date'),
+        null=True,
+        blank=True,
+        help_text=_('Date when customer needs the service.')
+    )
+    urgency = models.CharField(
+        _('urgency'),
+        max_length=10,
+        choices=URGENCY_CHOICES,
+        default=URGENCY_NORMAL,
+        help_text=_('Request urgency (calculated from required_date).')
+    )
+
+    # Assignment tracking
+    assignment_method = models.CharField(
+        _('assignment method'),
+        max_length=20,
+        choices=ASSIGNMENT_CHOICES,
+        blank=True,
+        help_text=_('How the request was assigned.')
+    )
+    assigned_at = models.DateTimeField(
+        _('assigned at'),
+        null=True,
+        blank=True,
+        help_text=_('When the request was assigned.')
+    )
+
     class Meta:
         verbose_name = _('quote request')
         verbose_name_plural = _('quote requests')
@@ -230,6 +309,102 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         date_str = datetime.datetime.now().strftime('%Y%m%d')
         random_str = ''.join(random.choices('0123456789', k=4))
         return f"{date_str}-{random_str}"
+
+    def calculate_urgency(self):
+        """Calculate urgency based on required_date."""
+        if not self.required_date:
+            return self.URGENCY_NORMAL
+
+        from datetime import date
+        days_remaining = (self.required_date - date.today()).days
+
+        if days_remaining <= 7:
+            return self.URGENCY_HIGH
+        elif days_remaining <= 14:
+            return self.URGENCY_MEDIUM
+        else:
+            return self.URGENCY_NORMAL
+
+    @property
+    def days_until_required(self):
+        """Get days remaining until required date."""
+        if not self.required_date:
+            return None
+        from datetime import date
+        return (self.required_date - date.today()).days
+
+    def assign_to_sales_rep(self, auto=True):
+        """
+        Assign this request to a sales rep.
+
+        Args:
+            auto: If True, use automatic assignment logic.
+
+        Returns:
+            User: The assigned sales rep, or None if no one available.
+        """
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        # Get all eligible sales reps
+        eligible_reps = User.objects.filter(
+            role__name='sales',
+            is_active=True,
+            receives_auto_assignments=True,
+        ).filter(
+            current_load__lt=models.F('max_load')
+        )
+
+        if not eligible_reps.exists():
+            # Fallback: any active sales rep with capacity
+            eligible_reps = User.objects.filter(
+                role__name='sales',
+                is_active=True,
+            ).filter(
+                current_load__lt=models.F('max_load')
+            )
+
+        if not eligible_reps.exists():
+            return None
+
+        # Try to find rep with matching specialty
+        if self.service_type:
+            # Filter in Python for SQLite compatibility
+            # (JSONField contains lookup not supported in SQLite)
+            specialty_reps = [
+                rep for rep in eligible_reps.order_by('current_load', 'assignment_priority')
+                if rep.sales_specialties and self.service_type in rep.sales_specialties
+            ]
+            if specialty_reps:
+                assigned_rep = specialty_reps[0]
+                self._do_assignment(assigned_rep, self.ASSIGNMENT_AUTO_SPECIALTY)
+                return assigned_rep
+
+        # Fallback: assign to rep with lowest load
+        assigned_rep = eligible_reps.order_by(
+            'current_load', 'assignment_priority'
+        ).first()
+
+        if assigned_rep:
+            method = self.ASSIGNMENT_AUTO_LOAD if auto else self.ASSIGNMENT_MANUAL
+            self._do_assignment(assigned_rep, method)
+
+        return assigned_rep
+
+    def _do_assignment(self, sales_rep, method):
+        """Perform the actual assignment."""
+        self.assigned_to = sales_rep
+        self.assignment_method = method
+        self.assigned_at = timezone.now()
+        self.status = self.STATUS_ASSIGNED
+
+        # Increment sales rep's load
+        sales_rep.current_load = models.F('current_load') + 1
+        sales_rep.save(update_fields=['current_load'])
+
+        self.save(update_fields=[
+            'assigned_to', 'assignment_method', 'assigned_at', 'status', 'updated_at'
+        ])
 
 
 class Quote(TimeStampedModel, SoftDeleteModel):
@@ -262,6 +437,7 @@ class Quote(TimeStampedModel, SoftDeleteModel):
     STATUS_DRAFT = 'draft'
     STATUS_SENT = 'sent'
     STATUS_VIEWED = 'viewed'
+    STATUS_CHANGES_REQUESTED = 'changes_requested'
     STATUS_ACCEPTED = 'accepted'
     STATUS_REJECTED = 'rejected'
     STATUS_EXPIRED = 'expired'
@@ -271,6 +447,7 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         (STATUS_DRAFT, _('Draft')),
         (STATUS_SENT, _('Sent')),
         (STATUS_VIEWED, _('Viewed')),
+        (STATUS_CHANGES_REQUESTED, _('Changes Requested')),
         (STATUS_ACCEPTED, _('Accepted')),
         (STATUS_REJECTED, _('Rejected')),
         (STATUS_EXPIRED, _('Expired')),
@@ -481,6 +658,65 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         help_text=_('Primary language for quote.')
     )
 
+    # Delivery
+    delivery_time_text = models.CharField(
+        _('delivery time text'),
+        max_length=100,
+        blank=True,
+        help_text=_('Human-readable delivery time (e.g., "10 business days").')
+    )
+    estimated_delivery_date = models.DateField(
+        _('estimated delivery date'),
+        null=True,
+        blank=True,
+        help_text=_('Estimated delivery date.')
+    )
+
+    # Payment methods and conditions
+    payment_methods = models.JSONField(
+        _('payment methods'),
+        default=list,
+        blank=True,
+        help_text=_('Accepted payment methods.')
+    )
+    payment_conditions = models.TextField(
+        _('payment conditions'),
+        blank=True,
+        help_text=_('Payment conditions and terms.')
+    )
+    included_services = models.JSONField(
+        _('included services'),
+        default=list,
+        blank=True,
+        help_text=_('Services included in the quote.')
+    )
+
+    # Customer notes
+    customer_notes = models.TextField(
+        _('customer notes'),
+        blank=True,
+        help_text=_('Notes visible to customer.')
+    )
+
+    # View tracking
+    view_count = models.PositiveIntegerField(
+        _('view count'),
+        default=0,
+        help_text=_('Number of times quote was viewed.')
+    )
+    first_view_at = models.DateTimeField(
+        _('first view at'),
+        null=True,
+        blank=True,
+        help_text=_('First time customer viewed quote.')
+    )
+    last_view_at = models.DateTimeField(
+        _('last view at'),
+        null=True,
+        blank=True,
+        help_text=_('Last time customer viewed quote.')
+    )
+
     class Meta:
         verbose_name = _('quote')
         verbose_name_plural = _('quotes')
@@ -537,11 +773,24 @@ class Quote(TimeStampedModel, SoftDeleteModel):
 
     def mark_as_viewed(self):
         """Mark quote as viewed by customer."""
-        if not self.viewed_at:
-            self.viewed_at = timezone.now()
+        now = timezone.now()
+        fields_to_update = ['view_count', 'last_view_at', 'updated_at']
+
+        # Increment view count
+        self.view_count = models.F('view_count') + 1
+        self.last_view_at = now
+
+        # First view
+        if not self.first_view_at:
+            self.first_view_at = now
+            self.viewed_at = now
+            fields_to_update.extend(['first_view_at', 'viewed_at'])
             if self.status == self.STATUS_SENT:
                 self.status = self.STATUS_VIEWED
-            self.save(update_fields=['viewed_at', 'status', 'updated_at'])
+                fields_to_update.append('status')
+
+        self.save(update_fields=fields_to_update)
+        self.refresh_from_db(fields=['view_count'])
 
     def get_web_url(self):
         """Get the customer-facing web URL for this quote."""
@@ -735,3 +984,420 @@ class QuoteAttachment(TimeStampedModel):
             if not self.file_size:
                 self.file_size = self.file.size
         super().save(*args, **kwargs)
+
+
+class QuoteResponse(TimeStampedModel):
+    """
+    Customer response to a quote.
+
+    Records customer actions: view, comment, change request, approval, rejection.
+
+    Attributes:
+        quote: The quote being responded to
+        action: Type of response
+        comment: Customer's comment
+        responded_by: User who responded (null if guest)
+        guest_name: Guest name (if not registered)
+        guest_email: Guest email (if not registered)
+        ip_address: IP address when responding
+    """
+
+    ACTION_VIEW = 'view'
+    ACTION_COMMENT = 'comment'
+    ACTION_CHANGE_REQUEST = 'change_request'
+    ACTION_APPROVAL = 'approval'
+    ACTION_REJECTION = 'rejection'
+
+    ACTION_CHOICES = [
+        (ACTION_VIEW, _('Viewed')),
+        (ACTION_COMMENT, _('Commented')),
+        (ACTION_CHANGE_REQUEST, _('Change Request')),
+        (ACTION_APPROVAL, _('Approved')),
+        (ACTION_REJECTION, _('Rejected')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    quote = models.ForeignKey(
+        Quote,
+        on_delete=models.CASCADE,
+        related_name='responses',
+        help_text=_('Quote being responded to.')
+    )
+    action = models.CharField(
+        _('action'),
+        max_length=20,
+        choices=ACTION_CHOICES,
+        help_text=_('Type of response.')
+    )
+    comment = models.TextField(
+        _('comment'),
+        blank=True,
+        help_text=_('Customer\'s comment.')
+    )
+
+    # Responder info
+    responded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quote_responses',
+        help_text=_('User who responded (null if guest).')
+    )
+    guest_name = models.CharField(
+        _('guest name'),
+        max_length=255,
+        blank=True,
+        help_text=_('Guest name (if not registered).')
+    )
+    guest_email = models.EmailField(
+        _('guest email'),
+        blank=True,
+        help_text=_('Guest email (if not registered).')
+    )
+
+    # Tracking
+    ip_address = models.GenericIPAddressField(
+        _('IP address'),
+        null=True,
+        blank=True,
+        help_text=_('IP address when responding.')
+    )
+
+    class Meta:
+        verbose_name = _('quote response')
+        verbose_name_plural = _('quote responses')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['quote', 'action']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_action_display()} - {self.quote.quote_number}"
+
+
+class GuestAccessToken(TimeStampedModel):
+    """
+    Temporary access token for guest customers.
+
+    Allows guests to view and respond to quotes without registration.
+
+    Attributes:
+        token: Unique secure token
+        quote_request: Associated quote request (optional)
+        quote: Associated quote (optional)
+        email: Guest's email
+        token_type: Type of access allowed
+        expires_at: When token expires
+        used: Whether token has been used
+        used_at: When token was used
+        ip_used: IP address when token was used
+    """
+
+    TYPE_VIEW_QUOTE = 'view_quote'
+    TYPE_RESPOND_QUOTE = 'respond_quote'
+
+    TYPE_CHOICES = [
+        (TYPE_VIEW_QUOTE, _('View Quote')),
+        (TYPE_RESPOND_QUOTE, _('Respond to Quote')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    token = models.CharField(
+        _('token'),
+        max_length=64,
+        unique=True,
+        db_index=True,
+        help_text=_('Unique secure token.')
+    )
+    quote_request = models.ForeignKey(
+        QuoteRequest,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='guest_tokens',
+        help_text=_('Associated quote request.')
+    )
+    quote = models.ForeignKey(
+        Quote,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='guest_tokens',
+        help_text=_('Associated quote.')
+    )
+    email = models.EmailField(
+        _('email'),
+        help_text=_('Guest\'s email address.')
+    )
+    token_type = models.CharField(
+        _('token type'),
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default=TYPE_RESPOND_QUOTE,
+        help_text=_('Type of access allowed.')
+    )
+    expires_at = models.DateTimeField(
+        _('expires at'),
+        help_text=_('When token expires.')
+    )
+    used = models.BooleanField(
+        _('used'),
+        default=False,
+        help_text=_('Whether token has been used.')
+    )
+    used_at = models.DateTimeField(
+        _('used at'),
+        null=True,
+        blank=True,
+        help_text=_('When token was used.')
+    )
+    ip_used = models.GenericIPAddressField(
+        _('IP used'),
+        null=True,
+        blank=True,
+        help_text=_('IP address when token was used.')
+    )
+
+    class Meta:
+        verbose_name = _('guest access token')
+        verbose_name_plural = _('guest access tokens')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['email']),
+            models.Index(fields=['expires_at', 'used']),
+        ]
+
+    def __str__(self):
+        return f"Token for {self.email}"
+
+    @property
+    def is_expired(self):
+        """Check if token has expired."""
+        return timezone.now() > self.expires_at
+
+    @property
+    def is_valid(self):
+        """Check if token is still valid."""
+        return not self.is_expired and not self.used
+
+    def mark_as_used(self, ip_address=None):
+        """Mark token as used."""
+        self.used = True
+        self.used_at = timezone.now()
+        if ip_address:
+            self.ip_used = ip_address
+        self.save(update_fields=['used', 'used_at', 'ip_used', 'updated_at'])
+
+    @classmethod
+    def generate_token(cls):
+        """Generate a secure random token."""
+        import secrets
+        return secrets.token_urlsafe(48)
+
+    @classmethod
+    def create_for_quote(cls, quote, email, hours_valid=48):
+        """Create a new guest access token for a quote."""
+        return cls.objects.create(
+            token=cls.generate_token(),
+            quote=quote,
+            email=email,
+            token_type=cls.TYPE_RESPOND_QUOTE,
+            expires_at=timezone.now() + timedelta(hours=hours_valid)
+        )
+
+
+class QuoteChangeRequest(TimeStampedModel):
+    """
+    Customer-requested changes to a quote.
+
+    When a customer wants to modify a quote (change quantities, add/remove items),
+    they submit a change request. The sales team reviews and either approves
+    (creating a new quote version) or rejects.
+
+    Attributes:
+        quote: The quote being modified
+        status: Request status (pending, approved, rejected)
+        customer_comments: Customer's explanation for changes
+        proposed_lines: JSON array of proposed line items
+        deleted_line_ids: IDs of lines customer wants removed
+        original_snapshot: Snapshot of original quote for comparison
+        reviewed_by: Sales rep who reviewed
+        reviewed_at: When request was reviewed
+        review_notes: Sales rep's notes
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, _('Pending Review')),
+        (STATUS_APPROVED, _('Approved')),
+        (STATUS_REJECTED, _('Rejected')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    quote = models.ForeignKey(
+        Quote,
+        on_delete=models.CASCADE,
+        related_name='change_requests',
+        help_text=_('Quote being modified.')
+    )
+    status = models.CharField(
+        _('status'),
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+        help_text=_('Request status.')
+    )
+
+    # Customer info (for guests)
+    customer_name = models.CharField(
+        _('customer name'),
+        max_length=255,
+        blank=True,
+        help_text=_('Customer name (copied from quote).')
+    )
+    customer_email = models.EmailField(
+        _('customer email'),
+        blank=True,
+        help_text=_('Customer email (copied from quote).')
+    )
+
+    # Customer's explanation
+    customer_comments = models.TextField(
+        _('customer comments'),
+        blank=True,
+        help_text=_('Customer explanation for requested changes.')
+    )
+
+    # Proposed changes (JSON structure)
+    proposed_lines = models.JSONField(
+        _('proposed lines'),
+        default=list,
+        help_text=_('''
+            Array of proposed line items. Each item contains:
+            - id: Original line ID (null for new lines)
+            - action: "modify", "add", or "delete"
+            - concept: Item concept/name
+            - description: Item description
+            - quantity: Proposed quantity
+            - unit: Unit of measure
+            - unit_price: Price per unit (may be null, sales will set)
+            - original_values: Original values for modified lines
+        ''')
+    )
+
+    # Original quote snapshot for comparison
+    original_snapshot = models.JSONField(
+        _('original snapshot'),
+        default=dict,
+        help_text=_('Snapshot of original quote state for comparison.')
+    )
+
+    # Review
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_change_requests',
+        help_text=_('Sales rep who reviewed.')
+    )
+    reviewed_at = models.DateTimeField(
+        _('reviewed at'),
+        null=True,
+        blank=True,
+        help_text=_('When request was reviewed.')
+    )
+    review_notes = models.TextField(
+        _('review notes'),
+        blank=True,
+        help_text=_('Sales rep notes on the review.')
+    )
+
+    # Tracking
+    ip_address = models.GenericIPAddressField(
+        _('IP address'),
+        null=True,
+        blank=True,
+        help_text=_('Customer IP when submitting.')
+    )
+
+    class Meta:
+        verbose_name = _('quote change request')
+        verbose_name_plural = _('quote change requests')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['quote', 'status']),
+            models.Index(fields=['status', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Change Request for {self.quote.quote_number} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        """Copy customer info from quote if not set."""
+        if not self.customer_name and self.quote:
+            self.customer_name = self.quote.customer_name
+        if not self.customer_email and self.quote:
+            self.customer_email = self.quote.customer_email
+        super().save(*args, **kwargs)
+
+    def get_changes_summary(self):
+        """Get a human-readable summary of proposed changes."""
+        summary = {
+            'modified': 0,
+            'added': 0,
+            'deleted': 0,
+        }
+        for line in self.proposed_lines:
+            action = line.get('action', 'modify')
+            if action in summary:
+                summary[action] += 1
+        return summary
+
+    def approve(self, reviewed_by, notes=''):
+        """Approve the change request and update quote status."""
+        self.status = self.STATUS_APPROVED
+        self.reviewed_by = reviewed_by
+        self.reviewed_at = timezone.now()
+        self.review_notes = notes
+        self.save(update_fields=[
+            'status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'
+        ])
+
+        # Quote goes back to draft for sales to update
+        self.quote.status = Quote.STATUS_DRAFT
+        self.quote.save(update_fields=['status', 'updated_at'])
+
+    def reject(self, reviewed_by, notes=''):
+        """Reject the change request."""
+        self.status = self.STATUS_REJECTED
+        self.reviewed_by = reviewed_by
+        self.reviewed_at = timezone.now()
+        self.review_notes = notes
+        self.save(update_fields=[
+            'status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'
+        ])
+
+        # Quote goes back to sent/viewed status
+        if self.quote.status == Quote.STATUS_CHANGES_REQUESTED:
+            self.quote.status = Quote.STATUS_VIEWED
+            self.quote.save(update_fields=['status', 'updated_at'])

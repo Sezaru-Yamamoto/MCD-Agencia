@@ -17,6 +17,7 @@ from ..views import (
     UserConsentViewSet,
     FiscalDataViewSet,
     UserAdminViewSet,
+    SalesRepsView,
 )
 
 app_name = 'users'
@@ -30,6 +31,9 @@ urlpatterns = [
     # Profile
     path('me/', UserProfileView.as_view(), name='profile'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+
+    # Sales Reps (for quote assignment)
+    path('sales-reps/', SalesRepsView.as_view(), name='sales_reps'),
 
     # ViewSets
     path('', include(router.urls)),

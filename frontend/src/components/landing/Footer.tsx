@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { CONTACT_INFO } from '@/lib/constants';
-import { SERVICE_IDS, SERVICE_IMAGES } from '@/lib/service-data';
+import { SERVICE_IDS } from '@/lib/service-ids';
 
 const SOCIAL_LINKS = {
   facebookAcapulco: 'https://www.facebook.com/AgenciaMCDAcapulco',

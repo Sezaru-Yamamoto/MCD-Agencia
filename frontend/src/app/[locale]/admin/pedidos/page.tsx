@@ -11,7 +11,7 @@ import {
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAdminOrders } from '@/lib/api/admin';
+import { getAdminOrders, AdminOrder } from '@/lib/api/admin';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage } from '@/components/ui';
 import { formatPrice, formatDate, cn } from '@/lib/utils';
 
@@ -60,7 +60,7 @@ export default function AdminOrdersPage() {
   });
 
   const orders = data?.results || [];
-  const totalPages = Math.ceil((data?.count || 0) / 20);
+  const totalPages = data?.total_pages || Math.ceil((data?.count || 0) / 10);
 
   return (
     <div className="space-y-6">
@@ -135,7 +135,7 @@ export default function AdminOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {orders.map((order: AdminOrder) => (
                   <tr
                     key={order.id}
                     className="border-b border-neutral-800 hover:bg-neutral-900/50"

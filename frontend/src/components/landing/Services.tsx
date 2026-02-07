@@ -7,7 +7,7 @@ import {
   SERVICE_CAROUSEL_IMAGES,
   SERVICE_SUBCATEGORIES,
   type LandingServiceId
-} from '@/lib/service-data';
+} from '@/lib/service-ids';
 import { CONTACT_INFO } from '@/lib/constants';
 import { ServiceCardCarousel } from './ServiceCardCarousel';
 
@@ -63,7 +63,7 @@ export function Services() {
                 }}
               >
                 {/* Carrusel de imágenes */}
-                <div className="relative w-full h-56 overflow-hidden bg-gray-200">
+                <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-200">
                   <ServiceCardCarousel
                     images={service.carouselImages}
                     alt={service.title}

@@ -85,8 +85,8 @@ COPY --chown=appuser:appgroup . .
 RUN mkdir -p /app/staticfiles /app/media /app/logs && \
     chown -R appuser:appgroup /app
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# NOTE: collectstatic runs at container startup (docker-compose command)
+# because it needs DJANGO_SECRET_KEY and other env vars not available at build time
 
 # Switch to non-root user
 USER appuser

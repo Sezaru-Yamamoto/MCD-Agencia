@@ -1,3 +1,4 @@
+            
 'use client';
 
 /**
@@ -226,10 +227,10 @@ export default function CartPage() {
                     <span>{formatPrice(cart.subtotal)}</span>
                   </div>
 
-                  {cart.discount_amount > 0 && (
+                  {(cart.discount_amount ?? 0) > 0 && (
                     <div className="flex justify-between text-green-400">
                       <span>Descuento</span>
-                      <span>-{formatPrice(cart.discount_amount)}</span>
+                      <span>-{formatPrice(cart.discount_amount ?? 0)}</span>
                     </div>
                   )}
 

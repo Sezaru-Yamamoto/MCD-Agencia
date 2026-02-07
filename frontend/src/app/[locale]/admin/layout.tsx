@@ -21,7 +21,7 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions, getRoleDisplayName } from '@/hooks/usePermissions';
-import { LoadingPage, Button } from '@/components/ui';
+import { LoadingPage } from '@/components/ui';
 import { cn, getInitials } from '@/lib/utils';
 
 interface MenuItem {
@@ -83,25 +83,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/80 z-40 lg:hidden"
+          className="fixed inset-0 top-16 bg-black/80 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - starts below the main header */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-full w-64 bg-neutral-900 border-r border-neutral-800 transform transition-transform duration-300 lg:translate-x-0',
+          'fixed top-16 left-0 z-30 h-[calc(100vh-4rem)] w-64 bg-neutral-900 border-r border-neutral-800 transform transition-transform duration-300 lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-neutral-800">
-          <Link href="/admin" className="flex items-center gap-2">
+        {/* Sidebar header */}
+        <div className="h-24 flex items-center justify-center px-4 pt-2 border-b border-neutral-800">
+          <Link href="/admin" className="flex items-center gap-3 flex-1">
             <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-magenta-500 rounded-lg flex items-center justify-center font-bold text-white text-sm">
               MCD
             </div>
-            <span className="font-semibold text-white">Admin</span>
+            <span className="font-semibold text-white">Panel de Admin</span>
           </Link>
           <button
             className="lg:hidden text-neutral-400 hover:text-white"
@@ -112,7 +112,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Navigation - Show ALL items to everyone */}
-        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
+        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-4rem-7rem)]">
           {MENU_ITEMS.map((item) => {
             const isActive = item.exact
               ? pathname === item.href || pathname === `${item.href}/`
@@ -181,26 +181,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top bar */}
-        <header className="h-16 flex items-center justify-between px-4 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-sm sticky top-0 z-30">
+      <div className="lg:pl-64 pt-16">
+        {/* Mobile sidebar toggle */}
+        <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2">
           <button
-            className="lg:hidden p-2 text-neutral-400 hover:text-white"
+            className="p-2 text-neutral-400 hover:text-white"
             onClick={() => setSidebarOpen(true)}
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
-
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-4">
-            <Link href="/" target="_blank">
-              <Button variant="ghost" size="sm">
-                Ver sitio
-              </Button>
-            </Link>
-          </div>
-        </header>
+        </div>
 
         {/* Page content */}
         <main className="p-6">{children}</main>

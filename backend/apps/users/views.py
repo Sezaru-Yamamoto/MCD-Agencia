@@ -431,6 +431,42 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         return Response(UserAdminSerializer(user).data)
 
 
+class SalesRepsView(APIView):
+    """
+    Get list of available sales representatives.
+
+    GET /api/v1/users/sales-reps/
+    """
+
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        """Get list of sales reps for assignment."""
+        sales_role = Role.objects.filter(name='sales').first()
+
+        if not sales_role:
+            return Response([])
+
+        sales_reps = User.objects.filter(
+            role=sales_role,
+            is_active=True,
+            receives_auto_assignments=True
+        ).order_by('first_name', 'last_name')
+
+        data = [
+            {
+                'id': str(rep.id),
+                'full_name': rep.full_name,
+                'email': rep.email,
+                'current_load': rep.current_load,
+                'max_load': rep.max_load,
+            }
+            for rep in sales_reps
+        ]
+
+        return Response(data)
+
+
 class GoogleOAuthCallbackView(APIView):
     """
     Handle Google OAuth callback and redirect to frontend with JWT tokens.

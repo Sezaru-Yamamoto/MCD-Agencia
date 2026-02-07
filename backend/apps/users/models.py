@@ -310,6 +310,34 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel, SoftDeleteModel
         help_text=_('Whether user consented to receive marketing emails.')
     )
 
+    # Sales rep configuration (for role='sales')
+    sales_specialties = models.JSONField(
+        _('sales specialties'),
+        default=list,
+        blank=True,
+        help_text=_('List of service category IDs this sales rep handles.')
+    )
+    current_load = models.PositiveIntegerField(
+        _('current load'),
+        default=0,
+        help_text=_('Number of active quote requests assigned.')
+    )
+    max_load = models.PositiveIntegerField(
+        _('max load'),
+        default=10,
+        help_text=_('Maximum number of active quote requests.')
+    )
+    receives_auto_assignments = models.BooleanField(
+        _('receives auto assignments'),
+        default=True,
+        help_text=_('Whether this sales rep receives automatic assignments.')
+    )
+    assignment_priority = models.PositiveSmallIntegerField(
+        _('assignment priority'),
+        default=3,
+        help_text=_('Assignment priority (1=highest, 5=lowest).')
+    )
+
     # Authentication
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']

@@ -567,12 +567,14 @@ class Order(TimeStampedModel, SoftDeleteModel):
         """
         return new_status in self.STATUS_TRANSITIONS.get(self.status, [])
 
-    def transition_to(self, new_status):
+    def transition_to(self, new_status, changed_by=None, notes=''):
         """
         Transition order to new status.
 
         Args:
             new_status: Target status
+            changed_by: User who triggered the transition
+            notes: Optional notes about the transition
 
         Raises:
             ValueError: If transition is not allowed
@@ -581,8 +583,29 @@ class Order(TimeStampedModel, SoftDeleteModel):
             raise ValueError(
                 f"Cannot transition from {self.status} to {new_status}"
             )
+        old_status = self.status
         self.status = new_status
-        self.save(update_fields=['status', 'updated_at'])
+
+        # Set timestamps for key transitions
+        if new_status == self.STATUS_PAID:
+            from django.utils import timezone
+            self.paid_at = timezone.now()
+            self.save(update_fields=['status', 'paid_at', 'updated_at'])
+        elif new_status == self.STATUS_COMPLETED:
+            from django.utils import timezone
+            self.completed_at = timezone.now()
+            self.save(update_fields=['status', 'completed_at', 'updated_at'])
+        else:
+            self.save(update_fields=['status', 'updated_at'])
+
+        # Create status history record
+        OrderStatusHistory.objects.create(
+            order=self,
+            from_status=old_status,
+            to_status=new_status,
+            changed_by=changed_by,
+            notes=notes or ''
+        )
 
     def calculate_totals(self):
         """

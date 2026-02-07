@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { LOCATION_IDS, LOCATION_DATA, type LocationId } from '@/lib/service-data';
+import { LOCATION_IDS, LOCATION_DATA, type LocationId } from '@/lib/service-ids';
 
 export function Locations() {
   const t = useTranslations('landing.locations');

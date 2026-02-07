@@ -2,6 +2,16 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons in Leaflet with webpack/next.js
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 interface Location {
   name: string;
@@ -48,38 +58,21 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
   const [loadingSearchB, setLoadingSearchB] = useState(false);
   const [showSuggestionsA, setShowSuggestionsA] = useState(false);
   const [showSuggestionsB, setShowSuggestionsB] = useState(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const markerARef = useRef<any>(null);
   const markerBRef = useRef<any>(null);
   const routeLayerRef = useRef<any>(null);
 
-  // Cargar Leaflet
+  // Leaflet is loaded via npm package, component is dynamically imported with ssr: false
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if ((window as any).L) {
-      setMapLoaded(true);
-      return;
-    }
-
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css';
-    document.head.appendChild(link);
-
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
-    script.async = true;
-    script.onload = () => setMapLoaded(true);
-    document.body.appendChild(script);
+    setMapLoaded(true);
   }, []);
 
   // Inicializar mapa
   useEffect(() => {
     if (!isModalOpen || !mapLoaded || !mapContainer.current) return;
-
-    const L = (window as any).L;
-    if (!L) return;
 
     if (map.current) {
       map.current.remove();
@@ -88,7 +81,7 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
 
     setTimeout(() => {
       if (!mapContainer.current) return;
-      
+
       map.current = L.map(mapContainer.current, {
         center: [16.8531, -99.8800],
         zoom: 13,
@@ -114,8 +107,6 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
 
   const createDraggableMarkers = () => {
     if (!map.current) return;
-    const L = (window as any).L;
-    if (!L) return;
 
     // Icono para punto A (verde)
     const iconA = L.divIcon({
@@ -200,14 +191,27 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
 
   const reverseGeocode = async (lat: number, lon: number): Promise<string> => {
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
-      );
-      const data = await response.json();
-      if (data.display_name) {
-        return data.display_name.split(',').slice(0, 2).join(', ');
+      // Use local API proxy to avoid CORS issues
+      const response = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
+
+      if (!response.ok) {
+        console.error('Geocode API error:', response.status);
+        throw new Error(`HTTP ${response.status}`);
       }
-    } catch {}
+
+      const data = await response.json();
+      console.log('Geocode response:', data);
+
+      if (data.address) {
+        return data.address;
+      }
+      if (data.display_name) {
+        return data.display_name.split(',').slice(0, 3).join(',').trim();
+      }
+    } catch (error) {
+      console.error('Reverse geocode error:', error);
+    }
+    // Fallback: return coordinates in a readable format
     return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
   };
 
@@ -229,40 +233,104 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
     onChange?.({ pointA, pointB, routeData });
   }, [pointA, pointB, routeData, onChange]);
 
+  // Calculate straight-line distance using Haversine formula
+  const calculateHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  };
+
   const calculateRoute = async () => {
     if (!pointA || !pointB) return;
-    
+
     setLoadingRoute(true);
     setRouteError(null);
 
-    try {
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${pointA.lon},${pointA.lat};${pointB.lon},${pointB.lat}?overview=full&geometries=geojson`
-      );
-      const data = await response.json();
-      
-      if (data.code !== 'Ok' || !data.routes?.length) {
-        setRouteError(t('noValidRoute'));
-        return;
-      }
-
-      const route = data.routes[0];
-      const coordinates = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-      
-      setRouteData({ coordinates, distance: route.distance, duration: route.duration });
-      
-      // Dibujar ruta
+    // Helper to draw polyline on map
+    const drawRouteOnMap = (coordinates: Array<[number, number]>, isDashed: boolean) => {
       if (!map.current) return;
-      const L = (window as any).L;
       if (routeLayerRef.current) map.current.removeLayer(routeLayerRef.current);
-      
+
       routeLayerRef.current = L.polyline(coordinates, {
         color: '#00BCD4',
-        weight: 5,
-        opacity: 0.8,
+        weight: isDashed ? 4 : 5,
+        opacity: isDashed ? 0.8 : 0.9,
+        ...(isDashed ? { dashArray: '10, 10' } : {}),
       }).addTo(map.current);
-    } catch {
-      setRouteError(t('routeError'));
+
+      // Fit map to route bounds
+      const bounds = routeLayerRef.current.getBounds();
+      map.current.fitBounds(bounds, { padding: [50, 50] });
+    };
+
+    // Fallback function for straight-line distance
+    const useStraightLineFallback = (errorMsg?: string) => {
+      const distance = calculateHaversineDistance(
+        pointA.lat, pointA.lon,
+        pointB.lat, pointB.lon
+      );
+
+      const coordinates: Array<[number, number]> = [
+        [pointA.lat, pointA.lon],
+        [pointB.lat, pointB.lon]
+      ];
+
+      setRouteData({ coordinates, distance, duration: 0 });
+      drawRouteOnMap(coordinates, true);
+      if (errorMsg) setRouteError(errorMsg);
+    };
+
+    try {
+      // Use local API route to proxy OSRM request (avoids CORS issues)
+      const routingUrl = `/api/routing?originLon=${pointA.lon}&originLat=${pointA.lat}&destLon=${pointB.lon}&destLat=${pointB.lat}`;
+
+      console.log('Fetching route via API proxy:', routingUrl);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+
+      const response = await fetch(routingUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error('OSRM response not OK:', response.status, response.statusText);
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('OSRM response:', data);
+
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        // OSRM returns coordinates as [lon, lat], we need [lat, lon] for Leaflet
+        const coordinates: Array<[number, number]> = route.geometry.coordinates.map(
+          (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+        );
+        const distance = route.distance; // in meters
+        const duration = route.duration; // in seconds
+
+        console.log('Route calculated:', { distance, duration, points: coordinates.length });
+
+        setRouteData({ coordinates, distance, duration });
+        drawRouteOnMap(coordinates, false);
+
+      } else {
+        console.error('OSRM error response:', data);
+        useStraightLineFallback('No se encontró ruta por carretera. Se muestra distancia en línea recta.');
+      }
+
+    } catch (error) {
+      console.error('Error calculating route:', error);
+      useStraightLineFallback('No se pudo calcular la ruta por carretera. Se muestra distancia aproximada.');
     } finally {
       setLoadingRoute(false);
     }
@@ -340,10 +408,6 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
   };
 
   const formatDistance = (m: number) => m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
-  const formatDuration = (s: number) => {
-    const mins = Math.round(s / 60);
-    return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`;
-  };
 
   const hasRoute = pointA && pointB && routeData;
 
@@ -364,7 +428,7 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
               {hasRoute ? t('routeConfigured') : t('configureRoute')}
             </p>
             <p className="text-xs text-gray-400">
-              {hasRoute ? `${formatDistance(routeData.distance)} • ${formatDuration(routeData.duration)}` : t('dragMarkers')}
+              {hasRoute ? formatDistance(routeData.distance) : t('dragMarkers')}
             </p>
           </div>
         </div>
@@ -499,8 +563,32 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
               {!mapLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center bg-cmyk-black">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cmyk-cyan mx-auto mb-3"></div>
-                    <p className="text-cmyk-cyan">{t('loadingMap')}</p>
+                    {mapLoadError ? (
+                      <>
+                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-500/20 flex items-center justify-center">
+                          <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <p className="text-red-400 mb-2">Error al cargar el mapa</p>
+                        <p className="text-gray-500 text-sm mb-4">Verifica tu conexión a internet</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMapLoadError(false);
+                            window.location.reload();
+                          }}
+                          className="px-4 py-2 bg-cmyk-cyan text-cmyk-black rounded-lg font-medium hover:bg-cmyk-cyan/80 transition-colors"
+                        >
+                          Reintentar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cmyk-cyan mx-auto mb-3"></div>
+                        <p className="text-cmyk-cyan">{t('loadingMap')}</p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -531,16 +619,10 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
               )}
 
               {routeData && (
-                <div className="mb-3 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg flex items-center justify-between">
-                  <div className="flex gap-6">
-                    <div>
-                      <p className="text-2xl font-bold text-cmyk-cyan">{formatDistance(routeData.distance)}</p>
-                      <p className="text-xs text-gray-400">{t('distance')}</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-cmyk-cyan">{formatDuration(routeData.duration)}</p>
-                      <p className="text-xs text-gray-400">{t('time')}</p>
-                    </div>
+                <div className="mb-3 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg flex items-center justify-center">
+                  <div>
+                    <p className="text-2xl font-bold text-cmyk-cyan text-center">{formatDistance(routeData.distance)}</p>
+                    <p className="text-xs text-gray-400 text-center">{t('distance')}</p>
                   </div>
                 </div>
               )}

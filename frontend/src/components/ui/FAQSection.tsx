@@ -37,7 +37,7 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
   }
 
   // Get unique categories
-  const categories = ['all', ...new Set(faqs.map((faq) => faq.category))];
+  const categories = ['all', ...Array.from(new Set(faqs.map((faq) => faq.category)))];
 
   // Filter FAQs by category
   const filteredFaqs = selectedCategory === 'all'

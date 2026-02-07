@@ -24,12 +24,12 @@ class StandardResultsSetPagination(PageNumberPagination):
     Standard pagination class for API responses.
 
     Provides page-based pagination with configurable page sizes.
-    Default page size is 20 items, max is 100.
+    Default page size is 10 items, max is 100.
 
     Response format:
         {
             "count": 100,           # Total number of items
-            "total_pages": 5,       # Total number of pages
+            "total_pages": 10,      # Total number of pages
             "current_page": 1,      # Current page number
             "next": "http://...",   # URL to next page (null if last)
             "previous": null,       # URL to previous page (null if first)
@@ -38,10 +38,10 @@ class StandardResultsSetPagination(PageNumberPagination):
 
     Query parameters:
         page: Page number (default: 1)
-        page_size: Items per page (default: 20, max: 100)
+        page_size: Items per page (default: 10, max: 100)
     """
 
-    page_size = 20
+    page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
     page_query_param = 'page'

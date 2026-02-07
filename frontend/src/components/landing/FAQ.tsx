@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { FAQ_KEYS, type FAQKey } from '@/lib/service-data';
+import { FAQ_KEYS, type FAQKey } from '@/lib/service-ids';
 
 export function FAQ() {
   const t = useTranslations('landing.faq');
