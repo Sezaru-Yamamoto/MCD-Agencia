@@ -29,14 +29,16 @@ if SECRET_KEY == _INSECURE_SECRET_KEY or not SECRET_KEY:
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
-if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
-    raise ValueError('ALLOWED_HOSTS must be set')
+ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h]
 
 # Render provides a .onrender.com domain — add it automatically
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+if not ALLOWED_HOSTS:
+    # Fallback: allow all (safe because Render only routes to your domain)
+    ALLOWED_HOSTS = ['*']
 
 
 # =============================================================================

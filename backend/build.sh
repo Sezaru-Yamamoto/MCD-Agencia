@@ -8,6 +8,15 @@
 
 set -o errexit  # Exit on error
 
+echo "=== Installing system dependencies (WeasyPrint, etc.) ==="
+apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libcairo2 \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 echo "=== Installing Python dependencies ==="
 pip install --upgrade pip
 pip install -r requirements.txt
