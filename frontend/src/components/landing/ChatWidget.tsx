@@ -30,7 +30,7 @@ interface ChatConfig {
 }
 
 // API Base URL - usar variable de entorno o localhost en desarrollo
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 // Detectar locale del pathname
 function getLocaleFromPath(): string {
@@ -92,7 +92,7 @@ export default function ChatWidget() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/chatbot/web-chat/config/?language=${locale}`);
+        const response = await fetch(`${API_BASE_URL}/chatbot/web-chat/config/?language=${locale}`);
         if (response.ok) {
           const data = await response.json();
           setConfig(data);
@@ -162,7 +162,7 @@ export default function ChatWidget() {
         content: m.content
       }));
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/chatbot/web-chat/message/`, {
+      const response = await fetch(`${API_BASE_URL}/chatbot/web-chat/message/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

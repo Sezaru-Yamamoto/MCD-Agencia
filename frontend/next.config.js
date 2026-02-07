@@ -113,20 +113,30 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              `img-src 'self' data: blob: https: ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}`,
-              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'} https://www.google-analytics.com`,
-              "frame-src 'self' https://www.google.com https://maps.google.com",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "frame-ancestors 'none'",
-              process.env.NODE_ENV === 'production' ? "upgrade-insecure-requests" : "",
-            ].filter(Boolean).join('; '),
+            value: (() => {
+              // Extract just the origin (scheme + host) from the API URL for CSP
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+              let apiOrigin;
+              try {
+                apiOrigin = new URL(apiUrl).origin;
+              } catch {
+                apiOrigin = apiUrl;
+              }
+              return [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com",
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com",
+                `img-src 'self' data: blob: https: ${apiOrigin}`,
+                `connect-src 'self' ${apiOrigin} https://www.google-analytics.com https://nominatim.openstreetmap.org https://router.project-osrm.org`,
+                "frame-src 'self' https://www.google.com https://maps.google.com",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'none'",
+                process.env.NODE_ENV === 'production' ? "upgrade-insecure-requests" : "",
+              ].filter(Boolean).join('; ');
+            })(),
           },
         ],
       },
