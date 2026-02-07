@@ -129,7 +129,7 @@ const nextConfig = {
                 "font-src 'self' https://fonts.gstatic.com",
                 `img-src 'self' data: blob: https: ${apiOrigin}`,
                 `connect-src 'self' ${apiOrigin} https://www.google-analytics.com https://nominatim.openstreetmap.org https://router.project-osrm.org`,
-                "frame-src 'self' https://www.google.com https://maps.google.com",
+                "frame-src 'self' https://www.google.com https://maps.google.com https://www.youtube-nocookie.com https://www.youtube.com",
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",

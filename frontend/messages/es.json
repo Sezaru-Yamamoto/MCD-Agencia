@@ -133,23 +133,12 @@
     },
     "portfolio": {
       "title": "Trabajos que hablan por nosotros",
-      "subtitle": "Proyectos exitosos que hemos realizado para nuestros clientes.",
+      "subtitle": "Mira cómo transformamos ideas en proyectos de impacto.",
       "likeThis": "¿Te gustaría un proyecto similar?",
       "requestQuote": "Solicitar cotización →",
-      "items": {
-        "lona": { "title": "Lona exterior gran formato", "category": "Gran Formato" },
-        "rotulacion": { "title": "Rotulación vehicular", "category": "Vinilos" },
-        "vinilo": { "title": "Vinilo en vidriera", "category": "Vinilos" },
-        "senaletica": { "title": "Señalética corporativa", "category": "Señalética" },
-        "stand": { "title": "Stand para feria", "category": "Gran Formato" },
-        "espectacular": { "title": "Espectacular publicitario", "category": "Lonas" }
-      },
-      "categories": {
-        "largeFormat": "Gran Formato",
-        "vinyl": "Vinilos",
-        "signage": "Señalética",
-        "banners": "Lonas"
-      }
+      "playVideo": "Reproducir video",
+      "clickToPlay": "▶ Haz clic para reproducir",
+      "videoAlt": "Video de trabajos realizados por Agencia MCD"
     },
     "clients": {
       "title": "Confían en nosotros",

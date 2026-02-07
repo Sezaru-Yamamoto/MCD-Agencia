@@ -145,23 +145,12 @@
     },
     "portfolio": {
       "title": "Work that speaks for itself",
-      "subtitle": "Successful projects we have completed for our clients.",
+      "subtitle": "See how we turn ideas into high-impact projects.",
       "likeThis": "Would you like a similar project?",
       "requestQuote": "Request quote →",
-      "items": {
-        "lona": { "title": "Large format outdoor banner", "category": "Large Format" },
-        "rotulacion": { "title": "Vehicle lettering", "category": "Vinyl" },
-        "vinilo": { "title": "Storefront vinyl", "category": "Vinyl" },
-        "senaletica": { "title": "Corporate signage", "category": "Signage" },
-        "stand": { "title": "Trade show stand", "category": "Large Format" },
-        "espectacular": { "title": "Advertising billboard", "category": "Banners" }
-      },
-      "categories": {
-        "largeFormat": "Large Format",
-        "vinyl": "Vinyl",
-        "signage": "Signage",
-        "banners": "Banners"
-      }
+      "playVideo": "Play video",
+      "clickToPlay": "▶ Click to play",
+      "videoAlt": "Video of work done by Agencia MCD"
     },
     "clients": {
       "title": "They trust us",

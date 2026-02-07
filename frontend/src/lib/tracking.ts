@@ -36,10 +36,15 @@ export function trackEvent(eventName: TrackingEvent | string, properties?: Recor
 }
 
 // Helper para tracking de CTAs
-export function trackCTA(type: 'quote' | 'whatsapp', location: string) {
-  const eventName = type === 'quote'
-    ? trackingEvents.CTA_CLICK_QUOTE
-    : trackingEvents.CTA_CLICK_WHATSAPP;
+export function trackCTA(type: 'quote' | 'whatsapp' | 'video_play', location: string) {
+  let eventName: string;
+  if (type === 'quote') {
+    eventName = trackingEvents.CTA_CLICK_QUOTE;
+  } else if (type === 'whatsapp') {
+    eventName = trackingEvents.CTA_CLICK_WHATSAPP;
+  } else {
+    eventName = 'video_play';
+  }
 
   trackEvent(eventName, { location });
 }
