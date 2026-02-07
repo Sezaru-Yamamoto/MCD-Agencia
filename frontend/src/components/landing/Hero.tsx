@@ -46,7 +46,7 @@ export function Hero() {
               <img
                 src="/logo-hero.png"
                 alt="Logo principal"
-                className="w-64 sm:w-80 md:w-[512px] lg:w-[896px] h-auto drop-shadow-xl mb-2 sm:mb-3 md:mb-4"
+                className="w-40 sm:w-56 md:w-72 lg:w-96 h-auto drop-shadow-xl mb-2 sm:mb-3 md:mb-4"
                 style={{ maxWidth: '90vw' }}
               />
             </div>

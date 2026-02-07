@@ -90,9 +90,9 @@ export function Footer() {
               <Image
                 src="/images/logo.png"
                 alt="MCD Agencia"
-                width={300}
-                height={100}
-                className="h-20 w-auto"
+                width={180}
+                height={90}
+                className="h-10 w-auto"
               />
             </Link>
             <p className="mt-4 max-w-sm text-sm text-neutral-400">

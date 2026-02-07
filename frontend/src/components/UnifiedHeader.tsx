@@ -118,12 +118,12 @@ export function UnifiedHeader() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center space-x-3 mr-8 flex-shrink-0">
-            <div className="w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-28 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
               <Image
                 src="/logo.png"
                 alt="Agencia MCD Logo"
-                width={80}
-                height={80}
+                width={120}
+                height={60}
                 className="object-contain"
                 priority
               />

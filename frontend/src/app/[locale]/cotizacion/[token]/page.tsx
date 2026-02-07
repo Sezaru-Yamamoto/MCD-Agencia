@@ -206,9 +206,9 @@ export default function QuoteViewPage() {
           <Image
             src="/images/logo.png"
             alt="MCD Agencia"
-            width={240}
-            height={80}
-            className="mx-auto mb-4"
+            width={200}
+            height={100}
+            className="mx-auto mb-4 h-12 w-auto"
           />
           <h1 className="text-2xl font-bold text-white">Cotización</h1>
           <p className="text-neutral-400">{quote.quote_number}</p>
