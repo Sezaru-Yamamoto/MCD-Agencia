@@ -740,7 +740,7 @@ export default function NewQuotePage() {
               <div className="space-y-3">
                 <Button
                   onClick={() => handleSubmit(true)}
-                  disabled={isSubmitting || items.length === 0 || cannotCreateForRequest}
+                  disabled={isSubmitting || items.length === 0 || !!cannotCreateForRequest}
                   isLoading={isSubmitting}
                   className="w-full"
                 >
@@ -748,7 +748,7 @@ export default function NewQuotePage() {
                 </Button>
                 <Button
                   onClick={() => handleSubmit(false)}
-                  disabled={isSubmitting || items.length === 0 || cannotCreateForRequest}
+                  disabled={isSubmitting || items.length === 0 || !!cannotCreateForRequest}
                   variant="outline"
                   className="w-full"
                 >
