@@ -1,10 +1,12 @@
 """
 Django Cloud Production Settings for MCD-Agencia.
 
-Optimized for FREE cloud hosting: Render (backend) + Neon (PostgreSQL) + Upstash (Redis).
-This is a lighter version of production.py that works without S3, SendGrid, or payment gateways.
+Optimized for FREE cloud hosting with MINIMAL platforms:
+  - Render (backend + PostgreSQL)  → 1 platform
+  - Vercel (frontend)              → 1 platform
 
-Use this for initial deployment and testing. Switch to production.py when going fully live.
+No Redis, no S3, no SendGrid needed. Celery runs synchronously.
+Everything works exactly as it does locally, but online.
 
 Usage: Set DJANGO_ENV=cloud in environment variables.
 """
@@ -31,7 +33,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
     raise ValueError('ALLOWED_HOSTS must be set')
 
-# Render provides a .onrender.com domain — add it
+# Render provides a .onrender.com domain — add it automatically
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -66,9 +68,7 @@ CSRF_TRUSTED_ORIGINS = [o for o in CSRF_TRUSTED_ORIGINS if o]
 
 
 # =============================================================================
-# DATABASE (Neon PostgreSQL — free tier)
-# =============================================================================
-# Neon provides a DATABASE_URL, or individual vars
+# DATABASE (Render PostgreSQL — included free, auto-linked via DATABASE_URL)
 # =============================================================================
 
 DATABASE_URL = os.getenv('DATABASE_URL', '')
@@ -80,47 +80,26 @@ if DATABASE_URL:
             DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
-            ssl_require=True,
         )
     }
 else:
-    # Fallback to individual vars
+    # Fallback to individual env vars (DB_NAME, DB_USER, DB_PASSWORD, etc.)
     DATABASES['default']['CONN_MAX_AGE'] = 600
-    DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 10,
-        'sslmode': 'require',
-    }
 
 
 # =============================================================================
-# CACHE (Upstash Redis — free tier)
+# CACHE — In-memory (no Redis needed, zero external dependencies)
 # =============================================================================
 
-_REDIS_URL = os.getenv('REDIS_URL', '')
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'mcd-cloud-cache',
+    }
+}
 
-if _REDIS_URL:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': _REDIS_URL,
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-                'SOCKET_CONNECT_TIMEOUT': 5,
-                'SOCKET_TIMEOUT': 5,
-                'RETRY_ON_TIMEOUT': True,
-                'MAX_CONNECTIONS': 10,  # Low for free tier
-            },
-            'KEY_PREFIX': 'mcd',
-        }
-    }
-else:
-    # Fallback to local memory cache if no Redis
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
-        }
-    }
+# Use database sessions instead of cache (more reliable without Redis)
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 
 # =============================================================================

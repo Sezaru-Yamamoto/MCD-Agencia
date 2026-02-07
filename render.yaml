@@ -1,9 +1,27 @@
 # =============================================================================
-# Render Blueprint — MCD-Agencia Backend
+# Render Blueprint — MCD-Agencia (Backend + Database in ONE platform)
 # =============================================================================
 # Deploy with one click: Connect GitHub repo → Render auto-detects this file
+#
+# This creates:
+#   1. Django Backend (Web Service — free)
+#   2. PostgreSQL Database (free — 90 days, 256MB)
+#
+# Frontend goes to Vercel separately.
+# Total platforms needed: Render + Vercel = 2
+#
 # https://render.com/docs/blueprint-spec
 # =============================================================================
+
+databases:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL (included free on Render — no external platform needed)
+  # ---------------------------------------------------------------------------
+  - name: mcd-agencia-db
+    plan: free
+    region: oregon
+    databaseName: mcd_agencia
+    user: mcd_user
 
 services:
   # ---------------------------------------------------------------------------
@@ -17,7 +35,7 @@ services:
     rootDir: backend
     buildCommand: "./build.sh"
     startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 2 --timeout 120 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50"
-    healthCheckPath: /api/v1/health/
+    healthCheckPath: /health/
     autoDeploy: true
     envVars:
       # Django Core
@@ -28,17 +46,15 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.7
 
-      # Database (Neon PostgreSQL — set this manually after creating Neon DB)
+      # Database (auto-linked from the database above)
       - key: DATABASE_URL
-        sync: false  # Must be set manually
+        fromDatabase:
+          name: mcd-agencia-db
+          property: connectionString
 
-      # Redis (Upstash — set this manually after creating Upstash Redis)
-      - key: REDIS_URL
-        sync: false  # Must be set manually
-
-      # Hosts & CORS (update with your actual Vercel domain)
+      # Hosts & CORS (update after first deploy with your actual URLs)
       - key: ALLOWED_HOSTS
-        sync: false  # e.g.: mcd-agencia-api.onrender.com,agenciamcd.mx
+        sync: false  # e.g.: mcd-agencia-api.onrender.com
       - key: CORS_ALLOWED_ORIGINS
         sync: false  # e.g.: https://mcd-agencia.vercel.app
       - key: CSRF_TRUSTED_ORIGINS
@@ -50,7 +66,7 @@ services:
       - key: BACKEND_URL
         sync: false  # e.g.: https://mcd-agencia-api.onrender.com
 
-      # Email (Gmail SMTP — free)
+      # Email (Gmail SMTP — free, uses your existing credentials)
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
@@ -68,7 +84,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-      # Admin user (created on first deploy)
+      # Admin user (created automatically on first deploy)
       - key: DJANGO_SUPERUSER_EMAIL
         sync: false
       - key: DJANGO_SUPERUSER_PASSWORD
@@ -79,19 +95,9 @@ services:
         sync: false
       - key: MERCADOPAGO_PUBLIC_KEY
         sync: false
-      - key: MERCADOPAGO_WEBHOOK_SECRET
-        sync: false
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
-        sync: false
-      - key: PAYPAL_WEBHOOK_ID
-        sync: false
-
-      # Recaptcha (optional)
-      - key: RECAPTCHA_SITE_KEY
-        sync: false
-      - key: RECAPTCHA_SECRET_KEY
         sync: false
 
       # Sentry (optional — free tier)
