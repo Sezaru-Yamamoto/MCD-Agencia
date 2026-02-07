@@ -205,7 +205,7 @@ export default function NewQuotePage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/cotizaciones/nueva`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/cotizaciones/nueva`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -359,7 +359,7 @@ export default function NewQuotePage() {
         toast.success('Cotización guardada como borrador');
       }
 
-      router.push(`/${locale}/ventas/cotizaciones`);
+      router.push(`/${locale}/dashboard/cotizaciones`);
     } catch (error) {
       console.error('Error creating quote:', error);
       toast.error('Error al crear la cotización');

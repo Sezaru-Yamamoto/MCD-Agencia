@@ -37,7 +37,7 @@ const urgencyLabels = {
   normal: 'Normal',
 };
 
-export default function SalesDashboard() {
+export default function DashboardPage() {
   const router = useRouter();
   const locale = useLocale();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -53,7 +53,7 @@ export default function SalesDashboard() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -117,7 +117,9 @@ export default function SalesDashboard() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Panel de Ventas</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          {user?.role?.name === 'admin' ? 'Panel de Administración' : 'Panel de Ventas'}
+        </h1>
         <p className="text-neutral-400">
           Bienvenido, {user?.first_name || user?.email}
         </p>
@@ -189,7 +191,7 @@ export default function SalesDashboard() {
                   Solicitudes Pendientes
                 </h2>
                 <Link
-                  href={`/${locale}/ventas/solicitudes`}
+                  href={`/${locale}/dashboard/solicitudes`}
                   className="text-cmyk-cyan hover:text-cmyk-cyan/80 text-sm flex items-center gap-1"
                 >
                   Ver todas <ArrowRightIcon className="h-4 w-4" />
@@ -210,7 +212,7 @@ export default function SalesDashboard() {
                   {pendingRequests.map((request) => (
                     <Link
                       key={request.id}
-                      href={`/${locale}/ventas/solicitudes/${request.id}`}
+                      href={`/${locale}/dashboard/solicitudes/${request.id}`}
                       className="block p-4 bg-neutral-800/50 rounded-lg hover:bg-neutral-800 transition-colors border border-neutral-700/50"
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -245,25 +247,25 @@ export default function SalesDashboard() {
               <h2 className="text-lg font-semibold text-white mb-4">Acciones Rápidas</h2>
               <div className="space-y-3">
                 <Link
-                  href={`/${locale}/ventas/cotizaciones/nueva`}
+                  href={`/${locale}/dashboard/cotizaciones/nueva`}
                   className="block w-full px-4 py-3 bg-cmyk-cyan text-black font-medium rounded-lg hover:bg-cmyk-cyan/90 transition-colors text-center"
                 >
                   Nueva Cotización
                 </Link>
                 <Link
-                  href={`/${locale}/ventas/solicitudes`}
+                  href={`/${locale}/dashboard/solicitudes`}
                   className="block w-full px-4 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition-colors text-center"
                 >
                   Ver Solicitudes
                 </Link>
                 <Link
-                  href={`/${locale}/ventas/cotizaciones`}
+                  href={`/${locale}/dashboard/cotizaciones`}
                   className="block w-full px-4 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition-colors text-center"
                 >
                   Ver Cotizaciones
                 </Link>
                 <Link
-                  href={`/${locale}/ventas/pedidos`}
+                  href={`/${locale}/dashboard/pedidos`}
                   className="block w-full px-4 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition-colors text-center"
                 >
                   Ver Pedidos
@@ -296,7 +298,7 @@ export default function SalesDashboard() {
               {pendingChangeRequests.map((changeRequest) => (
                 <Link
                   key={changeRequest.id}
-                  href={`/${locale}/ventas/cotizaciones/${changeRequest.quote}/cambios/${changeRequest.id}`}
+                  href={`/${locale}/dashboard/cotizaciones/${changeRequest.quote}/cambios/${changeRequest.id}`}
                   className="block p-4 bg-orange-500/10 rounded-lg hover:bg-orange-500/20 transition-colors border border-orange-500/30"
                 >
                   <div className="flex items-start justify-between gap-4">

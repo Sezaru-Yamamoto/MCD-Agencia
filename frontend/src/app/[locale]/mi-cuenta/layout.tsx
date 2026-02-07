@@ -29,18 +29,18 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
   const { isAuthenticated, isLoading, logout, user } = useAuth();
 
   // Check user role
-  const isSales = user?.role?.name === 'sales';
+  const isStaff = user?.role?.name === 'sales' || user?.role?.name === 'admin';
 
   // Menu items based on role
   const MENU_ITEMS = useMemo(() => {
-    if (isSales) {
-      // Sales users get a different menu - redirect them to their panel
+    if (isStaff) {
+      // Staff users get dashboard links
       return [
         { href: `/${locale}/mi-cuenta`, label: 'Mi Perfil', icon: UserIcon, exact: true },
-        { href: `/${locale}/ventas`, label: 'Panel de Ventas', icon: CogIcon },
-        { href: `/${locale}/ventas/cotizaciones`, label: 'Cotizaciones', icon: ClipboardDocumentListIcon },
-        { href: `/${locale}/ventas/pedidos`, label: 'Pedidos', icon: ShoppingBagIcon },
-        { href: `/${locale}/ventas/clientes`, label: 'Clientes', icon: UsersIcon },
+        { href: `/${locale}/dashboard`, label: 'Panel de Control', icon: CogIcon },
+        { href: `/${locale}/dashboard/cotizaciones`, label: 'Cotizaciones', icon: ClipboardDocumentListIcon },
+        { href: `/${locale}/dashboard/pedidos`, label: 'Pedidos', icon: ShoppingBagIcon },
+        { href: `/${locale}/dashboard/clientes`, label: 'Clientes', icon: UsersIcon },
       ];
     }
     // Regular customers
@@ -50,7 +50,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
       { href: `/${locale}/mi-cuenta/cotizaciones`, label: 'Mis Cotizaciones', icon: DocumentTextIcon },
       { href: `/${locale}/mi-cuenta/configuracion`, label: 'Configuración', icon: CogIcon },
     ];
-  }, [locale, isSales]);
+  }, [locale, isStaff]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -77,10 +77,10 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
-            {isSales ? 'Panel de Vendedor' : 'Mi Cuenta'}
+            {isStaff ? 'Panel de Control' : 'Mi Cuenta'}
           </h1>
           <p className="text-neutral-400">
-            Bienvenido, {user?.role?.display_name || (isSales ? 'Vendedor' : user?.first_name || user?.email)}
+            Bienvenido, {user?.role?.display_name || (isStaff ? user?.first_name || 'Staff' : user?.first_name || user?.email)}
           </p>
         </div>
 

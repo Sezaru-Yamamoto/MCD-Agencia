@@ -35,6 +35,7 @@ export function Header() {
   // Check user role - 3 roles: admin, sales, customer
   const isAdmin = user?.role?.name === 'admin';
   const isSales = user?.role?.name === 'sales';
+  const isStaff = isAdmin || isSales;
 
   // Language switcher
   const otherLocale = locale === 'es' ? 'en' : 'es';
@@ -202,33 +203,19 @@ export function Header() {
                       {t('myOrders')}
                     </Link>
 
-                    {isAdmin && (
+                    {isStaff && (
                       <>
                         <div className="border-t border-neutral-700 my-1"></div>
                         <Link
-                          href={`/${locale}/admin`}
+                          href={`/${locale}/dashboard`}
                           onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-2 text-sm text-cmyk-cyan hover:bg-neutral-800 transition-colors"
                         >
                           <Cog6ToothIcon className="w-4 h-4" />
-                          Panel de Admin
-                        </Link>
-                      </>
-                    )}
-
-                    {isSales && (
-                      <>
-                        <div className="border-t border-neutral-700 my-1"></div>
-                        <Link
-                          href={`/${locale}/ventas`}
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-cmyk-cyan hover:bg-neutral-800 transition-colors"
-                        >
-                          <Cog6ToothIcon className="w-4 h-4" />
-                          Panel de Ventas
+                          Panel de Control
                         </Link>
                         <Link
-                          href={`/${locale}/ventas/cotizaciones`}
+                          href={`/${locale}/dashboard/cotizaciones`}
                           onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-neutral-800 hover:text-white transition-colors"
                         >
@@ -236,7 +223,7 @@ export function Header() {
                           Cotizaciones
                         </Link>
                         <Link
-                          href={`/${locale}/ventas/pedidos`}
+                          href={`/${locale}/dashboard/pedidos`}
                           onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-neutral-800 hover:text-white transition-colors"
                         >
@@ -244,7 +231,7 @@ export function Header() {
                           Pedidos
                         </Link>
                         <Link
-                          href={`/${locale}/ventas/clientes`}
+                          href={`/${locale}/dashboard/clientes`}
                           onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-neutral-800 hover:text-white transition-colors"
                         >
@@ -381,31 +368,19 @@ export function Header() {
                     </Link>
                   )}
 
-                  {/* Admin Panel */}
-                  {isAdmin && (
-                    <Link
-                      href={`/${locale}/admin`}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-2 py-2 text-cmyk-cyan hover:text-white"
-                    >
-                      <Cog6ToothIcon className="w-5 h-5" />
-                      Panel de Admin
-                    </Link>
-                  )}
-
-                  {/* Sales Panel */}
-                  {isSales && (
+                  {/* Dashboard Panel */}
+                  {isStaff && (
                     <>
                       <Link
-                        href={`/${locale}/ventas`}
+                        href={`/${locale}/dashboard`}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="flex items-center gap-3 px-2 py-2 text-cmyk-cyan hover:text-white"
                       >
                         <Cog6ToothIcon className="w-5 h-5" />
-                        Panel de Ventas
+                        Panel de Control
                       </Link>
                       <Link
-                        href={`/${locale}/ventas/cotizaciones`}
+                        href={`/${locale}/dashboard/cotizaciones`}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="flex items-center gap-3 px-2 py-2 text-gray-300 hover:text-white"
                       >
@@ -413,7 +388,7 @@ export function Header() {
                         Cotizaciones
                       </Link>
                       <Link
-                        href={`/${locale}/ventas/pedidos`}
+                        href={`/${locale}/dashboard/pedidos`}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="flex items-center gap-3 px-2 py-2 text-gray-300 hover:text-white"
                       >
@@ -421,7 +396,7 @@ export function Header() {
                         Pedidos
                       </Link>
                       <Link
-                        href={`/${locale}/ventas/clientes`}
+                        href={`/${locale}/dashboard/clientes`}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="flex items-center gap-3 px-2 py-2 text-gray-300 hover:text-white"
                       >

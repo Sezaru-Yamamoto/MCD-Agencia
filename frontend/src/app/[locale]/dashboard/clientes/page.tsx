@@ -119,7 +119,7 @@ export default function ClientsListPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/clientes`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/clientes`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -323,7 +323,7 @@ export default function ClientsListPage() {
                 {/* Quick Actions */}
                 <div className="mt-4 flex gap-2">
                   <Link
-                    href={`/${locale}/ventas/cotizaciones/nueva?cliente=${client.id}`}
+                    href={`/${locale}/dashboard/cotizaciones/nueva?cliente=${client.id}`}
                     className="flex-1"
                   >
                     <Button variant="outline" className="w-full text-sm">

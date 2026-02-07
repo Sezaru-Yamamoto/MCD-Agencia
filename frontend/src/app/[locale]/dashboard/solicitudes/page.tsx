@@ -197,7 +197,7 @@ export default function QuoteRequestsListPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/solicitudes`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/solicitudes`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -255,7 +255,7 @@ export default function QuoteRequestsListPage() {
               Gestiona solicitudes de cotización y cambios
             </p>
           </div>
-          <Link href={`/${locale}/ventas/cotizaciones/nueva`}>
+          <Link href={`/${locale}/dashboard/cotizaciones/nueva`}>
             <Button className="mt-4 sm:mt-0" leftIcon={<DocumentPlusIcon className="h-5 w-5" />}>
               Nueva Cotización
             </Button>
@@ -474,7 +474,7 @@ export default function QuoteRequestsListPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <Link
-                                  href={`/${locale}/ventas/solicitudes/${request.id}`}
+                                  href={`/${locale}/dashboard/solicitudes/${request.id}`}
                                   className="p-2 text-neutral-400 hover:text-white transition-colors"
                                   title="Ver detalle"
                                 >
@@ -484,7 +484,7 @@ export default function QuoteRequestsListPage() {
                                   isAdmin || request.assigned_to === user?.id || request.urgency === 'high'
                                 ) && (
                                   <Link
-                                    href={`/${locale}/ventas/cotizaciones/nueva?solicitud=${request.id}`}
+                                    href={`/${locale}/dashboard/cotizaciones/nueva?solicitud=${request.id}`}
                                     className="p-2 text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors"
                                     title="Crear cotización"
                                   >
@@ -674,7 +674,7 @@ export default function QuoteRequestsListPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Link
-                                href={`/${locale}/ventas/cotizaciones/${changeRequest.quote}/cambios/${changeRequest.id}`}
+                                href={`/${locale}/dashboard/cotizaciones/${changeRequest.quote}/cambios/${changeRequest.id}`}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                                   changeRequest.status === 'pending'
                                     ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'

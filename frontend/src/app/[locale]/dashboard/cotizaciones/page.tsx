@@ -99,7 +99,7 @@ export default function QuotesListPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/cotizaciones`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/cotizaciones`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -145,7 +145,7 @@ export default function QuotesListPage() {
     try {
       const newQuote = await duplicateQuote(quoteId);
       // Redirect to edit the new quote
-      router.push(`/${locale}/ventas/cotizaciones/${newQuote.id}/editar`);
+      router.push(`/${locale}/dashboard/cotizaciones/${newQuote.id}/editar`);
     } catch (error) {
       console.error('Error duplicating quote:', error);
       alert('Error al duplicar la cotización');
@@ -181,7 +181,7 @@ export default function QuotesListPage() {
               Gestiona las cotizaciones de tus clientes
             </p>
           </div>
-          <Link href={`/${locale}/ventas/cotizaciones/nueva`}>
+          <Link href={`/${locale}/dashboard/cotizaciones/nueva`}>
             <Button className="mt-4 sm:mt-0" leftIcon={<PlusIcon className="h-5 w-5" />}>
               Nueva Cotización
             </Button>
@@ -250,7 +250,7 @@ export default function QuotesListPage() {
                 </button>
               ) : (
                 <Link
-                  href={`/${locale}/ventas/cotizaciones/nueva`}
+                  href={`/${locale}/dashboard/cotizaciones/nueva`}
                   className="mt-2 text-cyan-400 hover:text-cyan-300 inline-block"
                 >
                   Crear primera cotización
@@ -317,7 +317,7 @@ export default function QuotesListPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
-                            href={`/${locale}/ventas/cotizaciones/${quote.id}`}
+                            href={`/${locale}/dashboard/cotizaciones/${quote.id}`}
                             title="Ver detalle"
                             className="p-1 text-neutral-400 hover:text-white transition-colors"
                           >
@@ -325,7 +325,7 @@ export default function QuotesListPage() {
                           </Link>
                           {quote.status === 'draft' && (
                             <Link
-                              href={`/${locale}/ventas/cotizaciones/${quote.id}/editar`}
+                              href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`}
                               title="Editar"
                               className="p-1 text-neutral-400 hover:text-white transition-colors"
                             >

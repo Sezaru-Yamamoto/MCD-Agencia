@@ -128,7 +128,7 @@ export default function AdminLeadsPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/admin/leads`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/leads`);
       } else if (!permissions.canAccessAdmin) {
         router.push(`/${locale}`);
       } else {

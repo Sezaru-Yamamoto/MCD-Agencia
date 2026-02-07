@@ -106,7 +106,7 @@ export default function StaffOrderDetailPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/pedidos/${orderId}`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/pedidos/${orderId}`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -124,7 +124,7 @@ export default function StaffOrderDetailPage() {
       } catch (error) {
         console.error('Error fetching order:', error);
         toast.error('Error al cargar el pedido');
-        router.push(`/${locale}/ventas/pedidos`);
+        router.push(`/${locale}/dashboard/pedidos`);
       } finally {
         setIsLoading(false);
       }
@@ -200,7 +200,7 @@ export default function StaffOrderDetailPage() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <Link
-            href={`/${locale}/ventas/pedidos`}
+            href={`/${locale}/dashboard/pedidos`}
             className="p-2 text-neutral-400 hover:text-white transition-colors"
           >
             <ArrowLeftIcon className="h-6 w-6" />

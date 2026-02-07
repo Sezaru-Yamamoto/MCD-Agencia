@@ -75,7 +75,7 @@ export default function EditQuotePage() {
       // Only allow editing drafts
       if (quote.status !== 'draft') {
         toast.error('Solo se pueden editar cotizaciones en borrador');
-        router.push(`/${locale}/ventas/cotizaciones/${quoteId}`);
+        router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
         return;
       }
 
@@ -114,7 +114,7 @@ export default function EditQuotePage() {
     } catch (error) {
       console.error('Error loading quote:', error);
       toast.error('Error al cargar la cotizacion');
-      router.push(`/${locale}/ventas/cotizaciones`);
+      router.push(`/${locale}/dashboard/cotizaciones`);
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +133,7 @@ export default function EditQuotePage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/cotizaciones/${quoteId}/editar`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/cotizaciones/${quoteId}/editar`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -278,7 +278,7 @@ export default function EditQuotePage() {
         toast.success('Cotizacion actualizada');
       }
 
-      router.push(`/${locale}/ventas/cotizaciones/${quoteId}`);
+      router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
     } catch (error) {
       console.error('Error updating quote:', error);
       toast.error('Error al actualizar la cotizacion');

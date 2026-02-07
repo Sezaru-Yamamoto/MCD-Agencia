@@ -346,7 +346,7 @@ export default function QuoteRequestDetailPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/solicitudes/${requestId}`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/solicitudes/${requestId}`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -368,7 +368,7 @@ export default function QuoteRequestDetailPage() {
       } catch (error) {
         console.error('Error fetching request:', error);
         toast.error('Error al cargar la solicitud');
-        router.push(`/${locale}/ventas/solicitudes`);
+        router.push(`/${locale}/dashboard/solicitudes`);
       } finally {
         setIsLoading(false);
       }
@@ -669,7 +669,7 @@ export default function QuoteRequestDetailPage() {
               <div className="space-y-3">
                 {canCreateQuote && canCreateQuoteForRequest && (
                   <Link
-                    href={`/${locale}/ventas/cotizaciones/nueva?solicitud=${request.id}`}
+                    href={`/${locale}/dashboard/cotizaciones/nueva?solicitud=${request.id}`}
                     className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-cmyk-cyan text-black font-medium rounded-lg hover:bg-cmyk-cyan/90 transition-colors"
                   >
                     <DocumentPlusIcon className="h-5 w-5" />

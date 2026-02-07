@@ -93,7 +93,7 @@ export default function SalesOrdersPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/pedidos`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/pedidos`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -335,7 +335,7 @@ export default function SalesOrdersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
-                            href={`/${locale}/ventas/pedidos/${order.id}`}
+                            href={`/${locale}/dashboard/pedidos/${order.id}`}
                             className="p-1 text-neutral-400 hover:text-white transition-colors"
                             title="Ver detalle"
                           >

@@ -76,7 +76,7 @@ export default function QuoteDetailPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/cotizaciones/${quoteId}`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/cotizaciones/${quoteId}`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -94,7 +94,7 @@ export default function QuoteDetailPage() {
       } catch (error) {
         console.error('Error fetching quote:', error);
         toast.error('Error al cargar la cotizacion');
-        router.push(`/${locale}/ventas/cotizaciones`);
+        router.push(`/${locale}/dashboard/cotizaciones`);
       } finally {
         setIsLoading(false);
       }
@@ -137,7 +137,7 @@ export default function QuoteDetailPage() {
     try {
       await deleteQuote(quote.id);
       toast.success('Cotizacion eliminada');
-      router.push(`/${locale}/ventas/cotizaciones`);
+      router.push(`/${locale}/dashboard/cotizaciones`);
     } catch (error) {
       console.error('Error deleting quote:', error);
       toast.error('Error al eliminar la cotizacion');
@@ -153,7 +153,7 @@ export default function QuoteDetailPage() {
     try {
       const newQuote = await duplicateQuote(quote.id);
       toast.success('Cotizacion duplicada');
-      router.push(`/${locale}/ventas/cotizaciones/${newQuote.id}`);
+      router.push(`/${locale}/dashboard/cotizaciones/${newQuote.id}`);
     } catch (error) {
       console.error('Error duplicating quote:', error);
       toast.error('Error al duplicar la cotizacion');
@@ -175,7 +175,7 @@ export default function QuoteDetailPage() {
       toast.success('Pedido creado exitosamente');
       // Navigate to the new order detail
       const order = result.order;
-      router.push(`/${locale}/ventas/pedidos/${order.id}`);
+      router.push(`/${locale}/dashboard/pedidos/${order.id}`);
     } catch (error: unknown) {
       console.error('Error converting quote:', error);
       const errMsg = error && typeof error === 'object' && 'message' in error 
@@ -219,7 +219,7 @@ export default function QuoteDetailPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link
-              href={`/${locale}/ventas/cotizaciones`}
+              href={`/${locale}/dashboard/cotizaciones`}
               className="p-2 text-neutral-400 hover:text-white transition-colors"
             >
               <ArrowLeftIcon className="h-6 w-6" />
@@ -242,7 +242,7 @@ export default function QuoteDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             {quote.status === 'draft' && (
               <>
-                <Link href={`/${locale}/ventas/cotizaciones/${quote.id}/editar`}>
+                <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`}>
                   <Button variant="outline" leftIcon={<PencilIcon className="h-4 w-4" />}>
                     Editar
                   </Button>
@@ -477,7 +477,7 @@ export default function QuoteDetailPage() {
               <Card className="p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">Solicitud Relacionada</h2>
                 <Link
-                  href={`/${locale}/ventas/solicitudes/${quote.quote_request.id}`}
+                  href={`/${locale}/dashboard/solicitudes/${quote.quote_request.id}`}
                   className="text-cmyk-cyan hover:underline"
                 >
                   {quote.quote_request.request_number}

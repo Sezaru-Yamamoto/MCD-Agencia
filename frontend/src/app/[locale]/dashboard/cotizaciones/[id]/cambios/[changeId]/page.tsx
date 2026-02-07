@@ -59,7 +59,7 @@ export default function ChangeRequestReviewPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push(`/${locale}/login?redirect=/${locale}/ventas/cotizaciones/${quoteId}/cambios/${changeId}`);
+        router.push(`/${locale}/login?redirect=/${locale}/dashboard/cotizaciones/${quoteId}/cambios/${changeId}`);
       } else if (!isSalesOrAdmin) {
         router.push(`/${locale}`);
       }
@@ -81,7 +81,7 @@ export default function ChangeRequestReviewPage() {
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Error al cargar la solicitud');
-        router.push(`/${locale}/ventas/cotizaciones/${quoteId}`);
+        router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
       } finally {
         setIsLoading(false);
       }
@@ -103,7 +103,7 @@ export default function ChangeRequestReviewPage() {
 
       if (action === 'approve') {
         // Redirect to edit the quote
-        router.push(`/${locale}/ventas/cotizaciones/${quoteId}/editar`);
+        router.push(`/${locale}/dashboard/cotizaciones/${quoteId}/editar`);
       }
     } catch (error) {
       console.error('Error reviewing request:', error);
@@ -173,7 +173,7 @@ export default function ChangeRequestReviewPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link
-              href={`/${locale}/ventas/cotizaciones/${quoteId}`}
+              href={`/${locale}/dashboard/cotizaciones/${quoteId}`}
               className="p-2 text-neutral-400 hover:text-white transition-colors"
             >
               <ArrowLeftIcon className="h-6 w-6" />
@@ -449,7 +449,7 @@ export default function ChangeRequestReviewPage() {
               <h2 className="text-lg font-semibold text-white mb-4">Acciones Rapidas</h2>
               <div className="space-y-2">
                 <Link
-                  href={`/${locale}/ventas/cotizaciones/${quoteId}`}
+                  href={`/${locale}/dashboard/cotizaciones/${quoteId}`}
                   className="block"
                 >
                   <Button variant="outline" className="w-full justify-start">
@@ -458,7 +458,7 @@ export default function ChangeRequestReviewPage() {
                 </Link>
                 {changeRequest.status === 'approved' && (
                   <Link
-                    href={`/${locale}/ventas/cotizaciones/${quoteId}/editar`}
+                    href={`/${locale}/dashboard/cotizaciones/${quoteId}/editar`}
                     className="block"
                   >
                     <Button className="w-full justify-start">

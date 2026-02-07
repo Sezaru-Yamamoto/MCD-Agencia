@@ -60,6 +60,7 @@ export function Header() {
   // Check user role - 3 roles: admin, sales, customer
   const isAdmin = user?.role?.name === 'admin';
   const isSales = user?.role?.name === 'sales';
+  const isStaff = isAdmin || isSales;
 
   // Handle scroll effect
   useEffect(() => {
@@ -185,69 +186,33 @@ export function Header() {
                           <p className="text-xs text-neutral-500">{user?.role?.display_name || 'Cliente'}</p>
                         </div>
 
-                        {/* Admin Options */}
-                        {isAdmin && (
+                        {/* Dashboard Options */}
+                        {isStaff && (
                           <>
                             <Link
-                              href={`/${locale}/admin`}
+                              href={`/${locale}/dashboard`}
                               className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
                               onClick={() => setIsUserMenuOpen(false)}
                             >
                               <Cog6ToothIcon className="h-4 w-4" />
-                              Panel de Admin
+                              Panel de Control
                             </Link>
                             <Link
-                              href={`/${locale}/admin/pedidos`}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
-                              onClick={() => setIsUserMenuOpen(false)}
-                            >
-                              Gestionar Pedidos
-                            </Link>
-                            <Link
-                              href={`/${locale}/admin/productos`}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
-                              onClick={() => setIsUserMenuOpen(false)}
-                            >
-                              Gestionar Productos
-                            </Link>
-                            <Link
-                              href={`/${locale}/admin/usuarios`}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
-                              onClick={() => setIsUserMenuOpen(false)}
-                            >
-                              Gestionar Usuarios
-                            </Link>
-                            <div className="my-2 border-t border-neutral-800" />
-                          </>
-                        )}
-
-                        {/* Sales Options */}
-                        {isSales && (
-                          <>
-                            <Link
-                              href={`/${locale}/ventas`}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
-                              onClick={() => setIsUserMenuOpen(false)}
-                            >
-                              <Cog6ToothIcon className="h-4 w-4" />
-                              Panel de Ventas
-                            </Link>
-                            <Link
-                              href={`/${locale}/ventas/cotizaciones`}
+                              href={`/${locale}/dashboard/cotizaciones`}
                               className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
                               onClick={() => setIsUserMenuOpen(false)}
                             >
                               Cotizaciones
                             </Link>
                             <Link
-                              href={`/${locale}/ventas/pedidos`}
+                              href={`/${locale}/dashboard/pedidos`}
                               className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
                               onClick={() => setIsUserMenuOpen(false)}
                             >
                               Pedidos
                             </Link>
                             <Link
-                              href={`/${locale}/ventas/clientes`}
+                              href={`/${locale}/dashboard/clientes`}
                               className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
                               onClick={() => setIsUserMenuOpen(false)}
                             >
