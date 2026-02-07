@@ -648,14 +648,14 @@ export default function QuoteRequestsListPage() {
                             </p>
                             {changeRequest.changes_summary && (
                               <div className="text-neutral-500 text-xs mt-1">
-                                {changeRequest.changes_summary.lines_modified > 0 && (
-                                  <span className="mr-2">{changeRequest.changes_summary.lines_modified} modificadas</span>
+                                {changeRequest.changes_summary.modified > 0 && (
+                                  <span className="mr-2">{changeRequest.changes_summary.modified} modificadas</span>
                                 )}
-                                {changeRequest.changes_summary.lines_removed > 0 && (
-                                  <span className="mr-2">{changeRequest.changes_summary.lines_removed} eliminadas</span>
+                                {changeRequest.changes_summary.deleted > 0 && (
+                                  <span className="mr-2">{changeRequest.changes_summary.deleted} eliminadas</span>
                                 )}
-                                {changeRequest.changes_summary.lines_added > 0 && (
-                                  <span>{changeRequest.changes_summary.lines_added} nuevas</span>
+                                {changeRequest.changes_summary.added > 0 && (
+                                  <span>{changeRequest.changes_summary.added} nuevas</span>
                                 )}
                               </div>
                             )}

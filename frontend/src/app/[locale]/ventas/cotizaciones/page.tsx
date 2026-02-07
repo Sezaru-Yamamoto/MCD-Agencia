@@ -312,7 +312,7 @@ export default function QuotesListPage() {
                         {formatDate(quote.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
-                        {formatDate(quote.valid_until)}
+                        {quote.valid_until ? formatDate(quote.valid_until) : '—'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">

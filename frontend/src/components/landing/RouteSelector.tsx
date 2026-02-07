@@ -125,8 +125,8 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
     });
 
     // Posiciones iniciales (o las guardadas)
-    const posA = pointA ? [pointA.lat, pointA.lon] : [16.8600, -99.8900];
-    const posB = pointB ? [pointB.lat, pointB.lon] : [16.8450, -99.8700];
+    const posA: [number, number] = pointA ? [pointA.lat, pointA.lon] : [16.8600, -99.8900];
+    const posB: [number, number] = pointB ? [pointB.lat, pointB.lon] : [16.8450, -99.8700];
 
     // Crear marcador A arrastrabe
     markerARef.current = L.marker(posA, { 
