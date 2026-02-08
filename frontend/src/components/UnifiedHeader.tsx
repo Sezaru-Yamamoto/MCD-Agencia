@@ -117,6 +117,7 @@ export function UnifiedHeader() {
   };
 
   return (
+    <>
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
@@ -350,11 +351,16 @@ export function UnifiedHeader() {
             )}
           </button>
         </div>
+      </div>
 
-        {/* Mobile Menu — fixed overlay so it scrolls independently of the page */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-x-0 top-16 bottom-0 z-40 bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain">
-          <div className="px-4 py-4 border-t border-cmyk-cyan/10">
+      {/* Cart Drawer */}
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+    </header>
+
+    {/* Mobile Menu — rendered outside <header> so it's in the root stacking context */}
+    {isMobileMenuOpen && (
+      <div className="lg:hidden fixed inset-x-0 top-16 bottom-0 z-[60] bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain">
+        <div className="px-4 py-4 border-t border-cmyk-cyan/10">
             <nav className="space-y-2">
               {navLinks.map((link) => (
                 <Link
@@ -511,12 +517,8 @@ export function UnifiedHeader() {
               </button>
             </div>
           </div>
-          </div>
-        )}
-      </div>
-
-      {/* Cart Drawer */}
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
-    </header>
+        </div>
+      )}
+    </>
   );
 }

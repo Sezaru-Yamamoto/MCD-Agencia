@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface ServiceCardImageData {
   src: string;
@@ -39,6 +39,8 @@ export function ServiceCardCarousel({
 }: ServiceCardCarouselProps) {
   const [ownIndex, setOwnIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   // Normalize to ServiceCardImageData[]
   const items: ServiceCardImageData[] = images.map((img) =>
@@ -55,6 +57,25 @@ export function ServiceCardCarousel({
   const goToSlide = useCallback((i: number) => setOwnIndex(i), []);
   const goPrev = useCallback(() => setOwnIndex((p) => (p - 1 + items.length) % items.length), [items.length]);
   const goNext = useCallback(() => setOwnIndex((p) => (p + 1) % items.length), [items.length]);
+
+  // Touch swipe support for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    // Only swipe if horizontal movement > vertical and exceeds threshold
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+      if (deltaX < 0) goNext();
+      else goPrev();
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [goNext, goPrev]);
 
   // Internal timer only when syncTick is NOT provided
   useEffect(() => {
@@ -73,6 +94,8 @@ export function ServiceCardCarousel({
       className={`relative w-full h-full min-h-[200px] overflow-hidden group/carousel ${contain ? 'bg-neutral-900' : 'bg-gray-200'}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Images — using native <img> for maximum compatibility */}
       {items.map((item, index) => (

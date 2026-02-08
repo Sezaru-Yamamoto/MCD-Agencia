@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -89,6 +89,26 @@ export function Services() {
     return () => { document.body.style.overflow = ''; };
   }, [selectedService]);
 
+  // Handle browser back button to close modal instead of navigating away
+  const popstateClosedRef = useRef(false);
+  useEffect(() => {
+    if (!selectedServiceId) return;
+    popstateClosedRef.current = false;
+    window.history.pushState({ modal: 'service' }, '');
+    const onPopState = () => {
+      popstateClosedRef.current = true;
+      setSelectedServiceId(null);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      // If closed by UI (not back button), clean up the history entry
+      if (!popstateClosedRef.current) {
+        window.history.back();
+      }
+    };
+  }, [selectedServiceId]);
+
   // Fullscreen image handler for modal
   const handleModalImageClick = useCallback((images: ServiceCardImageData[], index: number) => {
     setFullscreenImages({ images, index });
@@ -139,7 +159,7 @@ export function Services() {
 
       {/* ═══════════ Service Detail Modal ═══════════ */}
       {selectedService && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overscroll-contain" onClick={() => setSelectedServiceId(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start md:items-center justify-center pt-20 md:pt-4 px-3 pb-3 sm:px-4 sm:pb-4 overscroll-contain" onClick={() => setSelectedServiceId(null)}>
           <div className="bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 rounded-2xl max-w-4xl w-full max-h-[90dvh] overflow-y-auto shadow-2xl animate-scale-in border-2 border-cmyk-cyan/40 overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               {/* Carousel with arrows + subtype labels + click to fullscreen */}

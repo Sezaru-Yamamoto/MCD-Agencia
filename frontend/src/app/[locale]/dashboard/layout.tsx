@@ -217,8 +217,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main content */}
       <div className="lg:pl-64 pt-16">
-        {/* Mobile sidebar toggle */}
-        <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2">
+        {/* Mobile sidebar toggle — aligned right to match header hamburger */}
+        <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end">
           <button
             className="p-2 text-neutral-400 hover:text-white"
             onClick={() => setSidebarOpen(true)}
