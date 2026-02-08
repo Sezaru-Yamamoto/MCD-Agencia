@@ -87,6 +87,9 @@ services:
       # Cloudflare R2 (persistent file storage — free 10 GB)
       # Without these, uploaded images are LOST on every deploy!
       # Setup: https://dash.cloudflare.com → R2 → Create bucket → API Tokens
+      # NOTE: Uses presigned URLs (AWS_QUERYSTRING_AUTH=True) to bypass
+      #       Cloudflare Bot Fight Mode (error 1010) on r2.dev domains.
+      #       No custom domain or public access needed.
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
@@ -95,8 +98,6 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT_URL
         sync: false  # https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-      - key: AWS_S3_CUSTOM_DOMAIN
-        sync: false  # pub-<hash>.r2.dev (from R2 bucket public access)
 
       # Admin user (created automatically on first deploy)
       - key: DJANGO_SUPERUSER_EMAIL

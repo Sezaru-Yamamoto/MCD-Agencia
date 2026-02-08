@@ -373,17 +373,19 @@ DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 #   AWS_SECRET_ACCESS_KEY  = R2 Secret Access Key
 #   AWS_STORAGE_BUCKET_NAME = your-bucket-name
 #   AWS_S3_ENDPOINT_URL    = https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-#   AWS_S3_CUSTOM_DOMAIN   = media.agenciamcd.mx  (custom domain, NOT r2.dev)
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
 AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', '')
 AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'auto')  # 'auto' for R2
 AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL', '')  # R2/B2/DO endpoint
-AWS_S3_CUSTOM_DOMAIN = os.getenv('AWS_S3_CUSTOM_DOMAIN', '')  # Custom domain (NOT r2.dev!)
+AWS_S3_CUSTOM_DOMAIN = ''  # Must be empty — presigned URLs must use the S3 endpoint
 AWS_S3_FILE_OVERWRITE = False
-AWS_DEFAULT_ACL = None  # R2 doesn't support ACLs; use bucket-level public access
+AWS_DEFAULT_ACL = None  # R2 doesn't support ACLs
 AWS_S3_SIGNATURE_VERSION = 's3v4'
-AWS_QUERYSTRING_AUTH = False  # Serve public URLs (no signed querystring)
+# Presigned URLs bypass Cloudflare Bot Fight Mode (error 1010) on r2.dev
+# by going directly through the S3 API endpoint instead.
+AWS_QUERYSTRING_AUTH = True
+AWS_QUERYSTRING_EXPIRE = 3600  # Presigned URLs valid for 1 hour
 AWS_S3_OBJECT_PARAMETERS = {
     'CacheControl': 'max-age=86400',  # CDN cache 1 day
 }

@@ -120,30 +120,29 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # on every deploy.  Set up Cloudflare R2 (free 10 GB) for persistent storage:
 #
 #   1. Create R2 bucket at https://dash.cloudflare.com → R2
-#   2. Enable "Public access" (Settings → Public access → Allow)
-#   3. IMPORTANT: Add a Custom Domain (Settings → Custom Domains → Connect)
-#      e.g. media.agenciamcd.mx — avoids Cloudflare Bot Fight Mode (error 1010)
-#      that blocks programmatic access on pub-*.r2.dev URLs.
-#   4. Create API token: R2 → Manage R2 API Tokens → Create
-#   5. Add env vars on Render:
+#   2. Create API token: R2 → Manage R2 API Tokens → Create
+#   3. Add env vars on Render:
 #        AWS_ACCESS_KEY_ID       = <R2 Access Key ID>
 #        AWS_SECRET_ACCESS_KEY   = <R2 Secret Access Key>
 #        AWS_STORAGE_BUCKET_NAME = <bucket-name>
 #        AWS_S3_ENDPOINT_URL     = https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-#        AWS_S3_CUSTOM_DOMAIN    = media.agenciamcd.mx  (MUST be custom domain, NOT r2.dev)
+#
+# NOTE: We use PRESIGNED URLs (AWS_QUERYSTRING_AUTH=True) instead of public
+# bucket access because Cloudflare's r2.dev domain has Bot Fight Mode that
+# blocks server-side fetches (error 1010). Presigned URLs go directly through
+# the S3 API endpoint, bypassing this restriction entirely.
+#
+# Public access and custom domain are NOT needed with presigned URLs.
 #
 # Without these vars, Django falls back to local filesystem (files lost on deploy).
 # =============================================================================
 
 if os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_STORAGE_BUCKET_NAME'):
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    # Use custom domain for public URLs (e.g. pub-xxx.r2.dev)
-    if AWS_S3_CUSTOM_DOMAIN:
-        AWS_S3_URL_PROTOCOL = 'https:'
-        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
-    else:
-        # No custom domain — use the S3 endpoint directly
-        MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
+    # With AWS_QUERYSTRING_AUTH=True, file.url returns full presigned URLs
+    # pointing to the S3 endpoint. MEDIA_URL is not prepended by django-storages
+    # but Django still requires it to be set.
+    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
 else:
     import logging
     logging.getLogger('django').warning(

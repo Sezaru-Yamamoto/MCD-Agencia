@@ -58,10 +58,6 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'media.agenciamcd.mx',
-      },
-      {
-        protocol: 'https',
         hostname: 'images.unsplash.com',
       },
     ],
