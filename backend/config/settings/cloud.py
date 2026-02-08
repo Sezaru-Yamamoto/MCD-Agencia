@@ -137,7 +137,16 @@ if os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_STORAGE_BUCKET_NAME'):
     # Use custom domain for public URLs (e.g. pub-xxx.r2.dev)
     if AWS_S3_CUSTOM_DOMAIN:
         AWS_S3_URL_PROTOCOL = 'https:'
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+    else:
+        # No custom domain — use the S3 endpoint directly
+        MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
 else:
+    import logging
+    logging.getLogger('django').warning(
+        '⚠️  Using EPHEMERAL FileSystemStorage — uploaded files will be LOST on deploy! '
+        'Set AWS_ACCESS_KEY_ID + AWS_STORAGE_BUCKET_NAME for persistent R2 storage.'
+    )
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 
