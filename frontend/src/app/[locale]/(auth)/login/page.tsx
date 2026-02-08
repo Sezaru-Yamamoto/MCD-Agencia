@@ -84,13 +84,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <Card className="w-full max-w-xl">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white mb-2">Iniciar Sesión</h1>
-          <p className="text-neutral-400">Ingresa a tu cuenta para continuar</p>
+      <Card className="w-full max-w-2xl" padding="lg">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-white mb-3">Iniciar Sesión</h1>
+          <p className="text-neutral-400 text-lg">Ingresa a tu cuenta para continuar</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Input
             label="Correo electrónico"
             type="email"
@@ -144,7 +144,7 @@ export default function LoginPage() {
         </form>
 
         {/* Divider */}
-        <div className="relative my-6">
+        <div className="relative my-8">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-neutral-800"></div>
           </div>
