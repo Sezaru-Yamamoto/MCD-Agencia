@@ -209,6 +209,9 @@ class ServiceImagePublicSerializer(serializers.ModelSerializer):
 class PortfolioVideoSerializer(serializers.ModelSerializer):
     """Admin serializer for portfolio videos."""
 
+    # Accept full YouTube URLs (up to 255 chars); validate_youtube_id
+    # extracts the 11-char ID before saving.
+    youtube_id = serializers.CharField(max_length=255)
     thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:

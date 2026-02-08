@@ -25,8 +25,9 @@ https://docs.djangoproject.com/en/5.0/topics/http/urls/
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.http import HttpResponseRedirect
+from django.views.static import serve as media_serve
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -143,6 +144,16 @@ urlpatterns = [
 
     # Health check endpoint
     path('health/', include('apps.core.urls')),
+
+    # Serve user-uploaded media files (images, etc.)
+    # In production without S3, Django serves them directly.
+    # When S3/Cloudinary is configured, this route is unused.
+    re_path(
+        r'^media/(?P<path>.*)$',
+        media_serve,
+        {'document_root': settings.MEDIA_ROOT},
+        name='media',
+    ),
 ]
 
 
@@ -151,8 +162,6 @@ urlpatterns = [
 # =============================================================================
 
 if settings.DEBUG:
-    # Serve media files during development
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
     # Django Debug Toolbar
     if 'debug_toolbar' in settings.INSTALLED_APPS:

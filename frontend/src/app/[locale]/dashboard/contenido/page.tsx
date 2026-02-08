@@ -31,6 +31,24 @@ const MAX_IMAGE_SIZE_MB = 5;
 const HERO_DIMENSIONS = '1920 × 800 px';
 const SERVICE_DIMENSIONS = '800 × 600 px (4:3)';
 
+/** Extract a readable message from an API error object. */
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object') {
+    const err = error as { message?: string; data?: Record<string, unknown> };
+    if (err.data) {
+      const msgs = Object.entries(err.data)
+        .map(([key, val]) => {
+          const txt = Array.isArray(val) ? val.join(', ') : String(val);
+          return key === 'non_field_errors' ? txt : `${key}: ${txt}`;
+        })
+        .join(' · ');
+      if (msgs) return msgs;
+    }
+    if (err.message && err.message !== 'An error occurred') return err.message;
+  }
+  return fallback;
+}
+
 type ContentTab = 'carousel' | 'services' | 'videos';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -140,17 +158,17 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
   const createMut = useMutation({
     mutationFn: createCarouselSlideWithFile,
     onSuccess: () => { toast.success('Slide creado'); queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }); closeModal(); },
-    onError: () => toast.error('Error al crear slide'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al crear slide')),
   });
   const updateMut = useMutation({
     mutationFn: ({ id, data, file }: { id: string; data: Record<string, unknown>; file?: File }) => updateCarouselSlideWithFile(id, data, file),
     onSuccess: () => { toast.success('Slide actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }); closeModal(); },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al actualizar')),
   });
   const deleteMut = useMutation({
     mutationFn: deleteCarouselSlide,
     onSuccess: () => { toast.success('Slide eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-carousel'] }); },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
   const toggleActive = (slide: CarouselSlideAdmin) => {
@@ -286,17 +304,17 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
   const createMut = useMutation({
     mutationFn: createService,
     onSuccess: () => { toast.success('Servicio creado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowModal(false); },
-    onError: () => toast.error('Error al crear'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al crear')),
   });
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ServiceAdmin> }) => updateService(id, data),
     onSuccess: () => { toast.success('Servicio actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowModal(false); },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al actualizar')),
   });
   const deleteMut = useMutation({
     mutationFn: deleteService,
     onSuccess: () => { toast.success('Servicio eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
   const openCreate = () => {
@@ -407,12 +425,12 @@ function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId
   const uploadMut = useMutation({
     mutationFn: createServiceImage,
     onSuccess: () => { toast.success('Imagen subida'); queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] }); },
-    onError: () => toast.error('Error al subir imagen'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al subir imagen')),
   });
   const deleteMut = useMutation({
     mutationFn: deleteServiceImage,
     onSuccess: () => { toast.success('Imagen eliminada'); queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] }); },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -496,17 +514,17 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
   const createMut = useMutation({
     mutationFn: createPortfolioVideo,
     onSuccess: () => { toast.success('Video agregado'); queryClient.invalidateQueries({ queryKey: ['admin-portfolio-videos'] }); closeModal(); },
-    onError: () => toast.error('Error al crear'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al crear')),
   });
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<PortfolioVideoAdmin> }) => updatePortfolioVideo(id, data),
     onSuccess: () => { toast.success('Video actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-portfolio-videos'] }); closeModal(); },
-    onError: () => toast.error('Error al actualizar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al actualizar')),
   });
   const deleteMut = useMutation({
     mutationFn: deletePortfolioVideo,
     onSuccess: () => { toast.success('Video eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-portfolio-videos'] }); },
-    onError: () => toast.error('Error al eliminar'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
   const openCreate = () => { setEditing(null); setForm({ youtube_id: '', title: '', title_en: '', orientation: 'vertical', position: videos.length, is_active: true }); setShowModal(true); };
