@@ -119,8 +119,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-16 left-0 z-30 h-[calc(100dvh-4rem)] w-64 bg-neutral-900 border-r border-neutral-800 transform transition-transform duration-300 lg:translate-x-0 overscroll-contain',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed top-16 right-0 z-30 h-[calc(100dvh-4rem)] w-64 bg-neutral-900 border-l border-neutral-800 transform transition-transform duration-300 lg:translate-x-0 overscroll-contain',
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full'
         )}
       >
         {/* Sidebar uses flex-col so the nav scrolls and user card stays pinned */}
@@ -216,7 +216,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 pt-16">
+      <div className="lg:pr-64 pt-16">
         {/* Mobile sidebar toggle — aligned right to match header hamburger */}
         <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end">
           <button

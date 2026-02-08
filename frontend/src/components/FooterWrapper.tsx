@@ -13,7 +13,7 @@ export function FooterWrapper({ children }: { children: React.ReactNode }) {
   const isDashboard = /^\/[a-z]{2}\/dashboard(\/|$)/.test(pathname);
 
   return (
-    <div className={isDashboard ? 'lg:pl-64' : undefined}>
+    <div className={isDashboard ? 'lg:pr-64' : undefined}>
       {children}
     </div>
   );
