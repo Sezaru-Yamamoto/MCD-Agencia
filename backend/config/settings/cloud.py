@@ -138,10 +138,17 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # =============================================================================
 
 if os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_STORAGE_BUCKET_NAME'):
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # Django 5.0+ uses STORAGES dict (DEFAULT_FILE_STORAGE is ignored!)
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
     # With AWS_QUERYSTRING_AUTH=True, file.url returns full presigned URLs
-    # pointing to the S3 endpoint. MEDIA_URL is not prepended by django-storages
-    # but Django still requires it to be set.
+    # pointing to the S3 endpoint. MEDIA_URL is a fallback for non-storage URLs.
     MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
 else:
     import logging
@@ -149,14 +156,14 @@ else:
         '⚠️  Using EPHEMERAL FileSystemStorage — uploaded files will be LOST on deploy! '
         'Set AWS_ACCESS_KEY_ID + AWS_STORAGE_BUCKET_NAME for persistent R2 storage.'
     )
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-
-
-# =============================================================================
-# STATIC FILES
-# =============================================================================
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
 
 
 # =============================================================================

@@ -101,7 +101,15 @@ CACHES = {
 # FILE STORAGE (Production - S3)
 # =============================================================================
 
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+# Django 5.0+ uses STORAGES dict (DEFAULT_FILE_STORAGE is silently ignored!)
+STORAGES = {
+    'default': {
+        'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 # Validate S3 configuration
 if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not AWS_STORAGE_BUCKET_NAME:
@@ -133,11 +141,7 @@ if not CORS_ALLOWED_ORIGINS or CORS_ALLOWED_ORIGINS == ['']:
     raise ValueError('CORS_ALLOWED_ORIGINS must be set in production')
 
 
-# =============================================================================
-# STATIC FILES (Production)
-# =============================================================================
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Static files configuration is handled in STORAGES dict above
 
 
 # =============================================================================
