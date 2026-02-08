@@ -26,7 +26,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.views.static import serve as media_serve
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -39,6 +39,33 @@ def redirect_to_frontend(request):
     """Redirect root URL to frontend."""
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
     return HttpResponseRedirect(f'{frontend_url}/es')
+
+
+def _db_debug(request):
+    """Temporary diagnostic: count records in content tables."""
+    from apps.content.models import Service, ServiceImage, CarouselSlide
+    from django.db import connection
+    services = list(Service.objects.values('id', 'service_key', 'name', 'is_active'))
+    images = list(ServiceImage.objects.values('id', 'service__service_key', 'image', 'alt_text', 'subtype_key', 'is_active', 'position'))
+    carousel = list(CarouselSlide.objects.values('id', 'title', 'image', 'is_active'))
+    return JsonResponse({
+        'db_engine': connection.vendor,
+        'services_count': len(services),
+        'services': [{'key': s['service_key'], 'active': s['is_active']} for s in services],
+        'service_images_count': len(images),
+        'service_images': [
+            {
+                'service_key': i['service__service_key'],
+                'image': str(i['image'])[:120],
+                'alt': i['alt_text'],
+                'subtype': i['subtype_key'],
+                'active': i['is_active'],
+            }
+            for i in images
+        ],
+        'carousel_count': len(carousel),
+        'carousel': [{'title': c['title'], 'image': str(c['image'])[:120], 'active': c['is_active']} for c in carousel],
+    }, json_dumps_params={'indent': 2})
 
 
 # =============================================================================
@@ -145,6 +172,9 @@ urlpatterns = [
 
     # Health check endpoint
     path('health/', include('apps.core.urls')),
+
+    # Temporary diagnostic endpoint
+    path('api/v1/debug/db/', lambda request: _db_debug(request), name='db-debug'),
 
     # Serve user-uploaded media files (images, etc.)
     # In production without S3, Django serves them directly.
