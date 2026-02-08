@@ -44,38 +44,61 @@ def redirect_to_frontend(request):
 def storage_debug(request):
     """Temporary endpoint to debug storage configuration. Remove after fixing."""
     from django.core.files.storage import default_storage
+    
+    # Force initialization of the lazy storage proxy
+    try:
+        default_storage.exists('__probe__')
+    except Exception:
+        pass
+    
+    # Access the real storage object
     storage = default_storage
-    # Get the actual backend (DefaultStorage is a lazy proxy in Django 4.2+)
-    actual = getattr(storage, '_wrapped', storage)
-    if hasattr(actual, '__class__') and actual.__class__.__name__ == 'empty':
-        # Force initialization of the lazy proxy
-        _ = storage.exists('_test_')
-        actual = getattr(storage, '_wrapped', storage)
+    # In Django 4.2+, DefaultStorage wraps the real backend
+    real = storage
+    if hasattr(storage, '_wrapped'):
+        real = storage._wrapped
     
     result = {
-        'proxy_class': type(storage).__name__,
-        'actual_class': type(actual).__name__,
-        'querystring_auth': getattr(actual, 'querystring_auth', 'N/A'),
-        'custom_domain': getattr(actual, 'custom_domain', 'N/A'),
-        'endpoint_url': getattr(actual, 'endpoint_url', 'N/A'),
-        'bucket_name': getattr(actual, 'bucket_name', 'N/A'),
-        'querystring_expire': getattr(actual, 'querystring_expire', 'N/A'),
-        'default_acl': getattr(actual, 'default_acl', 'N/A'),
-        'settings_QUERYSTRING_AUTH': getattr(settings, 'AWS_QUERYSTRING_AUTH', 'NOT SET'),
-        'settings_CUSTOM_DOMAIN': getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', 'NOT SET'),
-        'settings_DEFAULT_FILE_STORAGE': getattr(settings, 'DEFAULT_FILE_STORAGE', 'NOT SET'),
+        'storage_repr': repr(storage),
+        'real_repr': repr(real),
+        'real_class': type(real).__name__,
+        'real_module': type(real).__module__,
     }
     
-    # Try generating a URL for an existing file
+    # Check S3 specific attributes on the real storage
+    for attr in ['querystring_auth', 'querystring_expire', 'custom_domain',
+                 'endpoint_url', 'bucket_name', 'default_acl', 'url_protocol',
+                 'access_key', 'file_overwrite']:
+        val = getattr(real, attr, '__MISSING__')
+        if attr == 'access_key' and val != '__MISSING__':
+            val = val[:6] + '...' if val else val  # Redact
+        result[f'storage.{attr}'] = val
+    
+    result['settings.AWS_QUERYSTRING_AUTH'] = getattr(settings, 'AWS_QUERYSTRING_AUTH', 'NOT SET')
+    result['settings.DEFAULT_FILE_STORAGE'] = getattr(settings, 'DEFAULT_FILE_STORAGE', 'NOT SET')
+    
+    # Check if STORAGES dict exists and what it says
+    storages_dict = getattr(settings, 'STORAGES', {})
+    if storages_dict:
+        result['settings.STORAGES.default'] = str(storages_dict.get('default', 'NOT SET'))
+    
+    # Generate a URL from an actual file
     from apps.content.models import CarouselSlide
     slide = CarouselSlide.objects.filter(image__isnull=False).exclude(image='').first()
     if slide and slide.image:
-        result['sample_file_name'] = slide.image.name
+        result['file.name'] = slide.image.name
+        result['file.storage_class'] = type(slide.image.storage).__name__
+        result['file.storage_module'] = type(slide.image.storage).__module__
+        # Check storage attributes on the FILE's storage (might differ from default_storage)
+        fs = slide.image.storage
+        result['file.storage.querystring_auth'] = getattr(fs, 'querystring_auth', '__MISSING__')
+        result['file.storage.custom_domain'] = getattr(fs, 'custom_domain', '__MISSING__')
         try:
-            result['sample_url'] = slide.image.url
-            result['url_has_signature'] = '?X-Amz' in slide.image.url
+            url = slide.image.url
+            result['file.url'] = url[:200]
+            result['url_has_signature'] = '?X-Amz' in url
         except Exception as e:
-            result['sample_url_error'] = str(e)
+            result['file.url_error'] = str(e)
     
     return JsonResponse(result)
 
