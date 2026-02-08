@@ -121,7 +121,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="w-full max-w-xl">
+    <Card className="w-full max-w-2xl mt-16 mb-16">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-white mb-2">Crear Cuenta</h1>
         <p className="text-neutral-400">Únete a Agencia MCD</p>
@@ -178,50 +178,51 @@ export default function RegisterPage() {
           {...register('date_of_birth')}
         />
 
-        <Input
-          label="Contraseña"
-          type={showPassword ? 'text' : 'password'}
-          placeholder="••••••••"
-          leftIcon={<LockClosedIcon className="h-5 w-5" />}
-          rightIcon={
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="focus:outline-none"
-            >
-              {showPassword ? (
-                <EyeSlashIcon className="h-5 w-5" />
-              ) : (
-                <EyeIcon className="h-5 w-5" />
-              )}
-            </button>
-          }
-          helperText="Mínimo 8 caracteres, una mayúscula y un número"
-          error={errors.password?.message}
-          {...register('password')}
-        />
-
-        <Input
-          label="Confirmar contraseña"
-          type={showConfirmPassword ? 'text' : 'password'}
-          placeholder="••••••••"
-          leftIcon={<LockClosedIcon className="h-5 w-5" />}
-          rightIcon={
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="focus:outline-none"
-            >
-              {showConfirmPassword ? (
-                <EyeSlashIcon className="h-5 w-5" />
-              ) : (
-                <EyeIcon className="h-5 w-5" />
-              )}
-            </button>
-          }
-          error={errors.password_confirm?.message}
-          {...register('password_confirm')}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Contraseña"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="••••••••"
+            leftIcon={<LockClosedIcon className="h-5 w-5" />}
+            rightIcon={
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5" />
+                ) : (
+                  <EyeIcon className="h-5 w-5" />
+                )}
+              </button>
+            }
+            helperText="Mínimo 8 caracteres, una mayúscula y un número"
+            error={errors.password?.message}
+            {...register('password')}
+          />
+          <Input
+            label="Confirmar contraseña"
+            type={showConfirmPassword ? 'text' : 'password'}
+            placeholder="••••••••"
+            leftIcon={<LockClosedIcon className="h-5 w-5" />}
+            rightIcon={
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="focus:outline-none"
+              >
+                {showConfirmPassword ? (
+                  <EyeSlashIcon className="h-5 w-5" />
+                ) : (
+                  <EyeIcon className="h-5 w-5" />
+                )}
+              </button>
+            }
+            error={errors.password_confirm?.message}
+            {...register('password_confirm')}
+          />
+        </div>
 
         {/* Consents */}
         <div className="space-y-3">

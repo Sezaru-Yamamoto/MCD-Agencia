@@ -13,18 +13,21 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className="min-h-screen bg-neutral-950 flex flex-col">
       <div className="flex flex-1 items-stretch justify-center min-h-screen">
-        {/* Left: Logo */}
-        <div className="hidden md:flex flex-col justify-center items-center w-1/2 bg-neutral-900">
-          <Link href="/" className="flex flex-col items-center justify-center h-full w-full">
+        {/* Left: Logo (no fondo, no botón, mucho más grande, mensaje debajo) */}
+        <div className="hidden md:flex flex-col justify-center items-center w-1/2 bg-transparent">
+          <div className="flex flex-col items-center justify-center h-full w-full">
             <Image
               src="/images/logo.png"
               alt="Agencia MCD"
-              width={420}
-              height={210}
-              className="w-[320px] h-auto max-w-full drop-shadow-xl"
+              width={700}
+              height={350}
+              className="w-[520px] h-auto max-w-full drop-shadow-2xl mb-6"
               priority
             />
-          </Link>
+            <span className="mt-2 text-3xl lg:text-5xl font-bold text-white font-landing tracking-tight text-center select-none">
+              Transforma tus ideas
+            </span>
+          </div>
         </div>
         {/* Right: Form */}
         <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4">
