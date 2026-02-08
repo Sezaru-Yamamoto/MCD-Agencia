@@ -62,6 +62,7 @@ export default function EditQuotePage() {
   const [internalNotes, setInternalNotes] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -238,9 +239,6 @@ export default function EditQuotePage() {
     }
     return true;
   };
-
-  // -- Modal state --
-  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
 
   // Submit quote update
   const handleSubmit = async (sendImmediately: boolean = false) => {
