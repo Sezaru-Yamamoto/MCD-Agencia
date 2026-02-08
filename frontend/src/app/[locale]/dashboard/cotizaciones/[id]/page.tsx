@@ -211,10 +211,12 @@ export default function QuoteDetailPage() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-MX', {
+    return new Date(dateString).toLocaleString('es-MX', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 

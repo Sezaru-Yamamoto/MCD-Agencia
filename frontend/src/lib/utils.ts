@@ -50,9 +50,11 @@ export function formatDate(
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
     ...options,
   };
-  return dateObj.toLocaleDateString('es-MX', defaultOptions);
+  return dateObj.toLocaleString('es-MX', defaultOptions);
 }
 
 /**

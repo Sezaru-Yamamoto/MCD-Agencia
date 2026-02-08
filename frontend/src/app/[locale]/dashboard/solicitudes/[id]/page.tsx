@@ -604,10 +604,12 @@ export default function QuoteRequestDetailPage() {
                   <div>
                     <p className="text-neutral-500 text-xs">Fecha Requerida</p>
                     <p className="text-white">
-                      {new Date(request.required_date).toLocaleDateString('es-MX', {
+                      {new Date(request.required_date).toLocaleString('es-MX', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                       {request.days_until_required !== undefined && (
                         <span className={`ml-2 text-sm ${

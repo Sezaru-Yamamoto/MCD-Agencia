@@ -621,25 +621,39 @@ class QuoteViewSet(viewsets.ModelViewSet):
         original = self.get_object()
 
         with transaction.atomic():
-            # Create new quote
+            # Create new quote — copy ALL fields from original
             new_quote = Quote.objects.create(
                 quote_request=original.quote_request,
                 created_by=request.user,
                 status=Quote.STATUS_DRAFT,
+                # Customer
+                customer=original.customer,
                 customer_name=original.customer_name,
                 customer_email=original.customer_email,
                 customer_company=original.customer_company,
+                # Financials
                 subtotal=original.subtotal,
                 tax_rate=original.tax_rate,
                 tax_amount=original.tax_amount,
                 total=original.total,
+                currency=original.currency,
+                # Payment
                 payment_mode=original.payment_mode,
                 deposit_percentage=original.deposit_percentage,
-                delivery_time_text=original.delivery_time_text,
+                payment_methods=original.payment_methods,
                 payment_conditions=original.payment_conditions,
+                # Delivery
+                delivery_time_text=original.delivery_time_text,
+                estimated_delivery_date=original.estimated_delivery_date,
+                # Terms & notes
                 terms=original.terms,
                 terms_en=original.terms_en,
-                internal_notes=f"Duplicated from {original.quote_number}"
+                customer_notes=original.customer_notes,
+                included_services=original.included_services,
+                internal_notes=f"Duplicado de {original.quote_number}",
+                # Language & validity
+                language=original.language,
+                valid_until=original.valid_until,
             )
 
             # Copy lines

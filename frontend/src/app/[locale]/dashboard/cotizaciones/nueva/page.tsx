@@ -421,7 +421,7 @@ export default function NewQuotePage() {
                 </p>
                 {quoteRequest.required_date && (
                   <p className="text-cmyk-cyan text-sm mt-1">
-                    Fecha requerida: {new Date(quoteRequest.required_date).toLocaleDateString('es-MX')}
+                    Fecha requerida: {new Date(quoteRequest.required_date).toLocaleString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
               </div>
