@@ -57,9 +57,9 @@
         "logotipos": "Logos",
         "papeleria": "Stationery",
         "redesSociales": "Social media",
-        "offset": "Offset",
-        "serigrafia": "Screen printing",
-        "sublimacion": "Sublimation"
+        "tarjetasPresentacion": "Business Cards",
+        "volantes": "Flyers",
+        "otro": "Other"
       },
       "items": {
         "fabricacion-anuncios": {
@@ -95,8 +95,8 @@
           "description": "Custom design creation for print and digital media."
         },
         "impresion-offset-serigrafia": {
-          "title": "Offset, Screen Printing & Sublimation",
-          "description": "Business cards, flyers and printed products with high quality traditional techniques."
+          "title": "Business Cards, Flyers & Other",
+          "description": "Business cards, flyers and other high quality printed products."
         }
       }
     },

@@ -50,7 +50,7 @@ const serviceLabels: Record<ServiceId, string> = {
   'rotulacion-vehicular': 'Rotulación vehicular',
   'corte-grabado-cnc-laser': 'Corte y grabado CNC/láser',
   'diseno-grafico': 'Diseño gráfico',
-  'impresion-offset-serigrafia': 'Impresión offset/serigrafía',
+  'impresion-offset-serigrafia': 'Tarjetas de Presentación, Volantes y Otro',
   'otros': 'Otro servicio (especificar)',
 };
 
@@ -143,7 +143,7 @@ interface QuoteFormData {
   dis_usoDiseno?: 'impresion' | 'digital' | 'ambos';
   dis_cambiosIncluidos?: 'si' | 'no';
 
-  // Impresión offset/serigrafía/sublimación
+  // Tarjetas de Presentación, Volantes y Otro
   off_producto?: string;
   off_productoOtro?: string;
   off_cantidad?: number;
@@ -1327,7 +1327,7 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* IMPRESIÓN OFFSET/SERIGRAFÍA/SUBLIMACIÓN */}
+              {/* TARJETAS DE PRESENTACIÓN, VOLANTES Y OTRO */}
               {servicioValue === 'impresion-offset-serigrafia' && (
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
@@ -1353,11 +1353,11 @@ export function QuoteForm() {
                     {errors.off_cantidad && <p className="error-message">{errors.off_cantidad.message}</p>}
                   </div>
                   <div>
-                    <label className="label-field">Tipo de impresión <span className="text-cmyk-magenta">*</span></label>
+                    <label className="label-field">Tipo <span className="text-cmyk-magenta">*</span></label>
                     <select {...register('off_tipoImpresion', { required: 'Selecciona un tipo' })} className="input-field" disabled={formStatus === 'submitting'}>
                       <option value="">Selecciona tipo</option>
                       {IMPRESION_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>{tipo === 'otro' ? 'Otro (especificar)' : tipo.charAt(0).toUpperCase() + tipo.slice(1)}</option>
+                        <option key={tipo} value={tipo}>{tipo === 'tarjetas-presentacion' ? 'Tarjetas de Presentación' : tipo === 'volantes' ? 'Volantes' : 'Otro (especificar)'}</option>
                       ))}
                     </select>
                     {errors.off_tipoImpresion && <p className="error-message">{errors.off_tipoImpresion.message}</p>}

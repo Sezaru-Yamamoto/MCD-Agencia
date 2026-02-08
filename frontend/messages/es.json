@@ -57,9 +57,9 @@
         "logotipos": "Logotipos",
         "papeleria": "Papelería",
         "redesSociales": "Redes sociales",
-        "offset": "Offset",
-        "serigrafia": "Serigrafía",
-        "sublimacion": "Sublimación"
+        "tarjetasPresentacion": "Tarjetas de Presentación",
+        "volantes": "Volantes",
+        "otro": "Otro"
       },
       "items": {
         "fabricacion-anuncios": {
@@ -95,8 +95,8 @@
           "description": "Creación de diseños personalizados para impresión y medios digitales."
         },
         "impresion-offset-serigrafia": {
-          "title": "Impresión Offset, Serigrafía y Sublimación",
-          "description": "Tarjetas de presentación, volantes y productos impresos con técnicas tradicionales de alta calidad."
+          "title": "Tarjetas de Presentación, Volantes y Otro",
+          "description": "Tarjetas de presentación, volantes y otros productos impresos de alta calidad."
         }
       }
     },
