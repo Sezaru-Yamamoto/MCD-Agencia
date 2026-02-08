@@ -167,12 +167,18 @@ else:
 
 
 # =============================================================================
-# EMAIL — Resend (free, HTTP API) > SendGrid > Gmail SMTP > Console
+# EMAIL — Brevo (free 300/day, HTTP API) > Resend > SendGrid > SMTP > Console
 # Render free tier BLOCKS outbound SMTP (ports 587/465/25).
-# Use HTTP-based email APIs instead (Resend, SendGrid, etc.)
+# Use HTTP-based email APIs instead.
 # =============================================================================
 
-if os.getenv('RESEND_API_KEY'):
+if os.getenv('BREVO_API_KEY'):
+    EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
+    ANYMAIL = {
+        'BREVO_API_KEY': os.getenv('BREVO_API_KEY'),
+    }
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', '')
+elif os.getenv('RESEND_API_KEY'):
     EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
     ANYMAIL = {
         'RESEND_API_KEY': os.getenv('RESEND_API_KEY'),
