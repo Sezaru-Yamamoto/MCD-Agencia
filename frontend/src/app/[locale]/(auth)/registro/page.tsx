@@ -161,22 +161,23 @@ export default function RegisterPage() {
           {...register('email')}
         />
 
-        <Input
-          label="Teléfono (opcional)"
-          type="tel"
-          placeholder="(555) 123-4567"
-          leftIcon={<PhoneIcon className="h-5 w-5" />}
-          error={errors.phone?.message}
-          {...register('phone')}
-        />
-
-        <Input
-          label="Fecha de nacimiento"
-          type="date"
-          leftIcon={<CalendarIcon className="h-5 w-5" />}
-          error={errors.date_of_birth?.message}
-          {...register('date_of_birth')}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Teléfono (opcional)"
+            type="tel"
+            placeholder="(555) 123-4567"
+            leftIcon={<PhoneIcon className="h-5 w-5" />}
+            error={errors.phone?.message}
+            {...register('phone')}
+          />
+          <Input
+            label="Fecha de nacimiento"
+            type="date"
+            leftIcon={<CalendarIcon className="h-5 w-5" />}
+            error={errors.date_of_birth?.message}
+            {...register('date_of_birth')}
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Input
