@@ -669,12 +669,19 @@ class QuoteViewSet(viewsets.ModelViewSet):
         """Download quote PDF."""
         quote = self.get_object()
 
-        # Check if PDF exists
+        # Generate PDF on the fly if missing
         if not quote.pdf_file:
-            # Generate PDF on the fly
-            from apps.quotes.tasks import generate_quote_pdf
-            generate_quote_pdf(str(quote.id))
-            quote.refresh_from_db()
+            try:
+                from apps.quotes.tasks import generate_quote_pdf
+                # Use .delay() — works with bind=True + CELERY_TASK_ALWAYS_EAGER
+                generate_quote_pdf.delay(str(quote.id))
+                quote.refresh_from_db()
+            except Exception as e:
+                logger.error(f'Error generating PDF for quote {quote.quote_number}: {e}')
+                return Response(
+                    {'error': _('Could not generate PDF.')},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
         if not quote.pdf_file:
             return Response(
@@ -951,12 +958,18 @@ class QuotePublicPdfView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Check if PDF exists
+        # Generate PDF on the fly if missing
         if not quote.pdf_file:
-            # Generate PDF on the fly
-            from apps.quotes.tasks import generate_quote_pdf
-            generate_quote_pdf(str(quote.id))
-            quote.refresh_from_db()
+            try:
+                from apps.quotes.tasks import generate_quote_pdf
+                generate_quote_pdf.delay(str(quote.id))
+                quote.refresh_from_db()
+            except Exception as e:
+                logger.error(f'Error generating PDF for quote {quote.quote_number}: {e}')
+                return Response(
+                    {'error': _('Could not generate PDF.')},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
         if not quote.pdf_file:
             return Response(

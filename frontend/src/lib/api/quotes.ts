@@ -460,20 +460,47 @@ export async function rejectQuoteByToken(token: string, reason: string): Promise
 
 /**
  * Download quote PDF.
+ * Uses token refresh logic if the access token has expired.
  */
 export async function downloadQuotePdf(id: string): Promise<Blob> {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/quotes/${id}/pdf/`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-      },
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const url = `${apiUrl}/quotes/${id}/pdf/`;
+
+  let accessToken = localStorage.getItem('accessToken');
+
+  let response = await fetch(url, {
+    method: 'GET',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+
+  // If 401, try to refresh token and retry
+  if (response.status === 401 && accessToken) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        const refreshResp = await fetch(`${apiUrl}/auth/token/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+        if (refreshResp.ok) {
+          const data = await refreshResp.json();
+          localStorage.setItem('accessToken', data.access);
+          accessToken = data.access;
+          response = await fetch(url, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        }
+      } catch {
+        // Refresh failed, will throw below
+      }
     }
-  );
+  }
 
   if (!response.ok) {
-    throw new Error('Error downloading PDF');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error((errorData as Record<string, string>).error || 'Error downloading PDF');
   }
 
   return response.blob();
