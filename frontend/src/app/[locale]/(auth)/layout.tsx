@@ -30,7 +30,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           </div>
         </div>
         {/* Right: Form */}
-        <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4">
+        <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4 pt-16">
           {children}
         </div>
       </div>
