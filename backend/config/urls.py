@@ -26,7 +26,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect
 from django.views.static import serve as media_serve
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -39,25 +39,6 @@ def redirect_to_frontend(request):
     """Redirect root URL to frontend."""
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
     return HttpResponseRedirect(f'{frontend_url}/es')
-
-
-def _db_debug(request):
-    """Temporary: activate all ServiceImage records + show DB state."""
-    from apps.content.models import Service, ServiceImage
-    # One-time fix: activate all images that were saved as is_active=False
-    fixed = ServiceImage.objects.filter(is_active=False).update(is_active=True)
-    total = ServiceImage.objects.count()
-    by_service = {}
-    for img in ServiceImage.objects.values('service__service_key', 'is_active'):
-        key = img['service__service_key']
-        by_service.setdefault(key, 0)
-        by_service[key] += 1
-    return JsonResponse({
-        'fixed_count': fixed,
-        'total_images': total,
-        'images_by_service': by_service,
-        'all_active_now': ServiceImage.objects.filter(is_active=False).count() == 0,
-    }, json_dumps_params={'indent': 2})
 
 
 # =============================================================================
@@ -164,9 +145,6 @@ urlpatterns = [
 
     # Health check endpoint
     path('health/', include('apps.core.urls')),
-
-    # Temporary diagnostic endpoint
-    path('api/v1/debug/db/', lambda request: _db_debug(request), name='db-debug'),
 
     # Serve user-uploaded media files (images, etc.)
     # In production without S3, Django serves them directly.
