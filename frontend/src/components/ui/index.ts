@@ -10,6 +10,7 @@ export { Input } from './Input';
 export { Textarea } from './Textarea';
 export { Select } from './Select';
 export { Modal } from './Modal';
+export { SuccessModal } from './SuccessModal';
 export { Badge } from './Badge';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { Spinner, LoadingOverlay, LoadingPage } from './Spinner';

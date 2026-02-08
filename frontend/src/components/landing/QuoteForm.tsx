@@ -37,6 +37,7 @@ const RouteSelector = dynamic(
   }
 );
 import { useRecaptcha } from '@/hooks';
+import { SuccessModal } from '@/components/ui';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -561,42 +562,22 @@ export function QuoteForm() {
         </div>
 
 
-        {/* Status Messages */}
-        <div id="form-status" className="max-w-4xl mx-auto mb-8">
-          {formStatus === 'success' && (
-            <div className="bg-cmyk-cyan/20 border-l-4 border-cmyk-cyan p-6 rounded-lg animate-fade-in">
-              <div className="flex items-start">
-                <svg className="w-6 h-6 text-cmyk-cyan mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <h3 className="text-lg font-semibold text-cmyk-cyan mb-2">{t('success')}</h3>
-                  <p className="text-gray-300">{t('successMessage')}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {formStatus === 'error' && (
-            <div className="bg-cmyk-yellow/20 border-l-4 border-cmyk-yellow p-6 rounded-lg animate-fade-in">
-              <div className="flex items-start">
-                <svg className="w-6 h-6 text-cmyk-yellow mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <h3 className="text-lg font-semibold text-cmyk-yellow mb-2">{t('error')}</h3>
-                  <p className="text-gray-300 mb-3">{errorMessage}</p>
-                  <p className="text-gray-300">
-                    {t('errorRetry')}{' '}
-                    <a href={CONTACT_INFO.whatsapp.url} className="font-semibold underline text-cmyk-cyan hover:text-cmyk-magenta" target="_blank" rel="noopener noreferrer">
-                      {CONTACT_INFO.whatsapp.displayNumber}
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Success / Error Modal */}
+        <SuccessModal
+          isOpen={formStatus === 'success'}
+          onClose={() => setFormStatus('idle')}
+          title={t('success')}
+          message={t('successMessage')}
+          variant="success"
+        />
+        <SuccessModal
+          isOpen={formStatus === 'error'}
+          onClose={() => setFormStatus('idle')}
+          title={t('error')}
+          message={errorMessage}
+          variant="error"
+          buttonLabel="Reintentar"
+        />
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="max-w-4xl mx-auto bg-cmyk-black rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 lg:p-12 border border-cmyk-cyan/20">

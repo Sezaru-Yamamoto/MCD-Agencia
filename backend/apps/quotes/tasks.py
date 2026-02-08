@@ -473,7 +473,13 @@ def send_quote_email_sync(quote_id: str) -> bool:
         # Attach PDF if available
         if quote.pdf_file:
             try:
-                email.attach_file(quote.pdf_file.path)
+                # Use .read() instead of .path to support cloud storage (R2/S3)
+                pdf_data = quote.pdf_file.read()
+                email.attach(
+                    f'cotizacion-{quote.quote_number}.pdf',
+                    pdf_data,
+                    'application/pdf'
+                )
             except Exception as pdf_error:
                 logger.warning(f"Could not attach PDF: {pdf_error}")
 

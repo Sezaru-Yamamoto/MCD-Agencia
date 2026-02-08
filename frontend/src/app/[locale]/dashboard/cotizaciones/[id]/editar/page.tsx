@@ -12,7 +12,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, Button, LoadingPage } from '@/components/ui';
+import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import {
   getAdminQuoteById,
   updateQuote,
@@ -239,6 +239,9 @@ export default function EditQuotePage() {
     return true;
   };
 
+  // -- Modal state --
+  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
+
   // Submit quote update
   const handleSubmit = async (sendImmediately: boolean = false) => {
     if (!validateForm()) return;
@@ -273,15 +276,13 @@ export default function EditQuotePage() {
 
       if (sendImmediately) {
         await sendQuote(quote.id, { send_email: true });
-        toast.success('Cotizacion actualizada y enviada al cliente');
+        setModal({ open: true, title: 'Cotización actualizada y enviada', message: `La cotización se actualizó y envió al cliente (${customerEmail}).`, variant: 'success' });
       } else {
-        toast.success('Cotizacion actualizada');
+        setModal({ open: true, title: 'Cotización actualizada', message: 'Los cambios se guardaron correctamente.', variant: 'success' });
       }
-
-      router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
     } catch (error) {
       console.error('Error updating quote:', error);
-      toast.error('Error al actualizar la cotizacion');
+      setModal({ open: true, title: 'Error', message: 'No se pudo actualizar la cotización.', variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -637,6 +638,20 @@ export default function EditQuotePage() {
             </Card>
           </div>
         </div>
+
+    {/* Success/Error Modal */}
+    <SuccessModal
+      isOpen={modal.open}
+      onClose={() => {
+        setModal((m) => ({ ...m, open: false }));
+        if (modal.variant === 'success') {
+          router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
+        }
+      }}
+      title={modal.title}
+      message={modal.message}
+      variant={modal.variant}
+    />
     </div>
   );
 }

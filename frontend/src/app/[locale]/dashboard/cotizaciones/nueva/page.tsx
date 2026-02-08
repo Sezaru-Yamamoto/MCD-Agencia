@@ -15,7 +15,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, Button, LoadingPage } from '@/components/ui';
+import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -319,6 +319,9 @@ export default function NewQuotePage() {
     return true;
   };
 
+  // ── Modal state ──────────────────────────────────────────────────────────
+  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
+
   // Submit quote
   const handleSubmit = async (sendImmediately: boolean = false) => {
     if (!validateForm()) return;
@@ -354,15 +357,13 @@ export default function NewQuotePage() {
 
       if (sendImmediately) {
         await sendQuote(quote.id, { send_email: true });
-        toast.success('Cotización creada y enviada al cliente');
+        setModal({ open: true, title: 'Cotización enviada', message: `Se creó y envió la cotización al cliente (${customerEmail}).`, variant: 'success' });
       } else {
-        toast.success('Cotización guardada como borrador');
+        setModal({ open: true, title: 'Borrador guardado', message: 'La cotización se guardó como borrador.', variant: 'success' });
       }
-
-      router.push(`/${locale}/dashboard/cotizaciones`);
     } catch (error) {
       console.error('Error creating quote:', error);
-      toast.error('Error al crear la cotización');
+      setModal({ open: true, title: 'Error', message: 'No se pudo crear la cotización. Intenta de nuevo.', variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -771,6 +772,20 @@ export default function NewQuotePage() {
             </Card>
           </div>
         </div>
+
+    {/* Success/Error Modal */}
+    <SuccessModal
+      isOpen={modal.open}
+      onClose={() => {
+        setModal((m) => ({ ...m, open: false }));
+        if (modal.variant === 'success') {
+          router.push(`/${locale}/dashboard/cotizaciones`);
+        }
+      }}
+      title={modal.title}
+      message={modal.message}
+      variant={modal.variant}
+    />
     </div>
   );
 }

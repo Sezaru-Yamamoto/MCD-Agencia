@@ -7,6 +7,8 @@ This module provides ViewSets for quote operations:
     - Quote acceptance (customer)
 """
 
+import logging
+import threading
 from decimal import Decimal
 from django.db import models, transaction
 from django.db.models import Count, Sum, Q
@@ -393,18 +395,19 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 request=request
             )
 
-        # Send email notification to customer (outside transaction to not block)
-        email_sent = False
-        email_error = None
-        try:
-            email_sent = send_quote_email_sync(str(quote.id))
-        except Exception as e:
-            email_error = str(e)
+        # Send email notification to customer in background thread
+        # (don't block the HTTP response — email can take several seconds)
+        def _send_email():
+            try:
+                send_quote_email_sync(str(quote.id))
+                logging.getLogger(__name__).info(f"Quote email sent for {quote.quote_number}")
+            except Exception as e:
+                logging.getLogger(__name__).error(f"Quote email failed for {quote.quote_number}: {e}")
+
+        threading.Thread(target=_send_email, daemon=True).start()
 
         response_data = QuoteAdminSerializer(quote).data
-        response_data['email_sent'] = email_sent
-        if email_error:
-            response_data['email_error'] = email_error
+        response_data['email_sent'] = True  # Queued for sending
 
         return Response(response_data)
 

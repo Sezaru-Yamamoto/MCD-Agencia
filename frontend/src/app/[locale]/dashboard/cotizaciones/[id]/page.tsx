@@ -20,7 +20,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, Button, LoadingPage } from '@/components/ui';
+import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { getAdminQuoteById, sendQuote, deleteQuote, duplicateQuote, Quote, QuoteStatus } from '@/lib/api/quotes';
 import { convertQuoteToOrder } from '@/lib/api/orders';
 
@@ -103,6 +103,9 @@ export default function QuoteDetailPage() {
     fetchQuote();
   }, [quoteId, isAuthenticated, isSalesOrAdmin, router, locale]);
 
+  // -- Modal state --
+  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error'; redirectTo?: string }>({ open: false, title: '', message: '', variant: 'success' });
+
   const handleSendQuote = async () => {
     if (!quote) return;
 
@@ -110,17 +113,10 @@ export default function QuoteDetailPage() {
     try {
       const updated = await sendQuote(quote.id) as Quote & { email_sent?: boolean; email_error?: string };
       setQuote(updated);
-
-      if (updated.email_sent) {
-        toast.success(`Cotizacion enviada al cliente (${quote.customer_email})`);
-      } else if (updated.email_error) {
-        toast.error(`Estado actualizado pero error al enviar email: ${updated.email_error}`);
-      } else {
-        toast.success('Cotizacion marcada como enviada');
-      }
+      setModal({ open: true, title: 'Cotización enviada', message: `La cotización se envió al cliente (${quote.customer_email}).`, variant: 'success' });
     } catch (error) {
       console.error('Error sending quote:', error);
-      toast.error('Error al enviar la cotizacion');
+      setModal({ open: true, title: 'Error', message: 'No se pudo enviar la cotización.', variant: 'error' });
     } finally {
       setIsSending(false);
     }
@@ -136,11 +132,10 @@ export default function QuoteDetailPage() {
     setIsDeleting(true);
     try {
       await deleteQuote(quote.id);
-      toast.success('Cotizacion eliminada');
-      router.push(`/${locale}/dashboard/cotizaciones`);
+      setModal({ open: true, title: 'Cotización eliminada', message: 'La cotización fue eliminada.', variant: 'success', redirectTo: `/${locale}/dashboard/cotizaciones` });
     } catch (error) {
       console.error('Error deleting quote:', error);
-      toast.error('Error al eliminar la cotizacion');
+      setModal({ open: true, title: 'Error', message: 'No se pudo eliminar la cotización.', variant: 'error' });
     } finally {
       setIsDeleting(false);
     }
@@ -152,11 +147,10 @@ export default function QuoteDetailPage() {
     setIsDuplicating(true);
     try {
       const newQuote = await duplicateQuote(quote.id);
-      toast.success('Cotizacion duplicada');
-      router.push(`/${locale}/dashboard/cotizaciones/${newQuote.id}`);
+      setModal({ open: true, title: 'Cotización duplicada', message: 'Se creó una copia de la cotización.', variant: 'success', redirectTo: `/${locale}/dashboard/cotizaciones/${newQuote.id}` });
     } catch (error) {
       console.error('Error duplicating quote:', error);
-      toast.error('Error al duplicar la cotizacion');
+      setModal({ open: true, title: 'Error', message: 'No se pudo duplicar la cotización.', variant: 'error' });
     } finally {
       setIsDuplicating(false);
     }
@@ -172,16 +166,14 @@ export default function QuoteDetailPage() {
     setIsConverting(true);
     try {
       const result = await convertQuoteToOrder(quote.id, { payment_method: 'bank_transfer' });
-      toast.success('Pedido creado exitosamente');
-      // Navigate to the new order detail
       const order = result.order;
-      router.push(`/${locale}/dashboard/pedidos/${order.id}`);
+      setModal({ open: true, title: 'Pedido creado', message: 'El pedido fue creado exitosamente a partir de la cotización.', variant: 'success', redirectTo: `/${locale}/dashboard/pedidos/${order.id}` });
     } catch (error: unknown) {
       console.error('Error converting quote:', error);
       const errMsg = error && typeof error === 'object' && 'message' in error 
         ? (error as { message: string }).message 
         : 'Error al convertir la cotización en pedido';
-      toast.error(errMsg);
+      setModal({ open: true, title: 'Error', message: errMsg, variant: 'error' });
     } finally {
       setIsConverting(false);
     }
@@ -486,6 +478,20 @@ export default function QuoteDetailPage() {
             )}
           </div>
         </div>
+
+    {/* Success/Error Modal */}
+    <SuccessModal
+      isOpen={modal.open}
+      onClose={() => {
+        setModal((m) => ({ ...m, open: false }));
+        if (modal.variant === 'success' && modal.redirectTo) {
+          router.push(modal.redirectTo);
+        }
+      }}
+      title={modal.title}
+      message={modal.message}
+      variant={modal.variant}
+    />
     </div>
   );
 }
