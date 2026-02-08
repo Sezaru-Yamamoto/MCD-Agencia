@@ -218,48 +218,54 @@ function FullscreenServiceImage({ images, initialIndex, onClose }: {
   if (!img) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col pt-24 pb-4" onClick={onClose}>
-      {/* Close */}
-      <button onClick={onClose} className="absolute top-4 right-4 z-20 text-white/70 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors" aria-label="Cerrar">
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+    <div className="fixed inset-0 z-[100] bg-black/90 cursor-pointer" onClick={onClose}>
+      {/* Close X */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="absolute top-20 right-4 z-30 text-white hover:text-red-400 p-2 rounded-full bg-black/60 hover:bg-black/80 transition-colors shadow-lg"
+        aria-label="Cerrar"
+      >
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
 
-      {/* Main area */}
-      <div className="relative flex-1 flex items-center justify-center min-h-0">
-        <div className="relative w-full max-w-[92vw] max-h-full aspect-video mx-auto" onClick={(e) => e.stopPropagation()}>
-          <Image src={img.src} alt={img.label || ''} fill className="object-contain" sizes="100vw" priority />
-        </div>
+      <div className="flex flex-col h-full pt-24 pb-4 pointer-events-none">
+        <div className="relative flex-1 flex items-center justify-center min-h-0 px-4">
+          <div
+            className="relative max-w-[90vw] max-h-full w-full h-full pointer-events-auto cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image src={img.src} alt={img.label || ''} fill className="object-contain" sizes="100vw" priority />
+          </div>
 
-        {images.length > 1 && (
-          <>
-            <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p - 1 + images.length) % images.length); }}
-              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Anterior">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p + 1) % images.length); }}
-              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Siguiente">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Label */}
-      {img.label && (
-        <div className="text-center py-2" onClick={(e) => e.stopPropagation()}>
-          {img.labelHref ? (
-            <a href={img.labelHref} className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg hover:text-cmyk-cyan transition-colors">{img.label} →</a>
-          ) : (
-            <span className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg">{img.label}</span>
+          {images.length > 1 && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p - 1 + images.length) % images.length); }}
+                className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 pointer-events-auto bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Anterior">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p + 1) % images.length); }}
+                className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 pointer-events-auto bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Siguiente">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </>
           )}
         </div>
-      )}
 
-      {/* Counter */}
-      <div className="text-center py-1">
-        <span className="bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-          {current + 1} / {images.length}
-        </span>
+        {img.label && (
+          <div className="text-center py-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            {img.labelHref ? (
+              <a href={img.labelHref} className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg hover:text-cmyk-cyan transition-colors">{img.label} →</a>
+            ) : (
+              <span className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg">{img.label}</span>
+            )}
+          </div>
+        )}
+
+        <div className="text-center py-1">
+          <span className="bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+            {current + 1} / {images.length}
+          </span>
+        </div>
       </div>
     </div>
   );
