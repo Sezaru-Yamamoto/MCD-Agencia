@@ -19,6 +19,7 @@ import { getMessages } from 'next-intl/server';
 import { Providers } from '@/components/providers';
 import { UnifiedHeader } from '@/components/UnifiedHeader';
 import { Footer } from '@/components/landing/Footer';
+import { FooterWrapper } from '@/components/FooterWrapper';
 import '@/styles/globals.css';
 
 // =============================================================================
@@ -196,10 +197,12 @@ export default async function RootLayout({
               {children}
             </main>
 
-            {/* Footer */}
-            <div className="layout-footer">
-              <Footer />
-            </div>
+            {/* Footer — shifts right on dashboard so the fixed sidebar doesn't cover it */}
+            <FooterWrapper>
+              <div className="layout-footer">
+                <Footer />
+              </div>
+            </FooterWrapper>
           </Providers>
         </NextIntlClientProvider>
       </body>
