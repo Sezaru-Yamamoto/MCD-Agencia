@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import Image from 'next/image';
 import {
   LANDING_SERVICE_IDS,
   SERVICE_CAROUSEL_IMAGES,
@@ -218,7 +217,7 @@ function FullscreenServiceImage({ images, initialIndex, onClose }: {
   if (!img) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 cursor-pointer" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/90" onClick={onClose}>
       {/* Close X */}
       <button
         onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -228,31 +227,35 @@ function FullscreenServiceImage({ images, initialIndex, onClose }: {
         <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
 
-      <div className="flex flex-col h-full pt-24 pb-4 pointer-events-none">
-        <div className="relative flex-1 flex items-center justify-center min-h-0 px-4">
-          <div
-            className="relative max-w-[90vw] max-h-full w-full h-full pointer-events-auto cursor-default"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Image src={img.src} alt={img.label || ''} fill className="object-contain" sizes="100vw" priority />
-          </div>
+      {/* Layout — pointer-events-none so clicks pass through to overlay */}
+      <div className="flex flex-col items-center justify-center h-full pt-24 pb-4 pointer-events-none select-none">
+        {/* Arrows */}
+        {images.length > 1 && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p - 1 + images.length) % images.length); }}
+              className="fixed left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 pointer-events-auto bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Anterior">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p + 1) % images.length); }}
+              className="fixed right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 pointer-events-auto bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Siguiente">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </>
+        )}
 
-          {images.length > 1 && (
-            <>
-              <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p - 1 + images.length) % images.length); }}
-                className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 pointer-events-auto bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Anterior">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p + 1) % images.length); }}
-                className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 pointer-events-auto bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Siguiente">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </button>
-            </>
-          )}
-        </div>
+        {/* Image — native <img> so element boundary = visible image boundary */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={img.src}
+          alt={img.label || ''}
+          className="max-w-[90vw] max-h-[70vh] object-contain pointer-events-auto rounded"
+          onClick={(e) => e.stopPropagation()}
+          draggable={false}
+        />
 
+        {/* Label */}
         {img.label && (
-          <div className="text-center py-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-3 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             {img.labelHref ? (
               <a href={img.labelHref} className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg hover:text-cmyk-cyan transition-colors">{img.label} →</a>
             ) : (
@@ -261,7 +264,8 @@ function FullscreenServiceImage({ images, initialIndex, onClose }: {
           </div>
         )}
 
-        <div className="text-center py-1">
+        {/* Counter */}
+        <div className="mt-2">
           <span className="bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
             {current + 1} / {images.length}
           </span>
