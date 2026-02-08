@@ -167,14 +167,23 @@ else:
 
 
 # =============================================================================
-# EMAIL — Gmail SMTP (free) or SendGrid
+# EMAIL — Resend (free, HTTP API) > SendGrid > Gmail SMTP > Console
+# Render free tier BLOCKS outbound SMTP (ports 587/465/25).
+# Use HTTP-based email APIs instead (Resend, SendGrid, etc.)
 # =============================================================================
 
-if os.getenv('SENDGRID_API_KEY'):
+if os.getenv('RESEND_API_KEY'):
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
+    ANYMAIL = {
+        'RESEND_API_KEY': os.getenv('RESEND_API_KEY'),
+    }
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'MCD Agencia <onboarding@resend.dev>')
+elif os.getenv('SENDGRID_API_KEY'):
     EMAIL_BACKEND = 'anymail.backends.sendgrid.EmailBackend'
     ANYMAIL = {
         'SENDGRID_API_KEY': os.getenv('SENDGRID_API_KEY'),
     }
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mcd-agencia.com')
 elif os.getenv('EMAIL_HOST_USER'):
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
