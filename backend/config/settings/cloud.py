@@ -109,6 +109,8 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 # CELERY — Run synchronously (no separate worker on free tier)
 # =============================================================================
 
+CELERY_BROKER_URL = 'memory://'
+CELERY_RESULT_BACKEND = 'cache+memory://'
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 

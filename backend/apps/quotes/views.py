@@ -680,11 +680,10 @@ class QuoteViewSet(viewsets.ModelViewSet):
         if not quote.pdf_file:
             try:
                 from apps.quotes.tasks import generate_quote_pdf
-                result = generate_quote_pdf.delay(str(quote.id))
-                # In eager mode, .delay() runs synchronously and returns result
-                if hasattr(result, 'result'):
-                    logger.info(f'PDF generation result for {quote.quote_number}: {result.result}')
+                # Call directly — no Celery broker needed
+                generate_quote_pdf(str(quote.id))
                 quote.refresh_from_db()
+                logger.info(f'PDF generated on-demand for {quote.quote_number}')
             except Exception as e:
                 logger.error(f'Error generating PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
                 return Response(
@@ -695,7 +694,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         if not quote.pdf_file:
             logger.error(f'PDF still empty after generation for quote {quote.quote_number}')
             return Response(
-                {'error': _('PDF not available. Generation may have failed silently.')},
+                {'error': _('PDF not available. Generation may have failed.')},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -719,11 +718,11 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         quote = self.get_object()
 
-        # Trigger PDF regeneration
+        # Trigger PDF regeneration (direct call — no broker needed)
         from apps.quotes.tasks import generate_quote_pdf
-        generate_quote_pdf.delay(str(quote.id))
+        generate_quote_pdf(str(quote.id))
 
-        return Response({'message': _('PDF regeneration started.')})
+        return Response({'message': _('PDF regenerated successfully.')})
 
 
 class QuotePublicView(APIView):
@@ -972,10 +971,9 @@ class QuotePublicPdfView(APIView):
         if not quote.pdf_file:
             try:
                 from apps.quotes.tasks import generate_quote_pdf
-                result = generate_quote_pdf.delay(str(quote.id))
-                if hasattr(result, 'result'):
-                    logger.info(f'Public PDF generation result for {quote.quote_number}: {result.result}')
+                generate_quote_pdf(str(quote.id))
                 quote.refresh_from_db()
+                logger.info(f'Public PDF generated on-demand for {quote.quote_number}')
             except Exception as e:
                 logger.error(f'Error generating PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
                 return Response(
@@ -986,7 +984,7 @@ class QuotePublicPdfView(APIView):
         if not quote.pdf_file:
             logger.error(f'Public PDF still empty after generation for quote {quote.quote_number}')
             return Response(
-                {'error': _('PDF not available. Generation may have failed silently.')},
+                {'error': _('PDF not available. Generation may have failed.')},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -1347,9 +1345,8 @@ def pdf_diagnostic_view(request):
         diag['step_5_real_test'] = {'quote_id': str(quote_no_pdf.id), 'quote_number': quote_no_pdf.quote_number}
         try:
             from apps.quotes.tasks import generate_quote_pdf
-            result = generate_quote_pdf.delay(str(quote_no_pdf.id))
-            if hasattr(result, 'result'):
-                diag['step_5_real_test']['result'] = str(result.result)
+            result = generate_quote_pdf(str(quote_no_pdf.id))
+            diag['step_5_real_test']['result'] = str(result)
             quote_no_pdf.refresh_from_db()
             diag['step_5_real_test']['pdf_file_after'] = str(quote_no_pdf.pdf_file) if quote_no_pdf.pdf_file else 'STILL EMPTY'
         except Exception as e:

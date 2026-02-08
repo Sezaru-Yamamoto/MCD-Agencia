@@ -24,11 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(
-    bind=True,
     max_retries=2,
     default_retry_delay=5,
 )
-def generate_quote_pdf(self, quote_id: str) -> str:
+def generate_quote_pdf(quote_id: str) -> str:
     """
     Generate PDF document for a quote.
 
