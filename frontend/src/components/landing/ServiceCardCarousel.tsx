@@ -19,6 +19,12 @@ interface ServiceCardCarouselProps {
   contain?: boolean;
   /** Called when an image is clicked, receives image index */
   onImageClick?: (index: number) => void;
+  /**
+   * Shared tick counter from parent — when provided, all carousels
+   * advance together.  The displayed index is `syncTick % items.length`.
+   * The internal auto-play timer is disabled while syncTick is set.
+   */
+  syncTick?: number;
 }
 
 export function ServiceCardCarousel({
@@ -29,8 +35,9 @@ export function ServiceCardCarousel({
   showArrows = false,
   contain = false,
   onImageClick,
+  syncTick,
 }: ServiceCardCarouselProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [ownIndex, setOwnIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
   // Normalize to ServiceCardImageData[]
@@ -38,15 +45,24 @@ export function ServiceCardCarousel({
     typeof img === 'string' ? { src: img } : img
   );
 
-  const goToSlide = useCallback((i: number) => setCurrentIndex(i), []);
-  const goPrev = useCallback(() => setCurrentIndex((p) => (p - 1 + items.length) % items.length), [items.length]);
-  const goNext = useCallback(() => setCurrentIndex((p) => (p + 1) % items.length), [items.length]);
+  // When syncTick is provided, derive the visible index from it;
+  // otherwise fall back to own internal state.
+  const currentIndex =
+    syncTick !== undefined && items.length > 0
+      ? syncTick % items.length
+      : ownIndex;
 
+  const goToSlide = useCallback((i: number) => setOwnIndex(i), []);
+  const goPrev = useCallback(() => setOwnIndex((p) => (p - 1 + items.length) % items.length), [items.length]);
+  const goNext = useCallback(() => setOwnIndex((p) => (p + 1) % items.length), [items.length]);
+
+  // Internal timer only when syncTick is NOT provided
   useEffect(() => {
+    if (syncTick !== undefined) return;          // parent drives timing
     if (!autoPlay || isHovered || items.length <= 1) return;
     const timer = setInterval(goNext, interval);
     return () => clearInterval(timer);
-  }, [autoPlay, isHovered, interval, goNext, items.length]);
+  }, [syncTick, autoPlay, isHovered, interval, goNext, items.length]);
 
   if (items.length === 0) return null;
 

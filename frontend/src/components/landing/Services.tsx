@@ -18,6 +18,13 @@ export function Services() {
   const [selectedServiceId, setSelectedServiceId] = useState<LandingServiceId | null>(null);
   const [fullscreenImages, setFullscreenImages] = useState<{ images: ServiceCardImageData[]; index: number } | null>(null);
 
+  // Shared tick so every service card carousel advances at the same time
+  const [syncTick, setSyncTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setSyncTick((t) => t + 1), 6000); // 6 s
+    return () => clearInterval(timer);
+  }, []);
+
   const { data: landingData } = useQuery({
     queryKey: ['landing-data'],
     queryFn: getLandingPageData,
@@ -96,7 +103,7 @@ export function Services() {
                 className="group overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 border-2 border-cmyk-cyan/40 hover:border-cmyk-cyan/80 cursor-pointer text-left"
                 style={{ animationDelay: `${index * 50}ms` }}>
                 <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-200">
-                  <ServiceCardCarousel images={service.carouselImageStrings} alt={service.title} />
+                  <ServiceCardCarousel images={service.carouselImageStrings} alt={service.title} syncTick={syncTick} />
                 </div>
                 <div className="p-4 sm:p-6 space-y-4">
                   <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2 group-hover:text-cmyk-cyan transition-colors min-h-14">{service.title}</h3>
