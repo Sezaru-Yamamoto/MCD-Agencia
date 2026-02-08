@@ -22,11 +22,14 @@ For more information on Django URL dispatching, see:
 https://docs.djangoproject.com/en/5.0/topics/http/urls/
 """
 
+import time
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.static import serve as media_serve
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -39,6 +42,63 @@ def redirect_to_frontend(request):
     """Redirect root URL to frontend."""
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
     return HttpResponseRedirect(f'{frontend_url}/es')
+
+
+# =============================================================================
+# TEMPORARY: One-time resend endpoint (remove after use)
+# =============================================================================
+RESEND_SECRET = 'mcd-resend-2026-x9k3'  # one-time secret token
+
+
+@csrf_exempt
+def resend_quotes_view(request):
+    """
+    Temporary endpoint to resend quote emails.
+    GET  /?token=SECRET         → list quotes with status 'sent'
+    GET  /?token=SECRET&send=1  → actually resend the emails
+    """
+    token = request.GET.get('token', '')
+    if token != RESEND_SECRET:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    from apps.quotes.models import Quote
+    from apps.quotes.tasks import send_quote_email_sync
+
+    quotes = list(
+        Quote.objects.filter(status='sent')
+        .order_by('-sent_at')
+        .values('id', 'quote_number', 'customer_email', 'sent_at', 'total')
+    )
+
+    if not quotes:
+        return JsonResponse({'message': 'No quotes with status "sent" found.', 'count': 0})
+
+    do_send = request.GET.get('send') == '1'
+
+    if not do_send:
+        # Dry run — just list them
+        for q in quotes:
+            q['id'] = str(q['id'])
+            q['sent_at'] = str(q['sent_at'])
+            q['total'] = str(q['total'])
+        return JsonResponse({
+            'mode': 'dry_run',
+            'message': 'Add &send=1 to actually resend.',
+            'count': len(quotes),
+            'quotes': quotes,
+        })
+
+    # Actually resend
+    results = []
+    for q in quotes:
+        try:
+            send_quote_email_sync(str(q['id']))
+            results.append({'quote': q['quote_number'], 'email': q['customer_email'], 'status': 'OK'})
+            time.sleep(2)
+        except Exception as e:
+            results.append({'quote': q['quote_number'], 'email': q['customer_email'], 'status': f'FAILED: {e}'})
+
+    return JsonResponse({'mode': 'sent', 'results': results})
 
 
 # =============================================================================
@@ -130,6 +190,9 @@ else:
 urlpatterns = [
     # Root URL - redirect to frontend
     path('', redirect_to_frontend, name='root'),
+
+    # TEMPORARY: resend quotes (remove after use)
+    path('_resend/', resend_quotes_view),
 
     # Django Admin
     path('admin/', admin.site.urls),
