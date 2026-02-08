@@ -297,6 +297,52 @@ class ServiceViewSet(viewsets.ModelViewSet):
         serializer = ServicePublicSerializer(services, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'], url_path='sync')
+    def sync_services(self, request):
+        """
+        Bulk-create missing services from a list of definitions.
+
+        POST body: { "services": [ { "service_key": "...", "name": "...", ... }, ... ] }
+        Only creates services whose service_key doesn't already exist.
+        Returns the full list of services after sync.
+        """
+        definitions = request.data.get('services', [])
+        if not definitions:
+            return Response({'error': 'No services provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_keys = set(
+            Service.objects.filter(service_key__isnull=False)
+            .values_list('service_key', flat=True)
+        )
+
+        created = []
+        for defn in definitions:
+            key = defn.get('service_key', '')
+            if not key or key in existing_keys:
+                continue
+            svc = Service.objects.create(
+                service_key=key,
+                name=defn.get('name', key),
+                name_en=defn.get('name_en', ''),
+                description=defn.get('description', ''),
+                description_en=defn.get('description_en', ''),
+                icon=defn.get('icon', ''),
+                cta_text=defn.get('cta_text', 'Cotizar'),
+                cta_text_en=defn.get('cta_text_en', 'Quote'),
+                cta_url=defn.get('cta_url', '#cotizar'),
+                position=defn.get('position', 0),
+                is_active=True,
+            )
+            created.append(svc.service_key)
+            existing_keys.add(key)
+
+        all_services = Service.objects.all().order_by('position')
+        serializer = ServiceSerializer(all_services, many=True, context={'request': request})
+        return Response({
+            'created': created,
+            'services': serializer.data,
+        })
+
 
 class ServiceImageViewSet(viewsets.ModelViewSet):
     """

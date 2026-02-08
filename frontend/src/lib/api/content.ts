@@ -123,6 +123,7 @@ export interface SiteConfig {
 
 export interface Service {
   id: string;
+  service_key?: string;
   name: string;
   name_en: string;
   description: string;
@@ -312,6 +313,21 @@ export async function deleteCarouselSlide(id: string): Promise<void> {
 export async function getAdminServices(): Promise<ServiceAdmin[]> {
   const response = await apiClient.get<{ results: ServiceAdmin[] } | ServiceAdmin[]>('/content/services/');
   return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Sync services: create any missing services from the known definitions.
+ * Returns the full list of services after sync.
+ */
+export async function syncServices(definitions: Array<{
+  service_key: string;
+  name: string;
+  name_en?: string;
+  description?: string;
+  icon?: string;
+  position?: number;
+}>): Promise<{ created: string[]; services: ServiceAdmin[] }> {
+  return apiClient.post<{ created: string[]; services: ServiceAdmin[] }>('/content/services/sync/', { services: definitions });
 }
 
 /**

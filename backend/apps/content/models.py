@@ -333,6 +333,15 @@ class Service(TimeStampedModel, OrderedModel):
         default=True,
         help_text=_('Whether service is visible.')
     )
+    service_key = models.CharField(
+        _('service key'),
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text=_('Unique service identifier (e.g. "espectaculares"). '
+                     'Links to the quote form service.')
+    )
 
     class Meta:
         verbose_name = _('service')
@@ -626,7 +635,7 @@ class ServiceImage(TimeStampedModel, OrderedModel):
         is_active: Whether image is visible
     """
 
-    MAX_IMAGES_PER_SERVICE = 5
+    MAX_IMAGES_PER_SERVICE = 10
 
     id = models.UUIDField(
         primary_key=True,

@@ -128,7 +128,7 @@ class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'id', 'name', 'name_en', 'description', 'description_en',
+            'id', 'service_key', 'name', 'name_en', 'description', 'description_en',
             'icon', 'image', 'price_from', 'cta_text', 'cta_text_en',
             'cta_url', 'is_featured', 'position', 'is_active'
         ]
@@ -157,7 +157,7 @@ class ServicePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'id', 'name', 'name_en', 'description', 'description_en',
+            'id', 'service_key', 'name', 'name_en', 'description', 'description_en',
             'icon', 'image', 'price_from', 'cta_text', 'cta_text_en',
             'cta_url', 'is_featured', 'position', 'carousel_images'
         ]

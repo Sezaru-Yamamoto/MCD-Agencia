@@ -25,20 +25,20 @@ export function Services() {
     retry: 1,
   });
 
-  // Build API images lookup by service position (index) – now includes labels & subtype links
-  const apiDataByPosition = useMemo(() => {
-    const map: Record<number, { images: ServiceCardImageData[]; rawImages: ServiceImage[] }> = {};
+  // Build API images lookup by service_key — matches service to its carousel images
+  const apiDataByKey = useMemo(() => {
+    const map: Record<string, { images: ServiceCardImageData[]; rawImages: ServiceImage[] }> = {};
     if (landingData?.services) {
-      landingData.services.forEach((svc, idx) => {
-        if (svc.carousel_images && svc.carousel_images.length > 0) {
-          const serviceSlug = LANDING_SERVICE_IDS[idx];
-          map[idx] = {
+      landingData.services.forEach((svc) => {
+        const key = svc.service_key || '';
+        if (svc.carousel_images && svc.carousel_images.length > 0 && key) {
+          map[key] = {
             rawImages: svc.carousel_images,
             images: svc.carousel_images.map((img) => ({
               src: img.image,
               label: img.alt_text || undefined,
-              labelHref: img.subtype_key && serviceSlug
-                ? `#cotizar?servicio=${serviceSlug}&subtipo=${img.subtype_key}`
+              labelHref: img.subtype_key && key
+                ? `#cotizar?servicio=${key}&subtipo=${img.subtype_key}`
                 : undefined,
             })),
           };
@@ -49,9 +49,9 @@ export function Services() {
   }, [landingData]);
 
   // Get translated service data with subcategories
-  const getServiceData = useCallback((id: LandingServiceId, index: number) => {
+  const getServiceData = useCallback((id: LandingServiceId) => {
     const subcategories = SERVICE_SUBCATEGORIES[id] || [];
-    const apiData = apiDataByPosition[index];
+    const apiData = apiDataByKey[id];
     // Rich image data for modal; plain strings for card
     const carouselImages: ServiceCardImageData[] = apiData?.images ?? SERVICE_CAROUSEL_IMAGES[id].map((src) => ({ src }));
     const carouselImageStrings = apiData ? apiData.images.map((i) => i.src) : SERVICE_CAROUSEL_IMAGES[id];
@@ -66,10 +66,10 @@ export function Services() {
       carouselImages,
       carouselImageStrings,
     };
-  }, [t, apiDataByPosition]);
+  }, [t, apiDataByKey]);
 
   const selectedService = selectedServiceId
-    ? getServiceData(selectedServiceId, LANDING_SERVICE_IDS.indexOf(selectedServiceId))
+    ? getServiceData(selectedServiceId)
     : null;
 
   // Fullscreen image handler for modal
@@ -88,7 +88,7 @@ export function Services() {
         {/* Grid de Servicios */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 px-4 sm:px-0">
           {LANDING_SERVICE_IDS.map((serviceId, index) => {
-            const service = getServiceData(serviceId, index);
+            const service = getServiceData(serviceId);
             return (
               <div key={serviceId} role="button" tabIndex={0}
                 onClick={() => setSelectedServiceId(serviceId)}

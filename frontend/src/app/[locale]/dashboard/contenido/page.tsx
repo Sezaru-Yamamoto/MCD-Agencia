@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -11,7 +11,7 @@ import {
 import {
   getAdminCarouselSlides, createCarouselSlideWithFile, updateCarouselSlideWithFile,
   updateCarouselSlide, deleteCarouselSlide, CarouselSlideAdmin,
-  getAdminServices, createService, updateService, deleteService, ServiceAdmin,
+  getAdminServices, syncServices, updateService, ServiceAdmin,
   getAdminServiceImages, createServiceImage, deleteServiceImage, ServiceImageAdmin,
   getAdminPortfolioVideos, createPortfolioVideo, updatePortfolioVideo,
   deletePortfolioVideo, PortfolioVideoAdmin,
@@ -20,12 +20,12 @@ import { Card, Button, Input, Textarea, Modal, Badge, LoadingPage } from '@/comp
 import { cn } from '@/lib/utils';
 import {
   SERVICE_IDS, SERVICE_LABELS, type ServiceId,
-  SERVICE_SUBCATEGORIES, LANDING_SERVICE_IDS,
+  ALL_SERVICE_SUBCATEGORIES, SERVICE_SYNC_DEFINITIONS,
 } from '@/lib/service-ids';
 
 // ═══════════════════════════════════════════════════════════════════════════
 const MAX_HERO_SLIDES = 10;
-const MAX_SERVICE_IMAGES = 5;
+const MAX_SERVICE_IMAGES = 10;
 const MAX_PORTFOLIO_VIDEOS = 2;
 const MAX_IMAGE_SIZE_MB = 5;
 const HERO_DIMENSIONS = '1920 × 800 px';
@@ -293,122 +293,131 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SERVICES TAB
+// SERVICES TAB — Auto-synced 9 services with per-subtype image management
 // ═══════════════════════════════════════════════════════════════════════════
 function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; queryClient: ReturnType<typeof useQueryClient> }) {
-  const [showModal, setShowModal] = useState(false);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [synced, setSynced] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editingSvc, setEditingSvc] = useState<ServiceAdmin | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', name_en: '', description: '', description_en: '', icon: '', cta_text: 'Cotizar', cta_text_en: 'Quote', cta_url: '#cotizar', is_featured: false, position: 0, is_active: true });
+  const [editForm, setEditForm] = useState({ name: '', name_en: '', description: '', description_en: '', icon: '', cta_text: 'Cotizar', cta_text_en: 'Quote', cta_url: '#cotizar', is_featured: false, is_active: true });
 
-  const createMut = useMutation({
-    mutationFn: createService,
-    onSuccess: () => { toast.success('Servicio creado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowModal(false); },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al crear')),
-  });
+  // Auto-sync: ensure all 9 services exist in the backend
+  useEffect(() => {
+    if (synced) return;
+    const existingKeys = new Set(services.map((s) => s.service_key).filter(Boolean));
+    const missing = SERVICE_SYNC_DEFINITIONS.filter((d) => !existingKeys.has(d.service_key));
+    if (missing.length === 0) { setSynced(true); return; }
+    syncServices(SERVICE_SYNC_DEFINITIONS)
+      .then((res) => {
+        if (res.created.length > 0) {
+          toast.success(`${res.created.length} servicio(s) sincronizado(s)`);
+          queryClient.invalidateQueries({ queryKey: ['admin-services'] });
+        }
+      })
+      .catch(() => toast.error('Error al sincronizar servicios'))
+      .finally(() => setSynced(true));
+  }, [services, synced, queryClient]);
+
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ServiceAdmin> }) => updateService(id, data),
-    onSuccess: () => { toast.success('Servicio actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowModal(false); },
+    onSuccess: () => { toast.success('Servicio actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); setShowEditModal(false); },
     onError: (err) => toast.error(getApiErrorMessage(err, 'Error al actualizar')),
   });
-  const deleteMut = useMutation({
-    mutationFn: deleteService,
-    onSuccess: () => { toast.success('Servicio eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-services'] }); },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
-  });
 
-  const openCreate = () => {
-    setEditingSvc(null);
-    setForm({ name: '', name_en: '', description: '', description_en: '', icon: '', cta_text: 'Cotizar', cta_text_en: 'Quote', cta_url: '#cotizar', is_featured: false, position: services.length, is_active: true });
-    setShowModal(true);
-  };
   const openEdit = (s: ServiceAdmin) => {
     setEditingSvc(s);
-    setForm({ name: s.name, name_en: s.name_en, description: s.description, description_en: s.description_en, icon: s.icon, cta_text: s.cta_text, cta_text_en: s.cta_text_en, cta_url: s.cta_url, is_featured: s.is_featured, position: s.position, is_active: s.is_active });
-    setShowModal(true);
+    setEditForm({ name: s.name, name_en: s.name_en, description: s.description, description_en: s.description_en, icon: s.icon, cta_text: s.cta_text, cta_text_en: s.cta_text_en, cta_url: s.cta_url, is_featured: s.is_featured, is_active: s.is_active });
+    setShowEditModal(true);
   };
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingSvc) updateMut.mutate({ id: editingSvc.id, data: form });
-    else createMut.mutate(form as unknown as Omit<ServiceAdmin, 'id'>);
+    if (editingSvc) updateMut.mutate({ id: editingSvc.id, data: editForm });
   };
 
   const sorted = [...services].sort((a, b) => a.position - b.position);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="text-sm text-neutral-400">Servicios del landing. Clic para gestionar <strong>imágenes del carrusel</strong> (cada imagen = un subtipo).</p>
-          <p className="text-xs text-neutral-500 mt-1">Máx {MAX_SERVICE_IMAGES} imágenes por servicio · Recomendado: <strong>{SERVICE_DIMENSIONS}</strong></p>
-        </div>
-        <Button onClick={openCreate}><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Servicio</Button>
+      <div>
+        <p className="text-sm text-neutral-400">Los <strong>9 servicios</strong> del sistema. Clic en cada uno para gestionar <strong>imágenes por subtipo</strong>.</p>
+        <p className="text-xs text-neutral-500 mt-1">1 imagen por subtipo · Recomendado: <strong>{SERVICE_DIMENSIONS}</strong></p>
       </div>
 
       {sorted.length === 0 ? (
-        <Card className="text-center py-12"><PhotoIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" /><p className="text-neutral-400">No hay servicios — el landing usa datos por defecto</p></Card>
+        <Card className="text-center py-12"><PhotoIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" /><p className="text-neutral-400">Sincronizando servicios…</p></Card>
       ) : (
         <div className="grid gap-3">
-          {sorted.map((svc) => (
-            <div key={svc.id}>
-              <Card className="p-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-neutral-800 rounded-lg flex items-center justify-center flex-shrink-0 text-xl">{svc.icon || '📋'}</div>
-                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedId(expandedId === svc.id ? null : svc.id)}>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-medium text-white truncate">{svc.name}</h3>
-                      <Badge variant={svc.is_active ? 'success' : 'default'}>{svc.is_active ? 'Activo' : 'Inactivo'}</Badge>
-                      {svc.is_featured && <Badge variant="cyan">Destacado</Badge>}
+          {sorted.map((svc) => {
+            const key = svc.service_key || '';
+            const subtypes = ALL_SERVICE_SUBCATEGORIES[key] || [];
+            const isExpanded = expandedKey === svc.id;
+
+            return (
+              <div key={svc.id}>
+                <Card className="p-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-neutral-800 rounded-lg flex items-center justify-center flex-shrink-0 text-xl">{svc.icon || '📋'}</div>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedKey(isExpanded ? null : svc.id)}>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="font-medium text-white truncate">{svc.name}</h3>
+                        <Badge variant={svc.is_active ? 'success' : 'default'}>{svc.is_active ? 'Activo' : 'Inactivo'}</Badge>
+                        {svc.is_featured && <Badge variant="cyan">Destacado</Badge>}
+                        {subtypes.length > 0 && <span className="text-[10px] text-neutral-500">{subtypes.length} subtipos</span>}
+                      </div>
+                      <p className="text-sm text-neutral-400 truncate">{svc.description}</p>
+                      <p className="text-xs text-cyan-400 mt-0.5 flex items-center gap-1">
+                        <PhotoIcon className="h-3.5 w-3.5" />
+                        {isExpanded ? 'Clic para cerrar' : 'Clic para gestionar imágenes por subtipo'}
+                      </p>
                     </div>
-                    <p className="text-sm text-neutral-400 truncate">{svc.description}</p>
-                    <p className="text-xs text-cyan-400 mt-0.5 flex items-center gap-1"><PhotoIcon className="h-3.5 w-3.5" /> Clic para gestionar imágenes</p>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => updateMut.mutate({ id: svc.id, data: { is_active: !svc.is_active } })}>
+                        {svc.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(svc)}><PencilIcon className="h-5 w-5" /></Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => updateMut.mutate({ id: svc.id, data: { is_active: !svc.is_active } })}>{svc.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}</Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(svc)}><PencilIcon className="h-5 w-5" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar servicio y sus imágenes?')) deleteMut.mutate(svc.id); }}><TrashIcon className="h-5 w-5 text-red-400" /></Button>
+                </Card>
+                {isExpanded && (
+                  <div className="ml-6 mt-2 mb-4">
+                    <ServiceSubtypeImagesPanel serviceId={svc.id} serviceKey={key} queryClient={queryClient} />
                   </div>
-                </div>
-              </Card>
-              {expandedId === svc.id && (
-                <div className="ml-6 mt-2 mb-4">
-                  <ServiceImagesPanel serviceId={svc.id} serviceName={svc.name} queryClient={queryClient} />
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingSvc ? 'Editar Servicio' : 'Nuevo Servicio'} size="lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Servicio" size="lg">
+        <form onSubmit={handleEditSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Nombre (ES)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <Input label="Nombre (EN)" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
+            <Input label="Nombre (ES)" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
+            <Input label="Nombre (EN)" value={editForm.name_en} onChange={(e) => setEditForm({ ...editForm, name_en: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Textarea label="Descripción (ES)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} required />
-            <Textarea label="Descripción (EN)" value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} rows={3} />
+            <Textarea label="Descripción (ES)" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} required />
+            <Textarea label="Descripción (EN)" value={editForm.description_en} onChange={(e) => setEditForm({ ...editForm, description_en: e.target.value })} rows={3} />
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <Input label="Icono (emoji)" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="🖨️" />
-            <Input label="Texto CTA" value={form.cta_text} onChange={(e) => setForm({ ...form, cta_text: e.target.value })} />
-            <Input label="URL CTA" value={form.cta_url} onChange={(e) => setForm({ ...form, cta_url: e.target.value })} />
+            <Input label="Icono (emoji)" value={editForm.icon} onChange={(e) => setEditForm({ ...editForm, icon: e.target.value })} placeholder="🖨️" />
+            <Input label="Texto CTA" value={editForm.cta_text} onChange={(e) => setEditForm({ ...editForm, cta_text: e.target.value })} />
+            <Input label="URL CTA" value={editForm.cta_url} onChange={(e) => setEditForm({ ...editForm, cta_url: e.target.value })} />
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <Input type="number" label="Posición" value={form.position.toString()} onChange={(e) => setForm({ ...form, position: parseInt(e.target.value) || 0 })} />
-            <div className="flex items-center gap-2 pt-8">
-              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2 pt-4">
+              <input type="checkbox" checked={editForm.is_active} onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
               <label className="text-sm text-white">Activo</label>
             </div>
-            <div className="flex items-center gap-2 pt-8">
-              <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm({ ...form, is_featured: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
+            <div className="flex items-center gap-2 pt-4">
+              <input type="checkbox" checked={editForm.is_featured} onChange={(e) => setEditForm({ ...editForm, is_featured: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
               <label className="text-sm text-white">Destacado</label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancelar</Button>
-            <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>{editingSvc ? 'Guardar' : 'Crear'}</Button>
+            <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>Cancelar</Button>
+            <Button type="submit" disabled={updateMut.isPending}>Guardar</Button>
           </div>
         </form>
       </Modal>
@@ -416,8 +425,10 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
   );
 }
 
-// ── Service Images Sub-Panel (with subtype selector) ───────────────────
-function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId: string; serviceName: string; queryClient: ReturnType<typeof useQueryClient> }) {
+// ── Service Subtype Images Panel — 1 image per subtype ──────────────────
+function ServiceSubtypeImagesPanel({ serviceId, serviceKey, queryClient }: {
+  serviceId: string; serviceKey: string; queryClient: ReturnType<typeof useQueryClient>;
+}) {
   const { data: images = [], isLoading } = useQuery({
     queryKey: ['admin-service-images', serviceId],
     queryFn: () => getAdminServiceImages(serviceId),
@@ -433,72 +444,97 @@ function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId
     onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [selectedSubtype, setSelectedSubtype] = useState('');
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const subtypes = ALL_SERVICE_SUBCATEGORIES[serviceKey] || [];
 
-  // Find matching landing service for subcategories
-  const matchingLandingId = LANDING_SERVICE_IDS.find((lid) => {
-    const label = SERVICE_LABELS[lid as ServiceId];
-    return label && serviceName.toLowerCase().includes(label.toLowerCase().substring(0, 8));
+  // Build a map: subtype_key → image
+  const imageBySubtype = new Map<string, ServiceImageAdmin>();
+  images.forEach((img) => {
+    if (img.subtype_key) imageBySubtype.set(img.subtype_key, img);
   });
-  const subtypes = matchingLandingId ? (SERVICE_SUBCATEGORIES[matchingLandingId] || []) : [];
 
-  const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = useCallback((subtypeId: string, subtypeLabel: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) { toast.error(`Máximo ${MAX_IMAGE_SIZE_MB} MB`); return; }
     uploadMut.mutate({
-      service: serviceId, image: file,
-      alt_text: selectedSubtype ? (subtypes.find(s => s.id === selectedSubtype)?.titleKey || serviceName) : serviceName,
-      subtype_key: selectedSubtype,
+      service: serviceId,
+      image: file,
+      alt_text: subtypeLabel,
+      subtype_key: subtypeId,
       position: images.length,
     });
-    if (fileRef.current) fileRef.current.value = '';
-  }, [serviceId, serviceName, images.length, uploadMut, selectedSubtype, subtypes]);
+    const ref = fileRefs.current[subtypeId];
+    if (ref) ref.value = '';
+  }, [serviceId, images.length, uploadMut]);
 
   if (isLoading) return <p className="text-sm text-neutral-500 py-2">Cargando imágenes…</p>;
-  const sorted = [...images].sort((a, b) => a.position - b.position);
-  const canAdd = images.length < MAX_SERVICE_IMAGES;
+
+  if (subtypes.length === 0) {
+    return (
+      <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+        <p className="text-xs text-neutral-500 text-center">Este servicio no tiene subtipos definidos.</p>
+      </div>
+    );
+  }
+
+  const completedCount = subtypes.filter((st) => imageBySubtype.has(st.id)).length;
 
   return (
     <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h4 className="text-sm font-semibold text-neutral-200">Imágenes del carrusel ({images.length}/{MAX_SERVICE_IMAGES})</h4>
-        <div className="flex items-center gap-2">
-          {subtypes.length > 0 && (
-            <select value={selectedSubtype} onChange={(e) => setSelectedSubtype(e.target.value)}
-              className="rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 px-2 py-1 text-xs">
-              <option value="">Sin subtipo</option>
-              {subtypes.map((st) => <option key={st.id} value={st.id}>{st.titleKey}</option>)}
-            </select>
-          )}
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={!canAdd || uploadMut.isPending}
-            className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-colors', canAdd ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' : 'bg-neutral-800 text-neutral-600 cursor-not-allowed')}>
-            <PlusIcon className="h-4 w-4" /> {uploadMut.isPending ? 'Subiendo…' : 'Subir imagen'}
-          </button>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} className="hidden" />
-        </div>
-      </div>
+      <h4 className="text-sm font-semibold text-neutral-200">
+        Imágenes por subtipo ({completedCount}/{subtypes.length})
+      </h4>
 
-      {sorted.length === 0 ? (
-        <p className="text-xs text-neutral-500 py-4 text-center">Sin imágenes. Sube la primera ({SERVICE_DIMENSIONS}).</p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {sorted.map((img) => (
-            <div key={img.id} className="relative group rounded-lg overflow-hidden border border-neutral-700 aspect-[4/3] bg-neutral-800">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.image} alt={img.alt_text} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button onClick={() => { if (confirm('¿Eliminar?')) deleteMut.mutate(img.id); }} className="p-1.5 bg-red-500/80 rounded-full text-white hover:bg-red-500">
-                  <TrashIcon className="h-4 w-4" />
-                </button>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {subtypes.map((st) => {
+          const existing = imageBySubtype.get(st.id);
+          return (
+            <div key={st.id} className="relative rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800">
+              {/* Subtype label */}
+              <div className="px-2 py-1.5 bg-neutral-700/50 border-b border-neutral-700">
+                <p className="text-xs font-medium text-neutral-200 truncate">{st.label}</p>
               </div>
-              {img.alt_text && <span className="absolute bottom-1 left-1 text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded truncate max-w-[90%]">{img.alt_text}</span>}
-              <span className="absolute top-1 right-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">#{img.position}</span>
+
+              <div className="aspect-[4/3] relative">
+                {existing ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={existing.image} alt={existing.alt_text} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => { if (confirm(`¿Eliminar imagen de "${st.label}"?`)) deleteMut.mutate(existing.id); }}
+                        className="p-1.5 bg-red-500/80 rounded-full text-white hover:bg-red-500"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <span className="absolute bottom-1 right-1 text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded">✓</span>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileRefs.current[st.id]?.click()}
+                    disabled={uploadMut.isPending}
+                    className="w-full h-full flex flex-col items-center justify-center gap-1 text-neutral-500 hover:text-cyan-400 hover:bg-neutral-700/30 transition-colors"
+                  >
+                    <PhotoIcon className="h-8 w-8" />
+                    <span className="text-[10px]">{uploadMut.isPending ? 'Subiendo…' : 'Subir imagen'}</span>
+                  </button>
+                )}
+              </div>
+
+              <input
+                ref={(el) => { fileRefs.current[st.id] = el; }}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleUpload(st.id, st.label)}
+                className="hidden"
+              />
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
