@@ -299,7 +299,11 @@ export default function RegisterPage() {
         onClick={() => {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
           const backendUrl = apiUrl.replace('/api/v1', '');
-          window.location.href = `${backendUrl}/accounts/google/login/?next=${encodeURIComponent(`/${locale}`)}`;
+          // Store redirect in sessionStorage for the callback page
+          sessionStorage.setItem('oauth_redirect', `/${locale}`);
+          // Tell allauth to redirect to our JWT callback endpoint (same as login page)
+          const callbackUrl = '/api/v1/auth/google/callback/';
+          window.location.href = `${backendUrl}/accounts/google/login/?next=${encodeURIComponent(callbackUrl)}`;
         }}
         leftIcon={
           <svg className="h-5 w-5" viewBox="0 0 24 24">
