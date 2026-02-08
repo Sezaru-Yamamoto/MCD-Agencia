@@ -20,6 +20,10 @@ import { Providers } from '@/components/providers';
 import { UnifiedHeader } from '@/components/UnifiedHeader';
 import { Footer } from '@/components/landing/Footer';
 import { FooterWrapper } from '@/components/FooterWrapper';
+import { CookieConsentProvider } from '@/contexts/CookieConsentContext';
+import { AnalyticsScripts } from '@/components/AnalyticsScripts';
+import { PageViewTracker } from '@/components/PageViewTracker';
+import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import '@/styles/globals.css';
 
 // =============================================================================
@@ -178,7 +182,12 @@ export default async function RootLayout({
     <html lang={locale} className={`${inter.variable} ${montserrat.variable}`}>
       <body className="min-h-screen bg-neutral-950 font-sans text-white antialiased">
         <NextIntlClientProvider messages={messages}>
+          <CookieConsentProvider>
           <Providers>
+            {/* Analytics – loads scripts only when consent is given */}
+            <AnalyticsScripts />
+            <PageViewTracker />
+
             {/* Skip to content link for accessibility */}
             <a
               href="#main-content"
@@ -203,7 +212,11 @@ export default async function RootLayout({
                 <Footer />
               </div>
             </FooterWrapper>
+
+            {/* Cookie consent banner */}
+            <CookieConsentBanner />
           </Providers>
+          </CookieConsentProvider>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -1,8 +1,13 @@
 /**
  * Tracking utilities for analytics
+ *
+ * ⚠️  DEPRECATED — This file re-exports from @/lib/analytics for backward compatibility.
+ *     New code should import directly from '@/lib/analytics'.
  */
 
-// Eventos de tracking según el PRD
+export { trackEvent, trackCTA } from '@/lib/analytics';
+
+// Legacy event constants (kept for backward compatibility)
 export const trackingEvents = {
   LP_VIEW: 'lp_view',
   CTA_CLICK_QUOTE: 'cta_click_quote',
@@ -13,38 +18,3 @@ export const trackingEvents = {
 } as const;
 
 export type TrackingEvent = typeof trackingEvents[keyof typeof trackingEvents];
-
-// Extend window type for gtag
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
-
-export function trackEvent(eventName: TrackingEvent | string, properties?: Record<string, unknown>) {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', eventName, {
-      ...properties,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  // Log en desarrollo
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[Analytics]', eventName, properties);
-  }
-}
-
-// Helper para tracking de CTAs
-export function trackCTA(type: 'quote' | 'whatsapp' | 'video_play', location: string) {
-  let eventName: string;
-  if (type === 'quote') {
-    eventName = trackingEvents.CTA_CLICK_QUOTE;
-  } else if (type === 'whatsapp') {
-    eventName = trackingEvents.CTA_CLICK_WHATSAPP;
-  } else {
-    eventName = 'video_play';
-  }
-
-  trackEvent(eventName, { location });
-}

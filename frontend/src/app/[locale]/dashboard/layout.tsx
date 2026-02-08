@@ -11,7 +11,7 @@ import {
   DocumentTextIcon,
   UsersIcon,
   ClipboardDocumentListIcon,
-  ChatBubbleLeftRightIcon,
+  ChartBarIcon,
   PhotoIcon,
   Bars3Icon,
   XMarkIcon,
@@ -52,7 +52,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/catalogo', label: 'Catálogo', icon: CubeIcon, permission: 'canEditCatalog', separator: true },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon, permission: 'canEditUsers' },
   { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon, permission: 'canEditContent' },
-  { href: '/dashboard/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon, permission: 'canViewLeads' },
+  { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon, permission: 'canViewLeads' },
   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon, permission: 'canViewAudit' },
 ];
 

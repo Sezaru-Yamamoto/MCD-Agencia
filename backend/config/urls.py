@@ -71,6 +71,9 @@ api_v1_patterns = [
     # Chatbot & Leads
     path('chatbot/', include('apps.chatbot.urls')),
 
+    # Analytics & Tracking
+    path('analytics/', include('apps.analytics.urls')),
+
     # Audit Log
     path('audit/', include('apps.audit.urls')),
 ]
