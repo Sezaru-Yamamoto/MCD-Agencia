@@ -42,372 +42,340 @@ def generate_quote_pdf(quote_id: str) -> str:
     from apps.quotes.models import Quote
 
     try:
-        # Import PDF library (WeasyPrint recommended, but requires GTK on Windows)
-        use_weasyprint = False
-        try:
-            from weasyprint import HTML, CSS
-            # Test if WeasyPrint actually works (may fail on Windows without GTK)
-            use_weasyprint = True
-        except (ImportError, OSError) as e:
-            logger.warning(f"WeasyPrint not available ({e}), using ReportLab fallback")
-            use_weasyprint = False
-
-        if not use_weasyprint:
-            # Fallback to ReportLab - import required modules
-            from reportlab.lib.pagesizes import letter
-            from reportlab.lib.units import inch
-            from reportlab.lib.colors import HexColor
-            from reportlab.lib import colors
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
-            from reportlab.pdfgen import canvas
-            import os
+        # Use ReportLab for PDF generation (reliable, no system deps, no template issues)
+        # WeasyPrint HTML template needs rewrite to match current models — TODO for later
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.units import inch
+        from reportlab.lib.colors import HexColor
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+        from reportlab.pdfgen import canvas
+        import os
 
         quote = Quote.objects.select_related(
             'quote_request', 'created_by'
         ).prefetch_related('lines').get(id=quote_id)
 
-        if use_weasyprint:
-            # Render HTML template
-            context = {
-                'quote': quote,
-                'customer_name': quote.customer_name,
-                'customer_email': quote.customer_email,
-                'customer_company': quote.customer_company,
-                'lines': quote.lines.all(),
-                'company_name': 'MCD Agencia',
-                'company_address': 'Acapulco, Guerrero, México',
-                'company_phone': '+52 744 XXX XXXX',
-                'company_email': settings.DEFAULT_FROM_EMAIL,
-                'generated_at': timezone.now(),
-            }
+        # Professional ReportLab PDF with brand colors
+        buffer = BytesIO()
 
-            html_string = render_to_string('pdf/quote_template.html', context)
+        # Brand colors
+        CYAN = HexColor('#0DA3EF')
+        MAGENTA = HexColor('#EC2D8D')
+        BLACK = HexColor('#141414')
+        GRAY = HexColor('#666666')
+        LIGHT_GRAY = HexColor('#F5F5F5')
+        WHITE = colors.white
 
-            # Generate PDF
-            html = HTML(string=html_string, base_url=settings.STATIC_ROOT)
-            pdf_content = html.write_pdf()
+        # Page dimensions
+        page_width, page_height = letter
+        margin_left = 0.75 * inch
+        margin_right = 0.75 * inch
+        margin_top = 0.5 * inch
+        margin_bottom = 1.2 * inch  # Extra space for fixed footer
 
-        else:
-            # Professional ReportLab PDF with brand colors
-            buffer = BytesIO()
+        # Create document with extra bottom margin for footer
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=margin_right,
+            leftMargin=margin_left,
+            topMargin=margin_top,
+            bottomMargin=margin_bottom
+        )
 
-            # Brand colors
-            CYAN = HexColor('#0DA3EF')
-            MAGENTA = HexColor('#EC2D8D')
-            BLACK = HexColor('#141414')
-            GRAY = HexColor('#666666')
-            LIGHT_GRAY = HexColor('#F5F5F5')
-            WHITE = colors.white
+        # Styles
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(
+            name='CompanyName',
+            fontSize=24,
+            fontName='Helvetica-Bold',
+            textColor=BLACK,
+            spaceAfter=6
+        ))
+        styles.add(ParagraphStyle(
+            name='QuoteTitle',
+            fontSize=14,
+            fontName='Helvetica-Bold',
+            textColor=CYAN,
+            spaceAfter=20
+        ))
+        styles.add(ParagraphStyle(
+            name='SectionTitle',
+            fontSize=11,
+            fontName='Helvetica-Bold',
+            textColor=BLACK,
+            spaceBefore=15,
+            spaceAfter=8
+        ))
+        styles.add(ParagraphStyle(
+            name='CustomerInfo',
+            fontSize=10,
+            fontName='Helvetica',
+            textColor=GRAY,
+            leading=14
+        ))
+        styles.add(ParagraphStyle(
+            name='Footer',
+            fontSize=8,
+            fontName='Helvetica',
+            textColor=GRAY,
+            alignment=TA_CENTER
+        ))
 
-            # Page dimensions
-            page_width, page_height = letter
-            margin_left = 0.75 * inch
-            margin_right = 0.75 * inch
-            margin_top = 0.5 * inch
-            margin_bottom = 1.2 * inch  # Extra space for fixed footer
+        elements = []
+        width, height = letter
+        content_width = width - 1.5 * inch
 
-            # Create document with extra bottom margin for footer
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=letter,
-                rightMargin=margin_right,
-                leftMargin=margin_left,
-                topMargin=margin_top,
-                bottomMargin=margin_bottom
-            )
+        # =====================================================================
+        # HEADER SECTION - Company Info and Quote Number
+        # =====================================================================
 
-            # Styles
-            styles = getSampleStyleSheet()
-            styles.add(ParagraphStyle(
-                name='CompanyName',
-                fontSize=24,
-                fontName='Helvetica-Bold',
-                textColor=BLACK,
-                spaceAfter=6
-            ))
-            styles.add(ParagraphStyle(
-                name='QuoteTitle',
-                fontSize=14,
-                fontName='Helvetica-Bold',
-                textColor=CYAN,
-                spaceAfter=20
-            ))
-            styles.add(ParagraphStyle(
-                name='SectionTitle',
-                fontSize=11,
-                fontName='Helvetica-Bold',
-                textColor=BLACK,
-                spaceBefore=15,
-                spaceAfter=8
-            ))
-            styles.add(ParagraphStyle(
-                name='CustomerInfo',
-                fontSize=10,
-                fontName='Helvetica',
-                textColor=GRAY,
-                leading=14
-            ))
-            styles.add(ParagraphStyle(
-                name='Footer',
-                fontSize=8,
-                fontName='Helvetica',
-                textColor=GRAY,
-                alignment=TA_CENTER
-            ))
+        # Try to load logo from various locations
+        possible_logo_paths = [
+            os.path.join(settings.STATIC_ROOT or '', 'images', 'logo.png'),
+            os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'logo.png'),
+            os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'images', 'logo.png'),
+            os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png'),
+        ]
+        logo_path = None
+        for path in possible_logo_paths:
+            if os.path.exists(path):
+                logo_path = path
+                break
+        has_logo = logo_path is not None
 
-            elements = []
-            width, height = letter
-            content_width = width - 1.5 * inch
-
-            # =====================================================================
-            # HEADER SECTION - Company Info and Quote Number
-            # =====================================================================
-
-            # Try to load logo from various locations
-            possible_logo_paths = [
-                os.path.join(settings.STATIC_ROOT or '', 'images', 'logo.png'),
-                os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'logo.png'),
-                os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'images', 'logo.png'),
-                os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png'),
-            ]
-            logo_path = None
-            for path in possible_logo_paths:
-                if os.path.exists(path):
-                    logo_path = path
-                    break
-            has_logo = logo_path is not None
-
-            if has_logo:
-                try:
-                    logo = Image(logo_path, width=60, height=60)
-                    header_data = [
-                        [logo, '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
-                        ['', '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
-                            'QuoteNum', fontSize=12, fontName='Helvetica-Bold', textColor=BLACK, alignment=TA_RIGHT
-                        ))],
-                    ]
-                except Exception:
-                    has_logo = False
-
-            if not has_logo:
+        if has_logo:
+            try:
+                logo = Image(logo_path, width=60, height=60)
                 header_data = [
-                    [Paragraph('<b>MCD AGENCIA</b>', styles['CompanyName']), '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
-                    [Paragraph('Acapulco, Guerrero', styles['CustomerInfo']), '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
+                    [logo, '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
+                    ['', '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
                         'QuoteNum', fontSize=12, fontName='Helvetica-Bold', textColor=BLACK, alignment=TA_RIGHT
                     ))],
                 ]
+            except Exception:
+                has_logo = False
 
-            header_table = Table(header_data, colWidths=[2 * inch, content_width - 4 * inch, 2 * inch])
-            header_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
-            ]))
-            elements.append(header_table)
-
-            # Cyan divider line
-            elements.append(Spacer(1, 10))
-            divider_data = [['']]
-            divider = Table(divider_data, colWidths=[content_width])
-            divider.setStyle(TableStyle([
-                ('LINEABOVE', (0, 0), (-1, 0), 3, CYAN),
-            ]))
-            elements.append(divider)
-            elements.append(Spacer(1, 15))
-
-            # =====================================================================
-            # CUSTOMER INFO AND QUOTE DATE SECTION
-            # =====================================================================
-
-            date_str = quote.created_at.strftime('%d/%m/%Y') if quote.created_at else timezone.now().strftime('%d/%m/%Y')
-            valid_str = quote.valid_until.strftime('%d/%m/%Y') if quote.valid_until else 'N/A'
-
-            customer_info = f"""<b>Cliente:</b> {quote.customer_name or 'N/A'}<br/>
-            <b>Email:</b> {quote.customer_email or 'N/A'}<br/>
-            <b>Empresa:</b> {quote.customer_company or 'N/A'}"""
-
-            quote_info = f"""<b>Fecha:</b> {date_str}<br/>
-            <b>Válido hasta:</b> {valid_str}<br/>
-            <b>Estado:</b> {quote.get_status_display()}"""
-
-            info_data = [
-                [Paragraph(customer_info, styles['CustomerInfo']), Paragraph(quote_info, ParagraphStyle(
-                    'QuoteInfo', fontSize=10, fontName='Helvetica', textColor=GRAY, leading=14, alignment=TA_RIGHT
+        if not has_logo:
+            header_data = [
+                [Paragraph('<b>MCD AGENCIA</b>', styles['CompanyName']), '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
+                [Paragraph('Acapulco, Guerrero', styles['CustomerInfo']), '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
+                    'QuoteNum', fontSize=12, fontName='Helvetica-Bold', textColor=BLACK, alignment=TA_RIGHT
                 ))],
             ]
-            info_table = Table(info_data, colWidths=[content_width / 2, content_width / 2])
-            info_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GRAY),
-                ('TOPPADDING', (0, 0), (-1, -1), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('LEFTPADDING', (0, 0), (-1, -1), 12),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-                ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.9, 0.9, 0.9)),
-            ]))
-            elements.append(info_table)
-            elements.append(Spacer(1, 20))
 
-            # =====================================================================
-            # LINE ITEMS TABLE
-            # =====================================================================
+        header_table = Table(header_data, colWidths=[2 * inch, content_width - 4 * inch, 2 * inch])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+        ]))
+        elements.append(header_table)
 
-            elements.append(Paragraph('DETALLE DE LA COTIZACIÓN', styles['SectionTitle']))
+        # Cyan divider line
+        elements.append(Spacer(1, 10))
+        divider_data = [['']]
+        divider = Table(divider_data, colWidths=[content_width])
+        divider.setStyle(TableStyle([
+            ('LINEABOVE', (0, 0), (-1, 0), 3, CYAN),
+        ]))
+        elements.append(divider)
+        elements.append(Spacer(1, 15))
 
-            # Style for table cells (allows text wrapping)
-            cell_style = ParagraphStyle(
-                'TableCell',
-                fontSize=9,
-                fontName='Helvetica',
-                leading=11,
-                textColor=BLACK
-            )
-            cell_style_right = ParagraphStyle(
-                'TableCellRight',
-                fontSize=9,
-                fontName='Helvetica',
-                leading=11,
-                textColor=BLACK,
-                alignment=TA_RIGHT
-            )
-            cell_style_center = ParagraphStyle(
-                'TableCellCenter',
-                fontSize=9,
-                fontName='Helvetica',
-                leading=11,
-                textColor=BLACK,
-                alignment=TA_CENTER
-            )
+        # =====================================================================
+        # CUSTOMER INFO AND QUOTE DATE SECTION
+        # =====================================================================
 
-            # Table header
-            table_data = [
-                ['Concepto', 'Descripción', 'Cant.', 'P. Unitario', 'Total']
+        date_str = quote.created_at.strftime('%d/%m/%Y') if quote.created_at else timezone.now().strftime('%d/%m/%Y')
+        valid_str = quote.valid_until.strftime('%d/%m/%Y') if quote.valid_until else 'N/A'
+
+        customer_info = f"""<b>Cliente:</b> {quote.customer_name or 'N/A'}<br/>
+        <b>Email:</b> {quote.customer_email or 'N/A'}<br/>
+        <b>Empresa:</b> {quote.customer_company or 'N/A'}"""
+
+        quote_info = f"""<b>Fecha:</b> {date_str}<br/>
+        <b>Válido hasta:</b> {valid_str}<br/>
+        <b>Estado:</b> {quote.get_status_display()}"""
+
+        info_data = [
+            [Paragraph(customer_info, styles['CustomerInfo']), Paragraph(quote_info, ParagraphStyle(
+                'QuoteInfo', fontSize=10, fontName='Helvetica', textColor=GRAY, leading=14, alignment=TA_RIGHT
+            ))],
+        ]
+        info_table = Table(info_data, colWidths=[content_width / 2, content_width / 2])
+        info_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GRAY),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+            ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.9, 0.9, 0.9)),
+        ]))
+        elements.append(info_table)
+        elements.append(Spacer(1, 20))
+
+        # =====================================================================
+        # LINE ITEMS TABLE
+        # =====================================================================
+
+        elements.append(Paragraph('DETALLE DE LA COTIZACIÓN', styles['SectionTitle']))
+
+        # Style for table cells (allows text wrapping)
+        cell_style = ParagraphStyle(
+            'TableCell',
+            fontSize=9,
+            fontName='Helvetica',
+            leading=11,
+            textColor=BLACK
+        )
+        cell_style_right = ParagraphStyle(
+            'TableCellRight',
+            fontSize=9,
+            fontName='Helvetica',
+            leading=11,
+            textColor=BLACK,
+            alignment=TA_RIGHT
+        )
+        cell_style_center = ParagraphStyle(
+            'TableCellCenter',
+            fontSize=9,
+            fontName='Helvetica',
+            leading=11,
+            textColor=BLACK,
+            alignment=TA_CENTER
+        )
+
+        # Table header
+        table_data = [
+            ['Concepto', 'Descripción', 'Cant.', 'P. Unitario', 'Total']
+        ]
+
+        # Table rows - using Paragraph for text wrapping
+        for line in quote.lines.all():
+            concept = Paragraph(line.concept or '', cell_style)
+            description = Paragraph(line.description or '', cell_style)
+            qty = Paragraph(str(line.quantity), cell_style_center)
+            unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
+            total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
+            table_data.append([concept, description, qty, unit_price, total])
+
+        # Column widths
+        col_widths = [1.6 * inch, 2.7 * inch, 0.5 * inch, 1.0 * inch, 1.1 * inch]
+
+        items_table = Table(table_data, colWidths=col_widths)
+        items_table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0, 0), (-1, 0), CYAN),
+            ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+
+            # Body styling - vertical alignment top for wrapped text
+            ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('LEFTPADDING', (0, 1), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 1), (-1, -1), 4),
+
+            # Alternating row colors
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
+
+            # Grid
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.Color(0.8, 0.8, 0.8)),
+            ('BOX', (0, 0), (-1, -1), 1, CYAN),
+        ]))
+        elements.append(items_table)
+        elements.append(Spacer(1, 20))
+
+        # =====================================================================
+        # TOTALS SECTION - Keep together to avoid page breaks
+        # =====================================================================
+
+        tax_percent = float(quote.tax_rate) * 100
+
+        totals_data = [
+            ['', 'Subtotal:', f"${quote.subtotal:,.2f}"],
+            ['', f'IVA ({tax_percent:.0f}%):', f"${quote.tax_amount:,.2f}"],
+            ['', 'TOTAL:', f"${quote.total:,.2f}"],
+        ]
+
+        totals_table = Table(totals_data, colWidths=[content_width - 3 * inch, 1.5 * inch, 1.5 * inch])
+        totals_table.setStyle(TableStyle([
+            ('FONTNAME', (1, 0), (1, 1), 'Helvetica'),
+            ('FONTNAME', (1, 2), (1, 2), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, 1), 'Helvetica'),
+            ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
+            ('FONTSIZE', (1, 0), (-1, 1), 10),
+            ('FONTSIZE', (1, 2), (-1, 2), 12),
+            ('TEXTCOLOR', (1, 2), (-1, 2), CYAN),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LINEABOVE', (1, 2), (-1, 2), 1, CYAN),
+        ]))
+        # Wrap totals in KeepTogether to prevent page break in the middle
+        elements.append(KeepTogether([totals_table, Spacer(1, 20)]))
+
+        # =====================================================================
+        # NOTES SECTION (if any)
+        # =====================================================================
+
+        if quote.customer_notes:
+            # Wrap notes in KeepTogether to prevent awkward page breaks
+            notes_elements = [
+                Paragraph('NOTAS', styles['SectionTitle']),
+                Paragraph(quote.customer_notes, styles['CustomerInfo']),
+                Spacer(1, 20)
             ]
+            elements.append(KeepTogether(notes_elements))
 
-            # Table rows - using Paragraph for text wrapping
-            for line in quote.lines.all():
-                concept = Paragraph(line.concept or '', cell_style)
-                description = Paragraph(line.description or '', cell_style)
-                qty = Paragraph(str(line.quantity), cell_style_center)
-                unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
-                total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
-                table_data.append([concept, description, qty, unit_price, total])
+        # =====================================================================
+        # FOOTER - Fixed at bottom of each page
+        # =====================================================================
 
-            # Column widths
-            col_widths = [1.6 * inch, 2.7 * inch, 0.5 * inch, 1.0 * inch, 1.1 * inch]
+        # Define footer drawing function
+        def draw_footer(canvas_obj, doc_obj):
+            """Draw footer at fixed position on each page."""
+            canvas_obj.saveState()
 
-            items_table = Table(table_data, colWidths=col_widths)
-            items_table.setStyle(TableStyle([
-                # Header styling
-                ('BACKGROUND', (0, 0), (-1, 0), CYAN),
-                ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                ('TOPPADDING', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            # Footer position - fixed at bottom
+            footer_y = 0.5 * inch
+            footer_x = margin_left
+            footer_width = page_width - margin_left - margin_right
 
-                # Body styling - vertical alignment top for wrapped text
-                ('VALIGN', (0, 1), (-1, -1), 'TOP'),
-                ('TOPPADDING', (0, 1), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-                ('LEFTPADDING', (0, 1), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 1), (-1, -1), 4),
+            # Draw divider line
+            canvas_obj.setStrokeColor(colors.Color(0.8, 0.8, 0.8))
+            canvas_obj.setLineWidth(1)
+            canvas_obj.line(footer_x, footer_y + 35, footer_x + footer_width, footer_y + 35)
 
-                # Alternating row colors
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
+            # Footer text
+            canvas_obj.setFont('Helvetica-Bold', 8)
+            canvas_obj.setFillColor(GRAY)
+            canvas_obj.drawCentredString(page_width / 2, footer_y + 22, 'MCD Agencia | Acapulco, Guerrero, México')
 
-                # Grid
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.Color(0.8, 0.8, 0.8)),
-                ('BOX', (0, 0), (-1, -1), 1, CYAN),
-            ]))
-            elements.append(items_table)
-            elements.append(Spacer(1, 20))
+            canvas_obj.setFont('Helvetica', 8)
+            canvas_obj.drawCentredString(page_width / 2, footer_y + 12, 'Precios en MXN. Este documento no es un comprobante fiscal.')
+            canvas_obj.drawCentredString(page_width / 2, footer_y + 2, f'Para cualquier duda, contáctenos: {settings.DEFAULT_FROM_EMAIL}')
 
-            # =====================================================================
-            # TOTALS SECTION - Keep together to avoid page breaks
-            # =====================================================================
+            # Page number
+            canvas_obj.setFont('Helvetica', 7)
+            canvas_obj.setFillColor(colors.Color(0.6, 0.6, 0.6))
+            page_num = canvas_obj.getPageNumber()
+            canvas_obj.drawRightString(page_width - margin_right, footer_y + 2, f'Página {page_num}')
 
-            tax_percent = float(quote.tax_rate) * 100
+            canvas_obj.restoreState()
 
-            totals_data = [
-                ['', 'Subtotal:', f"${quote.subtotal:,.2f}"],
-                ['', f'IVA ({tax_percent:.0f}%):', f"${quote.tax_amount:,.2f}"],
-                ['', 'TOTAL:', f"${quote.total:,.2f}"],
-            ]
-
-            totals_table = Table(totals_data, colWidths=[content_width - 3 * inch, 1.5 * inch, 1.5 * inch])
-            totals_table.setStyle(TableStyle([
-                ('FONTNAME', (1, 0), (1, 1), 'Helvetica'),
-                ('FONTNAME', (1, 2), (1, 2), 'Helvetica-Bold'),
-                ('FONTNAME', (2, 0), (2, 1), 'Helvetica'),
-                ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
-                ('FONTSIZE', (1, 0), (-1, 1), 10),
-                ('FONTSIZE', (1, 2), (-1, 2), 12),
-                ('TEXTCOLOR', (1, 2), (-1, 2), CYAN),
-                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
-                ('TOPPADDING', (0, 0), (-1, -1), 5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-                ('LINEABOVE', (1, 2), (-1, 2), 1, CYAN),
-            ]))
-            # Wrap totals in KeepTogether to prevent page break in the middle
-            elements.append(KeepTogether([totals_table, Spacer(1, 20)]))
-
-            # =====================================================================
-            # NOTES SECTION (if any)
-            # =====================================================================
-
-            if quote.customer_notes:
-                # Wrap notes in KeepTogether to prevent awkward page breaks
-                notes_elements = [
-                    Paragraph('NOTAS', styles['SectionTitle']),
-                    Paragraph(quote.customer_notes, styles['CustomerInfo']),
-                    Spacer(1, 20)
-                ]
-                elements.append(KeepTogether(notes_elements))
-
-            # =====================================================================
-            # FOOTER - Fixed at bottom of each page
-            # =====================================================================
-
-            # Define footer drawing function
-            def draw_footer(canvas_obj, doc_obj):
-                """Draw footer at fixed position on each page."""
-                canvas_obj.saveState()
-
-                # Footer position - fixed at bottom
-                footer_y = 0.5 * inch
-                footer_x = margin_left
-                footer_width = page_width - margin_left - margin_right
-
-                # Draw divider line
-                canvas_obj.setStrokeColor(colors.Color(0.8, 0.8, 0.8))
-                canvas_obj.setLineWidth(1)
-                canvas_obj.line(footer_x, footer_y + 35, footer_x + footer_width, footer_y + 35)
-
-                # Footer text
-                canvas_obj.setFont('Helvetica-Bold', 8)
-                canvas_obj.setFillColor(GRAY)
-                canvas_obj.drawCentredString(page_width / 2, footer_y + 22, 'MCD Agencia | Acapulco, Guerrero, México')
-
-                canvas_obj.setFont('Helvetica', 8)
-                canvas_obj.drawCentredString(page_width / 2, footer_y + 12, 'Precios en MXN. Este documento no es un comprobante fiscal.')
-                canvas_obj.drawCentredString(page_width / 2, footer_y + 2, f'Para cualquier duda, contáctenos: {settings.DEFAULT_FROM_EMAIL}')
-
-                # Page number
-                canvas_obj.setFont('Helvetica', 7)
-                canvas_obj.setFillColor(colors.Color(0.6, 0.6, 0.6))
-                page_num = canvas_obj.getPageNumber()
-                canvas_obj.drawRightString(page_width - margin_right, footer_y + 2, f'Página {page_num}')
-
-                canvas_obj.restoreState()
-
-            # Build PDF with footer callback
-            doc.build(elements, onFirstPage=draw_footer, onLaterPages=draw_footer)
-            buffer.seek(0)
-            pdf_content = buffer.getvalue()
+        # Build PDF with footer callback
+        doc.build(elements, onFirstPage=draw_footer, onLaterPages=draw_footer)
+        buffer.seek(0)
+        pdf_content = buffer.getvalue()
 
         # Save PDF to quote
         filename = f"cotizacion_{quote.quote_number}.pdf"
