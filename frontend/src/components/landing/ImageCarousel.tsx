@@ -133,47 +133,50 @@ export function FullscreenCarousel({ images, initialIndex = 0, onClose }: {
   const img = images[current];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center" onClick={onClose}>
-      <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-        {/* Close */}
-        <button onClick={onClose} className="absolute top-4 right-4 z-20 text-white/70 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors" aria-label="Cerrar">
-          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col pt-16 pb-4" onClick={onClose}>
+      {/* Close */}
+      <button onClick={onClose} className="absolute top-4 right-4 z-20 text-white/70 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors" aria-label="Cerrar">
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
 
-        {/* Image — object-contain keeps full image visible with letterboxing */}
-        <div className="relative w-full h-full max-w-[92vw] max-h-[88vh] m-auto">
+      {/* Main area — click on dark space closes, click on image does not */}
+      <div className="relative flex-1 flex items-center justify-center min-h-0">
+        {/* Image container — stopPropagation so clicking the image doesn't close */}
+        <div className="relative w-full max-w-[92vw] max-h-full aspect-video mx-auto" onClick={(e) => e.stopPropagation()}>
           <Image src={img.src} alt={img.alt} fill className="object-contain" sizes="100vw" priority />
         </div>
-
-        {/* Title overlay */}
-        {img.title && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20">
-            {img.titleHref ? (
-              <a href={img.titleHref} className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg hover:text-cmyk-cyan transition-colors">{img.title} →</a>
-            ) : (
-              <span className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg">{img.title}</span>
-            )}
-          </div>
-        )}
 
         {/* Arrows */}
         {images.length > 1 && (
           <>
-            <button onClick={() => setCurrent((p) => (p - 1 + images.length) % images.length)}
+            <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p - 1 + images.length) % images.length); }}
               className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Anterior">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <button onClick={() => setCurrent((p) => (p + 1) % images.length)}
+            <button onClick={(e) => { e.stopPropagation(); setCurrent((p) => (p + 1) % images.length); }}
               className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Siguiente">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
           </>
         )}
+      </div>
 
-        {/* Counter */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-          {current + 1} / {images.length}
+      {/* Title overlay */}
+      {img.title && (
+        <div className="text-center py-2" onClick={(e) => e.stopPropagation()}>
+          {img.titleHref ? (
+            <a href={img.titleHref} className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg hover:text-cmyk-cyan transition-colors">{img.title} →</a>
+          ) : (
+            <span className="text-white text-xl font-bold bg-black/50 px-4 py-2 rounded-lg">{img.title}</span>
+          )}
         </div>
+      )}
+
+      {/* Counter */}
+      <div className="text-center py-1">
+        <span className="bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+          {current + 1} / {images.length}
+        </span>
       </div>
     </div>
   );
