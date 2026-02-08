@@ -45,17 +45,39 @@ def storage_debug(request):
     """Temporary endpoint to debug storage configuration. Remove after fixing."""
     from django.core.files.storage import default_storage
     storage = default_storage
-    return JsonResponse({
-        'storage_class': type(storage).__name__,
-        'querystring_auth': getattr(storage, 'querystring_auth', 'N/A'),
-        'custom_domain': getattr(storage, 'custom_domain', 'N/A'),
-        'endpoint_url': getattr(storage, 'endpoint_url', 'N/A'),
-        'bucket_name': getattr(storage, 'bucket_name', 'N/A'),
-        'querystring_expire': getattr(storage, 'querystring_expire', 'N/A'),
-        'default_acl': getattr(storage, 'default_acl', 'N/A'),
+    # Get the actual backend (DefaultStorage is a lazy proxy in Django 4.2+)
+    actual = getattr(storage, '_wrapped', storage)
+    if hasattr(actual, '__class__') and actual.__class__.__name__ == 'empty':
+        # Force initialization of the lazy proxy
+        _ = storage.exists('_test_')
+        actual = getattr(storage, '_wrapped', storage)
+    
+    result = {
+        'proxy_class': type(storage).__name__,
+        'actual_class': type(actual).__name__,
+        'querystring_auth': getattr(actual, 'querystring_auth', 'N/A'),
+        'custom_domain': getattr(actual, 'custom_domain', 'N/A'),
+        'endpoint_url': getattr(actual, 'endpoint_url', 'N/A'),
+        'bucket_name': getattr(actual, 'bucket_name', 'N/A'),
+        'querystring_expire': getattr(actual, 'querystring_expire', 'N/A'),
+        'default_acl': getattr(actual, 'default_acl', 'N/A'),
         'settings_QUERYSTRING_AUTH': getattr(settings, 'AWS_QUERYSTRING_AUTH', 'NOT SET'),
         'settings_CUSTOM_DOMAIN': getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', 'NOT SET'),
-    })
+        'settings_DEFAULT_FILE_STORAGE': getattr(settings, 'DEFAULT_FILE_STORAGE', 'NOT SET'),
+    }
+    
+    # Try generating a URL for an existing file
+    from apps.content.models import CarouselSlide
+    slide = CarouselSlide.objects.filter(image__isnull=False).exclude(image='').first()
+    if slide and slide.image:
+        result['sample_file_name'] = slide.image.name
+        try:
+            result['sample_url'] = slide.image.url
+            result['url_has_signature'] = '?X-Amz' in slide.image.url
+        except Exception as e:
+            result['sample_url_error'] = str(e)
+    
+    return JsonResponse(result)
 
 # =============================================================================
 # API VERSION 1 URL PATTERNS
