@@ -218,7 +218,7 @@ function FullscreenServiceImage({ images, initialIndex, onClose }: {
   if (!img) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col pt-16 pb-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col pt-24 pb-4" onClick={onClose}>
       {/* Close */}
       <button onClick={onClose} className="absolute top-4 right-4 z-20 text-white/70 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors" aria-label="Cerrar">
         <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
