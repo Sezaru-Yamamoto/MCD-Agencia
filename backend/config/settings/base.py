@@ -385,7 +385,7 @@ AWS_S3_SIGNATURE_VERSION = 's3v4'
 # Presigned URLs bypass Cloudflare Bot Fight Mode (error 1010) on r2.dev
 # by going directly through the S3 API endpoint instead.
 AWS_QUERYSTRING_AUTH = True
-AWS_QUERYSTRING_EXPIRE = 3600  # Presigned URLs valid for 1 hour
+AWS_QUERYSTRING_EXPIRE = 604800  # Presigned URLs valid for 7 days (max for S3v4)
 AWS_S3_OBJECT_PARAMETERS = {
     'CacheControl': 'max-age=86400',  # CDN cache 1 day
 }
