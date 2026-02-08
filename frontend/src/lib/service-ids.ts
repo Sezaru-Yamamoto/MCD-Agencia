@@ -81,13 +81,17 @@ export const SERVICE_LABELS: Record<ServiceId, string> = {
   'otros': 'Otro servicio',
 };
 
-// Services shown on landing page (5 main services)
+// Services shown on landing page (all 9 real services)
 export const LANDING_SERVICE_IDS = [
   'fabricacion-anuncios',
   'espectaculares',
   'publicidad-movil',
   'impresion-gran-formato',
+  'senalizacion',
   'rotulacion-vehicular',
+  'corte-grabado-cnc-laser',
+  'diseno-grafico',
+  'impresion-offset-serigrafia',
 ] as const;
 
 export type LandingServiceId = typeof LANDING_SERVICE_IDS[number];
@@ -130,6 +134,26 @@ export const SERVICE_CAROUSEL_IMAGES: Record<LandingServiceId, string[]> = {
     'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
     'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
+  'senalizacion': [
+    'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=600&q=80',
+    'https://images.unsplash.com/photo-1557825835-70d97c4aa567?w=600&q=80',
+    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
+  ],
+  'corte-grabado-cnc-laser': [
+    'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
+    'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
+    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
+  ],
+  'diseno-grafico': [
+    'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600&q=80',
+    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+    'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
+  ],
+  'impresion-offset-serigrafia': [
+    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
+    'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=600&q=80',
+    'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
+  ],
 };
 
 // Subcategories for each landing service
@@ -163,11 +187,6 @@ export const SERVICE_SUBCATEGORIES: Record<LandingServiceId, ServiceSubcategory[
     { id: 'vinil-recortado', titleKey: 'vinilRecortado', label: 'Vinil Recortado', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=vinil-recortado' },
     { id: 'impresion-digital', titleKey: 'impresionDigital', label: 'Impresión Digital', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=impresion-digital' },
   ],
-};
-
-// Full subcategories for ALL 9 services (used in CMS admin)
-export const ALL_SERVICE_SUBCATEGORIES: Record<string, ServiceSubcategory[]> = {
-  ...SERVICE_SUBCATEGORIES,
   'senalizacion': [
     { id: 'interior', titleKey: 'interior', label: 'Interior', href: '#cotizar?servicio=senalizacion&subtipo=interior' },
     { id: 'exterior', titleKey: 'exterior', label: 'Exterior', href: '#cotizar?servicio=senalizacion&subtipo=exterior' },
@@ -189,6 +208,9 @@ export const ALL_SERVICE_SUBCATEGORIES: Record<string, ServiceSubcategory[]> = {
     { id: 'sublimacion', titleKey: 'sublimacion', label: 'Sublimación', href: '#cotizar?servicio=impresion-offset-serigrafia&subtipo=sublimacion' },
   ],
 };
+
+// Full subcategories for ALL 9 services (used in CMS admin)
+export const ALL_SERVICE_SUBCATEGORIES: Record<string, ServiceSubcategory[]> = SERVICE_SUBCATEGORIES;
 
 // Definitions used to auto-sync services into the backend
 export const SERVICE_SYNC_DEFINITIONS: Array<{

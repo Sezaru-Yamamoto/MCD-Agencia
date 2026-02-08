@@ -43,7 +43,20 @@
         "tela": "Tela",
         "rotulacionCompleta": "Rotulación completa",
         "rotulacionParcial": "Rotulación parcial",
-        "vinilRecortado": "Vinil recortado"
+        "vinilRecortado": "Vinil recortado",
+        "impresionDigital": "Impresión digital",
+        "interior": "Interior",
+        "exterior": "Exterior",
+        "vial": "Vial",
+        "routerCnc": "Router CNC",
+        "corteLaser": "Corte láser",
+        "grabadoLaser": "Grabado láser",
+        "logotipos": "Logotipos",
+        "papeleria": "Papelería",
+        "redesSociales": "Redes sociales",
+        "offset": "Offset",
+        "serigrafia": "Serigrafía",
+        "sublimacion": "Sublimación"
       },
       "items": {
         "fabricacion-anuncios": {

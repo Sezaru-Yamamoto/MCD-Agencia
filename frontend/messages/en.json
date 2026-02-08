@@ -43,32 +43,31 @@
         "lonaMesh": "Mesh banner",
         "vinilAutoadhesivo": "Self-adhesive vinyl",
         "vinilMicroperforado": "Perforated vinyl",
-        "rotulacionVehicular": "Vehicle wrapping"
+        "rotulacionVehicular": "Vehicle wrapping",
+        "impresionDigital": "Digital printing",
+        "interior": "Interior",
+        "exterior": "Exterior",
+        "vial": "Road signage",
+        "routerCnc": "CNC Router",
+        "corteLaser": "Laser cutting",
+        "grabadoLaser": "Laser engraving",
+        "logotipos": "Logos",
+        "papeleria": "Stationery",
+        "redesSociales": "Social media",
+        "offset": "Offset",
+        "serigrafia": "Screen printing",
+        "sublimacion": "Sublimation",
+        "lona": "Canvas",
+        "vinil": "Vinyl",
+        "tela": "Fabric",
+        "rotulacionCompleta": "Full wrap",
+        "rotulacionParcial": "Partial wrap",
+        "vinilRecortado": "Cut vinyl"
       },
       "items": {
-        "gran-formato": {
-          "title": "Large Format Printing",
-          "description": "High resolution prints for banners, canvas and more."
-        },
-        "diseno-grafico": {
-          "title": "Graphic Design",
-          "description": "Custom design creation for your brand."
-        },
-        "impresion-uv": {
-          "title": "UV Printing",
-          "description": "Durable prints on various materials."
-        },
-        "rotulacion-digital": {
-          "title": "Digital Lettering",
-          "description": "Precise lettering for vehicles and surfaces."
-        },
-        "router-cnc": {
-          "title": "CNC Router Service",
-          "description": "Precise cutting for various materials."
-        },
-        "laser": {
-          "title": "Laser Cutting & Engraving",
-          "description": "Fine details on wood, acrylic and more."
+        "fabricacion-anuncios": {
+          "title": "Sign Manufacturing",
+          "description": "Custom signs with LED lighting, 3D letters, light boxes, awnings and more to make your brand stand out."
         },
         "espectaculares": {
           "title": "Billboards",
@@ -76,23 +75,31 @@
         },
         "publicidad-movil": {
           "title": "Mobile Advertising",
-          "description": "Take your message where your audience is with high-impact advertising vehicles."
+          "description": "Take your message where your audience is with mobile billboards, bus ads and loudspeaker campaigns."
         },
-        "publibuses": {
-          "title": "Bus Advertising",
-          "description": "Urban campaigns on buses, trucks and vans with great visual impact."
+        "impresion-gran-formato": {
+          "title": "Large Format Printing",
+          "description": "High resolution prints on canvas, vinyl and fabric for banners, advertising displays and more."
         },
-        "anuncios-iluminados": {
-          "title": "Illuminated Sign Manufacturing",
-          "description": "Custom LED illuminated signs to make your brand stand out day and night."
+        "rotulacion-vehicular": {
+          "title": "Vehicle Wrapping",
+          "description": "Full or partial vehicle wrapping with high durability vinyl."
         },
-        "lonas": {
-          "title": "Banner Printing & Installation",
-          "description": "High quality banners with professional installation for indoor and outdoor use."
+        "senalizacion": {
+          "title": "Signage",
+          "description": "Interior and exterior signage for businesses, shops and institutions."
         },
-        "vinilos": {
-          "title": "Vinyl & Adhesives",
-          "description": "Vehicle, storefront and surface decoration with high durability vinyl."
+        "corte-grabado-cnc-laser": {
+          "title": "CNC & Laser Cutting",
+          "description": "Precision cutting and engraving on various materials with CNC and laser technology."
+        },
+        "diseno-grafico": {
+          "title": "Graphic Design",
+          "description": "Custom design creation for print and digital media."
+        },
+        "impresion-offset-serigrafia": {
+          "title": "Offset, Screen Printing & Sublimation",
+          "description": "Business cards, flyers and printed products with high quality traditional techniques."
         }
       }
     },
