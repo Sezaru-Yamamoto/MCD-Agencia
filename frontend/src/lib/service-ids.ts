@@ -67,6 +67,21 @@ export const IMPRESION_TIPOS = ['offset', 'serigrafia', 'sublimacion', 'otro'] a
 
 export type ImpresionTipo = typeof IMPRESION_TIPOS[number];
 
+// Signage types
+export const SENALIZACION_TIPOS = ['interior', 'exterior', 'vial', 'otro'] as const;
+
+export type SenalizacionTipo = typeof SENALIZACION_TIPOS[number];
+
+// CNC/Laser types
+export const CNC_LASER_TIPOS = ['router-cnc', 'corte-laser', 'grabado-laser', 'otro'] as const;
+
+export type CncLaserTipo = typeof CNC_LASER_TIPOS[number];
+
+// Graphic design types
+export const DISENO_GRAFICO_TIPOS = ['logotipos', 'papeleria', 'redes-sociales', 'otro'] as const;
+
+export type DisenoGraficoTipo = typeof DISENO_GRAFICO_TIPOS[number];
+
 // Service labels for display
 export const SERVICE_LABELS: Record<ServiceId, string> = {
   'espectaculares': 'Espectaculares',

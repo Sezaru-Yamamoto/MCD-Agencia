@@ -14,6 +14,9 @@ import {
   ROTULACION_TIPOS,
   OFFSET_PRODUCTOS,
   IMPRESION_TIPOS,
+  SENALIZACION_TIPOS,
+  CNC_LASER_TIPOS,
+  DISENO_GRAFICO_TIPOS,
   type ServiceId,
 } from '@/lib/service-ids';
 import dynamic from 'next/dynamic';
@@ -114,7 +117,8 @@ interface QuoteFormData {
   igf_archivoListo?: 'si' | 'no';
 
   // Señalización
-  sen_tipo?: 'interior' | 'exterior';
+  sen_tipo?: 'interior' | 'exterior' | 'vial' | 'otro';
+  sen_tipoOtro?: string;
   sen_medidas?: string;
   sen_cantidad?: number;
   sen_instalacionIncluida?: 'si' | 'no';
@@ -126,13 +130,15 @@ interface QuoteFormData {
   rot_disenoIncluido?: 'si' | 'no';
 
   // Corte y grabado CNC/Láser
-  cnc_servicio?: 'corte' | 'grabado';
+  cnc_tipo?: 'router-cnc' | 'corte-laser' | 'grabado-laser' | 'otro';
+  cnc_tipoOtro?: string;
   cnc_medidas?: string;
   cnc_cantidad?: number;
   cnc_archivoListo?: 'si' | 'no';
 
   // Diseño gráfico
-  dis_tipoDiseno?: string;
+  dis_tipo?: 'logotipos' | 'papeleria' | 'redes-sociales' | 'otro';
+  dis_tipoOtro?: string;
   dis_numeroPiezas?: number;
   dis_usoDiseno?: 'impresion' | 'digital' | 'ambos';
   dis_cambiosIncluidos?: 'si' | 'no';
@@ -188,6 +194,9 @@ export function QuoteForm() {
   const rotTipoRotulacion = watch('rot_tipoRotulacion');
   const offProducto = watch('off_producto');
   const offTipoImpresion = watch('off_tipoImpresion');
+  const senTipo = watch('sen_tipo');
+  const cncTipo = watch('cnc_tipo');
+  const disTipo = watch('dis_tipo');
 
   // Read URL hash parameters to pre-select service and subtype
   useEffect(() => {
@@ -222,6 +231,15 @@ export function QuoteForm() {
           } else if (servicio === 'rotulacion-vehicular' && ROTULACION_TIPOS.includes(subtipo as typeof ROTULACION_TIPOS[number])) {
             setValue('rot_tipoRotulacion', subtipo);
             subtipoLabel = subtipo === 'completa' ? 'Rotulación completa' : subtipo === 'parcial' ? 'Rotulación parcial' : subtipo === 'vinil-recortado' ? 'Vinil recortado' : 'Impresión digital';
+          } else if (servicio === 'senalizacion' && SENALIZACION_TIPOS.includes(subtipo as typeof SENALIZACION_TIPOS[number])) {
+            setValue('sen_tipo', subtipo as 'interior' | 'exterior' | 'vial');
+            subtipoLabel = subtipo === 'interior' ? 'Interior' : subtipo === 'exterior' ? 'Exterior' : 'Vial';
+          } else if (servicio === 'corte-grabado-cnc-laser' && CNC_LASER_TIPOS.includes(subtipo as typeof CNC_LASER_TIPOS[number])) {
+            setValue('cnc_tipo', subtipo as 'router-cnc' | 'corte-laser' | 'grabado-laser');
+            subtipoLabel = subtipo === 'router-cnc' ? 'Router CNC' : subtipo === 'corte-laser' ? 'Corte Láser' : 'Grabado Láser';
+          } else if (servicio === 'diseno-grafico' && DISENO_GRAFICO_TIPOS.includes(subtipo as typeof DISENO_GRAFICO_TIPOS[number])) {
+            setValue('dis_tipo', subtipo as 'logotipos' | 'papeleria' | 'redes-sociales');
+            subtipoLabel = subtipo === 'logotipos' ? 'Logotipos' : subtipo === 'papeleria' ? 'Papelería' : 'Redes Sociales';
           }
         }
 
@@ -439,7 +457,8 @@ export function QuoteForm() {
 
       case 'senalizacion':
         basePayload.detalles = {
-          tipo: data.sen_tipo,
+          tipo: data.sen_tipo === 'otro' ? data.sen_tipoOtro : data.sen_tipo,
+          tipo_personalizado: data.sen_tipo === 'otro',
           medidas: data.sen_medidas,
           cantidad: data.sen_cantidad,
           instalacion_incluida: data.sen_instalacionIncluida === 'si',
@@ -457,7 +476,8 @@ export function QuoteForm() {
 
       case 'corte-grabado-cnc-laser':
         basePayload.detalles = {
-          servicio: data.cnc_servicio,
+          tipo: data.cnc_tipo === 'otro' ? data.cnc_tipoOtro : data.cnc_tipo,
+          tipo_personalizado: data.cnc_tipo === 'otro',
           medidas: data.cnc_medidas,
           cantidad: data.cnc_cantidad,
           archivo_listo: data.cnc_archivoListo === 'si',
@@ -466,7 +486,8 @@ export function QuoteForm() {
 
       case 'diseno-grafico':
         basePayload.detalles = {
-          tipo_diseno: data.dis_tipoDiseno,
+          tipo: data.dis_tipo === 'otro' ? data.dis_tipoOtro : data.dis_tipo,
+          tipo_personalizado: data.dis_tipo === 'otro',
           numero_piezas: data.dis_numeroPiezas,
           uso: data.dis_usoDiseno,
           cambios_incluidos: data.dis_cambiosIncluidos === 'si',
@@ -1065,16 +1086,36 @@ export function QuoteForm() {
               {servicioValue === 'senalizacion' && (
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <label className="label-field">Tipo <span className="text-cmyk-magenta">*</span></label>
-                    <div className="flex gap-4 mt-2">
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('sen_tipo', { required: 'Selecciona una opción' })} type="radio" value="interior" className="text-cmyk-cyan" /> Interior
-                      </label>
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('sen_tipo')} type="radio" value="exterior" className="text-cmyk-cyan" /> Exterior
-                      </label>
+                    <div className="flex justify-between items-center">
+                      <label className="label-field">Tipo de señalización <span className="text-cmyk-magenta">*</span></label>
+                      {selectionFeedback?.subtype && (
+                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
+                          Seleccionado
+                        </span>
+                      )}
                     </div>
+                    <select
+                      {...register('sen_tipo', { required: 'Selecciona un tipo' })}
+                      className={`input-field transition-all duration-300 ${
+                        selectionFeedback?.subtype
+                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
+                          : ''
+                      }`}
+                      disabled={formStatus === 'submitting'}
+                    >
+                      <option value="">Selecciona tipo</option>
+                      {SENALIZACION_TIPOS.map(tipo => (
+                        <option key={tipo} value={tipo}>
+                          {tipo === 'interior' ? 'Interior' : tipo === 'exterior' ? 'Exterior' : tipo === 'vial' ? 'Vial' : 'Otro (especificar)'}
+                        </option>
+                      ))}
+                    </select>
                     {errors.sen_tipo && <p className="error-message">{errors.sen_tipo.message}</p>}
+                    {senTipo === 'otro' && (
+                      <div className="mt-2">
+                        <input {...register('sen_tipoOtro', { required: senTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de señalización" disabled={formStatus === 'submitting'} />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="label-field">Medidas <span className="text-cmyk-magenta">*</span></label>
@@ -1160,16 +1201,36 @@ export function QuoteForm() {
               {servicioValue === 'corte-grabado-cnc-laser' && (
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <label className="label-field">Servicio <span className="text-cmyk-magenta">*</span></label>
-                    <div className="flex gap-4 mt-2">
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('cnc_servicio', { required: 'Selecciona una opción' })} type="radio" value="corte" className="text-cmyk-cyan" /> Corte
-                      </label>
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('cnc_servicio')} type="radio" value="grabado" className="text-cmyk-cyan" /> Grabado
-                      </label>
+                    <div className="flex justify-between items-center">
+                      <label className="label-field">Tipo de servicio <span className="text-cmyk-magenta">*</span></label>
+                      {selectionFeedback?.subtype && (
+                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
+                          Seleccionado
+                        </span>
+                      )}
                     </div>
-                    {errors.cnc_servicio && <p className="error-message">{errors.cnc_servicio.message}</p>}
+                    <select
+                      {...register('cnc_tipo', { required: 'Selecciona un tipo' })}
+                      className={`input-field transition-all duration-300 ${
+                        selectionFeedback?.subtype
+                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
+                          : ''
+                      }`}
+                      disabled={formStatus === 'submitting'}
+                    >
+                      <option value="">Selecciona tipo</option>
+                      {CNC_LASER_TIPOS.map(tipo => (
+                        <option key={tipo} value={tipo}>
+                          {tipo === 'router-cnc' ? 'Router CNC' : tipo === 'corte-laser' ? 'Corte Láser' : tipo === 'grabado-laser' ? 'Grabado Láser' : 'Otro (especificar)'}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.cnc_tipo && <p className="error-message">{errors.cnc_tipo.message}</p>}
+                    {cncTipo === 'otro' && (
+                      <div className="mt-2">
+                        <input {...register('cnc_tipoOtro', { required: cncTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de servicio" disabled={formStatus === 'submitting'} />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="label-field">Medidas <span className="text-cmyk-magenta">*</span></label>
@@ -1200,9 +1261,36 @@ export function QuoteForm() {
               {servicioValue === 'diseno-grafico' && (
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <label className="label-field">Tipo de diseño <span className="text-cmyk-magenta">*</span></label>
-                    <input {...register('dis_tipoDiseno', { required: 'El tipo de diseño es requerido' })} type="text" className="input-field" placeholder="ej. Logo, Banner, Flyer" disabled={formStatus === 'submitting'} />
-                    {errors.dis_tipoDiseno && <p className="error-message">{errors.dis_tipoDiseno.message}</p>}
+                    <div className="flex justify-between items-center">
+                      <label className="label-field">Tipo de diseño <span className="text-cmyk-magenta">*</span></label>
+                      {selectionFeedback?.subtype && (
+                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
+                          Seleccionado
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      {...register('dis_tipo', { required: 'Selecciona un tipo' })}
+                      className={`input-field transition-all duration-300 ${
+                        selectionFeedback?.subtype
+                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
+                          : ''
+                      }`}
+                      disabled={formStatus === 'submitting'}
+                    >
+                      <option value="">Selecciona tipo</option>
+                      {DISENO_GRAFICO_TIPOS.map(tipo => (
+                        <option key={tipo} value={tipo}>
+                          {tipo === 'logotipos' ? 'Logotipos' : tipo === 'papeleria' ? 'Papelería' : tipo === 'redes-sociales' ? 'Redes Sociales' : 'Otro (especificar)'}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.dis_tipo && <p className="error-message">{errors.dis_tipo.message}</p>}
+                    {disTipo === 'otro' && (
+                      <div className="mt-2">
+                        <input {...register('dis_tipoOtro', { required: disTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de diseño" disabled={formStatus === 'submitting'} />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="label-field">Número de piezas <span className="text-cmyk-magenta">*</span></label>
