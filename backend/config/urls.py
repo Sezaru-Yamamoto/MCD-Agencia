@@ -26,7 +26,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect
 from django.views.static import serve as media_serve
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -40,67 +40,6 @@ def redirect_to_frontend(request):
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
     return HttpResponseRedirect(f'{frontend_url}/es')
 
-
-def storage_debug(request):
-    """Temporary endpoint to debug storage configuration. Remove after fixing."""
-    from django.core.files.storage import default_storage
-    
-    # Force initialization of the lazy storage proxy
-    try:
-        default_storage.exists('__probe__')
-    except Exception:
-        pass
-    
-    # Access the real storage object
-    storage = default_storage
-    # In Django 4.2+, DefaultStorage wraps the real backend
-    real = storage
-    if hasattr(storage, '_wrapped'):
-        real = storage._wrapped
-    
-    result = {
-        'storage_repr': repr(storage),
-        'real_repr': repr(real),
-        'real_class': type(real).__name__,
-        'real_module': type(real).__module__,
-    }
-    
-    # Check S3 specific attributes on the real storage
-    for attr in ['querystring_auth', 'querystring_expire', 'custom_domain',
-                 'endpoint_url', 'bucket_name', 'default_acl', 'url_protocol',
-                 'access_key', 'file_overwrite']:
-        val = getattr(real, attr, '__MISSING__')
-        if attr == 'access_key' and val != '__MISSING__':
-            val = val[:6] + '...' if val else val  # Redact
-        result[f'storage.{attr}'] = val
-    
-    result['settings.AWS_QUERYSTRING_AUTH'] = getattr(settings, 'AWS_QUERYSTRING_AUTH', 'NOT SET')
-    result['settings.DEFAULT_FILE_STORAGE'] = getattr(settings, 'DEFAULT_FILE_STORAGE', 'NOT SET')
-    
-    # Check if STORAGES dict exists and what it says
-    storages_dict = getattr(settings, 'STORAGES', {})
-    if storages_dict:
-        result['settings.STORAGES.default'] = str(storages_dict.get('default', 'NOT SET'))
-    
-    # Generate a URL from an actual file
-    from apps.content.models import CarouselSlide
-    slide = CarouselSlide.objects.filter(image__isnull=False).exclude(image='').first()
-    if slide and slide.image:
-        result['file.name'] = slide.image.name
-        result['file.storage_class'] = type(slide.image.storage).__name__
-        result['file.storage_module'] = type(slide.image.storage).__module__
-        # Check storage attributes on the FILE's storage (might differ from default_storage)
-        fs = slide.image.storage
-        result['file.storage.querystring_auth'] = getattr(fs, 'querystring_auth', '__MISSING__')
-        result['file.storage.custom_domain'] = getattr(fs, 'custom_domain', '__MISSING__')
-        try:
-            url = slide.image.url
-            result['file.url'] = url[:200]
-            result['url_has_signature'] = '?X-Amz' in url
-        except Exception as e:
-            result['file.url_error'] = str(e)
-    
-    return JsonResponse(result)
 
 # =============================================================================
 # API VERSION 1 URL PATTERNS
@@ -206,9 +145,6 @@ urlpatterns = [
 
     # Health check endpoint
     path('health/', include('apps.core.urls')),
-
-    # Temporary storage debug endpoint (remove after fixing R2)
-    path('api/v1/debug/storage/', storage_debug),
 
     # Serve user-uploaded media files (images, etc.)
     # In production without S3, Django serves them directly.
