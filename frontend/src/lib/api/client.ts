@@ -125,11 +125,22 @@ async function request<T>(
     (requestHeaders as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  // Make request
-  let response = await fetch(url, {
-    ...restConfig,
-    headers: requestHeaders,
-  });
+  // Make request — catch network-level errors (CORS, DNS, offline, etc.)
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...restConfig,
+      headers: requestHeaders,
+    });
+  } catch (networkError) {
+    console.error('[API] Network error:', endpoint, networkError);
+    const error: ApiError = {
+      message: 'Error de conexión con el servidor. Verifica tu conexión a internet.',
+      status: 0,
+      data: { detail: String(networkError) },
+    };
+    throw error;
+  }
 
   // If 401, try to refresh token and retry
   if (response.status === 401 && accessToken) {
@@ -137,10 +148,20 @@ async function request<T>(
 
     if (newToken) {
       (requestHeaders as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
-      response = await fetch(url, {
-        ...restConfig,
-        headers: requestHeaders,
-      });
+      try {
+        response = await fetch(url, {
+          ...restConfig,
+          headers: requestHeaders,
+        });
+      } catch (networkError) {
+        console.error('[API] Network error on retry:', endpoint, networkError);
+        const error: ApiError = {
+          message: 'Error de conexión con el servidor. Verifica tu conexión a internet.',
+          status: 0,
+          data: { detail: String(networkError) },
+        };
+        throw error;
+      }
     }
   }
 

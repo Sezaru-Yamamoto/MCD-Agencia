@@ -473,6 +473,10 @@ ADMIN_PAGE_SIZE = 50
 MAX_UPLOAD_SIZE_MB = 10
 ALLOWED_UPLOAD_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd']
 
+# Django file upload size limits (default is only 2.5 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE_MB * 1024 * 1024  # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE_MB * 1024 * 1024  # 10 MB
+
 
 # =============================================================================
 # RECAPTCHA CONFIGURATION

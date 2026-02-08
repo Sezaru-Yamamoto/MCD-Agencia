@@ -440,7 +440,10 @@ function ServiceSubtypeImagesPanel({ serviceId, serviceKey, queryClient }: {
       queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] });
       queryClient.invalidateQueries({ queryKey: ['landing-data'] });
     },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al subir imagen')),
+    onError: (err) => {
+      console.error('[Upload] Error uploading service image:', { serviceId, serviceKey, err });
+      toast.error(getApiErrorMessage(err, 'Error al subir imagen'));
+    },
   });
   const deleteMut = useMutation({
     mutationFn: deleteServiceImage,
