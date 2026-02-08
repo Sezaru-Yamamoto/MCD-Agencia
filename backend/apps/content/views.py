@@ -6,8 +6,9 @@ This module provides ViewSets for CMS content:
     - Admin content management
 """
 
+from django.db import models
 from django.utils.translation import gettext_lazy as _
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, parsers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -66,7 +67,12 @@ class LandingPageView(APIView):
         """Return aggregated landing page data."""
         data = {
             'carousel': CarouselSlide.objects.filter(is_active=True).order_by('position'),
-            'services': Service.objects.filter(is_active=True).order_by('position'),
+            'services': Service.objects.filter(is_active=True).order_by('position').prefetch_related(
+                models.Prefetch(
+                    'carousel_images',
+                    queryset=ServiceImage.objects.filter(is_active=True).order_by('position'),
+                )
+            ),
             'testimonials': Testimonial.objects.filter(is_active=True).order_by('position'),
             'clients': ClientLogo.objects.filter(is_active=True).order_by('position'),
             'faqs': FAQ.objects.filter(is_active=True).order_by('category', 'position'),

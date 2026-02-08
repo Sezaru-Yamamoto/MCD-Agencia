@@ -164,7 +164,11 @@ class ServicePublicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def get_carousel_images(self, obj):
-        images = obj.carousel_images.filter(is_active=True).order_by('position')
+        # Use prefetched data if available (from LandingPageView), otherwise query
+        if hasattr(obj, '_prefetched_objects_cache') and 'carousel_images' in obj._prefetched_objects_cache:
+            images = obj._prefetched_objects_cache['carousel_images']
+        else:
+            images = obj.carousel_images.filter(is_active=True).order_by('position')
         return ServiceImagePublicSerializer(images, many=True, context=self.context).data
 
 

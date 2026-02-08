@@ -435,12 +435,20 @@ function ServiceSubtypeImagesPanel({ serviceId, serviceKey, queryClient }: {
   });
   const uploadMut = useMutation({
     mutationFn: createServiceImage,
-    onSuccess: () => { toast.success('Imagen subida'); queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] }); },
+    onSuccess: () => {
+      toast.success('Imagen subida');
+      queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] });
+      queryClient.invalidateQueries({ queryKey: ['landing-data'] });
+    },
     onError: (err) => toast.error(getApiErrorMessage(err, 'Error al subir imagen')),
   });
   const deleteMut = useMutation({
     mutationFn: deleteServiceImage,
-    onSuccess: () => { toast.success('Imagen eliminada'); queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] }); },
+    onSuccess: () => {
+      toast.success('Imagen eliminada');
+      queryClient.invalidateQueries({ queryKey: ['admin-service-images', serviceId] });
+      queryClient.invalidateQueries({ queryKey: ['landing-data'] });
+    },
     onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 

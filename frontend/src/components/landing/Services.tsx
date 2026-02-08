@@ -21,7 +21,7 @@ export function Services() {
   const { data: landingData } = useQuery({
     queryKey: ['landing-data'],
     queryFn: getLandingPageData,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,  // 2 min — show CMS image changes faster
     retry: 1,
   });
 
