@@ -195,7 +195,8 @@ export default function QuoteDetailPage() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      setModal({ open: true, title: 'Error', message: 'No se pudo descargar el PDF.', variant: 'error' });
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      setModal({ open: true, title: 'Error al descargar PDF', message: msg, variant: 'error' });
     } finally {
       setIsDownloadingPdf(false);
     }

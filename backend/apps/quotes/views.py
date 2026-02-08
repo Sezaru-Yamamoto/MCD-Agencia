@@ -680,19 +680,22 @@ class QuoteViewSet(viewsets.ModelViewSet):
         if not quote.pdf_file:
             try:
                 from apps.quotes.tasks import generate_quote_pdf
-                # Use .delay() — works with bind=True + CELERY_TASK_ALWAYS_EAGER
-                generate_quote_pdf.delay(str(quote.id))
+                result = generate_quote_pdf.delay(str(quote.id))
+                # In eager mode, .delay() runs synchronously and returns result
+                if hasattr(result, 'result'):
+                    logger.info(f'PDF generation result for {quote.quote_number}: {result.result}')
                 quote.refresh_from_db()
             except Exception as e:
-                logger.error(f'Error generating PDF for quote {quote.quote_number}: {e}')
+                logger.error(f'Error generating PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
                 return Response(
-                    {'error': _('Could not generate PDF.')},
+                    {'error': f'Could not generate PDF: {type(e).__name__}: {str(e)[:200]}'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
         if not quote.pdf_file:
+            logger.error(f'PDF still empty after generation for quote {quote.quote_number}')
             return Response(
-                {'error': _('PDF not available.')},
+                {'error': _('PDF not available. Generation may have failed silently.')},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -702,9 +705,9 @@ class QuoteViewSet(viewsets.ModelViewSet):
             response['Content-Disposition'] = f'attachment; filename="cotizacion_{quote.quote_number}.pdf"'
             return response
         except Exception as e:
-            logger.error(f'Error reading PDF for quote {quote.quote_number}: {e}')
+            logger.error(f'Error reading PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
             return Response(
-                {'error': _('Error reading PDF file.')},
+                {'error': f'Error reading PDF file: {type(e).__name__}: {str(e)[:200]}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -969,18 +972,21 @@ class QuotePublicPdfView(APIView):
         if not quote.pdf_file:
             try:
                 from apps.quotes.tasks import generate_quote_pdf
-                generate_quote_pdf.delay(str(quote.id))
+                result = generate_quote_pdf.delay(str(quote.id))
+                if hasattr(result, 'result'):
+                    logger.info(f'Public PDF generation result for {quote.quote_number}: {result.result}')
                 quote.refresh_from_db()
             except Exception as e:
-                logger.error(f'Error generating PDF for quote {quote.quote_number}: {e}')
+                logger.error(f'Error generating PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
                 return Response(
-                    {'error': _('Could not generate PDF.')},
+                    {'error': f'Could not generate PDF: {type(e).__name__}: {str(e)[:200]}'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
         if not quote.pdf_file:
+            logger.error(f'Public PDF still empty after generation for quote {quote.quote_number}')
             return Response(
-                {'error': _('PDF not available.')},
+                {'error': _('PDF not available. Generation may have failed silently.')},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -990,9 +996,9 @@ class QuotePublicPdfView(APIView):
             response['Content-Disposition'] = f'attachment; filename="cotizacion_{quote.quote_number}.pdf"'
             return response
         except Exception as e:
-            logger.error(f'Error reading PDF for quote {quote.quote_number}: {e}')
+            logger.error(f'Error reading PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
             return Response(
-                {'error': _('Error reading PDF file.')},
+                {'error': f'Error reading PDF file: {type(e).__name__}: {str(e)[:200]}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -1242,3 +1248,113 @@ Agencia MCD
 
         serializer = self.get_serializer(pending, many=True)
         return Response(serializer.data)
+
+
+# =============================================================================
+# Temporary PDF Diagnostic Endpoint — remove after debugging
+# =============================================================================
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
+import os
+
+
+@require_GET
+def pdf_diagnostic_view(request):
+    """
+    Diagnoses PDF generation pipeline. Hit /api/v1/quotes/_pdf-diag/?token=SECRET
+    to see what's working and what's not.
+    """
+    secret = os.getenv('RESEND_SECRET', 'mcd-debug-2025')
+    if request.GET.get('token') != secret:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+
+    diag = {
+        'step_1_imports': {},
+        'step_2_storage': {},
+        'step_3_generate': {},
+    }
+
+    # Step 1: Check imports
+    try:
+        from weasyprint import HTML
+        diag['step_1_imports']['weasyprint'] = 'OK'
+    except (ImportError, OSError) as e:
+        diag['step_1_imports']['weasyprint'] = f'FAIL: {e}'
+
+    try:
+        from reportlab.platypus import SimpleDocTemplate
+        from reportlab.lib.pagesizes import letter
+        diag['step_1_imports']['reportlab'] = 'OK'
+    except ImportError as e:
+        diag['step_1_imports']['reportlab'] = f'FAIL: {e}'
+
+    # Step 2: Check storage backend
+    from django.core.files.storage import default_storage
+    diag['step_2_storage']['backend'] = type(default_storage).__name__
+    diag['step_2_storage']['backend_module'] = type(default_storage).__module__
+
+    try:
+        from django.core.files.base import ContentFile
+        test_content = ContentFile(b'PDF diagnostic test')
+        saved_name = default_storage.save('_diag_test.txt', test_content)
+        diag['step_2_storage']['write_test'] = f'OK: saved as {saved_name}'
+        exists = default_storage.exists(saved_name)
+        diag['step_2_storage']['exists_test'] = f'OK: {exists}'
+        default_storage.delete(saved_name)
+        diag['step_2_storage']['delete_test'] = 'OK'
+    except Exception as e:
+        diag['step_2_storage']['write_test'] = f'FAIL: {type(e).__name__}: {e}'
+
+    # Step 3: Try generating a tiny PDF with ReportLab
+    try:
+        from io import BytesIO
+        from reportlab.platypus import SimpleDocTemplate, Paragraph
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        buf = BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=letter)
+        styles = getSampleStyleSheet()
+        doc.build([Paragraph('Diagnostic test', styles['Normal'])])
+        buf.seek(0)
+        pdf_bytes = buf.getvalue()
+        diag['step_3_generate']['reportlab_pdf'] = f'OK: {len(pdf_bytes)} bytes'
+
+        # Try saving to storage
+        from django.core.files.base import ContentFile
+        saved = default_storage.save('quotes/pdfs/_diag_test.pdf', ContentFile(pdf_bytes))
+        diag['step_3_generate']['save_to_storage'] = f'OK: {saved}'
+        default_storage.delete(saved)
+        diag['step_3_generate']['cleanup'] = 'OK'
+    except Exception as e:
+        diag['step_3_generate']['error'] = f'FAIL: {type(e).__name__}: {e}'
+
+    # Step 4: Check existing quotes
+    from apps.quotes.models import Quote
+    total_quotes = Quote.objects.count()
+    with_pdf = Quote.objects.exclude(pdf_file='').exclude(pdf_file__isnull=True).count()
+    diag['step_4_quotes'] = {
+        'total': total_quotes,
+        'with_pdf': with_pdf,
+        'without_pdf': total_quotes - with_pdf,
+    }
+
+    # Try generating PDF for the first quote without one
+    quote_no_pdf = Quote.objects.filter(
+        models.Q(pdf_file='') | models.Q(pdf_file__isnull=True)
+    ).first()
+    if quote_no_pdf:
+        diag['step_5_real_test'] = {'quote_id': str(quote_no_pdf.id), 'quote_number': quote_no_pdf.quote_number}
+        try:
+            from apps.quotes.tasks import generate_quote_pdf
+            result = generate_quote_pdf.delay(str(quote_no_pdf.id))
+            if hasattr(result, 'result'):
+                diag['step_5_real_test']['result'] = str(result.result)
+            quote_no_pdf.refresh_from_db()
+            diag['step_5_real_test']['pdf_file_after'] = str(quote_no_pdf.pdf_file) if quote_no_pdf.pdf_file else 'STILL EMPTY'
+        except Exception as e:
+            diag['step_5_real_test']['error'] = f'{type(e).__name__}: {e}'
+    else:
+        diag['step_5_real_test'] = 'All quotes already have PDFs'
+
+    return JsonResponse(diag, json_dumps_params={'indent': 2})

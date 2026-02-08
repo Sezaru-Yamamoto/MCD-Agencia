@@ -19,6 +19,7 @@ from .views import (
     QuotePublicPdfView,
     QuotePublicRejectView,
     QuoteChangeRequestViewSet,
+    pdf_diagnostic_view,
 )
 
 app_name = 'quotes'
@@ -35,6 +36,9 @@ urlpatterns = [
     path('view/<uuid:token>/pdf/', QuotePublicPdfView.as_view(), name='pdf_public'),
     path('view/<uuid:token>/reject/', QuotePublicRejectView.as_view(), name='reject_public'),
     path('view/<uuid:token>/change-request/', QuoteChangeRequestView.as_view(), name='change_request'),
+
+    # Temporary diagnostic endpoint (remove after debugging)
+    path('_pdf-diag/', pdf_diagnostic_view, name='pdf_diagnostic'),
 
     # ViewSets
     path('', include(router.urls)),
