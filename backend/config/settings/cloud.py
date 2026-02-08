@@ -114,14 +114,31 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 
 # =============================================================================
-# FILE STORAGE — Use local/WhiteNoise (no S3 needed initially)
+# FILE STORAGE — Cloudflare R2 / S3 (persistent) or local (ephemeral)
+# =============================================================================
+# ⚠️  Render free tier has EPHEMERAL filesystem — uploaded files are LOST
+# on every deploy.  Set up Cloudflare R2 (free 10 GB) for persistent storage:
+#
+#   1. Create R2 bucket at https://dash.cloudflare.com → R2
+#   2. Enable "Public access" (Settings → Public access → Allow)
+#   3. Create API token: R2 → Manage R2 API Tokens → Create
+#   4. Add env vars on Render:
+#        AWS_ACCESS_KEY_ID       = <R2 Access Key ID>
+#        AWS_SECRET_ACCESS_KEY   = <R2 Secret Access Key>
+#        AWS_STORAGE_BUCKET_NAME = <bucket-name>
+#        AWS_S3_ENDPOINT_URL     = https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+#        AWS_S3_CUSTOM_DOMAIN    = pub-<hash>.r2.dev
+#
+# Without these vars, Django falls back to local filesystem (files lost on deploy).
 # =============================================================================
 
-DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-
-# If S3 is configured, use it
 if os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_STORAGE_BUCKET_NAME'):
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # Use custom domain for public URLs (e.g. pub-xxx.r2.dev)
+    if AWS_S3_CUSTOM_DOMAIN:
+        AWS_S3_URL_PROTOCOL = 'https:'
+else:
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 
 # =============================================================================
