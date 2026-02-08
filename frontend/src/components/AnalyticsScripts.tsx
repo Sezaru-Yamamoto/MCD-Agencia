@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Script from 'next/script';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
 
@@ -15,6 +16,14 @@ import { useCookieConsent } from '@/contexts/CookieConsentContext';
  *   NEXT_PUBLIC_CLARITY_ID=xxxxxxxxxx
  *   NEXT_PUBLIC_FB_PIXEL_ID=xxxxxxxxxxxxxxx
  */
+
+// Extend Window for analytics globals
+declare global {
+  interface Window {
+    clarity?: (...args: unknown[]) => void;
+  }
+}
+
 export function AnalyticsScripts() {
   const { consent } = useCookieConsent();
 
@@ -24,6 +33,25 @@ export function AnalyticsScripts() {
 
   const analyticsAllowed = consent?.analytics === true;
   const marketingAllowed = consent?.marketing === true;
+
+  // ═══════════ Microsoft Clarity (useEffect for reliable injection) ═══════════
+  useEffect(() => {
+    if (!analyticsAllowed || !clarityId || window.clarity) return;
+
+    // Official Clarity tracking code — injected via JS for reliable consent-based loading
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.clarity.ms/tag/${clarityId}`;
+    document.head.appendChild(script);
+
+    // Initialize Clarity queue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).clarity =
+      (window as any).clarity ||
+      function (...args: unknown[]) {
+        ((window as any).clarity.q = (window as any).clarity.q || []).push(args);
+      };
+  }, [analyticsAllowed, clarityId]);
 
   return (
     <>
@@ -47,19 +75,6 @@ export function AnalyticsScripts() {
             `}
           </Script>
         </>
-      )}
-
-      {/* ═══════════ Microsoft Clarity ═══════════ */}
-      {analyticsAllowed && clarityId && (
-        <Script id="clarity-init" strategy="afterInteractive">
-          {`
-            (function(c,l,a,r,i,t,y){
-              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-            })(window,document,"clarity","script","${clarityId}");
-          `}
-        </Script>
       )}
 
       {/* ═══════════ Facebook / Meta Pixel ═══════════ */}
