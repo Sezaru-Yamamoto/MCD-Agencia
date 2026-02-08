@@ -133,11 +133,11 @@ def generate_quote_pdf(quote_id: str) -> str:
         # HEADER SECTION - Company Info and Quote Number
         # =====================================================================
 
-        # Try to load logo from various locations
+        # Try to load dark logo (for white paper) from various locations
         possible_logo_paths = [
+            os.path.join(settings.STATIC_ROOT or '', 'images', 'logo_dark.png'),
+            os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_dark.png'),
             os.path.join(settings.STATIC_ROOT or '', 'images', 'logo.png'),
-            os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'logo.png'),
-            os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'images', 'logo.png'),
             os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png'),
         ]
         logo_path = None
@@ -149,7 +149,7 @@ def generate_quote_pdf(quote_id: str) -> str:
 
         if has_logo:
             try:
-                logo = Image(logo_path, width=60, height=60)
+                logo = Image(logo_path, width=120, height=60)
                 header_data = [
                     [logo, '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
                     ['', '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
