@@ -50,7 +50,7 @@ const serviceLabels: Record<ServiceId, string> = {
   'rotulacion-vehicular': 'Rotulación vehicular',
   'corte-grabado-cnc-laser': 'Corte y grabado CNC/láser',
   'diseno-grafico': 'Diseño gráfico',
-  'impresion-offset-serigrafia': 'Tarjetas de Presentación, Volantes y Otro',
+  'impresion-offset-serigrafia': 'Impresión offset/serigrafía',
   'otros': 'Otro servicio (especificar)',
 };
 
@@ -217,29 +217,32 @@ export function QuoteForm() {
         // Set subtipo based on service
         if (subtipo) {
           if (servicio === 'espectaculares' && ESPECTACULARES_TIPOS.includes(subtipo as typeof ESPECTACULARES_TIPOS[number])) {
-            setValue('esp_tipo', subtipo as 'unipolar' | 'azotea' | 'mural');
-            subtipoLabel = subtipo === 'unipolar' ? 'Unipolar' : subtipo === 'azotea' ? 'Azotea' : 'Mural publicitario';
+            setValue('esp_tipo', subtipo as 'unipolar' | 'azotea' | 'mural' | 'otro');
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'unipolar' ? 'Unipolar' : subtipo === 'azotea' ? 'Azotea' : 'Mural publicitario';
           } else if (servicio === 'publicidad-movil' && PUBLICIDAD_MOVIL_SUBTIPOS.includes(subtipo as typeof PUBLICIDAD_MOVIL_SUBTIPOS[number])) {
-            setValue('pub_subtipo', subtipo as 'vallas-moviles' | 'publibuses' | 'perifoneo');
-            subtipoLabel = subtipo === 'vallas-moviles' ? 'Vallas móviles' : subtipo === 'publibuses' ? 'Publibuses' : 'Perifoneo';
+            setValue('pub_subtipo', subtipo as 'vallas-moviles' | 'publibuses' | 'perifoneo' | 'otro');
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'vallas-moviles' ? 'Vallas móviles' : subtipo === 'publibuses' ? 'Publibuses' : 'Perifoneo';
           } else if (servicio === 'fabricacion-anuncios' && FABRICACION_ANUNCIOS_TIPOS.includes(subtipo as typeof FABRICACION_ANUNCIOS_TIPOS[number])) {
             setValue('fab_tipoAnuncio', subtipo);
-            subtipoLabel = subtipo === 'cajas-luz' ? 'Cajas de luz' : subtipo === 'letras-3d' ? 'Letras 3D' : subtipo === 'neon' ? 'Neón' : subtipo;
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'cajas-luz' ? 'Cajas de luz' : subtipo === 'letras-3d' ? 'Letras 3D' : subtipo === 'neon' ? 'Neón' : subtipo;
           } else if (servicio === 'impresion-gran-formato' && GRAN_FORMATO_MATERIALES.includes(subtipo as typeof GRAN_FORMATO_MATERIALES[number])) {
             setValue('igf_material', subtipo);
-            subtipoLabel = subtipo.charAt(0).toUpperCase() + subtipo.slice(1);
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo.charAt(0).toUpperCase() + subtipo.slice(1);
           } else if (servicio === 'rotulacion-vehicular' && ROTULACION_TIPOS.includes(subtipo as typeof ROTULACION_TIPOS[number])) {
             setValue('rot_tipoRotulacion', subtipo);
-            subtipoLabel = subtipo === 'completa' ? 'Rotulación completa' : subtipo === 'parcial' ? 'Rotulación parcial' : subtipo === 'vinil-recortado' ? 'Vinil recortado' : 'Impresión digital';
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'completa' ? 'Rotulación completa' : subtipo === 'parcial' ? 'Rotulación parcial' : subtipo === 'vinil-recortado' ? 'Vinil recortado' : 'Impresión digital';
           } else if (servicio === 'senalizacion' && SENALIZACION_TIPOS.includes(subtipo as typeof SENALIZACION_TIPOS[number])) {
-            setValue('sen_tipo', subtipo as 'interior' | 'exterior' | 'vial');
-            subtipoLabel = subtipo === 'interior' ? 'Interior' : subtipo === 'exterior' ? 'Exterior' : 'Vial';
+            setValue('sen_tipo', subtipo as 'interior' | 'exterior' | 'vial' | 'otro');
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'interior' ? 'Interior' : subtipo === 'exterior' ? 'Exterior' : 'Vial';
           } else if (servicio === 'corte-grabado-cnc-laser' && CNC_LASER_TIPOS.includes(subtipo as typeof CNC_LASER_TIPOS[number])) {
-            setValue('cnc_tipo', subtipo as 'router-cnc' | 'corte-laser' | 'grabado-laser');
-            subtipoLabel = subtipo === 'router-cnc' ? 'Router CNC' : subtipo === 'corte-laser' ? 'Corte Láser' : 'Grabado Láser';
+            setValue('cnc_tipo', subtipo as 'router-cnc' | 'corte-laser' | 'grabado-laser' | 'otro');
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'router-cnc' ? 'Router CNC' : subtipo === 'corte-laser' ? 'Corte Láser' : 'Grabado Láser';
           } else if (servicio === 'diseno-grafico' && DISENO_GRAFICO_TIPOS.includes(subtipo as typeof DISENO_GRAFICO_TIPOS[number])) {
-            setValue('dis_tipo', subtipo as 'logotipos' | 'papeleria' | 'redes-sociales');
-            subtipoLabel = subtipo === 'logotipos' ? 'Logotipos' : subtipo === 'papeleria' ? 'Papelería' : 'Redes Sociales';
+            setValue('dis_tipo', subtipo as 'logotipos' | 'papeleria' | 'redes-sociales' | 'otro');
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'logotipos' ? 'Logotipos' : subtipo === 'papeleria' ? 'Papelería' : 'Redes Sociales';
+          } else if (servicio === 'impresion-offset-serigrafia' && OFFSET_PRODUCTOS.includes(subtipo as typeof OFFSET_PRODUCTOS[number])) {
+            setValue('off_producto', subtipo);
+            subtipoLabel = subtipo === 'otro' ? 'Otro (especificar)' : subtipo === 'tarjetas-presentacion' ? 'Tarjetas de presentación' : 'Volantes';
           }
         }
 

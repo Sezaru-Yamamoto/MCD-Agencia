@@ -92,7 +92,7 @@ export const SERVICE_LABELS: Record<ServiceId, string> = {
   'rotulacion-vehicular': 'Rotulación vehicular',
   'corte-grabado-cnc-laser': 'Corte y grabado en CNC y láser',
   'diseno-grafico': 'Diseño gráfico',
-  'impresion-offset-serigrafia': 'Tarjetas de Presentación, Volantes y Otro',
+  'impresion-offset-serigrafia': 'Impresión offset, serigrafía, sublimación',
   'otros': 'Otro servicio',
 };
 
@@ -180,42 +180,50 @@ export const SERVICE_SUBCATEGORIES: Record<LandingServiceId, ServiceSubcategory[
     { id: 'anuncios-2d', titleKey: 'anuncios2d', label: 'Anuncios 2D', href: '#cotizar?servicio=fabricacion-anuncios&subtipo=anuncios-2d' },
     { id: 'bastidores', titleKey: 'bastidores', label: 'Bastidores', href: '#cotizar?servicio=fabricacion-anuncios&subtipo=bastidores' },
     { id: 'toldos', titleKey: 'toldos', label: 'Toldos', href: '#cotizar?servicio=fabricacion-anuncios&subtipo=toldos' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=fabricacion-anuncios&subtipo=otro' },
   ],
   'espectaculares': [
     { id: 'unipolar', titleKey: 'unipolar', label: 'Unipolar', href: '#cotizar?servicio=espectaculares&subtipo=unipolar' },
     { id: 'azotea', titleKey: 'azotea', label: 'Azotea', href: '#cotizar?servicio=espectaculares&subtipo=azotea' },
     { id: 'mural', titleKey: 'mural', label: 'Mural', href: '#cotizar?servicio=espectaculares&subtipo=mural' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=espectaculares&subtipo=otro' },
   ],
   'publicidad-movil': [
     { id: 'vallas-moviles', titleKey: 'vallasMoviles', label: 'Vallas Móviles', href: '#cotizar?servicio=publicidad-movil&subtipo=vallas-moviles' },
     { id: 'publibuses', titleKey: 'publibuses', label: 'Publibuses', href: '#cotizar?servicio=publicidad-movil&subtipo=publibuses' },
     { id: 'perifoneo', titleKey: 'perifoneo', label: 'Perifoneo', href: '#cotizar?servicio=publicidad-movil&subtipo=perifoneo' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=publicidad-movil&subtipo=otro' },
   ],
   'impresion-gran-formato': [
     { id: 'lona', titleKey: 'lona', label: 'Lona', href: '#cotizar?servicio=impresion-gran-formato&subtipo=lona' },
     { id: 'vinil', titleKey: 'vinil', label: 'Vinil', href: '#cotizar?servicio=impresion-gran-formato&subtipo=vinil' },
     { id: 'tela', titleKey: 'tela', label: 'Tela', href: '#cotizar?servicio=impresion-gran-formato&subtipo=tela' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=impresion-gran-formato&subtipo=otro' },
   ],
   'rotulacion-vehicular': [
     { id: 'completa', titleKey: 'rotulacionCompleta', label: 'Rotulación Completa', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=completa' },
     { id: 'parcial', titleKey: 'rotulacionParcial', label: 'Rotulación Parcial', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=parcial' },
     { id: 'vinil-recortado', titleKey: 'vinilRecortado', label: 'Vinil Recortado', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=vinil-recortado' },
     { id: 'impresion-digital', titleKey: 'impresionDigital', label: 'Impresión Digital', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=impresion-digital' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=rotulacion-vehicular&subtipo=otro' },
   ],
   'senalizacion': [
     { id: 'interior', titleKey: 'interior', label: 'Interior', href: '#cotizar?servicio=senalizacion&subtipo=interior' },
     { id: 'exterior', titleKey: 'exterior', label: 'Exterior', href: '#cotizar?servicio=senalizacion&subtipo=exterior' },
     { id: 'vial', titleKey: 'vial', label: 'Vial', href: '#cotizar?servicio=senalizacion&subtipo=vial' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=senalizacion&subtipo=otro' },
   ],
   'corte-grabado-cnc-laser': [
     { id: 'router-cnc', titleKey: 'routerCnc', label: 'Router CNC', href: '#cotizar?servicio=corte-grabado-cnc-laser&subtipo=router-cnc' },
     { id: 'corte-laser', titleKey: 'corteLaser', label: 'Corte Láser', href: '#cotizar?servicio=corte-grabado-cnc-laser&subtipo=corte-laser' },
     { id: 'grabado-laser', titleKey: 'grabadoLaser', label: 'Grabado Láser', href: '#cotizar?servicio=corte-grabado-cnc-laser&subtipo=grabado-laser' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=corte-grabado-cnc-laser&subtipo=otro' },
   ],
   'diseno-grafico': [
     { id: 'logotipos', titleKey: 'logotipos', label: 'Logotipos', href: '#cotizar?servicio=diseno-grafico&subtipo=logotipos' },
     { id: 'papeleria', titleKey: 'papeleria', label: 'Papelería', href: '#cotizar?servicio=diseno-grafico&subtipo=papeleria' },
     { id: 'redes-sociales', titleKey: 'redesSociales', label: 'Redes Sociales', href: '#cotizar?servicio=diseno-grafico&subtipo=redes-sociales' },
+    { id: 'otro', titleKey: 'otro', label: 'Otro', href: '#cotizar?servicio=diseno-grafico&subtipo=otro' },
   ],
   'impresion-offset-serigrafia': [
     { id: 'tarjetas-presentacion', titleKey: 'tarjetasPresentacion', label: 'Tarjetas de Presentación', href: '#cotizar?servicio=impresion-offset-serigrafia&subtipo=tarjetas-presentacion' },
@@ -244,7 +252,7 @@ export const SERVICE_SYNC_DEFINITIONS: Array<{
   { service_key: 'rotulacion-vehicular', name: 'Rotulación vehicular', name_en: 'Vehicle Wrapping', description: 'Rotulación completa o parcial para vehículos.', icon: '🚗', position: 5 },
   { service_key: 'corte-grabado-cnc-laser', name: 'Corte y grabado CNC / Láser', name_en: 'CNC & Laser Cutting', description: 'Corte y grabado de precisión en diversos materiales.', icon: '⚙️', position: 6 },
   { service_key: 'diseno-grafico', name: 'Diseño gráfico', name_en: 'Graphic Design', description: 'Diseño de logotipos, papelería y material digital.', icon: '🎨', position: 7 },
-  { service_key: 'impresion-offset-serigrafia', name: 'Tarjetas de Presentación, Volantes y Otro', name_en: 'Business Cards, Flyers & Other', description: 'Tarjetas de presentación, volantes y otros productos impresos.', icon: '📄', position: 8 },
+  { service_key: 'impresion-offset-serigrafia', name: 'Impresión offset / serigrafía', name_en: 'Offset & Screen Printing', description: 'Tarjetas, volantes, serigrafía y sublimación.', icon: '📄', position: 8 },
 ];
 
 // Service icons for display
