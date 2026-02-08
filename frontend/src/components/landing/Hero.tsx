@@ -24,19 +24,22 @@ export function Hero() {
   const { data: apiSlides } = useQuery({
     queryKey: ['carousel-slides'],
     queryFn: getCarouselSlides,
-    staleTime: 10 * 60 * 1000,
-    retry: 1,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
-  // Build carousel images: title links to quote form if slide has service_key
+  // Build carousel images: only use API slides that have an image
   const carouselImages: CarouselImage[] = useMemo(() => {
     if (apiSlides && apiSlides.length > 0) {
-      return apiSlides.map((s) => ({
-        src: s.image,
-        alt: s.title || 'Agencia MCD',
-        title: s.title,
-        titleHref: s.service_key ? `#cotizar?servicio=${s.service_key}` : '#cotizar',
-      }));
+      const validSlides = apiSlides
+        .filter((s) => s.image) // skip slides without uploaded image
+        .map((s) => ({
+          src: s.image,
+          alt: s.title || 'Agencia MCD',
+          title: s.title,
+          titleHref: s.service_key ? `#cotizar?servicio=${s.service_key}` : '#cotizar',
+        }));
+      if (validSlides.length > 0) return validSlides;
     }
     return FALLBACK_IMAGES;
   }, [apiSlides]);

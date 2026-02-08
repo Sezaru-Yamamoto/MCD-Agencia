@@ -161,6 +161,12 @@ class CarouselSlideViewSet(viewsets.ModelViewSet):
     serializer_class = CarouselSlideSerializer
     pagination_class = StandardPagination
 
+    def paginate_queryset(self, queryset):
+        """Skip pagination for public requests (landing gets plain array)."""
+        if not self.request.user.is_staff:
+            return None
+        return super().paginate_queryset(queryset)
+
     def get_queryset(self):
         """Return slides based on user role."""
         if self.request.user.is_staff:
@@ -260,6 +266,12 @@ class ServiceViewSet(viewsets.ModelViewSet):
     serializer_class = ServiceSerializer
     pagination_class = StandardPagination
 
+    def paginate_queryset(self, queryset):
+        """Skip pagination for public requests."""
+        if not self.request.user.is_staff:
+            return None
+        return super().paginate_queryset(queryset)
+
     def get_queryset(self):
         """Return services based on user role."""
         if self.request.user.is_staff:
@@ -299,6 +311,12 @@ class ServiceImageViewSet(viewsets.ModelViewSet):
 
     serializer_class = ServiceImageSerializer
     pagination_class = StandardPagination
+
+    def paginate_queryset(self, queryset):
+        """Skip pagination for public requests."""
+        if not self.request.user.is_staff:
+            return None
+        return super().paginate_queryset(queryset)
 
     def get_queryset(self):
         qs = ServiceImage.objects.select_related('service').order_by('service', 'position')
@@ -347,6 +365,12 @@ class PortfolioVideoViewSet(viewsets.ModelViewSet):
 
     serializer_class = PortfolioVideoSerializer
     pagination_class = StandardPagination
+
+    def paginate_queryset(self, queryset):
+        """Skip pagination for public requests."""
+        if not self.request.user.is_staff:
+            return None
+        return super().paginate_queryset(queryset)
 
     def get_queryset(self):
         if self.request.user.is_staff:

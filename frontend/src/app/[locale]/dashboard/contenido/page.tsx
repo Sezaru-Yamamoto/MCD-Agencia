@@ -223,7 +223,7 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
                     <Badge variant={slide.is_active ? 'success' : 'default'}>{slide.is_active ? 'Activo' : 'Inactivo'}</Badge>
                   </div>
                   {slide.service_key && <p className="text-xs text-cyan-400">Servicio: {SERVICE_LABELS[slide.service_key as ServiceId] || slide.service_key}</p>}
-                  <p className="text-xs text-neutral-500 mt-0.5">Pos: {slide.position + 1}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">Pos: {slide.position}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" onClick={() => toggleActive(slide)}>{slide.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}</Button>
@@ -476,7 +476,7 @@ function ServiceImagesPanel({ serviceId, serviceName, queryClient }: { serviceId
                 </button>
               </div>
               {img.alt_text && <span className="absolute bottom-1 left-1 text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded truncate max-w-[90%]">{img.alt_text}</span>}
-              <span className="absolute top-1 right-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">#{img.position + 1}</span>
+              <span className="absolute top-1 right-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">#{img.position}</span>
             </div>
           ))}
         </div>
