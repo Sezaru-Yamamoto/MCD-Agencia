@@ -271,21 +271,24 @@ export const LOCATION_DATA: Record<LocationId, {
   latitude: number;
   longitude: number;
   whatsappUrl: string;
+  mapsUrl: string;
 }> = {
   'acapulco': {
     phone: '+52 222 805 5700',
     phoneDisplay: '222 805 5700',
     email: 'ventas@agenciamcd.mx',
-    latitude: 16.8566,
-    longitude: -99.8919,
+    latitude: 16.8001189,
+    longitude: -99.8063231,
     whatsappUrl: 'https://wa.me/522228055700',
+    mapsUrl: 'https://maps.app.goo.gl/T3pDHZrqm4bVKAJV6',
   },
   'tecoanapa': {
     phone: '+52 745 114 7727',
     phoneDisplay: '745 114 7727',
     email: 'ventas2@agenciamcd.mx',
-    latitude: 16.9833,
-    longitude: -101.1667,
+    latitude: 16.8512082,
+    longitude: -99.84964,
     whatsappUrl: 'https://wa.me/527451147727',
+    mapsUrl: 'https://maps.app.goo.gl/6zj1WJvJ57jb64Ph6',
   },
 };
