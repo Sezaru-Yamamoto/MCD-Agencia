@@ -34,23 +34,29 @@ export function AnalyticsScripts() {
   const analyticsAllowed = consent?.analytics === true;
   const marketingAllowed = consent?.marketing === true;
 
-  // ═══════════ Microsoft Clarity (useEffect for reliable injection) ═══════════
+  // ═══════════ Microsoft Clarity (official snippet via useEffect) ═══════════
   useEffect(() => {
-    if (!analyticsAllowed || !clarityId || window.clarity) return;
+    if (!analyticsAllowed || !clarityId) return;
+    // Skip if already loaded
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((window as any).clarity && (window as any).clarity.q) return;
 
-    // Official Clarity tracking code — injected via JS for reliable consent-based loading
+    // Official Clarity pattern: initialize queue FIRST, then load script
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    w.clarity = w.clarity || function (...args: unknown[]) {
+      (w.clarity.q = w.clarity.q || []).push(args);
+    };
+
     const script = document.createElement('script');
     script.async = true;
     script.src = `https://www.clarity.ms/tag/${clarityId}`;
-    document.head.appendChild(script);
-
-    // Initialize Clarity queue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).clarity =
-      (window as any).clarity ||
-      function (...args: unknown[]) {
-        ((window as any).clarity.q = (window as any).clarity.q || []).push(args);
-      };
+    const firstScript = document.getElementsByTagName('script')[0];
+    if (firstScript?.parentNode) {
+      firstScript.parentNode.insertBefore(script, firstScript);
+    } else {
+      document.head.appendChild(script);
+    }
   }, [analyticsAllowed, clarityId]);
 
   return (
