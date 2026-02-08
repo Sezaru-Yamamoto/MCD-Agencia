@@ -26,7 +26,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.views.static import serve as media_serve
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -39,6 +39,23 @@ def redirect_to_frontend(request):
     """Redirect root URL to frontend."""
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
     return HttpResponseRedirect(f'{frontend_url}/es')
+
+
+def storage_debug(request):
+    """Temporary endpoint to debug storage configuration. Remove after fixing."""
+    from django.core.files.storage import default_storage
+    storage = default_storage
+    return JsonResponse({
+        'storage_class': type(storage).__name__,
+        'querystring_auth': getattr(storage, 'querystring_auth', 'N/A'),
+        'custom_domain': getattr(storage, 'custom_domain', 'N/A'),
+        'endpoint_url': getattr(storage, 'endpoint_url', 'N/A'),
+        'bucket_name': getattr(storage, 'bucket_name', 'N/A'),
+        'querystring_expire': getattr(storage, 'querystring_expire', 'N/A'),
+        'default_acl': getattr(storage, 'default_acl', 'N/A'),
+        'settings_QUERYSTRING_AUTH': getattr(settings, 'AWS_QUERYSTRING_AUTH', 'NOT SET'),
+        'settings_CUSTOM_DOMAIN': getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', 'NOT SET'),
+    })
 
 # =============================================================================
 # API VERSION 1 URL PATTERNS
@@ -144,6 +161,9 @@ urlpatterns = [
 
     # Health check endpoint
     path('health/', include('apps.core.urls')),
+
+    # Temporary storage debug endpoint (remove after fixing R2)
+    path('api/v1/debug/storage/', storage_debug),
 
     # Serve user-uploaded media files (images, etc.)
     # In production without S3, Django serves them directly.
