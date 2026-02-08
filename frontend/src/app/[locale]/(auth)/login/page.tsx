@@ -83,8 +83,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Card className="w-full max-w-2xl" padding="lg">
+    <div className="w-full flex items-center justify-center">
+      <Card className="w-full max-w-[900px]" padding="lg">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-white mb-3">Iniciar Sesión</h1>
           <p className="text-neutral-400 text-lg">Ingresa a tu cuenta para continuar</p>

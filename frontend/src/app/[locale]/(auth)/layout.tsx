@@ -30,11 +30,8 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           </div>
         </div>
         {/* Right: Form */}
-        <div className="flex flex-col justify-between items-center w-full md:w-1/2 min-h-screen px-4">
-          <div className="pt-16 w-full flex flex-col items-center">
-            {children}
-          </div>
-          <div className="pb-16" />
+        <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4">
+          {children}
         </div>
       </div>
       {/* Simple footer */}
