@@ -32,7 +32,7 @@ export function WhatsAppButton() {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className={`fixed bottom-6 right-6 z-40 bg-cmyk-yellow hover:bg-cmyk-yellow text-neutral-900 rounded-full w-14 h-14 flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 group ${
+        className={`fixed bottom-6 right-6 z-40 bg-yellow-400 hover:bg-yellow-500 text-neutral-900 rounded-full w-14 h-14 flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 group ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'
         }`}
         aria-label="Contactar por WhatsApp"
