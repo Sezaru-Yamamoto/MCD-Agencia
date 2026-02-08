@@ -42,29 +42,21 @@ def redirect_to_frontend(request):
 
 
 def _db_debug(request):
-    """Temporary diagnostic: count records in content tables."""
-    from apps.content.models import Service, ServiceImage, CarouselSlide
-    from django.db import connection
-    services = list(Service.objects.values('id', 'service_key', 'name', 'is_active'))
-    images = list(ServiceImage.objects.values('id', 'service__service_key', 'image', 'alt_text', 'subtype_key', 'is_active', 'position'))
-    carousel = list(CarouselSlide.objects.values('id', 'title', 'image', 'is_active'))
+    """Temporary: activate all ServiceImage records + show DB state."""
+    from apps.content.models import Service, ServiceImage
+    # One-time fix: activate all images that were saved as is_active=False
+    fixed = ServiceImage.objects.filter(is_active=False).update(is_active=True)
+    total = ServiceImage.objects.count()
+    by_service = {}
+    for img in ServiceImage.objects.values('service__service_key', 'is_active'):
+        key = img['service__service_key']
+        by_service.setdefault(key, 0)
+        by_service[key] += 1
     return JsonResponse({
-        'db_engine': connection.vendor,
-        'services_count': len(services),
-        'services': [{'key': s['service_key'], 'active': s['is_active']} for s in services],
-        'service_images_count': len(images),
-        'service_images': [
-            {
-                'service_key': i['service__service_key'],
-                'image': str(i['image'])[:120],
-                'alt': i['alt_text'],
-                'subtype': i['subtype_key'],
-                'active': i['is_active'],
-            }
-            for i in images
-        ],
-        'carousel_count': len(carousel),
-        'carousel': [{'title': c['title'], 'image': str(c['image'])[:120], 'active': c['is_active']} for c in carousel],
+        'fixed_count': fixed,
+        'total_images': total,
+        'images_by_service': by_service,
+        'all_active_now': ServiceImage.objects.filter(is_active=False).count() == 0,
     }, json_dumps_params={'indent': 2})
 
 

@@ -400,6 +400,7 @@ export async function createServiceImage(data: {
   if (data.alt_text_en) formData.append('alt_text_en', data.alt_text_en);
   if (data.subtype_key) formData.append('subtype_key', data.subtype_key);
   formData.append('position', String(data.position ?? 0));
+  formData.append('is_active', 'true');
   return apiClient.upload<ServiceImageAdmin>('/content/service-images/', formData);
 }
 

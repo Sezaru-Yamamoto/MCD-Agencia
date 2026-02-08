@@ -175,6 +175,11 @@ class ServicePublicSerializer(serializers.ModelSerializer):
 class ServiceImageSerializer(serializers.ModelSerializer):
     """Admin serializer for service images — supports file upload."""
 
+    # Explicit default=True so multipart/form-data POSTs that omit the field
+    # don't end up as is_active=False (DRF treats missing booleans in
+    # multipart as False, unlike JSON where it respects model defaults).
+    is_active = serializers.BooleanField(default=True)
+
     class Meta:
         model = ServiceImage
         fields = ['id', 'service', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'position', 'is_active']
