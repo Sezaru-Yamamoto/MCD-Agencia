@@ -21,7 +21,7 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
-import { getAdminQuoteById, sendQuote, deleteQuote, duplicateQuote, Quote, QuoteStatus } from '@/lib/api/quotes';
+import { getAdminQuoteById, sendQuote, deleteQuote, duplicateQuote, downloadQuotePdf, Quote, QuoteStatus } from '@/lib/api/quotes';
 import { convertQuoteToOrder } from '@/lib/api/orders';
 
 const statusColors: Record<QuoteStatus, string> = {
@@ -69,6 +69,7 @@ export default function QuoteDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const quoteId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -179,6 +180,27 @@ export default function QuoteDetailPage() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!quote) return;
+    setIsDownloadingPdf(true);
+    try {
+      const blob = await downloadQuotePdf(quote.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cotizacion_${quote.quote_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      setModal({ open: true, title: 'Error', message: 'No se pudo descargar el PDF.', variant: 'error' });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const formatCurrency = (amount: number | string) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
@@ -267,11 +289,14 @@ export default function QuoteDetailPage() {
               {isDuplicating ? 'Duplicando...' : 'Duplicar'}
             </Button>
             {quote.pdf_file && (
-              <a href={quote.pdf_file} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" leftIcon={<PrinterIcon className="h-4 w-4" />}>
-                  Ver PDF
-                </Button>
-              </a>
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                leftIcon={<PrinterIcon className="h-4 w-4" />}
+              >
+                {isDownloadingPdf ? 'Descargando...' : 'Ver PDF'}
+              </Button>
             )}
             {quote.status === 'draft' && (
               <Button

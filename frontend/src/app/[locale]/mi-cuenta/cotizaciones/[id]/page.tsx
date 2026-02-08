@@ -12,18 +12,32 @@ import {
   EyeIcon,
 } from '@heroicons/react/24/outline';
 
-import { getQuoteById, Quote } from '@/lib/api/quotes';
+import { getQuoteById, downloadQuotePdfByToken, Quote } from '@/lib/api/quotes';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, cn } from '@/lib/utils';
+import { useState } from 'react';
 
 export default function CustomerQuoteDetailPage() {
   const params = useParams();
   const quoteId = params.id as string;
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { data: quote, isLoading, error } = useQuery({
     queryKey: ['quote', quoteId],
     queryFn: () => getQuoteById(quoteId),
   });
+
+  const handleDownloadPdf = async () => {
+    if (!quote?.token || !quote?.quote_number) return;
+    setIsDownloadingPdf(true);
+    try {
+      await downloadQuotePdfByToken(quote.token, quote.quote_number);
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   if (isLoading) {
     return <LoadingPage message="Cargando cotización..." />;
@@ -209,11 +223,15 @@ export default function CustomerQuoteDetailPage() {
                 </Link>
               )}
               {quote.pdf_file && (
-                <a href={quote.pdf_file} target="_blank" rel="noopener noreferrer" className="block">
-                  <Button variant="outline" className="w-full" leftIcon={<DocumentTextIcon className="h-4 w-4" />}>
-                    Descargar PDF
-                  </Button>
-                </a>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  leftIcon={<DocumentTextIcon className="h-4 w-4" />}
+                >
+                  {isDownloadingPdf ? 'Descargando...' : 'Descargar PDF'}
+                </Button>
               )}
             </div>
           </Card>

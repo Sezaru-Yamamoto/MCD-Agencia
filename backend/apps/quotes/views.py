@@ -12,7 +12,7 @@ import threading
 from decimal import Decimal
 from django.db import models, transaction
 from django.db.models import Count, Sum, Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status
@@ -682,11 +682,17 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        return FileResponse(
-            quote.pdf_file.open('rb'),
-            as_attachment=True,
-            filename=f'cotizacion_{quote.quote_number}.pdf'
-        )
+        try:
+            pdf_data = quote.pdf_file.read()
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="cotizacion_{quote.quote_number}.pdf"'
+            return response
+        except Exception as e:
+            logger.error(f'Error reading PDF for quote {quote.quote_number}: {e}')
+            return Response(
+                {'error': _('Error reading PDF file.')},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['post'], url_path='regenerate-pdf')
     def regenerate_pdf(self, request, pk=None):
@@ -958,11 +964,17 @@ class QuotePublicPdfView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        return FileResponse(
-            quote.pdf_file.open('rb'),
-            as_attachment=True,
-            filename=f'cotizacion_{quote.quote_number}.pdf'
-        )
+        try:
+            pdf_data = quote.pdf_file.read()
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="cotizacion_{quote.quote_number}.pdf"'
+            return response
+        except Exception as e:
+            logger.error(f'Error reading PDF for quote {quote.quote_number}: {e}')
+            return Response(
+                {'error': _('Error reading PDF file.')},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class QuotePublicRejectView(APIView):
