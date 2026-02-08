@@ -270,12 +270,12 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
             <p className="text-xs text-neutral-500 mt-1">El título se auto-genera del servicio. Al dar clic, redirige al cotizador.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Título (ES)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
             <Input label="Título (EN)" value={form.title_en} onChange={(e) => setForm({ ...form, title_en: e.target.value })} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input type="number" label="Posición" value={form.position.toString()} onChange={(e) => setForm({ ...form, position: parseInt(e.target.value) || 0 })} />
             <div className="flex items-center gap-2 pt-8">
               <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
@@ -392,20 +392,20 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
 
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Servicio" size="lg">
         <form onSubmit={handleEditSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Nombre (ES)" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
             <Input label="Nombre (EN)" value={editForm.name_en} onChange={(e) => setEditForm({ ...editForm, name_en: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Textarea label="Descripción (ES)" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} required />
             <Textarea label="Descripción (EN)" value={editForm.description_en} onChange={(e) => setEditForm({ ...editForm, description_en: e.target.value })} rows={3} />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input label="Icono (emoji)" value={editForm.icon} onChange={(e) => setEditForm({ ...editForm, icon: e.target.value })} placeholder="🖨️" />
             <Input label="Texto CTA" value={editForm.cta_text} onChange={(e) => setEditForm({ ...editForm, cta_text: e.target.value })} />
             <Input label="URL CTA" value={editForm.cta_url} onChange={(e) => setEditForm({ ...editForm, cta_url: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex items-center gap-2 pt-4">
               <input type="checkbox" checked={editForm.is_active} onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
               <label className="text-sm text-white">Activo</label>
@@ -629,11 +629,11 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
       <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Editar Video' : 'Nuevo Video'} size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="URL o ID de YouTube" value={form.youtube_id} onChange={(e) => setForm({ ...form, youtube_id: e.target.value })} placeholder="https://youtube.com/shorts/sqOb-gSSQq8" required />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Título (ES)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <Input label="Título (EN)" value={form.title_en} onChange={(e) => setForm({ ...form, title_en: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">Orientación</label>
               <select value={form.orientation} onChange={(e) => setForm({ ...form, orientation: e.target.value as 'vertical' | 'horizontal' })} className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm">

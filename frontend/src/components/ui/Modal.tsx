@@ -55,7 +55,7 @@ export function Modal({
         </Transition.Child>
 
         {/* Modal container */}
-        <div className="fixed inset-0 overflow-y-auto">
+        <div className="fixed inset-0 overflow-y-auto overscroll-contain">
           <div className="flex min-h-full items-center justify-center p-4">
             <Transition.Child
               as={Fragment}
@@ -68,9 +68,10 @@ export function Modal({
             >
               <Dialog.Panel
                 className={cn(
-                  'w-full transform overflow-hidden rounded-2xl',
+                  'w-full transform rounded-2xl',
                   'bg-neutral-900 border border-neutral-800',
-                  'p-6 shadow-xl transition-all',
+                  'p-4 sm:p-6 shadow-xl transition-all',
+                  'max-h-[90dvh] overflow-y-auto overscroll-contain',
                   sizes[size]
                 )}
               >

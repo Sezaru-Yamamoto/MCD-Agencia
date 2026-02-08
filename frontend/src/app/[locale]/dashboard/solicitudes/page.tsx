@@ -263,7 +263,7 @@ export default function QuoteRequestsListPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-neutral-700 mb-6">
+        <div className="flex border-b border-neutral-700 mb-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('quote-requests')}
             className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors relative ${
@@ -705,7 +705,7 @@ export default function QuoteRequestsListPage() {
             )}
 
             {/* Stats Summary */}
-            <div className="grid grid-cols-3 gap-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
               <Card className="p-4">
                 <p className="text-neutral-400 text-sm">Total Solicitudes</p>
                 <p className="text-2xl font-bold text-white">{changeRequestsPagination.totalCount}</p>

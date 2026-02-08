@@ -74,6 +74,16 @@ export function UnifiedHeader() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isMobileMenuOpen]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -341,9 +351,10 @@ export function UnifiedHeader() {
           </button>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu — fixed overlay so it scrolls independently of the page */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden mt-4 pb-4 border-t border-cmyk-cyan/10">
+          <div className="lg:hidden fixed inset-x-0 top-16 bottom-0 z-40 bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain">
+          <div className="px-4 py-4 border-t border-cmyk-cyan/10">
             <nav className="space-y-2">
               {navLinks.map((link) => (
                 <Link
@@ -499,6 +510,7 @@ export function UnifiedHeader() {
                 <span>{otherLocale.toUpperCase()}</span>
               </button>
             </div>
+          </div>
           </div>
         )}
       </div>

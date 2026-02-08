@@ -72,6 +72,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const permissions = usePermissions();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen]);
+
   // Only staff (admin + sales) can access the dashboard
   useEffect(() => {
     if (!isLoading) {
@@ -101,7 +111,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 top-16 bg-black/80 z-20 lg:hidden"
+          className="fixed inset-0 top-16 bg-black/80 z-20 lg:hidden overscroll-contain"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -109,12 +119,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-16 left-0 z-30 h-[calc(100vh-4rem)] w-64 bg-neutral-900 border-r border-neutral-800 transform transition-transform duration-300 lg:translate-x-0',
+          'fixed top-16 left-0 z-30 h-[calc(100dvh-4rem)] w-64 bg-neutral-900 border-r border-neutral-800 transform transition-transform duration-300 lg:translate-x-0 overscroll-contain',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
+        {/* Sidebar uses flex-col so the nav scrolls and user card stays pinned */}
+        <div className="flex flex-col h-full">
         {/* Sidebar header */}
-        <div className="h-24 flex items-center justify-center px-4 pt-2 border-b border-neutral-800">
+        <div className="h-24 flex items-center justify-center px-4 pt-2 border-b border-neutral-800 flex-shrink-0">
           <Link href={`/${locale}/dashboard`} className="flex items-center gap-3 flex-1">
             <div className="w-8 h-8 bg-gradient-to-br from-cmyk-cyan to-cmyk-magenta rounded-lg flex items-center justify-center font-bold text-white text-sm">
               MCD
@@ -135,7 +147,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-4rem-7rem)]">
+        <nav className="p-4 space-y-1 overflow-y-auto flex-1 min-h-0">
           {MENU_ITEMS.map((item) => {
             const fullHref = `/${locale}${item.href}`;
             const isActive = item.exact
@@ -178,7 +190,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* User card */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-neutral-800 bg-neutral-900">
+        <div className="flex-shrink-0 p-4 border-t border-neutral-800 bg-neutral-900">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cmyk-cyan to-cmyk-magenta flex items-center justify-center text-white font-bold">
               {getInitials(user?.full_name || user?.email || '')}
@@ -200,6 +212,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
           </div>
         </div>
+        </div>{/* end flex-col wrapper */}
       </aside>
 
       {/* Main content */}

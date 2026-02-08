@@ -79,6 +79,16 @@ export function Services() {
     ? getServiceData(selectedServiceId)
     : null;
 
+  // Lock body scroll when detail modal is open
+  useEffect(() => {
+    if (selectedService) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedService]);
+
   // Fullscreen image handler for modal
   const handleModalImageClick = useCallback((images: ServiceCardImageData[], index: number) => {
     setFullscreenImages({ images, index });
@@ -129,8 +139,8 @@ export function Services() {
 
       {/* ═══════════ Service Detail Modal ═══════════ */}
       {selectedService && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4" onClick={() => setSelectedServiceId(null)}>
-          <div className="bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in border-2 border-cmyk-cyan/40" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overscroll-contain" onClick={() => setSelectedServiceId(null)}>
+          <div className="bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 rounded-2xl max-w-4xl w-full max-h-[90dvh] overflow-y-auto shadow-2xl animate-scale-in border-2 border-cmyk-cyan/40 overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               {/* Carousel with arrows + subtype labels + click to fullscreen */}
               <div className="relative h-80 md:h-full min-h-96 overflow-hidden">
@@ -158,7 +168,7 @@ export function Services() {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
                   <p className="text-gray-400 leading-relaxed">{selectedService.description}</p>
                   <div>
                     <h3 className="text-lg font-semibold mb-4 text-gray-100">{t('subcategoriesLabel')}</h3>

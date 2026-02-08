@@ -200,7 +200,7 @@ export default function AdminAuditPage() {
       >
         {selectedLog && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <label className="text-neutral-500">Fecha/Hora</label>
                 <p className="text-white">{formatDateTime(selectedLog.timestamp)}</p>

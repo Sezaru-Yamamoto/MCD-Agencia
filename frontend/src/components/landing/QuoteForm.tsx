@@ -599,7 +599,7 @@ export function QuoteForm() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="max-w-4xl mx-auto bg-cmyk-black rounded-2xl shadow-xl p-8 md:p-12 border border-cmyk-cyan/20">
+        <form onSubmit={handleSubmit(onSubmit)} className="max-w-4xl mx-auto bg-cmyk-black rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 lg:p-12 border border-cmyk-cyan/20">
 
           {/* SECTION: Contact Data */}
           <div className="mb-10">

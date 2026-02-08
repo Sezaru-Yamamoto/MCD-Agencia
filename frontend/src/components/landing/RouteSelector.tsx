@@ -105,6 +105,16 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
     };
   }, [isModalOpen, mapLoaded]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isModalOpen]);
+
   const createDraggableMarkers = () => {
     if (!map.current) return;
 
@@ -455,8 +465,8 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl h-[85vh] bg-cmyk-black rounded-2xl border-2 border-cmyk-cyan/30 shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overscroll-contain">
+          <div className="relative w-full max-w-4xl h-[85dvh] bg-cmyk-black rounded-2xl border-2 border-cmyk-cyan/30 shadow-2xl flex flex-col overflow-hidden">
             
             {/* Header */}
             <div className="flex-shrink-0 bg-cmyk-black border-b border-gray-700 p-4">
