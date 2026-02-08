@@ -25,14 +25,16 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               priority
             />
             <span className="mt-2 text-3xl lg:text-5xl font-bold text-white font-landing tracking-tight text-center select-none">
-              Transforma tus ideas
+              Da el primer paso.<br />Crea tu cuenta o inicia sesión.
             </span>
           </div>
         </div>
         {/* Right: Form */}
         <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4">
           <main className="w-full flex flex-col items-center justify-center">
-            {children}
+            <div className="w-full flex flex-col items-center justify-center mt-20 mb-20">
+              {children}
+            </div>
           </main>
         </div>
       </div>
