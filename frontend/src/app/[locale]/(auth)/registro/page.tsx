@@ -121,10 +121,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mt-16 mb-16">
+    <Card className="w-full max-w-2xl mt-6 mb-16">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-white mb-2">Crear Cuenta</h1>
-        <p className="text-neutral-400">Únete a Agencia MCD</p>
       </div>
 
       {prefillEmail && (

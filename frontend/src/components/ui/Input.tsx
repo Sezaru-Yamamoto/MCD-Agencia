@@ -56,7 +56,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
         {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
         {helperText && !error && (
-          <p className="mt-1.5 text-sm text-neutral-500">{helperText}</p>
+          <p className={cn("mt-1.5 text-neutral-500", props.type === "password" ? "text-xs" : "text-sm")}>{helperText}</p>
         )}
       </div>
     );
