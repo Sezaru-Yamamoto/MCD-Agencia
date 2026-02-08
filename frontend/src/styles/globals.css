@@ -100,10 +100,8 @@
     @apply transition-colors duration-200;
   }
 
-  /* Images */
-  img {
-    @apply max-w-full h-auto;
-  }
+  /* Images — Tailwind preflight handles max-w-full + h-auto;
+     removed duplicate rule that interfered with absolute-positioned images */
 }
 
 /* =============================================================================

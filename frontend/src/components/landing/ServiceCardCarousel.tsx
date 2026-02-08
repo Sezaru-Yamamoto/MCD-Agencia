@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 
 export interface ServiceCardImageData {
   src: string;
@@ -59,7 +58,7 @@ export function ServiceCardCarousel({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Images */}
+      {/* Images — using native <img> for maximum compatibility */}
       {items.map((item, index) => (
         <div
           key={index}
@@ -69,13 +68,13 @@ export function ServiceCardCarousel({
             className={onImageClick ? 'cursor-pointer w-full h-full' : 'w-full h-full'}
             onClick={() => onImageClick?.(index)}
           >
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={item.src}
               alt={`${alt} - ${index + 1}`}
-              fill
-              className={`${contain ? 'object-contain' : 'object-cover group-hover:scale-110'} transition-transform duration-300`}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              priority={index === 0}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              className={`absolute inset-0 w-full h-full ${contain ? 'object-contain' : 'object-cover group-hover:scale-110'} transition-transform duration-300`}
             />
           </div>
         </div>

@@ -61,8 +61,8 @@ const nextConfig = {
         hostname: 'images.unsplash.com',
       },
     ],
-    // Supported image formats
-    formats: ['image/avif', 'image/webp'],
+    // Supported image formats (WebP only — AVIF removed for broader compatibility)
+    formats: ['image/webp'],
     // Device sizes for responsive images
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     // Image sizes for next/image
