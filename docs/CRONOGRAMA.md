@@ -11,22 +11,21 @@
 
 | # | Actividad | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 | S10 | S11 | S12 | S13 | S14 | S15 |
 |---|-----------|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | Identificación de mejoras para la empresa | ██ | | | | | | | | | | | | | | |
+| 1 | Revisión de los procesos manuales actuales requeridos en el sistema | ██ | | | | | | | | | | | | | | |
 | 2 | Levantamiento y abstracción de requerimientos | | ██ | | | | | | | | | | | | | |
-| 3 | Selección de herramientas de desarrollo y metodología | | ██ | ██ | | | | | | | | | | | | |
-| 4 | Definición de la arquitectura del sistema y base de datos | | | ██ | ██ | | | | | | | | | | | |
-| 5 | Diseño de la integración con servicios externos (Brevo, Cloudflare R2, MercadoPago) | | | | ██ | | | | | | | | | | | |
+| 3 | Selección de las herramientas de desarrollo y metodología | | ██ | ██ | | | | | | | | | | | | |
+| 4 | Definición de la arquitectura del sistema y BD | | | ██ | ██ | | | | | | | | | | | |
+| 5 | Diseño de integración con servicios externos | | | | ██ | | | | | | | | | | | |
 | 6 | Diseño de las interfaces de usuario (UI/UX) | | | | ██ | ██ | | | | | | | | | | |
-| 7 | Desarrollo del sitio web público (landing page) y sistema de autenticación | | | | | ██ | ██ | | | | | | | | | |
-| 8 | Desarrollo del sistema de cotizaciones y generación de PDF | | | | | | ██ | ██ | | | | | | | | |
-| 9 | Desarrollo del catálogo de productos y sistema de inventario | | | | | | | ██ | ██ | | | | | | | |
-| 10 | Desarrollo del carrito de compras, pedidos y pasarelas de pago | | | | | | | | ██ | ██ | | | | | | |
-| 11 | Implementación del CMS, chatbot y sistema de notificaciones | | | | | | | | | ██ | ██ | | | | | |
+| 7 | Sitio web público y sistema de autenticación | | | | | ██ | ██ | | | | | | | | | |
+| 8 | Sistema de cotizaciones y generación de PDF | | | | | | ██ | ██ | | | | | | | | |
+| 9 | Catálogo de productos e inventario | | | | | | | ██ | ██ | | | | | | | |
+| 10 | Carrito, pedidos y pasarelas de pago | | | | | | | | ██ | ██ | | | | | | |
+| 11 | CMS, chatbot y sistema de notificaciones | | | | | | | | | ██ | ██ | | | | | |
 | 12 | Documentación del código y del sistema | | | | | | | | | | ██ | ██ | ██ | | | |
-| 13 | Pruebas internas con escenarios simulados | | | | | | | | | | | | ██ | ██ | | |
+| 13 | Pruebas, retroalimentación y modificaciones | | | | | | | | | | | | ██ | ██ | | |
 | 14 | Despliegue de la solución en producción | | | | | | | | | | | | | ██ | ██ | |
-| 15 | Revisión y ajustes basados en retroalimentación del cliente | | | | | | | | | | | | | | ██ | |
-| 16 | Capacitación al equipo en el uso del sistema | | | | | | | | | | | | | | | ██ |
+| 15 | Entrega del sistema y capacitación al equipo | | | | | | | | | | | | | | ██ | ██ |
 
 ---
 
@@ -47,22 +46,26 @@
 | S11 | 23 – 29 Abr | Documentación |
 | S12 | 30 Abr – 6 May | Documentación / Pruebas |
 | S13 | 7 – 13 May | Pruebas / Despliegue |
-| S14 | 14 – 20 May | Despliegue / Ajustes |
-| S15 | 21 – 27 May | Capacitación y cierre |
+| S14 | 14 – 20 May | Despliegue / Entrega |
+| S15 | 21 – 27 May | Entrega / Capacitación |
 
 ---
 
 ## Descripción de Actividades
 
-### 1. Identificación de mejoras para la empresa (S1)
+### 1. Revisión de los procesos manuales actuales requeridos en el sistema (S1)
+
+**Objetivo**: Identificar y documentar los procesos operativos actuales de la agencia de publicidad MCD que requieren ser digitalizados o automatizados, detectando ineficiencias y áreas de oportunidad para justificar el desarrollo del sistema.
 
 Análisis de los procesos actuales de la agencia de publicidad MCD: gestión de clientes, generación de cotizaciones, control de inventario de material publicitario y comunicación con prospectos. Identificación de áreas de oportunidad donde una solución digital puede optimizar la operación: automatización de cotizaciones, catálogo en línea, seguimiento de pedidos y captación de leads.
 
-**Entregable**: Documento de diagnóstico con áreas de mejora identificadas.
+**Entregable**: Documento de diagnóstico con procesos manuales identificados y áreas de mejora.
 
 ---
 
 ### 2. Levantamiento y abstracción de requerimientos (S2)
+
+**Objetivo**: Definir de manera clara y estructurada los requerimientos funcionales y no funcionales del sistema, estableciendo el alcance del proyecto y las reglas de negocio que regirán cada módulo.
 
 Definición de los requerimientos funcionales y no funcionales del sistema a partir del diagnóstico. Se documentan los casos de uso principales: registro de usuarios, solicitud y gestión de cotizaciones, catálogo de productos, carrito de compras, pagos en línea, gestión de inventario, CMS para contenido dinámico, chatbot para captación de leads, y panel de administración con control de acceso basado en roles (RBAC).
 
@@ -70,7 +73,9 @@ Definición de los requerimientos funcionales y no funcionales del sistema a par
 
 ---
 
-### 3. Selección de herramientas de desarrollo y metodología (S2–S3)
+### 3. Selección de las herramientas de desarrollo y metodología (S2–S3)
+
+**Objetivo**: Evaluar y seleccionar el stack tecnológico más adecuado para el desarrollo del sistema, considerando escalabilidad, costos, comunidad de soporte y compatibilidad entre tecnologías, así como definir la metodología de trabajo.
 
 Evaluación y selección del stack tecnológico:
 - **Frontend**: Next.js 14 (React 18, App Router, Server Components), TypeScript, Tailwind CSS
@@ -86,7 +91,9 @@ Evaluación y selección del stack tecnológico:
 
 ---
 
-### 4. Definición de la arquitectura del sistema y base de datos (S3–S4)
+### 4. Definición de la arquitectura del sistema y BD (S3–S4)
+
+**Objetivo**: Diseñar la arquitectura general del sistema y el modelo de base de datos, definiendo la estructura de módulos, la comunicación entre frontend y backend, el esquema de autenticación y la estrategia de almacenamiento.
 
 Diseño de la arquitectura general del sistema:
 - Arquitectura cliente-servidor con API REST (separación frontend/backend)
@@ -100,7 +107,9 @@ Diseño de la arquitectura general del sistema:
 
 ---
 
-### 5. Diseño de la integración con servicios externos (S4)
+### 5. Diseño de integración con servicios externos (S4)
+
+**Objetivo**: Planificar la integración del sistema con cada servicio externo requerido, definiendo los flujos de comunicación, protocolos de seguridad y mecanismos de respaldo para garantizar la operación continua.
 
 Planificación de las integraciones con servicios de terceros:
 - **Brevo**: Envío de correos de verificación, confirmación de pedidos, notificaciones de cotizaciones. Plantillas HTML responsivas con soporte bilingüe (es/en)
@@ -115,6 +124,8 @@ Planificación de las integraciones con servicios de terceros:
 
 ### 6. Diseño de las interfaces de usuario (UI/UX) (S4–S5)
 
+**Objetivo**: Diseñar interfaces intuitivas, responsivas y alineadas a la identidad visual de la agencia MCD, asegurando una experiencia de usuario óptima en todos los dispositivos y para cada rol del sistema.
+
 Diseño de las interfaces del sistema siguiendo los lineamientos de marca de la agencia MCD:
 - **Sitio público**: Landing page, página de servicios, catálogo, contacto
 - **Portal del cliente**: Registro, login, mis cotizaciones, mis pedidos, carrito
@@ -127,7 +138,9 @@ Diseño de las interfaces del sistema siguiendo los lineamientos de marca de la 
 
 ---
 
-### 7. Desarrollo del sitio web público y sistema de autenticación (S5–S6)
+### 7. Sitio web público y sistema de autenticación (S5–S6)
+
+**Objetivo**: Desarrollar el sitio web público de la agencia con toda la información comercial y un sistema de autenticación seguro con verificación por correo, roles diferenciados y soporte para inicio de sesión con Google.
 
 Implementación del sitio público y el módulo de usuarios:
 - **Landing page**: Hero section, servicios, portafolio, testimonios, call-to-action, footer con información de contacto
@@ -142,7 +155,9 @@ Implementación del sitio público y el módulo de usuarios:
 
 ---
 
-### 8. Desarrollo del sistema de cotizaciones y generación de PDF (S6–S7)
+### 8. Sistema de cotizaciones y generación de PDF (S6–S7)
+
+**Objetivo**: Implementar un sistema completo de cotizaciones que permita a los clientes solicitarlas, a los vendedores crearlas con ítems detallados, y al sistema generar documentos PDF profesionales con flujo de aprobación, versionamiento y solicitudes de cambio.
 
 Implementación del módulo de cotizaciones (RFQ):
 - **Solicitud de cotización**: Formulario para clientes con descripción del proyecto, tipo de servicio, cantidad, fecha deseada, archivos adjuntos
@@ -157,7 +172,9 @@ Implementación del módulo de cotizaciones (RFQ):
 
 ---
 
-### 9. Desarrollo del catálogo de productos y sistema de inventario (S7–S8)
+### 9. Catálogo de productos e inventario (S7–S8)
+
+**Objetivo**: Desarrollar un catálogo de productos en línea con gestión de variantes, imágenes optimizadas y filtros avanzados, junto con un sistema de inventario que permita controlar movimientos de stock y generar alertas automáticas de stock bajo.
 
 Implementación de los módulos de catálogo e inventario:
 - **Catálogo**: CRUD de productos con categorías jerárquicas, variantes (talla, color, material), imágenes múltiples almacenadas en Cloudflare R2
@@ -172,7 +189,9 @@ Implementación de los módulos de catálogo e inventario:
 
 ---
 
-### 10. Desarrollo del carrito de compras, pedidos y pasarelas de pago (S8–S9)
+### 10. Carrito, pedidos y pasarelas de pago (S8–S9)
+
+**Objetivo**: Implementar el flujo completo de comercio electrónico, desde el carrito de compras hasta la confirmación del pedido, integrando las pasarelas de pago MercadoPago y PayPal con manejo de webhooks, reembolsos y deducción automática de inventario.
 
 Implementación del flujo completo de e-commerce:
 - **Carrito de compras**: Agregar/eliminar productos, modificar cantidades, persistencia por sesión y usuario
@@ -188,7 +207,9 @@ Implementación del flujo completo de e-commerce:
 
 ---
 
-### 11. Implementación del CMS, chatbot y sistema de notificaciones (S9–S10)
+### 11. CMS, chatbot y sistema de notificaciones (S9–S10)
+
+**Objetivo**: Dotar al sistema de un gestor de contenido para que el administrador pueda actualizar el sitio sin intervención técnica, un chatbot para captación de prospectos y atención automatizada, y un sistema de notificaciones multicanal para mantener informados a todos los actores.
 
 Implementación de módulos complementarios:
 - **CMS**: Gestión de secciones dinámicas del sitio (hero, servicios, testimonios, FAQ), editor de contenido con imágenes, preview en tiempo real
@@ -203,6 +224,8 @@ Implementación de módulos complementarios:
 
 ### 12. Documentación del código y del sistema (S10–S12)
 
+**Objetivo**: Elaborar la documentación técnica y funcional completa del sistema, incluyendo arquitectura, historial de cambios, guías de despliegue, documentación de API y manual de usuario, garantizando la mantenibilidad y transferencia de conocimiento.
+
 Elaboración de la documentación técnica y funcional:
 - **Documentación del código**: Docstrings en modelos, serializers y views de Django. Comentarios en componentes React clave
 - **Arquitectura del sistema**: Documento ARCHITECTURE.md con diagrama de infraestructura, flujos de datos, stack tecnológico, estrategia de despliegue
@@ -215,21 +238,27 @@ Elaboración de la documentación técnica y funcional:
 
 ---
 
-### 13. Pruebas internas con escenarios simulados (S12–S13)
+### 13. Pruebas, retroalimentación y modificaciones (S12–S13)
 
-Ejecución de pruebas para validar la calidad del sistema:
+**Objetivo**: Validar la calidad, seguridad y rendimiento del sistema mediante pruebas automatizadas y manuales, recopilar retroalimentación del equipo de la agencia, y aplicar las correcciones y ajustes necesarios antes del despliegue final.
+
+Ejecución de pruebas y ciclo de retroalimentación:
 - **Pruebas unitarias (backend)**: Tests con `pytest-django` para modelos, serializers y views de cada módulo
 - **Pruebas unitarias (frontend)**: Tests con Jest y React Testing Library para componentes y servicios
 - **Pruebas de integración**: Flujos completos end-to-end: registro → compra → pago, solicitud → cotización → aprobación
 - **Pruebas de seguridad**: Verificación de permisos por rol, protección CSRF/XSS, validación de tokens JWT, rate limiting
 - **Pruebas de rendimiento**: Auditoría con Lighthouse (Performance, Accessibility, SEO, Best Practices)
 - **Pruebas responsive**: Verificación en dispositivos móviles (iOS Safari, Android Chrome) y tablets
+- **Retroalimentación del equipo**: Presentación al equipo de ventas y gerencia, recolección de observaciones sobre usabilidad y flujos
+- **Modificaciones**: Ajustes en interfaces y corrección de bugs reportados durante la revisión
 
-**Entregable**: Reporte de pruebas con resultados, bugs encontrados y correcciones aplicadas.
+**Entregable**: Reporte de pruebas con resultados, bugs encontrados, correcciones aplicadas y aprobación del equipo.
 
 ---
 
 ### 14. Despliegue de la solución en producción (S13–S14)
+
+**Objetivo**: Poner en producción el sistema completo con configuración de dominio, SSL, bases de datos, almacenamiento en la nube, servicio de correo y pasarelas de pago, asegurando la operación estable y el monitoreo continuo.
 
 Puesta en producción del sistema completo:
 - **Backend en Render**: Despliegue con Docker, PostgreSQL administrado, variables de entorno de producción, build automático desde rama `main`
@@ -239,33 +268,23 @@ Puesta en producción del sistema completo:
 - **Email**: Verificación del servicio Brevo en producción con dominio autenticado
 - **Monitoreo**: Configuración de health checks, alertas de caída, logs centralizados
 - **Pasarelas de pago**: Activación de credenciales de producción (MercadoPago y PayPal) con transacción de prueba real
+- **Carga de contenido real**: Catálogo de productos con precios e imágenes definitivas, contenido del CMS
 
 **Entregable**: Sistema desplegado y operativo en producción con dominio, SSL y pagos activos.
 
 ---
 
-### 15. Revisión y ajustes basados en retroalimentación del cliente (S14)
+### 15. Entrega del sistema y capacitación al equipo (S14–S15)
 
-Ciclo de retroalimentación con el equipo de la agencia MCD:
-- Presentación del sistema al equipo de ventas y gerencia
-- Recolección de observaciones sobre usabilidad, flujos y contenido
-- Ajustes en interfaces según feedback recibido
-- Corrección de bugs reportados durante la revisión
-- Carga del catálogo real de productos con precios e imágenes definitivas
-- Verificación del contenido final del CMS (textos, imágenes, testimonios)
+**Objetivo**: Realizar la entrega formal del proyecto al equipo de la agencia MCD, capacitar al personal operativo en el uso de todas las funcionalidades del sistema según su rol, y proporcionar la documentación necesaria para la operación autónoma.
 
-**Entregable**: Sistema ajustado con contenido real y aprobación del cliente.
-
----
-
-### 16. Capacitación al equipo en el uso del sistema (S15)
-
-Transferencia de conocimiento al equipo operativo:
-- Sesión de capacitación para el equipo de ventas: gestión de cotizaciones, pedidos, inventario
-- Sesión de capacitación para administradores: CMS, usuarios, roles, reportes, auditoría
+Transferencia de conocimiento y cierre del proyecto:
+- Sesión de capacitación para el equipo de ventas: gestión de cotizaciones, pedidos, clientes, leads
+- Sesión de capacitación para administradores: catálogo, inventario, CMS, usuarios, roles, reportes, auditoría
 - Entrega del manual de usuario impreso/digital
 - Entrega de credenciales de acceso y documentación de las plataformas (Render, Vercel, Cloudflare, Brevo)
+- Verificación final del sistema en producción con datos reales
 - Periodo de soporte post-lanzamiento para resolución de dudas
-- Entrega formal del proyecto
+- Entrega formal del proyecto con acta de cierre
 
 **Entregable**: Equipo capacitado, documentación entregada, proyecto cerrado formalmente.
