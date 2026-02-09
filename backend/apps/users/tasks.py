@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
     bind=True,
     max_retries=3,
     default_retry_delay=60,
-    autoretry_for=(Exception,),
 )
 def send_verification_email(self, user_id: str):
     """
@@ -49,9 +48,10 @@ def send_verification_email(self, user_id: str):
         # Generate verification token
         token = user.generate_verification_token()
 
-        # Build verification URL
+        # Build verification URL (locale-aware)
         frontend_url = settings.FRONTEND_URL
-        verification_url = f"{frontend_url}/verify-email?token={token}"
+        lang = user.preferred_language or 'es'
+        verification_url = f"{frontend_url}/{lang}/verificar-email?token={token}"
 
         # Prepare email content
         context = {

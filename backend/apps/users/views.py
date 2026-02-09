@@ -179,7 +179,13 @@ class ResendVerificationView(APIView):
 
         try:
             user = User.objects.get(email=email, is_email_verified=False)
-            send_verification_email.delay(str(user.id))
+            try:
+                send_verification_email.delay(str(user.id))
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Failed to send verification email to {email}"
+                )
         except User.DoesNotExist:
             pass  # Don't reveal whether email exists
 
