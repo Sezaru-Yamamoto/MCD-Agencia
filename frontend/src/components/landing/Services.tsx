@@ -25,7 +25,7 @@ export function Services() {
     return () => clearInterval(timer);
   }, []);
 
-  const { data: landingData } = useQuery({
+  const { data: landingData, isLoading: landingLoading } = useQuery({
     queryKey: ['landing-data'],
     queryFn: getLandingPageData,
     staleTime: 2 * 60 * 1000,  // 2 min — show CMS image changes faster
@@ -60,8 +60,8 @@ export function Services() {
     const subcategories = SERVICE_SUBCATEGORIES[id] || [];
     const apiData = apiDataByKey[id];
     // Rich image data for modal; plain strings for card
-    const carouselImages: ServiceCardImageData[] = apiData?.images ?? SERVICE_CAROUSEL_IMAGES[id].map((src) => ({ src }));
-    const carouselImageStrings = apiData ? apiData.images.map((i) => i.src) : SERVICE_CAROUSEL_IMAGES[id];
+    const carouselImages: ServiceCardImageData[] = apiData?.images ?? (landingLoading ? [] : SERVICE_CAROUSEL_IMAGES[id].map((src) => ({ src })));
+    const carouselImageStrings = apiData ? apiData.images.map((i) => i.src) : (landingLoading ? [] : SERVICE_CAROUSEL_IMAGES[id]);
     return {
       id,
       title: t(`items.${id}.title`),
@@ -73,7 +73,7 @@ export function Services() {
       carouselImages,
       carouselImageStrings,
     };
-  }, [t, apiDataByKey]);
+  }, [t, apiDataByKey, landingLoading]);
 
   const selectedService = selectedServiceId
     ? getServiceData(selectedServiceId)
@@ -133,7 +133,15 @@ export function Services() {
                 className="group overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-gradient-to-br from-cmyk-black/80 to-cmyk-black/60 border-2 border-cmyk-cyan/40 hover:border-cmyk-cyan/80 cursor-pointer text-left"
                 style={{ animationDelay: `${index * 50}ms` }}>
                 <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-200">
-                  <ServiceCardCarousel images={service.carouselImageStrings} alt={service.title} syncTick={syncTick} />
+                  {service.carouselImageStrings.length === 0 ? (
+                    <div className="absolute inset-0 bg-neutral-800/60 animate-pulse flex items-center justify-center">
+                      <svg className="w-10 h-10 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <ServiceCardCarousel images={service.carouselImageStrings} alt={service.title} syncTick={syncTick} />
+                  )}
                 </div>
                 <div className="p-4 sm:p-6 space-y-4">
                   <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2 group-hover:text-cmyk-cyan transition-colors min-h-14">{service.title}</h3>

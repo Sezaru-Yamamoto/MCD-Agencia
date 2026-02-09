@@ -67,14 +67,14 @@ export function Portfolio() {
   const t = useTranslations('landing.portfolio');
   const [carouselIdx, setCarouselIdx] = useState(0);
 
-  const { data: apiVideos } = useQuery({
+  const { data: apiVideos, isLoading: videosLoading } = useQuery({
     queryKey: ['portfolio-videos'],
     queryFn: getPortfolioVideos,
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
 
-  // Use API videos if available, otherwise fallback
+  // Use API videos if available, fallback only after API responds empty
   const videos = useMemo(() => {
     if (apiVideos && apiVideos.length > 0) {
       return apiVideos.map((v) => ({
@@ -83,8 +83,9 @@ export function Portfolio() {
         orientation: v.orientation,
       }));
     }
+    if (videosLoading) return [];
     return FALLBACK_VIDEOS;
-  }, [apiVideos]);
+  }, [apiVideos, videosLoading]);
 
   const handleQuoteClick = () => { trackCTA('quote', 'portfolio'); };
 
@@ -99,6 +100,19 @@ export function Portfolio() {
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
           <p className="text-base sm:text-lg md:text-xl text-gray-300">{t('subtitle')}</p>
         </div>
+
+        {/* Loading skeleton */}
+        {videosLoading && (
+          <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 mb-10 sm:mb-14 px-4 sm:px-0">
+            {[0, 1].map((i) => (
+              <div key={i} className="w-[45%] sm:w-[40%] md:w-[280px] lg:w-[320px] aspect-[9/16] rounded-2xl bg-neutral-800/60 animate-pulse flex items-center justify-center border border-cmyk-cyan/20">
+                <svg className="w-10 h-10 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                </svg>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ─── Side-by-side (both vertical) ─── */}
         {allVertical && (
