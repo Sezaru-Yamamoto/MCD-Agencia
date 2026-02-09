@@ -287,6 +287,9 @@ export default function SalesOrdersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                     Pedido
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                    Acciones
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                     Cliente
                   </th>
@@ -298,9 +301,6 @@ export default function SalesOrdersPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                     Fecha
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                    Acciones
                   </th>
                 </tr>
               </thead>
@@ -317,25 +317,8 @@ export default function SalesOrdersPage() {
                           <p className="text-neutral-500 text-sm">{order.item_count} producto(s)</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-white">{customer?.full_name || '-'}</p>
-                          <p className="text-neutral-500 text-sm">{customer?.email || ''}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
-                          {statusLabels[order.status] || order.status_display || order.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-white">
-                        {formatCurrency(order.total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
-                        {formatDate(order.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
                           <Link
                             href={`/${locale}/dashboard/pedidos/${order.id}`}
                             className="p-1 text-neutral-400 hover:text-white transition-colors"
@@ -367,6 +350,23 @@ export default function SalesOrdersPage() {
                             </select>
                           )}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-white">{customer?.full_name || '-'}</p>
+                          <p className="text-neutral-500 text-sm">{customer?.email || ''}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
+                          {statusLabels[order.status] || order.status_display || order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-white">
+                        {formatCurrency(order.total)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
+                        {formatDate(order.created_at)}
                       </td>
                     </tr>
                   );

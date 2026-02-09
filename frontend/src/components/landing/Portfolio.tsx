@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { trackCTA } from '@/lib/tracking';
@@ -66,6 +66,9 @@ function VideoCard({
 export function Portfolio() {
   const t = useTranslations('landing.portfolio');
   const [carouselIdx, setCarouselIdx] = useState(0);
+  const [mobileIdx, setMobileIdx] = useState(0);
+  const touchStartX = useRef(0);
+  const touchDeltaX = useRef(0);
 
   const { data: apiVideos, isLoading: videosLoading } = useQuery({
     queryKey: ['portfolio-videos'],
@@ -88,6 +91,28 @@ export function Portfolio() {
   }, [apiVideos, videosLoading]);
 
   const handleQuoteClick = () => { trackCTA('quote', 'portfolio'); };
+
+  // Mobile swipe handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    const threshold = 50;
+    if (touchDeltaX.current < -threshold) {
+      // Swipe left → next
+      setMobileIdx((p) => (p + 1) % videos.length);
+    } else if (touchDeltaX.current > threshold) {
+      // Swipe right → prev
+      setMobileIdx((p) => (p - 1 + videos.length) % videos.length);
+    }
+    touchDeltaX.current = 0;
+  }, [videos.length]);
 
   // Layout logic: both vertical → side by side, otherwise → manual carousel
   const allVertical = videos.length <= 2 && videos.every((v) => v.orientation === 'vertical');
@@ -114,15 +139,63 @@ export function Portfolio() {
           </div>
         )}
 
-        {/* ─── Side-by-side (both vertical) ─── */}
+        {/* ─── Side-by-side (desktop) / Carousel (mobile) for vertical videos ─── */}
         {allVertical && (
-          <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 mb-10 sm:mb-14 px-4 sm:px-0">
-            {videos.map((video) => (
-              <div key={video.id} className="w-[45%] sm:w-[40%] md:w-[280px] lg:w-[320px]">
-                <VideoCard videoId={video.id} label={video.labelKey} playLabel={t('playVideo')} altText={t('videoAlt')} orientation={video.orientation} />
+          <>
+            {/* Desktop: side-by-side */}
+            <div className="hidden md:flex justify-center gap-6 lg:gap-8 mb-10 sm:mb-14">
+              {videos.map((video) => (
+                <div key={video.id} className="w-[280px] lg:w-[320px]">
+                  <VideoCard videoId={video.id} label={video.labelKey} playLabel={t('playVideo')} altText={t('videoAlt')} orientation={video.orientation} />
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile: swipeable carousel with larger cards */}
+            {videos.length > 0 && (
+              <div className="md:hidden relative mb-10 px-4"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                {/* Prev arrow */}
+                {videos.length > 1 && (
+                  <button onClick={() => setMobileIdx((p) => (p - 1 + videos.length) % videos.length)}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/25 text-white p-2 rounded-full transition-colors backdrop-blur-sm" aria-label="Video anterior">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                )}
+
+                <div className="w-[75%] mx-auto transition-all duration-300">
+                  <VideoCard
+                    videoId={videos[mobileIdx].id}
+                    label={videos[mobileIdx].labelKey}
+                    playLabel={t('playVideo')}
+                    altText={t('videoAlt')}
+                    orientation={videos[mobileIdx].orientation}
+                  />
+                </div>
+
+                {/* Next arrow */}
+                {videos.length > 1 && (
+                  <button onClick={() => setMobileIdx((p) => (p + 1) % videos.length)}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/25 text-white p-2 rounded-full transition-colors backdrop-blur-sm" aria-label="Siguiente video">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                )}
+
+                {/* Counter dots */}
+                {videos.length > 1 && (
+                  <div className="flex justify-center gap-2 mt-4">
+                    {videos.map((_, idx) => (
+                      <button key={idx} onClick={() => setMobileIdx(idx)}
+                        className={`w-2.5 h-2.5 rounded-full transition-all ${idx === mobileIdx ? 'bg-cmyk-cyan w-6' : 'bg-white/40 hover:bg-white/60'}`} aria-label={`Video ${idx + 1}`} />
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
 
         {/* ─── Manual carousel (horizontal / mixed) ─── */}

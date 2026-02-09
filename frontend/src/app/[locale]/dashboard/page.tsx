@@ -12,12 +12,10 @@ import {
   ArrowRightIcon,
   PencilSquareIcon,
   ChartBarIcon,
-  BoltIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, LoadingPage } from '@/components/ui';
-import ActivityFeed from '@/components/ui/ActivityFeed';
 import {
   getSalesRepDashboard,
   getAdminQuoteRequests,
@@ -332,20 +330,6 @@ export default function DashboardPage() {
             </div>
           </Card>
         )}
-
-        {/* Recent Activity Feed */}
-        <Card className="p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <BoltIcon className="h-5 w-5 text-cmyk-cyan" />
-              Actividad Reciente
-            </h2>
-          </div>
-          <ActivityFeed
-            activities={dashboard?.recent_activity || []}
-            isLoading={isLoading}
-          />
-        </Card>
 
         {/* Menu Grid - removed, navigation is in sidebar */}
     </div>

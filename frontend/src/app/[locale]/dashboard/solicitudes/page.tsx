@@ -391,6 +391,9 @@ export default function QuoteRequestsListPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Solicitud
                         </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                          Acciones
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Cliente
                         </th>
@@ -406,9 +409,6 @@ export default function QuoteRequestsListPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Fecha
                         </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Acciones
-                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800">
@@ -421,6 +421,28 @@ export default function QuoteRequestsListPage() {
                                 <p className="text-white font-medium">{request.request_number}</p>
                                 {request.is_guest && (
                                   <span className="text-xs text-neutral-500">Invitado</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1">
+                                <Link
+                                  href={`/${locale}/dashboard/solicitudes/${request.id}`}
+                                  className="p-2 text-neutral-400 hover:text-white transition-colors"
+                                  title="Ver detalle"
+                                >
+                                  <EyeIcon className="h-5 w-5" />
+                                </Link>
+                                {['pending', 'assigned', 'in_review'].includes(request.status) && (
+                                  isAdmin || request.assigned_to === user?.id || request.urgency === 'high'
+                                ) && (
+                                  <Link
+                                    href={`/${locale}/dashboard/cotizaciones/nueva?solicitud=${request.id}`}
+                                    className="p-2 text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors"
+                                    title="Crear cotización"
+                                  >
+                                    <DocumentPlusIcon className="h-5 w-5" />
+                                  </Link>
                                 )}
                               </div>
                             </td>
@@ -470,28 +492,6 @@ export default function QuoteRequestsListPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-sm">
                               {formatDate(request.created_at)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Link
-                                  href={`/${locale}/dashboard/solicitudes/${request.id}`}
-                                  className="p-2 text-neutral-400 hover:text-white transition-colors"
-                                  title="Ver detalle"
-                                >
-                                  <EyeIcon className="h-5 w-5" />
-                                </Link>
-                                {['pending', 'assigned', 'in_review'].includes(request.status) && (
-                                  isAdmin || request.assigned_to === user?.id || request.urgency === 'high'
-                                ) && (
-                                  <Link
-                                    href={`/${locale}/dashboard/cotizaciones/nueva?solicitud=${request.id}`}
-                                    className="p-2 text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors"
-                                    title="Crear cotización"
-                                  >
-                                    <DocumentPlusIcon className="h-5 w-5" />
-                                  </Link>
-                                )}
-                              </div>
                             </td>
                           </tr>
                         );
@@ -613,6 +613,9 @@ export default function QuoteRequestsListPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Cotización
                         </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                          Acciones
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Cliente
                         </th>
@@ -625,9 +628,6 @@ export default function QuoteRequestsListPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Fecha
                         </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Acciones
-                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800">
@@ -635,6 +635,20 @@ export default function QuoteRequestsListPage() {
                         <tr key={changeRequest.id} className="hover:bg-neutral-800/30">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <p className="text-white font-medium">{changeRequest.quote_number}</p>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
+                              <Link
+                                href={`/${locale}/dashboard/cotizaciones/${changeRequest.quote}/cambios/${changeRequest.id}`}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                  changeRequest.status === 'pending'
+                                    ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
+                                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                }`}
+                              >
+                                {changeRequest.status === 'pending' ? 'Revisar' : 'Ver'}
+                              </Link>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
@@ -670,20 +684,6 @@ export default function QuoteRequestsListPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-sm">
                             {formatDate(changeRequest.created_at)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Link
-                                href={`/${locale}/dashboard/cotizaciones/${changeRequest.quote}/cambios/${changeRequest.id}`}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                  changeRequest.status === 'pending'
-                                    ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
-                                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-                                }`}
-                              >
-                                {changeRequest.status === 'pending' ? 'Revisar' : 'Ver'}
-                              </Link>
-                            </div>
                           </td>
                         </tr>
                       ))}

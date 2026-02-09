@@ -77,10 +77,8 @@ export default function QuoteChangeEditor({
 
         if (field === 'quantity') {
           newLine.newQuantity = Number(value);
-          newLine.isModified = Number(value) !== originalLine?.quantity;
         } else if (field === 'description') {
           newLine.newDescription = String(value);
-          newLine.isModified = value !== originalLine?.description;
         }
 
         // Check if actually modified compared to original
@@ -89,7 +87,7 @@ export default function QuoteChangeEditor({
           newLine.newQuantity !== originalLine?.quantity;
         const descChanged =
           newLine.newDescription !== undefined &&
-          newLine.newDescription !== originalLine?.description;
+          newLine.newDescription.trim() !== '';
         newLine.isModified = qtyChanged || descChanged;
 
         return newLine;
@@ -197,11 +195,12 @@ export default function QuoteChangeEditor({
           action: 'delete',
         });
       } else if (line.isModified) {
+        const hasChangeNotes = line.newDescription !== undefined && line.newDescription.trim() !== '';
         proposedLines.push({
           id: line.id,
           action: 'modify',
           quantity: line.newQuantity ?? originalLine.quantity,
-          description: line.newDescription ?? originalLine.description,
+          description: hasChangeNotes ? line.newDescription!.trim() : originalLine.description,
           original_values: {
             quantity: String(originalLine.quantity),
             description: originalLine.description,
@@ -242,7 +241,8 @@ export default function QuoteChangeEditor({
         <div className="text-sm text-neutral-300">
           <p className="font-medium text-white mb-1">Editor de cambios</p>
           <p>
-            Modifica las cantidades, elimina elementos o agrega nuevos. El vendedor
+            Revisa los detalles de cada elemento, modifica cantidades, describe los
+            cambios que necesitas, elimina elementos o agrega nuevos. El vendedor
             revisará tus cambios y te enviará una cotización actualizada.
           </p>
         </div>
@@ -280,24 +280,33 @@ export default function QuoteChangeEditor({
                     </p>
 
                     {isEditing && !line.isDeleted ? (
-                      <div className="mt-2 space-y-2">
-                        <div>
-                          <label className="text-xs text-neutral-400">
-                            Descripción
-                          </label>
-                          <textarea
-                            value={line.newDescription ?? line.description}
-                            onChange={(e) =>
-                              handleModifyLine(line.id, 'description', e.target.value)
-                            }
-                            className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
-                            rows={2}
-                          />
+                      <div className="mt-3 space-y-3">
+                        {/* Current details - read-only reference */}
+                        <div className="p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
+                          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2 font-medium">Detalles actuales</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-xs text-neutral-500">Concepto</p>
+                              <p className="text-sm text-white">{line.concept}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-neutral-500">Precio unitario</p>
+                              <p className="text-sm text-white">{formatCurrency(line.unit_price)}</p>
+                            </div>
+                          </div>
+                          {line.description && (
+                            <div className="mt-2">
+                              <p className="text-xs text-neutral-500">Descripción</p>
+                              <p className="text-sm text-neutral-300 whitespace-pre-line mt-0.5">{line.description}</p>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Editable fields */}
                         <div className="flex items-center gap-4">
                           <div>
                             <label className="text-xs text-neutral-400">
-                              Cantidad
+                              Nueva cantidad
                             </label>
                             <input
                               type="number"
@@ -317,6 +326,21 @@ export default function QuoteChangeEditor({
                           <div className="text-neutral-400 text-sm pt-5">
                             {line.unit}
                           </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-neutral-400">
+                            Cambios solicitados
+                          </label>
+                          <textarea
+                            value={line.newDescription ?? ''}
+                            onChange={(e) =>
+                              handleModifyLine(line.id, 'description', e.target.value)
+                            }
+                            placeholder="Describe aquí los cambios que necesitas para este elemento..."
+                            className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
+                            rows={2}
+                          />
+                          <p className="text-xs text-neutral-600 mt-1">Ej: Cambiar medidas a 4x3m, usar material diferente, etc.</p>
                         </div>
                         <div className="flex gap-2 mt-2">
                           <Button
@@ -340,16 +364,22 @@ export default function QuoteChangeEditor({
                       <>
                         {line.description && (
                           <p
-                            className={`text-sm ${
+                            className={`text-sm whitespace-pre-line ${
                               line.isDeleted
                                 ? 'text-red-400/70 line-through'
-                                : line.isModified && line.newDescription !== undefined
-                                ? 'text-yellow-400'
+                                : line.isModified && line.newDescription !== undefined && line.newDescription.trim() !== ''
+                                ? 'text-neutral-400'
                                 : 'text-neutral-400'
                             }`}
                           >
-                            {line.newDescription ?? line.description}
+                            {line.description}
                           </p>
+                        )}
+                        {line.isModified && line.newDescription !== undefined && line.newDescription.trim() !== '' && (
+                          <div className="mt-1 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                            <p className="text-xs text-yellow-500 font-medium mb-0.5">Cambios solicitados:</p>
+                            <p className="text-sm text-yellow-400 whitespace-pre-line">{line.newDescription}</p>
+                          </div>
                         )}
                         <div className="flex items-center gap-2 mt-1">
                           <span

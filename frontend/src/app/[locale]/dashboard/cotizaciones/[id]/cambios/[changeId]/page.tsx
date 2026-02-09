@@ -336,18 +336,25 @@ export default function ChangeRequestReviewPage() {
 
                                 {line.description !== undefined &&
                                   line.description !== originalLine?.description && (
-                                    <div className="text-sm">
-                                      <span className="text-neutral-500">Descripcion cambiada</span>
-                                      {originalLine?.description && (
-                                        <p className="text-red-400/70 line-through text-xs mt-0.5">
-                                          {originalLine.description}
-                                        </p>
-                                      )}
+                                    <div className="text-sm mt-1">
+                                      <span className="text-yellow-500 font-medium">Cambios solicitados:</span>
                                       {line.description && (
-                                        <p className="text-green-400/90 text-xs mt-0.5">
+                                        <p className="text-yellow-400 text-sm mt-0.5 whitespace-pre-line p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
                                           {line.description}
                                         </p>
                                       )}
+                                      {originalLine?.description && (
+                                        <details className="mt-1">
+                                          <summary className="text-neutral-500 text-xs cursor-pointer hover:text-neutral-400">
+                                            Ver descripción original
+                                          </summary>
+                                          <p className="text-neutral-500 text-xs mt-1 whitespace-pre-line">
+                                            {originalLine.description}
+                                          </p>
+                                        </details>
+                                      )}
+                                    </div>
+                                  )}
                                     </div>
                                   )}
                               </div>

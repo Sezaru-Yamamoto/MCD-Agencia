@@ -291,6 +291,9 @@ export default function QuotesListPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                       Cotización
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                      Acciones
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                       Cliente
                     </th>
@@ -306,9 +309,6 @@ export default function QuotesListPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                       Válida hasta
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                      Acciones
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
@@ -320,28 +320,8 @@ export default function QuotesListPage() {
                           <p className="text-neutral-500 text-sm">{quote.lines?.length || 0} productos</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-white">{quote.customer_name}</p>
-                          <p className="text-neutral-500 text-sm">{quote.customer_email}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[quote.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
-                          {statusLabels[quote.status] || quote.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-white">
-                        {formatCurrency(Number(quote.total) || 0)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
-                        {formatDate(quote.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
-                        {quote.valid_until ? formatDate(quote.valid_until) : '—'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
                           <Link
                             href={`/${locale}/dashboard/cotizaciones/${quote.id}`}
                             title="Ver detalle"
@@ -381,6 +361,26 @@ export default function QuotesListPage() {
                             </button>
                           )}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-white">{quote.customer_name}</p>
+                          <p className="text-neutral-500 text-sm">{quote.customer_email}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[quote.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
+                          {statusLabels[quote.status] || quote.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-white">
+                        {formatCurrency(Number(quote.total) || 0)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
+                        {formatDate(quote.created_at)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-neutral-400">
+                        {quote.valid_until ? formatDate(quote.valid_until) : '—'}
                       </td>
                     </tr>
                   ))}
