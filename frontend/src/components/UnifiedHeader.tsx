@@ -342,18 +342,21 @@ export function UnifiedHeader() {
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 text-gray-300 hover:text-cmyk-cyan transition-colors"
-          >
-            {isMobileMenuOpen ? (
-              <XMarkIcon className="w-6 h-6" />
-            ) : (
-              <Bars3Icon className="w-6 h-6" />
-            )}
-          </button>
+          {/* Mobile: Notification Bell + Hamburger */}
+          <div className="flex items-center gap-1 lg:hidden">
+            {isStaff && <NotificationBell />}
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-gray-300 hover:text-cmyk-cyan transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <XMarkIcon className="w-6 h-6" />
+              ) : (
+                <Bars3Icon className="w-6 h-6" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
