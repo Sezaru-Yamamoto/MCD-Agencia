@@ -196,55 +196,6 @@ class ResendVerificationView(APIView):
         )
 
 
-class EmailDiagnosticView(APIView):
-    """
-    TEMPORARY diagnostic endpoint to test email sending.
-    Remove after debugging is complete.
-    """
-    permission_classes = [permissions.AllowAny]
-
-    def get(self, request):
-        import traceback
-        from django.core.mail import send_mail as django_send_mail
-        results = {}
-
-        # Step 1: Check email config
-        results['email_backend'] = settings.EMAIL_BACKEND
-        results['default_from'] = settings.DEFAULT_FROM_EMAIL
-        results['anymail'] = {k: v[:10] + '...' for k, v in getattr(settings, 'ANYMAIL', {}).items()}
-        results['celery_eager'] = getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False)
-
-        # Step 2: Try sending a basic email
-        test_to = request.query_params.get('to', 'cyamamoto0126@gmail.com')
-        try:
-            r = django_send_mail(
-                subject='Diagnostico Email - MCD Agencia',
-                message='Si recibes esto, el email funciona en produccion.',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[test_to],
-                fail_silently=False,
-            )
-            results['send_mail'] = {'success': True, 'result': r}
-        except Exception as e:
-            results['send_mail'] = {'success': False, 'error': f'{type(e).__name__}: {e}', 'trace': traceback.format_exc()[-500:]}
-
-        # Step 3: Try the verification task
-        try:
-            user = User.objects.filter(email=test_to, is_email_verified=False).first()
-            if user:
-                results['user_found'] = True
-                from .tasks import send_verification_email as sve
-                task_result = sve(str(user.id))  # Call directly, not .delay()
-                results['task'] = {'success': True, 'result': task_result}
-            else:
-                results['user_found'] = False
-                results['task'] = 'skipped - no unverified user with that email'
-        except Exception as e:
-            results['task'] = {'success': False, 'error': f'{type(e).__name__}: {e}', 'trace': traceback.format_exc()[-500:]}
-
-        return Response(results)
-
-
 class UserProfileView(APIView):
     """
     Handle user profile operations.
