@@ -1374,7 +1374,7 @@ class QuoteChangeRequest(TimeStampedModel):
         return summary
 
     def approve(self, reviewed_by, notes=''):
-        """Approve the change request and update quote status."""
+        """Approve the change request, auto-apply changes, increment version."""
         self.status = self.STATUS_APPROVED
         self.reviewed_by = reviewed_by
         self.reviewed_at = timezone.now()
@@ -1383,9 +1383,69 @@ class QuoteChangeRequest(TimeStampedModel):
             'status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'
         ])
 
-        # Quote goes back to draft for sales to update
-        self.quote.status = Quote.STATUS_DRAFT
-        self.quote.save(update_fields=['status', 'updated_at'])
+        quote = self.quote
+
+        # Auto-apply proposed changes to quote lines
+        for line_data in self.proposed_lines:
+            action = line_data.get('action', 'modify')
+            line_id = line_data.get('id')
+
+            if action == 'delete' and line_id:
+                QuoteLine.objects.filter(id=line_id, quote=quote).delete()
+
+            elif action == 'modify' and line_id:
+                try:
+                    line = QuoteLine.objects.get(id=line_id, quote=quote)
+                    if line_data.get('concept'):
+                        line.concept = line_data['concept']
+                    if line_data.get('description') is not None:
+                        line.description = line_data.get('description', '')
+                    if line_data.get('quantity'):
+                        line.quantity = Decimal(str(line_data['quantity']))
+                    if line_data.get('unit'):
+                        line.unit = line_data['unit']
+                    if line_data.get('unit_price') is not None:
+                        line.unit_price = Decimal(str(line_data['unit_price']))
+                    line.save()  # save() recalculates line_total
+                except QuoteLine.DoesNotExist:
+                    pass
+
+            elif action == 'add':
+                max_pos = quote.lines.aggregate(
+                    models.Max('position')
+                )['position__max'] or 0
+                up = Decimal(str(line_data.get('unit_price', 0))) if line_data.get('unit_price') else Decimal('0.00')
+                qty = Decimal(str(line_data.get('quantity', 1)))
+                QuoteLine.objects.create(
+                    quote=quote,
+                    concept=line_data.get('concept', 'Nuevo concepto'),
+                    description=line_data.get('description', ''),
+                    quantity=qty,
+                    unit=line_data.get('unit', 'pz'),
+                    unit_price=up,
+                    line_total=qty * up,
+                    position=max_pos + 1,
+                )
+
+        # Recalculate totals
+        quote.calculate_totals()
+
+        # Increment version and reset to draft
+        quote.version += 1
+        quote.status = Quote.STATUS_DRAFT
+
+        update_fields = ['status', 'version', 'subtotal', 'tax_amount', 'total', 'updated_at']
+
+        # Clear outdated PDF
+        if quote.pdf_file:
+            try:
+                quote.pdf_file.delete(save=False)
+            except Exception:
+                pass
+            quote.pdf_file = ''
+            update_fields.append('pdf_file')
+
+        quote.save(update_fields=update_fields)
 
     def reject(self, reviewed_by, notes=''):
         """Reject the change request."""

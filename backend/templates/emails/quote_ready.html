@@ -3,11 +3,19 @@
 {% block title %}Tu Cotización #{{ quote.quote_number }} - MCD Agencia{% endblock %}
 
 {% block content %}
+{% if is_revised %}
+<h2>Tu cotización ha sido actualizada</h2>
+
+<p>Hola {{ recipient_name }},</p>
+
+<p>Hemos actualizado la cotización que solicitaste con los cambios acordados. A continuación encontrarás los nuevos detalles:</p>
+{% else %}
 <h2>Tu cotización está lista</h2>
 
 <p>Hola {{ recipient_name }},</p>
 
 <p>Hemos preparado la cotización que solicitaste. A continuación encontrarás los detalles:</p>
+{% endif %}
 
 <div class="info-box">
     <p style="margin: 0;"><strong>Número de cotización:</strong> #{{ quote.quote_number }}</p>

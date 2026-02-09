@@ -25,7 +25,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
 from .models import QuoteRequest, Quote, QuoteLine, QuoteAttachment, QuoteChangeRequest
-from .tasks import send_quote_email_sync
+from .tasks import send_quote_email_sync, notify_admin_new_quote_request, send_quote_accepted_notification, send_order_confirmation_email
 from .serializers import (
     QuoteRequestSerializer,
     QuoteRequestCreateSerializer,
@@ -69,6 +69,12 @@ class QuoteRequestPublicView(APIView):
             request=request,
             metadata={'source': 'public_form'}
         )
+
+        # Notify sales team about new quote request
+        try:
+            notify_admin_new_quote_request.delay(str(quote_request.id))
+        except Exception:
+            pass  # Don't fail the request if notification fails
 
         return Response(
             {
@@ -168,6 +174,27 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             status__in=[QuoteRequest.STATUS_PENDING, QuoteRequest.STATUS_ASSIGNED, QuoteRequest.STATUS_IN_REVIEW]
         ).order_by('-created_at')[:5]
 
+        # Get recent activity from audit log
+        activity_qs = AuditLog.objects.filter(
+            entity_type__in=['Quote', 'QuoteRequest', 'Order'],
+        ).order_by('-timestamp')[:15]
+
+        recent_activity = []
+        for log in activity_qs:
+            description = log.entity_repr or f"{log.entity_type}"
+            action_label = log.get_action_display()
+            recent_activity.append({
+                'id': str(log.id),
+                'action': log.action,
+                'action_display': action_label,
+                'entity_type': log.entity_type,
+                'entity_id': log.entity_id,
+                'description': f"{description} — {action_label}",
+                'actor': log.actor_email or 'Sistema',
+                'timestamp': log.timestamp.isoformat(),
+                'metadata': log.metadata,
+            })
+
         data = {
             'pending_requests': pending_requests,
             'quotes_without_response': quotes_without_response,
@@ -175,7 +202,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             'total_quoted': total_quoted,
             'total_approved': total_approved,
             'urgent_requests': QuoteRequestSerializer(urgent_requests, many=True).data,
-            'recent_activity': [],  # TODO: Add activity tracking
+            'recent_activity': recent_activity,
         }
 
         return Response(data)
@@ -395,6 +422,14 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 request=request
             )
 
+        # Regenerate PDF to ensure it reflects current quote data
+        from apps.quotes.tasks import generate_quote_pdf
+        try:
+            generate_quote_pdf(str(quote.id))
+            quote.refresh_from_db()
+        except Exception as e:
+            logger.warning(f"PDF regeneration failed for {quote.quote_number}: {e}")
+
         # Send email notification to customer in background thread
         # (don't block the HTTP response — email can take several seconds)
         def _send_email():
@@ -460,7 +495,11 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 request=request
             )
 
-            # TODO: Send notification to sales team
+            # Notify sales team about accepted quote
+            try:
+                send_quote_accepted_notification.delay(str(quote.id))
+            except Exception:
+                pass  # Don't fail the request if notification fails
 
         return Response(QuoteSerializer(quote).data)
 
@@ -483,6 +522,13 @@ class QuoteViewSet(viewsets.ModelViewSet):
         if quote.status != Quote.STATUS_ACCEPTED:
             return Response(
                 {'error': _('Only accepted quotes can be converted to orders.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if quote has a customer user linked
+        if not quote.customer:
+            return Response(
+                {'error': _('This quote does not have a registered customer linked. Please link a customer before converting to order.')},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -564,6 +610,17 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 },
                 request=request
             )
+
+        # Send order confirmation email to customer
+        try:
+            import threading as _threading
+            _threading.Thread(
+                target=send_order_confirmation_email,
+                args=(str(quote.id), order.order_number),
+                daemon=True
+            ).start()
+        except Exception:
+            pass
 
         from apps.orders.serializers import OrderSerializer as OrderSerializerFull
         return Response({
@@ -1260,112 +1317,3 @@ Agencia MCD
 
         serializer = self.get_serializer(pending, many=True)
         return Response(serializer.data)
-
-
-# =============================================================================
-# Temporary PDF Diagnostic Endpoint — remove after debugging
-# =============================================================================
-from django.views.decorators.http import require_GET
-from django.http import JsonResponse
-import os
-
-
-@require_GET
-def pdf_diagnostic_view(request):
-    """
-    Diagnoses PDF generation pipeline. Hit /api/v1/quotes/_pdf-diag/?token=SECRET
-    to see what's working and what's not.
-    """
-    secret = os.getenv('RESEND_SECRET', 'mcd-debug-2025')
-    if request.GET.get('token') != secret:
-        return JsonResponse({'error': 'forbidden'}, status=403)
-
-    diag = {
-        'step_1_imports': {},
-        'step_2_storage': {},
-        'step_3_generate': {},
-    }
-
-    # Step 1: Check imports
-    try:
-        from weasyprint import HTML
-        diag['step_1_imports']['weasyprint'] = 'OK'
-    except (ImportError, OSError) as e:
-        diag['step_1_imports']['weasyprint'] = f'FAIL: {e}'
-
-    try:
-        from reportlab.platypus import SimpleDocTemplate
-        from reportlab.lib.pagesizes import letter
-        diag['step_1_imports']['reportlab'] = 'OK'
-    except ImportError as e:
-        diag['step_1_imports']['reportlab'] = f'FAIL: {e}'
-
-    # Step 2: Check storage backend
-    from django.core.files.storage import default_storage
-    diag['step_2_storage']['backend'] = type(default_storage).__name__
-    diag['step_2_storage']['backend_module'] = type(default_storage).__module__
-
-    try:
-        from django.core.files.base import ContentFile
-        test_content = ContentFile(b'PDF diagnostic test')
-        saved_name = default_storage.save('_diag_test.txt', test_content)
-        diag['step_2_storage']['write_test'] = f'OK: saved as {saved_name}'
-        exists = default_storage.exists(saved_name)
-        diag['step_2_storage']['exists_test'] = f'OK: {exists}'
-        default_storage.delete(saved_name)
-        diag['step_2_storage']['delete_test'] = 'OK'
-    except Exception as e:
-        diag['step_2_storage']['write_test'] = f'FAIL: {type(e).__name__}: {e}'
-
-    # Step 3: Try generating a tiny PDF with ReportLab
-    try:
-        from io import BytesIO
-        from reportlab.platypus import SimpleDocTemplate, Paragraph
-        from reportlab.lib.pagesizes import letter
-        from reportlab.lib.styles import getSampleStyleSheet
-
-        buf = BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=letter)
-        styles = getSampleStyleSheet()
-        doc.build([Paragraph('Diagnostic test', styles['Normal'])])
-        buf.seek(0)
-        pdf_bytes = buf.getvalue()
-        diag['step_3_generate']['reportlab_pdf'] = f'OK: {len(pdf_bytes)} bytes'
-
-        # Try saving to storage
-        from django.core.files.base import ContentFile
-        saved = default_storage.save('quotes/pdfs/_diag_test.pdf', ContentFile(pdf_bytes))
-        diag['step_3_generate']['save_to_storage'] = f'OK: {saved}'
-        default_storage.delete(saved)
-        diag['step_3_generate']['cleanup'] = 'OK'
-    except Exception as e:
-        diag['step_3_generate']['error'] = f'FAIL: {type(e).__name__}: {e}'
-
-    # Step 4: Check existing quotes
-    from apps.quotes.models import Quote
-    total_quotes = Quote.objects.count()
-    with_pdf = Quote.objects.exclude(pdf_file='').exclude(pdf_file__isnull=True).count()
-    diag['step_4_quotes'] = {
-        'total': total_quotes,
-        'with_pdf': with_pdf,
-        'without_pdf': total_quotes - with_pdf,
-    }
-
-    # Try generating PDF for the first quote without one
-    quote_no_pdf = Quote.objects.filter(
-        models.Q(pdf_file='') | models.Q(pdf_file__isnull=True)
-    ).first()
-    if quote_no_pdf:
-        diag['step_5_real_test'] = {'quote_id': str(quote_no_pdf.id), 'quote_number': quote_no_pdf.quote_number}
-        try:
-            from apps.quotes.tasks import generate_quote_pdf
-            result = generate_quote_pdf(str(quote_no_pdf.id))
-            diag['step_5_real_test']['result'] = str(result)
-            quote_no_pdf.refresh_from_db()
-            diag['step_5_real_test']['pdf_file_after'] = str(quote_no_pdf.pdf_file) if quote_no_pdf.pdf_file else 'STILL EMPTY'
-        except Exception as e:
-            diag['step_5_real_test']['error'] = f'{type(e).__name__}: {e}'
-    else:
-        diag['step_5_real_test'] = 'All quotes already have PDFs'
-
-    return JsonResponse(diag, json_dumps_params={'indent': 2})

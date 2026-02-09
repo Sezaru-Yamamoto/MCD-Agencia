@@ -21,22 +21,22 @@
 <table class="data-table">
     <tr>
         <th>Nombre</th>
-        <td>{% if request.user %}{{ request.user.get_full_name }}{% else %}{{ request.contact_name }}{% endif %}</td>
+        <td>{% if request.user %}{{ request.user.get_full_name }}{% else %}{{ request.customer_name }}{% endif %}</td>
     </tr>
     <tr>
         <th>Email</th>
-        <td>{% if request.user %}{{ request.user.email }}{% else %}{{ request.contact_email }}{% endif %}</td>
+        <td>{% if request.user %}{{ request.user.email }}{% else %}{{ request.customer_email }}{% endif %}</td>
     </tr>
-    {% if request.contact_phone %}
+    {% if request.customer_phone %}
     <tr>
         <th>Teléfono</th>
-        <td>{{ request.contact_phone }}</td>
+        <td>{{ request.customer_phone }}</td>
     </tr>
     {% endif %}
-    {% if request.company %}
+    {% if request.customer_company %}
     <tr>
         <th>Empresa</th>
-        <td>{{ request.company }}</td>
+        <td>{{ request.customer_company }}</td>
     </tr>
     {% endif %}
 </table>
@@ -72,7 +72,7 @@
     </div>
     {% endif %}
 
-    {% if request.installation_required %}
+    {% if request.includes_installation %}
     <div class="line-item">
         <span><strong>Instalación:</strong></span>
         <span>Requerida</span>

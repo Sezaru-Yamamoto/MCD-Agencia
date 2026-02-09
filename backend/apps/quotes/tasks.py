@@ -422,14 +422,21 @@ def send_quote_email_sync(quote_id: str) -> bool:
             'quote_url': quote_url,
             'company_name': 'MCD Agencia',
             'lines': quote.lines.all(),
+            'is_revised': quote.version > 1,
         }
 
         html_message = render_to_string('emails/quote_ready.html', context)
         plain_message = strip_tags(html_message)
 
+        # Use different subject for revised quotes (version > 1)
+        if quote.version > 1:
+            subject = f'Tu cotización #{quote.quote_number} ha sido actualizada (v{quote.version}) - MCD Agencia'
+        else:
+            subject = f'Tu cotización #{quote.quote_number} está lista - MCD Agencia'
+
         # Create email with attachment
         email = EmailMessage(
-            subject=f'Tu cotización #{quote.quote_number} está lista - MCD Agencia',
+            subject=subject,
             body=html_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[recipient_email],
@@ -534,20 +541,17 @@ def send_quote_expiration_notification(self, quote_id: str):
     from apps.quotes.models import Quote
 
     try:
-        quote = Quote.objects.select_related('request', 'request__user').get(id=quote_id)
+        quote = Quote.objects.get(id=quote_id)
 
-        # Determine recipient
-        if quote.request.user:
-            recipient_email = quote.request.user.email
-            recipient_name = quote.request.user.get_full_name()
-        else:
-            recipient_email = quote.request.contact_email
-            recipient_name = quote.request.contact_name
+        # Use customer info directly from quote
+        recipient_email = quote.customer_email
+        recipient_name = quote.customer_name
 
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
         context = {
             'quote': quote,
             'recipient_name': recipient_name,
-            'contact_url': f"{settings.FRONTEND_URL}/contact",
+            'contact_url': f"{frontend_url}/es/contacto",
             'company_name': 'MCD Agencia',
         }
 
@@ -592,26 +596,23 @@ def send_quote_reminders():
         valid_until__gt=now,
         valid_until__lte=reminder_threshold,
         status='sent',
-    ).select_related('request', 'request__user')
+    )
 
     reminders_sent = 0
 
     for quote in expiring_quotes:
-        # Determine recipient
-        if quote.request.user:
-            recipient_email = quote.request.user.email
-            recipient_name = quote.request.user.get_full_name()
-        else:
-            recipient_email = quote.request.contact_email
-            recipient_name = quote.request.contact_name
+        # Use customer info directly from quote
+        recipient_email = quote.customer_email
+        recipient_name = quote.customer_name
 
         days_remaining = (quote.valid_until - now).days
 
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
         context = {
             'quote': quote,
             'recipient_name': recipient_name,
             'days_remaining': days_remaining,
-            'quote_url': f"{settings.FRONTEND_URL}/quotes/{quote.id}",
+            'quote_url': f"{frontend_url}/es/cotizacion/{quote.token}",
             'company_name': 'MCD Agencia',
         }
 
@@ -717,8 +718,8 @@ def send_quote_accepted_notification(self, quote_id: str):
 
     try:
         quote = Quote.objects.select_related(
-            'request', 'request__user', 'created_by'
-        ).get(id=quote_id)
+            'quote_request', 'created_by'
+        ).prefetch_related('lines').get(id=quote_id)
 
         # Notify the quote creator and sales team
         recipient_emails = set()
@@ -738,19 +739,16 @@ def send_quote_accepted_notification(self, quote_id: str):
             logger.warning("No recipients found for quote acceptance notification")
             return False
 
-        # Customer info
-        if quote.request.user:
-            customer_name = quote.request.user.get_full_name()
-            customer_email = quote.request.user.email
-        else:
-            customer_name = quote.request.contact_name
-            customer_email = quote.request.contact_email
+        # Use customer info directly from quote
+        customer_name = quote.customer_name
+        customer_email = quote.customer_email
 
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
         context = {
             'quote': quote,
             'customer_name': customer_name,
             'customer_email': customer_email,
-            'quote_url': f"{settings.FRONTEND_URL}/admin/quotes/{quote.id}",
+            'quote_url': f"{frontend_url}/es/dashboard/cotizaciones/{quote.id}",
             'company_name': 'MCD Agencia',
         }
 
@@ -771,4 +769,55 @@ def send_quote_accepted_notification(self, quote_id: str):
 
     except Quote.DoesNotExist:
         logger.error(f"Quote {quote_id} not found")
+        return False
+
+
+def send_order_confirmation_email(quote_id: str, order_number: str) -> bool:
+    """
+    Send email to customer when their accepted quote is converted to an order.
+
+    Args:
+        quote_id: UUID of the source quote.
+        order_number: Generated order number.
+
+    Returns:
+        bool: True if email was sent successfully.
+    """
+    from apps.quotes.models import Quote
+
+    try:
+        quote = Quote.objects.get(id=quote_id)
+
+        recipient_email = quote.customer_email
+        recipient_name = quote.customer_name
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+
+        context = {
+            'quote': quote,
+            'order_number': order_number,
+            'recipient_name': recipient_name,
+            'company_name': 'MCD Agencia',
+            'dashboard_url': f"{frontend_url}/es/dashboard",
+        }
+
+        html_message = render_to_string('emails/order_created_from_quote.html', context)
+        plain_message = strip_tags(html_message)
+
+        send_mail(
+            subject=f'Tu pedido #{order_number} ha sido creado - MCD Agencia',
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info(f"Order confirmation email sent for {order_number} to {recipient_email}")
+        return True
+
+    except Quote.DoesNotExist:
+        logger.error(f"Quote {quote_id} not found for order confirmation")
+        return False
+    except Exception as e:
+        logger.error(f"Error sending order confirmation for {order_number}: {e}")
         return False
