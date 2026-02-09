@@ -795,6 +795,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 customer_name=original.customer_name,
                 customer_email=original.customer_email,
                 customer_company=original.customer_company,
+                customer_phone=original.customer_phone,
                 # Financials
                 subtotal=original.subtotal,
                 tax_rate=original.tax_rate,
@@ -1153,8 +1154,23 @@ class QuoteChangeRequestView(APIView):
             )
 
         # Validate and create the change request
+        # Handle multipart/form-data: proposed_lines may be a JSON string
+        import json as _json
+        data = request.data.copy()
+        if isinstance(data.get('proposed_lines'), str):
+            try:
+                data['proposed_lines'] = _json.loads(data['proposed_lines'])
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': _('Invalid proposed_lines format.')},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Collect uploaded files
+        attachments = request.FILES.getlist('attachments')
+
         serializer = QuoteChangeRequestCreateSerializer(
-            data=request.data,
+            data={**data, 'attachments': attachments} if attachments else data,
             context={'quote': quote, 'request': request}
         )
         serializer.is_valid(raise_exception=True)

@@ -510,6 +510,12 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         blank=True,
         help_text=_('Customer\'s company.')
     )
+    customer_phone = models.CharField(
+        _('customer phone'),
+        max_length=20,
+        blank=True,
+        help_text=_('Customer\'s phone number.')
+    )
 
     # Sales
     created_by = models.ForeignKey(
@@ -949,6 +955,14 @@ class QuoteAttachment(TimeStampedModel):
         blank=True,
         related_name='attachments',
         help_text=_('Source quote.')
+    )
+    change_request = models.ForeignKey(
+        'QuoteChangeRequest',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='attachments',
+        help_text=_('Source change request.')
     )
     file = models.FileField(
         _('file'),

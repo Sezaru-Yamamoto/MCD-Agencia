@@ -14,6 +14,7 @@ import {
   ExclamationTriangleIcon,
   BuildingOfficeIcon,
   EnvelopeIcon,
+  PhoneIcon,
   CalendarDaysIcon,
   CurrencyDollarIcon,
   UserPlusIcon,
@@ -317,7 +318,7 @@ export default function QuoteViewPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Customer Info */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Datos del Cliente</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Tus datos</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-cmyk-cyan/10">
@@ -340,6 +341,17 @@ export default function QuoteViewPage() {
                     <p className="text-white">{quote.customer_email}</p>
                   </div>
                 </div>
+                {quote.customer_phone && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-cmyk-cyan/10">
+                      <PhoneIcon className="h-5 w-5 text-cmyk-cyan" />
+                    </div>
+                    <div>
+                      <p className="text-neutral-500 text-xs">Teléfono</p>
+                      <p className="text-white">{quote.customer_phone}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 

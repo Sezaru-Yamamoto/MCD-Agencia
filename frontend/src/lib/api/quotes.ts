@@ -96,6 +96,7 @@ export interface Quote {
   customer_name: string;
   customer_email: string;
   customer_company?: string;
+  customer_phone?: string;
   subtotal: string;
   tax_rate: string;
   tax_amount: string;
@@ -250,6 +251,7 @@ export interface QuoteChangeRequest {
 export interface SubmitChangeRequestData {
   proposed_lines: ProposedLine[];
   customer_comments?: string;
+  attachments?: File[];
 }
 
 export interface SalesRepDashboard {
@@ -375,12 +377,22 @@ export async function requestQuoteChanges(
   data: SubmitChangeRequestData
 ): Promise<{ message: string; change_request: QuoteChangeRequest }> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+  // Use FormData to support file uploads
+  const formData = new FormData();
+  formData.append('proposed_lines', JSON.stringify(data.proposed_lines));
+  if (data.customer_comments) {
+    formData.append('customer_comments', data.customer_comments);
+  }
+  if (data.attachments && data.attachments.length > 0) {
+    data.attachments.forEach((file) => {
+      formData.append('attachments', file);
+    });
+  }
+
   const response = await fetch(`${apiUrl}/quotes/view/${token}/change-request/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
+    body: formData,
   });
 
   if (!response.ok) {

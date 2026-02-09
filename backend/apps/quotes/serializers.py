@@ -209,7 +209,7 @@ class QuoteSerializer(serializers.ModelSerializer):
         model = Quote
         fields = [
             'id', 'quote_number', 'status', 'status_display', 'version',
-            'customer_name', 'customer_email', 'customer_company',
+            'customer_name', 'customer_email', 'customer_company', 'customer_phone',
             'valid_until', 'is_expired', 'is_valid',
             'subtotal', 'tax_rate', 'tax_amount', 'total', 'currency',
             'payment_mode', 'deposit_percentage', 'deposit_amount',
@@ -254,6 +254,7 @@ class QuoteCreateSerializer(serializers.Serializer):
     customer_name = serializers.CharField(max_length=255)
     customer_email = serializers.EmailField()
     customer_company = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    customer_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     valid_days = serializers.IntegerField(min_value=1, max_value=90, default=15)
     payment_mode = serializers.ChoiceField(
         choices=[('FULL', 'Full'), ('DEPOSIT_ALLOWED', 'Deposit')],
@@ -319,11 +320,17 @@ class QuoteCreateSerializer(serializers.Serializer):
         valid_until = timezone.now() + timedelta(days=valid_days)
 
         # Create the quote
+        # Auto-copy phone from quote request if not provided
+        customer_phone = validated_data.get('customer_phone', '')
+        if not customer_phone and quote_request and quote_request.customer_phone:
+            customer_phone = quote_request.customer_phone
+
         quote = Quote.objects.create(
             quote_request=quote_request,
             customer_name=validated_data.get('customer_name'),
             customer_email=validated_data.get('customer_email'),
             customer_company=validated_data.get('customer_company', ''),
+            customer_phone=customer_phone,
             created_by=created_by,
             valid_until=valid_until,
             payment_mode=validated_data.get('payment_mode', 'FULL'),
@@ -529,6 +536,12 @@ class QuoteChangeRequestCreateSerializer(serializers.Serializer):
 
     proposed_lines = ProposedLineSerializer(many=True, required=True)
     customer_comments = serializers.CharField(required=False, allow_blank=True)
+    attachments = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        max_length=5,
+        write_only=True
+    )
 
     def validate_proposed_lines(self, value):
         """Validate that there are valid changes."""
@@ -554,6 +567,7 @@ class QuoteChangeRequestCreateSerializer(serializers.Serializer):
         """Create the change request."""
         quote = self.context.get('quote')
         request = self.context.get('request')
+        attachments = validated_data.pop('attachments', [])
 
         # Create snapshot of original quote
         original_snapshot = {
@@ -608,6 +622,16 @@ class QuoteChangeRequestCreateSerializer(serializers.Serializer):
             ip_address=ip_address,
         )
 
+        # Create attachments
+        for file in attachments:
+            QuoteAttachment.objects.create(
+                change_request=change_request,
+                file=file,
+                filename=file.name,
+                file_type=getattr(file, 'content_type', ''),
+                file_size=getattr(file, 'size', 0),
+            )
+
         return change_request
 
 
@@ -618,6 +642,7 @@ class QuoteChangeRequestSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     changes_summary = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField()
+    attachments = QuoteAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = QuoteChangeRequest
@@ -626,7 +651,7 @@ class QuoteChangeRequestSerializer(serializers.ModelSerializer):
             'customer_name', 'customer_email', 'customer_comments',
             'proposed_lines', 'original_snapshot', 'changes_summary',
             'reviewed_by', 'reviewed_by_name', 'reviewed_at', 'review_notes',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at', 'attachments'
         ]
         read_only_fields = [
             'id', 'quote', 'quote_number', 'status', 'status_display',

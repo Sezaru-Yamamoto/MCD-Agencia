@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   PlusIcon,
   TrashIcon,
@@ -9,11 +9,18 @@ import {
   CheckIcon,
   ArrowUturnLeftIcon,
   InformationCircleIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 import { Button, Card } from '@/components/ui';
 import { QuoteLine, ProposedLine, SubmitChangeRequestData } from '@/lib/api/quotes';
+import {
+  SERVICE_LABELS,
+  SERVICE_SUBCATEGORIES,
+  SERVICE_IDS,
+  type ServiceId,
+} from '@/lib/service-ids';
 
 interface EditingLine extends QuoteLine {
   isNew?: boolean;
@@ -22,7 +29,32 @@ interface EditingLine extends QuoteLine {
   newQuantity?: number;
   newDescription?: string;
   newConcept?: string;
+  serviceType?: string;
+  subtype?: string;
+  dimensions?: string;
 }
+
+interface NewItemForm {
+  serviceType: ServiceId | '';
+  subtype: string;
+  dimensions: string;
+  quantity: number;
+  unit: string;
+  description: string;
+}
+
+const INITIAL_NEW_ITEM: NewItemForm = {
+  serviceType: '',
+  subtype: '',
+  dimensions: '',
+  quantity: 1,
+  unit: 'pz',
+  description: '',
+};
+
+// Max file size: 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
 
 interface QuoteChangeEditorProps {
   lines: QuoteLine[];
@@ -44,6 +76,10 @@ export default function QuoteChangeEditor({
   const [newLines, setNewLines] = useState<EditingLine[]>([]);
   const [customerComments, setCustomerComments] = useState('');
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [showNewItemForm, setShowNewItemForm] = useState(false);
+  const [newItemForm, setNewItemForm] = useState<NewItemForm>(INITIAL_NEW_ITEM);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate if there are any changes
   const hasChanges = useMemo(() => {
@@ -131,40 +167,79 @@ export default function QuoteChangeEditor({
   };
 
   const handleAddNewLine = () => {
+    setShowNewItemForm(true);
+    setNewItemForm(INITIAL_NEW_ITEM);
+  };
+
+  const handleConfirmNewItem = () => {
+    if (!newItemForm.serviceType) {
+      toast.error('Selecciona un tipo de servicio');
+      return;
+    }
+
+    // Auto-generate concept from service + subtype
+    const serviceLabel = SERVICE_LABELS[newItemForm.serviceType] || newItemForm.serviceType;
+    const subcats = SERVICE_SUBCATEGORIES[newItemForm.serviceType as keyof typeof SERVICE_SUBCATEGORIES];
+    const subtypeLabel = subcats?.find(s => s.id === newItemForm.subtype)?.label || '';
+    const concept = subtypeLabel ? `${serviceLabel} — ${subtypeLabel}` : serviceLabel;
+
+    // Build description from dimensions + additional notes
+    const descParts: string[] = [];
+    if (newItemForm.dimensions) descParts.push(`Medidas: ${newItemForm.dimensions}`);
+    if (newItemForm.description) descParts.push(newItemForm.description);
+    const description = descParts.join('\n');
+
     const tempId = `new-${Date.now()}`;
-    setNewLines((prev) => [
+    setNewLines(prev => [
       ...prev,
       {
         id: tempId,
-        concept: '',
-        description: '',
-        quantity: 1,
-        unit: 'pz',
+        concept,
+        description,
+        quantity: newItemForm.quantity,
+        unit: newItemForm.unit,
         unit_price: '0',
         line_total: '0',
-        position: editingLines.length + prev.length,
+        position: editingLines.length + newLines.length,
         isNew: true,
+        serviceType: newItemForm.serviceType,
+        subtype: newItemForm.subtype,
+        dimensions: newItemForm.dimensions,
       },
     ]);
-    setEditingLineId(tempId);
+
+    setShowNewItemForm(false);
+    setNewItemForm(INITIAL_NEW_ITEM);
   };
 
-  const handleUpdateNewLine = (
-    tempId: string,
-    updates: Partial<EditingLine>
-  ) => {
-    setNewLines((prev) =>
-      prev.map((line) =>
-        line.id === tempId ? { ...line, ...updates } : line
-      )
-    );
+  // Image attachment handlers
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    const valid: File[] = [];
+    Array.from(files).forEach(file => {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        toast.error(`"${file.name}" no es un formato permitido`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`"${file.name}" excede 10 MB`);
+        return;
+      }
+      valid.push(file);
+    });
+    if (attachments.length + valid.length > 5) {
+      toast.error('Máximo 5 archivos');
+      return;
+    }
+    setAttachments(prev => [...prev, ...valid]);
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRemoveNewLine = (tempId: string) => {
     setNewLines((prev) => prev.filter((line) => line.id !== tempId));
-    if (editingLineId === tempId) {
-      setEditingLineId(null);
-    }
   };
 
   const handleSubmit = async () => {
@@ -230,6 +305,7 @@ export default function QuoteChangeEditor({
     await onSubmit({
       proposed_lines: proposedLines,
       customer_comments: customerComments.trim() || undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
   };
 
@@ -476,167 +552,244 @@ export default function QuoteChangeEditor({
         <Card className="p-4">
           <h3 className="font-semibold text-white mb-4">Nuevos elementos</h3>
           <div className="space-y-3">
-            {newLines.map((line) => {
-              const isEditing = editingLineId === line.id;
-
-              return (
-                <div
-                  key={line.id}
-                  className="p-3 rounded-lg border bg-green-500/10 border-green-500/30"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <div>
-                            <label className="text-xs text-neutral-400">
-                              Concepto *
-                            </label>
-                            <input
-                              type="text"
-                              value={line.concept}
-                              onChange={(e) =>
-                                handleUpdateNewLine(line.id, {
-                                  concept: e.target.value,
-                                })
-                              }
-                              placeholder="Nombre del servicio o producto"
-                              className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-neutral-400">
-                              Descripción
-                            </label>
-                            <textarea
-                              value={line.description}
-                              onChange={(e) =>
-                                handleUpdateNewLine(line.id, {
-                                  description: e.target.value,
-                                })
-                              }
-                              placeholder="Detalles adicionales (opcional)"
-                              className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
-                              rows={2}
-                            />
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div>
-                              <label className="text-xs text-neutral-400">
-                                Cantidad
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                step="1"
-                                value={line.quantity}
-                                onChange={(e) =>
-                                  handleUpdateNewLine(line.id, {
-                                    quantity: parseInt(e.target.value) || 1,
-                                  })
-                                }
-                                className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-neutral-400">
-                                Unidad
-                              </label>
-                              <select
-                                value={line.unit}
-                                onChange={(e) =>
-                                  handleUpdateNewLine(line.id, {
-                                    unit: e.target.value,
-                                  })
-                                }
-                                className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-                              >
-                                <option value="pz">pz</option>
-                                <option value="m²">m²</option>
-                                <option value="ml">ml</option>
-                                <option value="hr">hr</option>
-                                <option value="servicio">servicio</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              size="sm"
-                              onClick={() => setEditingLineId(null)}
-                              leftIcon={<CheckIcon className="h-4 w-4" />}
-                            >
-                              Listo
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="font-medium text-white">
-                            {line.concept || (
-                              <span className="text-neutral-500 italic">
-                                Sin concepto
-                              </span>
-                            )}
-                          </p>
-                          {line.description && (
-                            <p className="text-sm text-neutral-400">
-                              {line.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 mt-1 text-sm text-neutral-300">
-                            <span>
-                              {line.quantity} {line.unit}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="flex items-start gap-1">
-                      {!isEditing && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditingLineId(line.id)}
-                          className="text-neutral-400 hover:text-cmyk-cyan"
-                          title="Editar"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveNewLine(line.id)}
-                        className="text-neutral-400 hover:text-red-400"
-                        title="Eliminar"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </Button>
+            {newLines.map((line) => (
+              <div
+                key={line.id}
+                className="p-3 rounded-lg border bg-green-500/10 border-green-500/30"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-white">{line.concept}</p>
+                    {line.description && (
+                      <p className="text-sm text-neutral-400 whitespace-pre-line mt-1">
+                        {line.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1 text-sm text-neutral-300">
+                      <span>{line.quantity} {line.unit}</span>
                     </div>
                   </div>
-
-                  <div className="mt-2 pt-2 border-t border-neutral-700/50">
-                    <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
-                      Nuevo elemento
-                    </span>
-                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleRemoveNewLine(line.id)}
+                    className="text-neutral-400 hover:text-red-400"
+                    title="Eliminar"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </Button>
                 </div>
-              );
-            })}
+                <div className="mt-2 pt-2 border-t border-neutral-700/50">
+                  <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                    Nuevo elemento
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Mini-quoter: add new item form */}
+      {showNewItemForm && (
+        <Card className="p-4 border-cmyk-cyan/30">
+          <h3 className="font-semibold text-white mb-4">Nuevo elemento</h3>
+          <div className="space-y-3">
+            {/* Service type */}
+            <div>
+              <label className="text-xs text-neutral-400">Tipo de servicio *</label>
+              <select
+                value={newItemForm.serviceType}
+                onChange={(e) => {
+                  const val = e.target.value as ServiceId | '';
+                  setNewItemForm(prev => ({ ...prev, serviceType: val, subtype: '' }));
+                }}
+                className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+              >
+                <option value="">Selecciona un servicio</option>
+                {SERVICE_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {SERVICE_LABELS[id] || id}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Subtype (dynamic based on service) */}
+            {newItemForm.serviceType && newItemForm.serviceType !== 'otros' &&
+              SERVICE_SUBCATEGORIES[newItemForm.serviceType as keyof typeof SERVICE_SUBCATEGORIES] && (
+              <div>
+                <label className="text-xs text-neutral-400">Subtipo</label>
+                <select
+                  value={newItemForm.subtype}
+                  onChange={(e) => setNewItemForm(prev => ({ ...prev, subtype: e.target.value }))}
+                  className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                >
+                  <option value="">Selecciona subtipo</option>
+                  {SERVICE_SUBCATEGORIES[newItemForm.serviceType as keyof typeof SERVICE_SUBCATEGORIES]?.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Dimensions */}
+            <div>
+              <label className="text-xs text-neutral-400">Medidas (opcional)</label>
+              <input
+                type="text"
+                value={newItemForm.dimensions}
+                onChange={(e) => setNewItemForm(prev => ({ ...prev, dimensions: e.target.value }))}
+                placeholder="Ej: 4x3 metros, 90x60 cm..."
+                className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+              />
+            </div>
+
+            {/* Quantity + Unit */}
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="text-xs text-neutral-400">Cantidad</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={newItemForm.quantity}
+                  onChange={(e) => setNewItemForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400">Unidad</label>
+                <select
+                  value={newItemForm.unit}
+                  onChange={(e) => setNewItemForm(prev => ({ ...prev, unit: e.target.value }))}
+                  className="w-28 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                >
+                  <option value="pz">pz</option>
+                  <option value="m²">m²</option>
+                  <option value="ml">ml</option>
+                  <option value="hr">hr</option>
+                  <option value="servicio">servicio</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Additional notes */}
+            <div>
+              <label className="text-xs text-neutral-400">Detalles adicionales (opcional)</label>
+              <textarea
+                value={newItemForm.description}
+                onChange={(e) => setNewItemForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Material, acabado, colores, uso interior/exterior, etc."
+                rows={2}
+                className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={handleConfirmNewItem}
+                leftIcon={<CheckIcon className="h-4 w-4" />}
+              >
+                Agregar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setShowNewItemForm(false); setNewItemForm(INITIAL_NEW_ITEM); }}
+              >
+                Cancelar
+              </Button>
+            </div>
           </div>
         </Card>
       )}
 
       {/* Add new line button */}
-      <Button
-        variant="outline"
-        onClick={handleAddNewLine}
-        className="w-full"
-        leftIcon={<PlusIcon className="h-5 w-5" />}
-      >
-        Agregar elemento
-      </Button>
+      {!showNewItemForm && (
+        <Button
+          variant="outline"
+          onClick={handleAddNewLine}
+          className="w-full"
+          leftIcon={<PlusIcon className="h-5 w-5" />}
+        >
+          Agregar elemento
+        </Button>
+      )}
+
+      {/* Image attachments */}
+      <Card className="p-4">
+        <h3 className="font-semibold text-white mb-3">
+          Imágenes de referencia (opcional)
+        </h3>
+        <p className="text-xs text-neutral-500 mb-3">
+          Adjunta fotos, bocetos o archivos de referencia para que el vendedor entienda mejor tus cambios. Máx. 5 archivos, 10 MB c/u.
+        </p>
+
+        {/* File previews */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-3 mb-3">
+            {attachments.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className="relative group w-20 h-20 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800"
+              >
+                {file.type.startsWith('image/') ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={file.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-1">
+                    <PhotoIcon className="h-6 w-6 text-neutral-500" />
+                    <span className="text-[10px] text-neutral-500 text-center truncate w-full mt-1">
+                      {file.name}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAttachment(index)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <XMarkIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Upload area */}
+        {attachments.length < 5 && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full p-4 border-2 border-dashed border-neutral-700 rounded-lg hover:border-cmyk-cyan/50 transition-colors text-center cursor-pointer"
+          >
+            <PhotoIcon className="h-8 w-8 text-neutral-500 mx-auto mb-1" />
+            <p className="text-sm text-neutral-400">
+              Haz clic para seleccionar archivos
+            </p>
+            <p className="text-xs text-neutral-600 mt-0.5">
+              JPG, PNG, WebP, GIF, PDF
+            </p>
+          </button>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+          className="hidden"
+          onChange={(e) => handleFileSelect(e.target.files)}
+        />
+      </Card>
 
       {/* Comments */}
       <Card className="p-4">
