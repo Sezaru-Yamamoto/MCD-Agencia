@@ -284,11 +284,11 @@ export default function SalesOrdersPage() {
             <table className="w-full">
               <thead className="bg-neutral-800/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                    Pedido
-                  </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
                     Acciones
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                    Pedido
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                     Cliente
@@ -311,12 +311,6 @@ export default function SalesOrdersPage() {
 
                   return (
                     <tr key={order.id} className="hover:bg-neutral-800/30">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-white font-medium">{order.order_number}</p>
-                          <p className="text-neutral-500 text-sm">{order.item_count} producto(s)</p>
-                        </div>
-                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
                           <Link
@@ -349,6 +343,12 @@ export default function SalesOrdersPage() {
                               ))}
                             </select>
                           )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-white font-medium">{order.order_number}</p>
+                          <p className="text-neutral-500 text-sm">{order.item_count} producto(s)</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

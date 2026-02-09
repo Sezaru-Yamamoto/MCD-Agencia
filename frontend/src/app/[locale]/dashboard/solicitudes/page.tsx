@@ -388,11 +388,11 @@ export default function QuoteRequestsListPage() {
                   <table className="w-full">
                     <thead className="bg-neutral-800/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Solicitud
-                        </th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Acciones
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                          Solicitud
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Cliente
@@ -416,14 +416,6 @@ export default function QuoteRequestsListPage() {
                         const StatusIcon = statusIcons[request.status];
                         return (
                           <tr key={request.id} className="hover:bg-neutral-800/30">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <p className="text-white font-medium">{request.request_number}</p>
-                                {request.is_guest && (
-                                  <span className="text-xs text-neutral-500">Invitado</span>
-                                )}
-                              </div>
-                            </td>
                             <td className="px-4 py-4 whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1">
                                 <Link
@@ -443,6 +435,14 @@ export default function QuoteRequestsListPage() {
                                   >
                                     <DocumentPlusIcon className="h-5 w-5" />
                                   </Link>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <p className="text-white font-medium">{request.request_number}</p>
+                                {request.is_guest && (
+                                  <span className="text-xs text-neutral-500">Invitado</span>
                                 )}
                               </div>
                             </td>
@@ -610,11 +610,11 @@ export default function QuoteRequestsListPage() {
                   <table className="w-full">
                     <thead className="bg-neutral-800/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Cotización
-                        </th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Acciones
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                          Cotización
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Cliente
@@ -633,9 +633,6 @@ export default function QuoteRequestsListPage() {
                     <tbody className="divide-y divide-neutral-800">
                       {changeRequests.map((changeRequest) => (
                         <tr key={changeRequest.id} className="hover:bg-neutral-800/30">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-white font-medium">{changeRequest.quote_number}</p>
-                          </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-2">
                               <Link
@@ -649,6 +646,9 @@ export default function QuoteRequestsListPage() {
                                 {changeRequest.status === 'pending' ? 'Revisar' : 'Ver'}
                               </Link>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <p className="text-white font-medium">{changeRequest.quote_number}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>

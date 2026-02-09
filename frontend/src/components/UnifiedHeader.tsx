@@ -10,6 +10,7 @@ import { trackCTA } from '@/lib/tracking';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { CartDrawer } from '@/components/cart/CartDrawer';
+import NotificationBell from '@/components/ui/NotificationBell';
 import {
   ShoppingCartIcon,
   UserIcon,
@@ -28,7 +29,7 @@ import {
   UsersIcon,
   CubeIcon,
   PhotoIcon,
-  ChatBubbleLeftRightIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
 export function UnifiedHeader() {
@@ -206,6 +207,9 @@ export function UnifiedHeader() {
               </button>
             )}
 
+            {/* Notifications - Staff only */}
+            {isStaff && <NotificationBell />}
+
             {/* Quote Button */}
             <Link
               href={`/${locale}/#cotizar`}
@@ -300,7 +304,7 @@ export function UnifiedHeader() {
                                   { href: '/dashboard/catalogo', label: 'Catálogo', icon: CubeIcon },
                                   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon },
                                   { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon },
-                                  { href: '/dashboard/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon },
+                                  { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon },
                                   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
                                 ] : []),
                               ].map((item) => (
@@ -468,7 +472,7 @@ export function UnifiedHeader() {
                             { href: '/dashboard/catalogo', label: 'Catálogo', icon: CubeIcon },
                             { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon },
                             { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon },
-                            { href: '/dashboard/leads', label: 'Leads', icon: ChatBubbleLeftRightIcon },
+                            { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon },
                             { href: '/dashboard/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
                           ] : []),
                         ].map((item) => (

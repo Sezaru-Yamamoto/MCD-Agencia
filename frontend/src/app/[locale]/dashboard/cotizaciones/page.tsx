@@ -288,11 +288,11 @@ export default function QuotesListPage() {
               <table className="w-full">
                 <thead className="bg-neutral-800/50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                      Cotización
-                    </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-neutral-400 uppercase tracking-wider">
                       Acciones
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                      Cotización
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                       Cliente
@@ -314,12 +314,6 @@ export default function QuotesListPage() {
                 <tbody className="divide-y divide-neutral-800">
                   {quotes.map((quote) => (
                     <tr key={quote.id} className="hover:bg-neutral-800/30">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-white font-medium">{quote.quote_number}</p>
-                          <p className="text-neutral-500 text-sm">{quote.lines?.length || 0} productos</p>
-                        </div>
-                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
                           <Link
@@ -360,6 +354,12 @@ export default function QuotesListPage() {
                               <TrashIcon className="h-5 w-5" />
                             </button>
                           )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-white font-medium">{quote.quote_number}</p>
+                          <p className="text-neutral-500 text-sm">{quote.lines?.length || 0} productos</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
