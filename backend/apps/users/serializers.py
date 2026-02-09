@@ -90,6 +90,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'email': {'required': True},
             'first_name': {'required': True},
             'last_name': {'required': True},
+            'phone': {'required': True},
             'date_of_birth': {'required': True},
         }
 

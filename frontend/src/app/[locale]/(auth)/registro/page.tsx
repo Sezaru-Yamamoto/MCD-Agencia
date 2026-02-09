@@ -27,7 +27,7 @@ const registerSchema = z
     first_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
     last_name: z.string().min(2, 'El apellido debe tener al menos 2 caracteres'),
     email: z.string().email('Ingresa un email válido'),
-    phone: z.string().optional(),
+    phone: z.string().min(10, 'El teléfono debe tener al menos 10 dígitos'),
     date_of_birth: z.string().min(1, 'La fecha de nacimiento es requerida'),
     password: z
       .string()
@@ -135,7 +135,7 @@ export default function RegisterPage() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Nombre"
             placeholder="Juan"
@@ -160,9 +160,9 @@ export default function RegisterPage() {
           {...register('email')}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Teléfono (opcional)"
+            label="Teléfono"
             type="tel"
             placeholder="(555) 123-4567"
             leftIcon={<PhoneIcon className="h-5 w-5" />}
@@ -173,12 +173,13 @@ export default function RegisterPage() {
             label="Fecha de nacimiento"
             type="date"
             leftIcon={<CalendarIcon className="h-5 w-5" />}
+            className="min-w-0"
             error={errors.date_of_birth?.message}
             {...register('date_of_birth')}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Contraseña"
             type={showPassword ? 'text' : 'password'}

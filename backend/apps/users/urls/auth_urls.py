@@ -15,7 +15,7 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
-from ..views import UserRegistrationView, GoogleOAuthCallbackView
+from ..views import UserRegistrationView, GoogleOAuthCallbackView, VerifyEmailView, ResendVerificationView
 from ..serializers import EmailVerifiedTokenObtainPairSerializer
 
 app_name = 'auth'
@@ -30,6 +30,10 @@ urlpatterns = [
 
     # Registration
     path('register/', UserRegistrationView.as_view(), name='register'),
+
+    # Email verification
+    path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('resend-verification/', ResendVerificationView.as_view(), name='resend_verification'),
 
     # OAuth callbacks
     path('google/callback/', GoogleOAuthCallbackView.as_view(), name='google_callback'),

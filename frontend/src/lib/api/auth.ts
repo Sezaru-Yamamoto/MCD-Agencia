@@ -43,7 +43,7 @@ export interface RegisterData {
   password_confirm: string;
   first_name: string;
   last_name: string;
-  phone?: string;
+  phone: string;
   date_of_birth: string;
   terms_accepted: boolean;
   privacy_accepted: boolean;

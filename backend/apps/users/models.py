@@ -17,6 +17,7 @@ Models:
 import uuid
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.core import signing
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -407,6 +408,38 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel, SoftDeleteModel
             return False
         # Treat operations as admin for backward compatibility
         return self.role.name in [Role.OPERATIONS, Role.ADMIN, Role.SUPERADMIN]
+
+    # ------------------------------------------------------------------
+    # Email verification token helpers
+    # ------------------------------------------------------------------
+    EMAIL_VERIFY_SALT = 'email-verification'
+    EMAIL_VERIFY_MAX_AGE = 60 * 60 * 24  # 24 hours
+
+    def generate_verification_token(self) -> str:
+        """Generate a signed token for email verification (valid 24 h)."""
+        return signing.dumps(
+            {'user_id': str(self.id), 'email': self.email},
+            salt=self.EMAIL_VERIFY_SALT,
+        )
+
+    @classmethod
+    def verify_email_token(cls, token: str):
+        """
+        Verify an email-verification token and return the user.
+
+        Returns:
+            User instance if valid, None otherwise.
+        """
+        try:
+            data = signing.loads(
+                token,
+                salt=cls.EMAIL_VERIFY_SALT,
+                max_age=cls.EMAIL_VERIFY_MAX_AGE,
+            )
+            user = cls.objects.get(id=data['user_id'], email=data['email'])
+            return user
+        except (signing.BadSignature, signing.SignatureExpired, cls.DoesNotExist, KeyError):
+            return None
 
 
 class UserConsent(TimeStampedModel):

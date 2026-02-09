@@ -42,7 +42,7 @@ def send_verification_email(self, user_id: str):
     try:
         user = User.objects.get(id=user_id)
 
-        if user.email_verified:
+        if user.is_email_verified:
             logger.info(f"User {user.email} already verified, skipping email")
             return True
 

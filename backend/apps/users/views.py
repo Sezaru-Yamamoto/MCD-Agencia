@@ -83,7 +83,14 @@ class UserRegistrationView(APIView):
         )
 
         # Send verification email asynchronously
-        send_verification_email.delay(str(user.id))
+        try:
+            send_verification_email.delay(str(user.id))
+        except Exception:
+            # Don't block registration if email fails
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Failed to send verification email to {user.email}"
+            )
 
         # In-app notification to admins: new user registered
         try:
@@ -113,6 +120,67 @@ class UserRegistrationView(APIView):
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
+
+
+class VerifyEmailView(APIView):
+    """
+    Verify a user's email address via signed token.
+
+    POST /api/v1/auth/verify-email/
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response(
+                {'error': _('Verification token is required.')},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.verify_email_token(token)
+        if user is None:
+            return Response(
+                {'error': _('Invalid or expired verification link.')},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.is_email_verified:
+            return Response({'message': _('Email already verified.')})
+
+        user.is_email_verified = True
+        user.save(update_fields=['is_email_verified', 'updated_at'])
+
+        return Response({'message': _('Email verified successfully.')})
+
+
+class ResendVerificationView(APIView):
+    """
+    Resend email verification link.
+
+    POST /api/v1/auth/resend-verification/
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response(
+                {'error': _('Email address is required.')},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email=email, is_email_verified=False)
+            send_verification_email.delay(str(user.id))
+        except User.DoesNotExist:
+            pass  # Don't reveal whether email exists
+
+        return Response(
+            {'message': _('If the email exists and is not verified, a new link has been sent.')}
+        )
 
 
 class UserProfileView(APIView):
