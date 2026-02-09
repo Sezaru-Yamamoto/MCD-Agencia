@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
+import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import {
   getAdminQuoteById,
   updateQuote,
@@ -62,6 +63,7 @@ export default function EditQuotePage() {
   const [internalNotes, setInternalNotes] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -611,9 +613,11 @@ export default function EditQuotePage() {
 
               <div className="space-y-3">
                 <Button
-                  onClick={() => handleSubmit(true)}
+                  onClick={() => {
+                    if (!validateForm()) return;
+                    setShowSendConfirm(true);
+                  }}
                   disabled={isSubmitting || items.length === 0}
-                  isLoading={isSubmitting}
                   className="w-full"
                 >
                   Guardar y Enviar
@@ -636,6 +640,23 @@ export default function EditQuotePage() {
             </Card>
           </div>
         </div>
+
+    {/* Send Confirmation Modal */}
+    <SendConfirmationModal
+      isOpen={showSendConfirm}
+      onClose={() => setShowSendConfirm(false)}
+      onConfirm={() => {
+        setShowSendConfirm(false);
+        handleSubmit(true);
+      }}
+      isLoading={isSubmitting}
+      customerName={customerName}
+      customerEmail={customerEmail}
+      lines={items}
+      subtotal={subtotal}
+      taxAmount={taxAmount}
+      total={total}
+    />
 
     {/* Success/Error Modal */}
     <SuccessModal

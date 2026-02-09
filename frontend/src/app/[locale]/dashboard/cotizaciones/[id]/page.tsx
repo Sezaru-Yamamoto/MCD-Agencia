@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
+import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { getAdminQuoteById, sendQuote, deleteQuote, duplicateQuote, downloadQuotePdf, Quote, QuoteStatus } from '@/lib/api/quotes';
 import { convertQuoteToOrder } from '@/lib/api/orders';
 
@@ -70,6 +71,7 @@ export default function QuoteDetailPage() {
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
 
   const quoteId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -265,7 +267,7 @@ export default function QuoteDetailPage() {
                   </Button>
                 </Link>
                 <Button
-                  onClick={handleSendQuote}
+                  onClick={() => setShowSendConfirm(true)}
                   disabled={isSending}
                   leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
                 >
@@ -506,6 +508,25 @@ export default function QuoteDetailPage() {
             )}
           </div>
         </div>
+
+    {/* Send Confirmation Modal */}
+    {quote && (
+      <SendConfirmationModal
+        isOpen={showSendConfirm}
+        onClose={() => setShowSendConfirm(false)}
+        onConfirm={() => {
+          setShowSendConfirm(false);
+          handleSendQuote();
+        }}
+        isLoading={isSending}
+        customerName={quote.customer_name}
+        customerEmail={quote.customer_email}
+        lines={quote.lines || []}
+        subtotal={quote.subtotal}
+        taxAmount={quote.tax_amount}
+        total={quote.total}
+      />
+    )}
 
     {/* Success/Error Modal */}
     <SuccessModal

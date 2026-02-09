@@ -424,6 +424,84 @@ class QuoteViewSet(viewsets.ModelViewSet):
         quote.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    def partial_update(self, request, pk=None):
+        """
+        PATCH a quote (admin only, drafts only).
+
+        Handles writable nested 'lines' — the frontend sends the full set of
+        line items and we replace them atomically.
+        """
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote = self.get_object()
+
+        if quote.status != Quote.STATUS_DRAFT:
+            return Response(
+                {'error': _('Only draft quotes can be edited.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        before_state = QuoteAdminSerializer(quote).data
+
+        # Separate lines from the rest of the data
+        lines_data = request.data.pop('lines', None) if isinstance(request.data, dict) else None
+
+        with transaction.atomic():
+            # Update scalar fields via the default serializer
+            serializer = self.get_serializer(quote, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            # Replace lines if provided
+            if lines_data is not None and isinstance(lines_data, list):
+                if not lines_data:
+                    return Response(
+                        {'error': _('At least one line item is required.')},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Delete existing lines and re-create
+                quote.lines.all().delete()
+
+                subtotal = Decimal('0.00')
+                for position, line in enumerate(lines_data):
+                    quantity = Decimal(str(line.get('quantity', 1)))
+                    unit_price = Decimal(str(line.get('unit_price', 0)))
+                    line_total = quantity * unit_price
+
+                    QuoteLine.objects.create(
+                        quote=quote,
+                        concept=line.get('concept', ''),
+                        concept_en=line.get('concept_en', ''),
+                        description=line.get('description', ''),
+                        description_en=line.get('description_en', ''),
+                        quantity=quantity,
+                        unit=line.get('unit', 'pz'),
+                        unit_price=unit_price,
+                        line_total=line_total,
+                        position=line.get('position', position),
+                    )
+                    subtotal += line_total
+
+                # Recalculate totals
+                quote.subtotal = subtotal
+                quote.tax_amount = subtotal * quote.tax_rate
+                quote.total = subtotal + quote.tax_amount
+                quote.save(update_fields=['subtotal', 'tax_amount', 'total', 'updated_at'])
+
+            AuditLog.log(
+                entity=quote,
+                action=AuditLog.ACTION_UPDATED,
+                actor=request.user,
+                before_state=before_state,
+                after_state=QuoteAdminSerializer(quote).data,
+                request=request,
+            )
+
+        quote.refresh_from_db()
+        return Response(QuoteAdminSerializer(quote).data)
+
     @action(detail=True, methods=['post'])
     def send(self, request, pk=None):
         """Send quote to customer (admin)."""
