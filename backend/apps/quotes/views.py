@@ -1154,23 +1154,39 @@ class QuoteChangeRequestView(APIView):
             )
 
         # Validate and create the change request
-        # Handle multipart/form-data: proposed_lines may be a JSON string
+        # Handle multipart/form-data: proposed_lines arrives as JSON string
         import json as _json
-        data = request.data.copy()
-        if isinstance(data.get('proposed_lines'), str):
+        raw_data = request.data
+
+        # Build a plain dict for the serializer
+        data = {}
+        proposed_raw = raw_data.get('proposed_lines')
+        if isinstance(proposed_raw, str):
             try:
-                data['proposed_lines'] = _json.loads(data['proposed_lines'])
+                data['proposed_lines'] = _json.loads(proposed_raw)
             except (ValueError, TypeError):
                 return Response(
                     {'error': _('Invalid proposed_lines format.')},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+        elif isinstance(proposed_raw, list):
+            data['proposed_lines'] = proposed_raw
+        else:
+            return Response(
+                {'error': _('proposed_lines is required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if raw_data.get('customer_comments'):
+            data['customer_comments'] = raw_data['customer_comments']
 
         # Collect uploaded files
         attachments = request.FILES.getlist('attachments')
+        if attachments:
+            data['attachments'] = attachments
 
         serializer = QuoteChangeRequestCreateSerializer(
-            data={**data, 'attachments': attachments} if attachments else data,
+            data=data,
             context={'quote': quote, 'request': request}
         )
         serializer.is_valid(raise_exception=True)

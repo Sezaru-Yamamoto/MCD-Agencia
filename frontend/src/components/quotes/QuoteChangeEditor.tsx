@@ -38,7 +38,7 @@ interface NewItemForm {
   serviceType: ServiceId | '';
   subtype: string;
   dimensions: string;
-  quantity: number;
+  quantity: string;
   unit: string;
   description: string;
 }
@@ -47,7 +47,7 @@ const INITIAL_NEW_ITEM: NewItemForm = {
   serviceType: '',
   subtype: '',
   dimensions: '',
-  quantity: 1,
+  quantity: '1',
   unit: 'pz',
   description: '',
 };
@@ -171,32 +171,36 @@ export default function QuoteChangeEditor({
     setNewItemForm(INITIAL_NEW_ITEM);
   };
 
+  const buildNewLineConcept = (form: NewItemForm) => {
+    const serviceLabel = SERVICE_LABELS[form.serviceType as ServiceId] || form.serviceType;
+    const subcats = SERVICE_SUBCATEGORIES[form.serviceType as keyof typeof SERVICE_SUBCATEGORIES];
+    const subtypeLabel = subcats?.find(s => s.id === form.subtype)?.label || '';
+    return subtypeLabel ? `${serviceLabel} — ${subtypeLabel}` : serviceLabel;
+  };
+
+  const buildNewLineDescription = (form: NewItemForm) => {
+    const parts: string[] = [];
+    if (form.dimensions) parts.push(`Medidas: ${form.dimensions}`);
+    if (form.description) parts.push(form.description);
+    return parts.join('\n');
+  };
+
   const handleConfirmNewItem = () => {
     if (!newItemForm.serviceType) {
       toast.error('Selecciona un tipo de servicio');
       return;
     }
 
-    // Auto-generate concept from service + subtype
-    const serviceLabel = SERVICE_LABELS[newItemForm.serviceType] || newItemForm.serviceType;
-    const subcats = SERVICE_SUBCATEGORIES[newItemForm.serviceType as keyof typeof SERVICE_SUBCATEGORIES];
-    const subtypeLabel = subcats?.find(s => s.id === newItemForm.subtype)?.label || '';
-    const concept = subtypeLabel ? `${serviceLabel} — ${subtypeLabel}` : serviceLabel;
-
-    // Build description from dimensions + additional notes
-    const descParts: string[] = [];
-    if (newItemForm.dimensions) descParts.push(`Medidas: ${newItemForm.dimensions}`);
-    if (newItemForm.description) descParts.push(newItemForm.description);
-    const description = descParts.join('\n');
+    const qty = parseInt(newItemForm.quantity) || 1;
 
     const tempId = `new-${Date.now()}`;
     setNewLines(prev => [
       ...prev,
       {
         id: tempId,
-        concept,
-        description,
-        quantity: newItemForm.quantity,
+        concept: buildNewLineConcept(newItemForm),
+        description: buildNewLineDescription(newItemForm),
+        quantity: qty,
         unit: newItemForm.unit,
         unit_price: '0',
         line_total: '0',
@@ -210,6 +214,23 @@ export default function QuoteChangeEditor({
 
     setShowNewItemForm(false);
     setNewItemForm(INITIAL_NEW_ITEM);
+  };
+
+  // Edit an existing new line (re-open mini-quoter populated with its data)
+  const handleEditNewLine = (lineId: string) => {
+    const line = newLines.find(l => l.id === lineId);
+    if (!line) return;
+    setNewItemForm({
+      serviceType: (line.serviceType as ServiceId) || '',
+      subtype: line.subtype || '',
+      dimensions: line.dimensions || '',
+      quantity: String(line.quantity),
+      unit: line.unit,
+      description: line.description?.replace(/^Medidas: .+\n?/, '').trim() || '',
+    });
+    // Remove the line being edited — it'll be re-added on confirm
+    setNewLines(prev => prev.filter(l => l.id !== lineId));
+    setShowNewItemForm(true);
   };
 
   // Image attachment handlers
@@ -388,14 +409,20 @@ export default function QuoteChangeEditor({
                               type="number"
                               min="1"
                               step="1"
+                              inputMode="numeric"
                               value={line.newQuantity ?? line.quantity}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const raw = e.target.value;
                                 handleModifyLine(
                                   line.id,
                                   'quantity',
-                                  parseInt(e.target.value) || 1
-                                )
-                              }
+                                  raw === '' ? 0 : parseInt(raw) || 0
+                                );
+                              }}
+                              onBlur={(e) => {
+                                const v = parseInt(e.target.value);
+                                if (!v || v < 1) handleModifyLine(line.id, 'quantity', 1);
+                              }}
                               className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
                             />
                           </div>
@@ -569,15 +596,26 @@ export default function QuoteChangeEditor({
                       <span>{line.quantity} {line.unit}</span>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemoveNewLine(line.id)}
-                    className="text-neutral-400 hover:text-red-400"
-                    title="Eliminar"
-                  >
-                    <XMarkIcon className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-start gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEditNewLine(line.id)}
+                      className="text-neutral-400 hover:text-cmyk-cyan"
+                      title="Editar"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemoveNewLine(line.id)}
+                      className="text-neutral-400 hover:text-red-400"
+                      title="Eliminar"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-neutral-700/50">
                   <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
@@ -655,8 +693,13 @@ export default function QuoteChangeEditor({
                   type="number"
                   min="1"
                   step="1"
+                  inputMode="numeric"
                   value={newItemForm.quantity}
-                  onChange={(e) => setNewItemForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  onChange={(e) => setNewItemForm(prev => ({ ...prev, quantity: e.target.value }))}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (!v || v < 1) setNewItemForm(prev => ({ ...prev, quantity: '1' }));
+                  }}
                   className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
                 />
               </div>
