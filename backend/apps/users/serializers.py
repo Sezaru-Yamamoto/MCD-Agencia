@@ -87,7 +87,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'preferred_language',
         ]
         extra_kwargs = {
-            'email': {'required': True},
+            'email': {
+                'required': True,
+                'error_messages': {
+                    'unique': 'Ya existe una cuenta con este correo electrónico.',
+                },
+            },
             'first_name': {'required': True},
             'last_name': {'required': True},
             'phone': {'required': True},

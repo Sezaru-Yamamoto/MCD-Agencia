@@ -12,6 +12,7 @@ This module provides ViewSets and views for user operations:
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status, viewsets, permissions
@@ -53,40 +54,44 @@ class UserRegistrationView(APIView):
         """Register a new user."""
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
 
-        # Create consent records
-        UserConsent.objects.create(
-            user=user,
-            document_type='terms',
-            document_version='1.0',
-            ip_address=self._get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
-            method='registration_form'
-        )
-        UserConsent.objects.create(
-            user=user,
-            document_type='privacy',
-            document_version='1.0',
-            ip_address=self._get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
-            method='registration_form'
-        )
+        # Atomic: if anything fails inside, user + consents are rolled back
+        with transaction.atomic():
+            user = serializer.save()
 
-        # Log registration
-        AuditLog.log(
-            entity=user,
-            action=AuditLog.ACTION_CREATED,
-            actor=user,
-            request=request,
-            metadata={'source': 'registration'}
-        )
+            # Create consent records
+            UserConsent.objects.create(
+                user=user,
+                document_type='terms',
+                document_version='1.0',
+                ip_address=self._get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                method='registration_form'
+            )
+            UserConsent.objects.create(
+                user=user,
+                document_type='privacy',
+                document_version='1.0',
+                ip_address=self._get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                method='registration_form'
+            )
+
+            # Log registration
+            AuditLog.log(
+                entity=user,
+                action=AuditLog.ACTION_CREATED,
+                actor=user,
+                request=request,
+                metadata={'source': 'registration'}
+            )
+
+        # ---- Outside the transaction: side-effects that must NOT roll back ----
 
         # Send verification email asynchronously
         try:
             send_verification_email.delay(str(user.id))
         except Exception:
-            # Don't block registration if email fails
             import logging
             logging.getLogger(__name__).warning(
                 f"Failed to send verification email to {user.email}"

@@ -59,6 +59,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
 
   // Get pre-fill values from URL
   const prefillEmail = searchParams.get('email') || '';
@@ -108,8 +109,18 @@ export default function RegisterPage() {
         router.push(`/${locale}/login?registered=true`);
       }
     } catch (error: unknown) {
-      const err = error as { message?: string; data?: Record<string, string[]> };
-      if (err.data) {
+      const err = error as { message?: string; status?: number; data?: Record<string, string[]> };
+
+      // Detect duplicate email (backend returns 400 with email field error)
+      const emailErrors = err.data?.email;
+      const isDuplicate =
+        Array.isArray(emailErrors) &&
+        emailErrors.some((e) => e.toLowerCase().includes('ya existe') || e.toLowerCase().includes('already'));
+
+      if (isDuplicate) {
+        setDuplicateEmail(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (err.data) {
         const firstError = Object.values(err.data)[0];
         toast.error(Array.isArray(firstError) ? firstError[0] : err.message || 'Error al registrar');
       } else {
@@ -125,6 +136,32 @@ export default function RegisterPage() {
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-white mb-2">Crear Cuenta</h1>
       </div>
+
+      {/* Duplicate email banner */}
+      {duplicateEmail && (
+        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/40 rounded-lg">
+          <p className="text-yellow-200 text-sm font-medium mb-1">
+            Ya existe una cuenta con este correo electrónico.
+          </p>
+          <p className="text-neutral-300 text-sm">
+            ¿Quieres{' '}
+            <Link
+              href={`/${locale}/login`}
+              className="text-cyan-400 hover:text-cyan-300 font-semibold underline"
+            >
+              iniciar sesión
+            </Link>
+            {' '}o{' '}
+            <Link
+              href={`/${locale}/recuperar-contrasena`}
+              className="text-cyan-400 hover:text-cyan-300 font-semibold underline"
+            >
+              recuperar tu contraseña
+            </Link>
+            ?
+          </p>
+        </div>
+      )}
 
       {prefillEmail && (
         <div className="mb-6 p-4 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
@@ -157,7 +194,9 @@ export default function RegisterPage() {
           placeholder="tu@email.com"
           leftIcon={<EnvelopeIcon className="h-5 w-5" />}
           error={errors.email?.message}
-          {...register('email')}
+          {...register('email', {
+            onChange: () => duplicateEmail && setDuplicateEmail(false),
+          })}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
