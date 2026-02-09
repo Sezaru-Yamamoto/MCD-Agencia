@@ -1,37 +1,58 @@
 # MCD-Agencia
 
-Plataforma de e-commerce y cotizaciones para Agencia MCD - Medios Impresos y Publicidad Exterior.
+Plataforma de e-commerce y cotizaciones para Agencia MCD — Medios Impresos y Publicidad Exterior.
+
+> **107 commits** | Ene – Feb 2026 | [Changelog completo](docs/CHANGELOG.md) | [Arquitectura](docs/ARCHITECTURE.md)
+
+## Producción
+
+| Servicio | URL | Plataforma |
+|----------|-----|------------|
+| Frontend | [agenciamcd.mx](https://agenciamcd.mx) | Vercel |
+| Backend API | [mcd-agencia-api.onrender.com](https://mcd-agencia-api.onrender.com) | Render |
+| Base de datos | PostgreSQL | Render (incluido) |
+| Media/Storage | Cloudflare R2 | Cloudflare |
+| Email | Brevo HTTP API (300/día) | Brevo |
 
 ## Descripción
 
 Sistema integral que combina:
 - **E-commerce**: Venta directa de productos con precio definido
-- **Cotizaciones (RFQ)**: Sistema de solicitud y gestión de cotizaciones para servicios personalizados
-- **Panel Admin**: Gestión completa con roles y permisos (RBAC)
-- **Inventario**: Control de stock con alertas
-- **Bitácora**: Auditoría completa de operaciones
+- **Cotizaciones (RFQ)**: Solicitud, gestión, PDF bilingüe, tokens públicos, solicitudes de cambio
+- **Panel Admin**: Dashboard con estadísticas, gestión completa con RBAC (5 roles)
+- **CMS**: Gestión de servicios, portafolio, videos y contenido del landing
+- **Inventario**: Control de stock con alertas automáticas
+- **Notificaciones**: Sistema in-app para admin/ventas/clientes
+- **Auditoría**: Bitácora completa de operaciones con middleware
+- **Analytics**: Sistema de tracking de eventos y conversiones
+- **i18n**: Español e Inglés completo (ES/EN)
 
 ## Stack Tecnológico
 
 ### Backend
-- **Framework**: Django 5+ con Django REST Framework
-- **Base de datos**: PostgreSQL 15+
-- **Cache/Queue**: Redis 7+
-- **Task Queue**: Celery
-- **PDF Generation**: WeasyPrint
-- **Autenticación**: JWT + OAuth (Google)
+- **Framework**: Django 5.0 + Django REST Framework 3.14
+- **Base de datos**: PostgreSQL (Render) / SQLite (dev)
+- **Task Queue**: Celery (modo eager en cloud, sin Redis)
+- **PDF**: ReportLab (generación directa, bilingüe)
+- **Email**: Brevo HTTP API vía django-anymail
+- **Storage**: Cloudflare R2 vía django-storages + boto3
+- **Autenticación**: JWT (SimpleJWT) + Google OAuth (django-allauth)
 
 ### Frontend
-- **Framework**: Next.js 14+ (App Router)
-- **Lenguaje**: TypeScript
-- **Estilos**: Tailwind CSS
-- **Estado**: React Query + Zustand
-- **i18n**: next-intl (ES/EN)
+- **Framework**: Next.js 14.1.0 (App Router)
+- **Lenguaje**: TypeScript 5.3
+- **Estilos**: Tailwind CSS 3.4
+- **Estado**: React Query 5 + Zustand 4
+- **Formularios**: React Hook Form + Zod
+- **i18n**: next-intl 3.4 (ES/EN)
+- **UI**: Lucide React, Framer Motion, Embla Carousel
 
 ### Infraestructura
-- **Containerización**: Docker + Docker Compose
-- **Almacenamiento**: S3-compatible (AWS S3, DigitalOcean Spaces)
-- **Pagos**: Mercado Pago + PayPal
+- **Backend**: Render (free tier, auto-deploy desde GitHub)
+- **Frontend**: Vercel (auto-deploy desde GitHub)
+- **Storage**: Cloudflare R2 (S3-compatible, URLs presignadas)
+- **Email**: Brevo (HTTP API, 300 emails/día gratis)
+- **Pagos**: Mercado Pago + PayPal (sandbox/live)
 
 ## Estructura del Proyecto
 
@@ -39,31 +60,34 @@ Sistema integral que combina:
 MCD-Agencia/
 ├── backend/                 # Django Backend
 │   ├── apps/               # Django applications
-│   │   ├── core/          # Base models and utilities
-│   │   ├── users/         # User management & auth
-│   │   ├── catalog/       # Products & services
-│   │   ├── orders/        # E-commerce orders
-│   │   ├── quotes/        # RFQ system
-│   │   ├── inventory/     # Stock management
-│   │   ├── audit/         # Audit logging
-│   │   ├── content/       # CMS content
-│   │   ├── payments/      # Payment processing
-│   │   ├── notifications/ # Email notifications
+│   │   ├── core/          # Base models, exceptions, pagination
+│   │   ├── users/         # Users, roles, OAuth, email verification
+│   │   ├── catalog/       # Categories (MPTT), products, variants
+│   │   ├── orders/        # Orders with FSM states
+│   │   ├── quotes/        # RFQ system, PDF, public tokens, change requests
+│   │   ├── inventory/     # Stock movements, alerts
+│   │   ├── audit/         # Audit logging with middleware
+│   │   ├── content/       # CMS: services, portfolio, videos
+│   │   ├── payments/      # Mercado Pago, PayPal
+│   │   ├── notifications/ # In-app notification system
 │   │   └── chatbot/       # Chatbot & leads
-│   ├── config/            # Django settings
-│   └── requirements.txt   # Python dependencies
+│   ├── config/            # Django settings (base, dev, cloud, production)
+│   ├── templates/         # Email & PDF templates
+│   └── requirements.txt
 ├── frontend/               # Next.js Frontend
 │   ├── src/
-│   │   ├── app/          # App router pages
+│   │   ├── app/[locale]/ # i18n routes (es/en)
 │   │   ├── components/   # React components
-│   │   ├── lib/          # Utilities
+│   │   ├── lib/api/      # API client & services
 │   │   ├── hooks/        # Custom hooks
-│   │   ├── store/        # State management
-│   │   ├── services/     # API services
+│   │   ├── store/        # Zustand stores
 │   │   └── types/        # TypeScript types
-│   └── messages/         # i18n translations
-├── docker-compose.yml      # Docker services
-└── README.md
+│   └── messages/         # i18n translations (es.json, en.json)
+├── docs/                   # Documentation
+│   ├── CHANGELOG.md       # Complete change history
+│   └── ARCHITECTURE.md    # Architecture & deployment guide
+├── render.yaml             # Render Blueprint (auto-deploy)
+└── docker-compose.yml      # Docker services (local)
 ```
 
 ## Inicio Rápido
@@ -138,20 +162,36 @@ npm run dev
 
 ## Variables de Entorno
 
-### Backend (`.env`)
+### Backend (`.env`) — Desarrollo Local
 
-| Variable | Descripción | Requerida |
-|----------|-------------|-----------|
-| `DJANGO_SECRET_KEY` | Clave secreta de Django | Sí |
-| `DB_NAME` | Nombre de la base de datos | Sí |
-| `DB_USER` | Usuario de PostgreSQL | Sí |
-| `DB_PASSWORD` | Contraseña de PostgreSQL | Sí |
-| `REDIS_URL` | URL de Redis | Sí |
-| `GOOGLE_CLIENT_ID` | ID de cliente OAuth | No |
-| `MERCADOPAGO_ACCESS_TOKEN` | Token de Mercado Pago | Prod |
-| `PAYPAL_CLIENT_ID` | ID de cliente PayPal | Prod |
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `DJANGO_ENV` | Entorno (`development` / `cloud`) | `development` |
+| `USE_SQLITE` | Usar SQLite en vez de PostgreSQL | `true` |
+| `CELERY_ALWAYS_EAGER` | Tasks síncronos | `true` |
+| `EMAIL_HOST_USER` | Gmail para envío de emails | — |
+| `EMAIL_HOST_PASSWORD` | App password de Gmail | — |
+| `FRONTEND_URL` | URL del frontend | `http://localhost:3000` |
+| `GOOGLE_CLIENT_ID` | OAuth Google (opcional) | — |
 
-Ver `backend/.env.example` para la lista completa.
+### Producción (Render)
+
+| Variable | Descripción |
+|----------|-------------|
+| `DJANGO_ENV` | `cloud` |
+| `DJANGO_SECRET_KEY` | Auto-generada |
+| `DATABASE_URL` | Auto-vinculada por Render |
+| `BREVO_API_KEY` | Email HTTP API |
+| `DEFAULT_FROM_EMAIL` | `MCD Agencia <email>` |
+| `AWS_ACCESS_KEY_ID` | Cloudflare R2 |
+| `AWS_SECRET_ACCESS_KEY` | Cloudflare R2 |
+| `AWS_STORAGE_BUCKET_NAME` | Nombre del bucket |
+| `AWS_S3_ENDPOINT_URL` | Endpoint R2 |
+| `ALLOWED_HOSTS` | Hostname de Render |
+| `CORS_ALLOWED_ORIGINS` | URL de Vercel |
+| `FRONTEND_URL` | URL pública del frontend |
+
+Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para la lista completa.
 
 ## Modelos de Datos Principales
 
@@ -186,9 +226,12 @@ Ver `backend/.env.example` para la lista completa.
 ## API Endpoints
 
 ### Autenticación
-- `POST /api/v1/auth/login/` - Iniciar sesión
-- `POST /api/v1/auth/register/` - Registrar usuario
-- `POST /api/v1/auth/token/refresh/` - Refrescar token
+- `POST /api/v1/auth/register/` — Registrar usuario
+- `POST /api/v1/auth/token/` — Obtener JWT (login)
+- `POST /api/v1/auth/token/refresh/` — Refrescar token
+- `POST /api/v1/auth/verify-email/` — Verificar email con token
+- `POST /api/v1/auth/resend-verification/` — Reenviar verificación
+- `GET /api/v1/auth/google/callback/` — OAuth Google
 
 ### Catálogo
 - `GET /api/v1/catalog/items/` - Listar productos
@@ -201,9 +244,16 @@ Ver `backend/.env.example` para la lista completa.
 - `GET /api/v1/orders/{id}/` - Detalle de pedido
 
 ### Cotizaciones
-- `POST /api/v1/quotes/request/` - Solicitar cotización
-- `GET /api/v1/quotes/{token}/` - Ver cotización
-- `POST /api/v1/quotes/{token}/accept/` - Aceptar cotización
+- `POST /api/v1/quotes/request/` — Solicitar cotización
+- `GET /api/v1/quotes/` — Listar cotizaciones (admin/ventas)
+- `POST /api/v1/quotes/` — Crear cotización
+- `GET /api/v1/quotes/{id}/` — Detalle de cotización
+- `POST /api/v1/quotes/{id}/send/` — Enviar al cliente (email + PDF)
+- `GET /api/v1/quotes/public/{token}/` — Vista pública (sin login)
+- `POST /api/v1/quotes/public/{token}/accept/` — Aceptar cotización
+- `POST /api/v1/quotes/{id}/change-requests/` — Solicitar cambios
+- `POST /api/v1/quotes/{id}/duplicate/` — Duplicar cotización
+- `GET /api/v1/quotes/{id}/download-pdf/` — Descargar PDF
 
 ### Carrito
 - `GET /api/v1/cart/` - Ver carrito
@@ -260,19 +310,28 @@ npm test
 
 ## Despliegue
 
-### Producción
+### Producción Actual
+
+| Plataforma | Servicio | Auto-deploy |
+|------------|----------|-------------|
+| **Render** | Backend + PostgreSQL | ✅ push a `main` |
+| **Vercel** | Frontend Next.js | ✅ push a `main` |
+| **Cloudflare R2** | Media storage | N/A |
+| **Brevo** | Email HTTP API | N/A |
+
+El backend se configura automáticamente vía `render.yaml` (Blueprint).  
+Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para detalles completos.
+
+### Docker (Desarrollo Local)
 
 ```bash
-# Usar docker-compose de producción
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker-compose up -d
 ```
 
 ### Variables de Producción
-- `DJANGO_ENV=production`
-- `DEBUG=false`
-- Configurar `ALLOWED_HOSTS`
-- Configurar `CORS_ALLOWED_ORIGINS`
-- Configurar credenciales de pago en modo live
+- `DJANGO_ENV=cloud`
+- `DEBUG=false` (automático)
+- Ver tabla de variables arriba
 
 ## Contribución
 
@@ -281,6 +340,11 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 3. Commit tus cambios (`git commit -m 'Agrega nueva funcionalidad'`)
 4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
 5. Abre un Pull Request
+
+## Documentación
+
+- 📋 [Changelog completo](docs/CHANGELOG.md) — Historial detallado de 107 commits organizados por fases
+- 🏗️ [Arquitectura y Despliegue](docs/ARCHITECTURE.md) — Stack, flujos, configuración, diagramas
 
 ## Licencia
 
