@@ -207,9 +207,6 @@ export function UnifiedHeader() {
               </button>
             )}
 
-            {/* Notifications - Staff only */}
-            {isStaff && <NotificationBell />}
-
             {/* Quote Button */}
             <Link
               href={`/${locale}/#cotizar`}
@@ -228,6 +225,9 @@ export function UnifiedHeader() {
                 {t('nav.buy') || 'Comprar'}
               </Link>
             )}
+
+            {/* Notifications - Staff only (desktop) */}
+            {isStaff && <NotificationBell />}
 
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>

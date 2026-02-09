@@ -112,8 +112,8 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-cmyk-cyan/10">
             <h3 className="text-sm font-semibold text-white">Notificaciones</h3>
             {unreadCount > 0 && (
               <button
@@ -138,7 +138,7 @@ export default function NotificationBell() {
                     if (!notif.is_read) handleMarkRead(notif.id);
                     if (notif.action_url) setIsOpen(false);
                   }}
-                  className={`block px-4 py-3 border-b border-neutral-800 hover:bg-neutral-800/50 transition-colors cursor-pointer ${
+                  className={`block px-4 py-3 border-b border-cmyk-cyan/10 hover:bg-cmyk-cyan/10 transition-colors cursor-pointer ${
                     !notif.is_read ? 'bg-cmyk-cyan/5' : ''
                   }`}
                 >
