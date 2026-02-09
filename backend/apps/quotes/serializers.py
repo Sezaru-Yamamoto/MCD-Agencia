@@ -667,7 +667,7 @@ class QuoteChangeRequestSerializer(serializers.ModelSerializer):
     def get_reviewed_by_name(self, obj):
         """Get reviewer name."""
         if obj.reviewed_by:
-            return obj.reviewed_by.get_full_name() or obj.reviewed_by.email
+            return obj.reviewed_by.full_name or obj.reviewed_by.email
         return None
 
 
