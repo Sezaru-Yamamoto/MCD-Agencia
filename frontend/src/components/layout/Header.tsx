@@ -30,6 +30,7 @@ import {
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
+import NotificationBell from '@/components/ui/NotificationBell';
 
 // =============================================================================
 // Navigation Links
@@ -150,6 +151,9 @@ export function Header() {
                 </span> */}
               </Link>
             )}
+
+            {/* Notification Bell - Staff only */}
+            {isStaff && <NotificationBell />}
 
             {/* User Menu */}
             <div className="relative">

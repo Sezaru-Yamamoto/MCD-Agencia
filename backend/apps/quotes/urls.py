@@ -19,6 +19,7 @@ from .views import (
     QuotePublicPdfView,
     QuotePublicRejectView,
     QuoteChangeRequestViewSet,
+    QuoteCronView,
 )
 
 app_name = 'quotes'
@@ -35,6 +36,9 @@ urlpatterns = [
     path('view/<uuid:token>/pdf/', QuotePublicPdfView.as_view(), name='pdf_public'),
     path('view/<uuid:token>/reject/', QuotePublicRejectView.as_view(), name='reject_public'),
     path('view/<uuid:token>/change-request/', QuoteChangeRequestView.as_view(), name='change_request'),
+
+    # Cron endpoint for external scheduler
+    path('cron/', QuoteCronView.as_view(), name='cron'),
 
     # ViewSets
     path('', include(router.urls)),

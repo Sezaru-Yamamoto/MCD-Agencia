@@ -12,11 +12,13 @@ import {
   PencilIcon,
   DocumentDuplicateIcon,
   TrashIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, Pagination } from '@/components/ui';
 import { getAdminQuotes, deleteQuote, duplicateQuote, Quote, QuoteStatus } from '@/lib/api/quotes';
+import { exportQuotesExcel } from '@/lib/api/notifications';
 import { PaginatedResponse } from '@/lib/api/catalog';
 
 const statusColors: Record<QuoteStatus, string> = {
@@ -61,6 +63,7 @@ export default function QuotesListPage() {
     quoteNumber: '',
   });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -183,11 +186,32 @@ export default function QuotesListPage() {
               Gestiona las cotizaciones de tus clientes
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0">
           <Link href={`/${locale}/dashboard/cotizaciones/nueva`}>
             <Button className="mt-4 sm:mt-0" leftIcon={<PlusIcon className="h-5 w-5" />}>
               Nueva Cotización
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            className="mt-2 sm:mt-0 sm:ml-2"
+            leftIcon={<ArrowDownTrayIcon className="h-5 w-5" />}
+            onClick={async () => {
+              setIsExporting(true);
+              try {
+                await exportQuotesExcel();
+              } catch {
+                alert('Error al exportar');
+              } finally {
+                setIsExporting(false);
+              }
+            }}
+            disabled={isExporting}
+            isLoading={isExporting}
+          >
+            Exportar Excel
+          </Button>
+          </div>
         </div>
 
         {/* Filters */}

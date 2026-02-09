@@ -260,11 +260,15 @@ export interface SalesRepDashboard {
   total_approved: string;
   urgent_requests: QuoteRequest[];
   recent_activity: Array<{
-    type: string;
+    id: string;
+    action: string;
+    action_display: string;
     entity_type: string;
     entity_id: string;
     description: string;
+    actor: string;
     timestamp: string;
+    metadata?: Record<string, unknown>;
   }>;
 }
 
@@ -342,8 +346,17 @@ export async function viewQuoteByToken(token: string): Promise<Quote> {
 /**
  * Accept a quote.
  */
-export async function acceptQuote(id: string, notes?: string): Promise<Quote> {
-  return apiClient.post<Quote>(`/quotes/${id}/accept/`, { notes });
+export async function acceptQuote(
+  id: string,
+  notes?: string,
+  signature?: string | null,
+  signatureName?: string,
+): Promise<Quote> {
+  return apiClient.post<Quote>(`/quotes/${id}/accept/`, {
+    notes,
+    signature: signature || undefined,
+    signature_name: signatureName || undefined,
+  });
 }
 
 /**

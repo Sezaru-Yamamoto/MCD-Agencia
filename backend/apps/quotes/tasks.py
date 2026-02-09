@@ -27,11 +27,12 @@ logger = logging.getLogger(__name__)
     max_retries=2,
     default_retry_delay=5,
 )
-def generate_quote_pdf(quote_id: str) -> str:
+def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
     """
     Generate PDF document for a quote.
 
-    Uses WeasyPrint or ReportLab to generate professional PDF quotes.
+    Uses ReportLab to generate professional PDF quotes.
+    Supports language='es' (Spanish, default) or 'en' (English).
 
     Args:
         quote_id: UUID of the quote.
@@ -40,6 +41,30 @@ def generate_quote_pdf(quote_id: str) -> str:
         str: Path to the generated PDF file.
     """
     from apps.quotes.models import Quote
+
+    # I18n labels
+    is_en = language == 'en'
+    LBL = {
+        'title': 'QUOTATION' if is_en else 'COTIZACIÓN',
+        'client': 'Client' if is_en else 'Cliente',
+        'email': 'Email',
+        'company': 'Company' if is_en else 'Empresa',
+        'date': 'Date' if is_en else 'Fecha',
+        'valid_until': 'Valid until' if is_en else 'Válido hasta',
+        'status': 'Status' if is_en else 'Estado',
+        'detail_title': 'QUOTATION DETAILS' if is_en else 'DETALLE DE LA COTIZACIÓN',
+        'concept': 'Concept' if is_en else 'Concepto',
+        'description': 'Description' if is_en else 'Descripción',
+        'qty': 'Qty.' if is_en else 'Cant.',
+        'unit_price': 'Unit Price' if is_en else 'P. Unitario',
+        'total_col': 'Total',
+        'subtotal': 'Subtotal',
+        'notes': 'NOTES' if is_en else 'NOTAS',
+        'footer_company': 'MCD Agencia | Acapulco, Guerrero, México',
+        'footer_prices': 'Prices in MXN. This document is not a tax receipt.' if is_en else 'Precios en MXN. Este documento no es un comprobante fiscal.',
+        'footer_contact': f'For any questions, contact us: {settings.DEFAULT_FROM_EMAIL}' if is_en else f'Para cualquier duda, contáctenos: {settings.DEFAULT_FROM_EMAIL}',
+        'page': 'Page' if is_en else 'Página',
+    }
 
     try:
         # Use ReportLab for PDF generation (reliable, no system deps, no template issues)
@@ -151,7 +176,7 @@ def generate_quote_pdf(quote_id: str) -> str:
             try:
                 logo = Image(logo_path, width=120, height=60)
                 header_data = [
-                    [logo, '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
+                    [logo, '', Paragraph(LBL['title'], styles['QuoteTitle'])],
                     ['', '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
                         'QuoteNum', fontSize=12, fontName='Helvetica-Bold', textColor=BLACK, alignment=TA_RIGHT
                     ))],
@@ -161,7 +186,7 @@ def generate_quote_pdf(quote_id: str) -> str:
 
         if not has_logo:
             header_data = [
-                [Paragraph('<b>MCD AGENCIA</b>', styles['CompanyName']), '', Paragraph('COTIZACIÓN', styles['QuoteTitle'])],
+                [Paragraph('<b>MCD AGENCIA</b>', styles['CompanyName']), '', Paragraph(LBL['title'], styles['QuoteTitle'])],
                 [Paragraph('Acapulco, Guerrero', styles['CustomerInfo']), '', Paragraph(f'<b>#{quote.quote_number}</b>', ParagraphStyle(
                     'QuoteNum', fontSize=12, fontName='Helvetica-Bold', textColor=BLACK, alignment=TA_RIGHT
                 ))],
@@ -191,13 +216,13 @@ def generate_quote_pdf(quote_id: str) -> str:
         date_str = quote.created_at.strftime('%d/%m/%Y') if quote.created_at else timezone.now().strftime('%d/%m/%Y')
         valid_str = quote.valid_until.strftime('%d/%m/%Y') if quote.valid_until else 'N/A'
 
-        customer_info = f"""<b>Cliente:</b> {quote.customer_name or 'N/A'}<br/>
-        <b>Email:</b> {quote.customer_email or 'N/A'}<br/>
-        <b>Empresa:</b> {quote.customer_company or 'N/A'}"""
+        customer_info = f"""<b>{LBL['client']}:</b> {quote.customer_name or 'N/A'}<br/>
+        <b>{LBL['email']}:</b> {quote.customer_email or 'N/A'}<br/>
+        <b>{LBL['company']}:</b> {quote.customer_company or 'N/A'}"""
 
-        quote_info = f"""<b>Fecha:</b> {date_str}<br/>
-        <b>Válido hasta:</b> {valid_str}<br/>
-        <b>Estado:</b> {quote.get_status_display()}"""
+        quote_info = f"""<b>{LBL['date']}:</b> {date_str}<br/>
+        <b>{LBL['valid_until']}:</b> {valid_str}<br/>
+        <b>{LBL['status']}:</b> {quote.get_status_display()}"""
 
         info_data = [
             [Paragraph(customer_info, styles['CustomerInfo']), Paragraph(quote_info, ParagraphStyle(
@@ -221,7 +246,7 @@ def generate_quote_pdf(quote_id: str) -> str:
         # LINE ITEMS TABLE
         # =====================================================================
 
-        elements.append(Paragraph('DETALLE DE LA COTIZACIÓN', styles['SectionTitle']))
+        elements.append(Paragraph(LBL['detail_title'], styles['SectionTitle']))
 
         # Style for table cells (allows text wrapping)
         cell_style = ParagraphStyle(
@@ -250,13 +275,15 @@ def generate_quote_pdf(quote_id: str) -> str:
 
         # Table header
         table_data = [
-            ['Concepto', 'Descripción', 'Cant.', 'P. Unitario', 'Total']
+            [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL['total_col']]
         ]
 
-        # Table rows - using Paragraph for text wrapping
+        # Table rows - using Paragraph for text wrapping (use _en fields when available)
         for line in quote.lines.all():
-            concept = Paragraph(line.concept or '', cell_style)
-            description = Paragraph(line.description or '', cell_style)
+            concept_text = (line.concept_en or line.concept) if is_en else line.concept
+            desc_text = (line.description_en or line.description) if is_en else line.description
+            concept = Paragraph(concept_text or '', cell_style)
+            description = Paragraph(desc_text or '', cell_style)
             qty = Paragraph(str(line.quantity), cell_style_center)
             unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
             total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
@@ -330,7 +357,7 @@ def generate_quote_pdf(quote_id: str) -> str:
         if quote.customer_notes:
             # Wrap notes in KeepTogether to prevent awkward page breaks
             notes_elements = [
-                Paragraph('NOTAS', styles['SectionTitle']),
+                Paragraph(LBL['notes'], styles['SectionTitle']),
                 Paragraph(quote.customer_notes, styles['CustomerInfo']),
                 Spacer(1, 20)
             ]
@@ -358,17 +385,17 @@ def generate_quote_pdf(quote_id: str) -> str:
             # Footer text
             canvas_obj.setFont('Helvetica-Bold', 8)
             canvas_obj.setFillColor(GRAY)
-            canvas_obj.drawCentredString(page_width / 2, footer_y + 22, 'MCD Agencia | Acapulco, Guerrero, México')
+            canvas_obj.drawCentredString(page_width / 2, footer_y + 22, LBL['footer_company'])
 
             canvas_obj.setFont('Helvetica', 8)
-            canvas_obj.drawCentredString(page_width / 2, footer_y + 12, 'Precios en MXN. Este documento no es un comprobante fiscal.')
-            canvas_obj.drawCentredString(page_width / 2, footer_y + 2, f'Para cualquier duda, contáctenos: {settings.DEFAULT_FROM_EMAIL}')
+            canvas_obj.drawCentredString(page_width / 2, footer_y + 12, LBL['footer_prices'])
+            canvas_obj.drawCentredString(page_width / 2, footer_y + 2, LBL['footer_contact'])
 
             # Page number
             canvas_obj.setFont('Helvetica', 7)
             canvas_obj.setFillColor(colors.Color(0.6, 0.6, 0.6))
             page_num = canvas_obj.getPageNumber()
-            canvas_obj.drawRightString(page_width - margin_right, footer_y + 2, f'Página {page_num}')
+            canvas_obj.drawRightString(page_width - margin_right, footer_y + 2, f'{LBL["page"]} {page_num}')
 
             canvas_obj.restoreState()
 
@@ -378,9 +405,13 @@ def generate_quote_pdf(quote_id: str) -> str:
         pdf_content = buffer.getvalue()
 
         # Save PDF to quote
-        filename = f"cotizacion_{quote.quote_number}.pdf"
-        quote.pdf_file.save(filename, ContentFile(pdf_content))
-        quote.save(update_fields=['pdf_file'])
+        filename = f"cotizacion_{quote.quote_number}{'_en' if is_en else ''}.pdf"
+        if is_en:
+            quote.pdf_file_en.save(filename, ContentFile(pdf_content))
+            quote.save(update_fields=['pdf_file_en'])
+        else:
+            quote.pdf_file.save(filename, ContentFile(pdf_content))
+            quote.save(update_fields=['pdf_file'])
 
         logger.info(f"PDF generated for quote {quote.quote_number}")
         return quote.pdf_file.url
@@ -413,8 +444,9 @@ def send_quote_email_sync(quote_id: str) -> bool:
         recipient_name = quote.customer_name
 
         # Build the quote view URL with token
+        lang = quote.language or 'es'
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-        quote_url = f"{frontend_url}/es/cotizacion/{quote.token}" if quote.token else f"{frontend_url}/es/ventas/cotizaciones/{quote.id}"
+        quote_url = f"{frontend_url}/{lang}/cotizacion/{quote.token}" if quote.token else f"{frontend_url}/{lang}/ventas/cotizaciones/{quote.id}"
 
         context = {
             'quote': quote,
@@ -429,10 +461,16 @@ def send_quote_email_sync(quote_id: str) -> bool:
         plain_message = strip_tags(html_message)
 
         # Use different subject for revised quotes (version > 1)
-        if quote.version > 1:
-            subject = f'Tu cotización #{quote.quote_number} ha sido actualizada (v{quote.version}) - MCD Agencia'
+        if lang == 'en':
+            if quote.version > 1:
+                subject = f'Your quotation #{quote.quote_number} has been updated (v{quote.version}) - MCD Agencia'
+            else:
+                subject = f'Your quotation #{quote.quote_number} is ready - MCD Agencia'
         else:
-            subject = f'Tu cotización #{quote.quote_number} está lista - MCD Agencia'
+            if quote.version > 1:
+                subject = f'Tu cotización #{quote.quote_number} ha sido actualizada (v{quote.version}) - MCD Agencia'
+            else:
+                subject = f'Tu cotización #{quote.quote_number} está lista - MCD Agencia'
 
         # Create email with attachment
         email = EmailMessage(
@@ -443,13 +481,15 @@ def send_quote_email_sync(quote_id: str) -> bool:
         )
         email.content_subtype = 'html'
 
-        # Attach PDF if available
-        if quote.pdf_file:
+        # Attach PDF if available — use English version when language=en
+        pdf_field = quote.pdf_file_en if lang == 'en' and quote.pdf_file_en else quote.pdf_file
+        if pdf_field:
             try:
                 # Use .read() instead of .path to support cloud storage (R2/S3)
-                pdf_data = quote.pdf_file.read()
+                pdf_data = pdf_field.read()
+                pdf_filename = f'quotation_{quote.quote_number}.pdf' if lang == 'en' else f'cotizacion_{quote.quote_number}.pdf'
                 email.attach(
-                    f'cotizacion-{quote.quote_number}.pdf',
+                    pdf_filename,
                     pdf_data,
                     'application/pdf'
                 )
@@ -513,6 +553,11 @@ def expire_old_quotes():
     for quote in expired_quotes:
         quote.status = 'expired'
         quote.save(update_fields=['status'])
+
+        # Also expire the related QuoteRequest
+        if quote.quote_request and quote.quote_request.status not in ['accepted', 'rejected']:
+            quote.quote_request.status = 'expired'
+            quote.quote_request.save(update_fields=['status', 'updated_at'])
 
         # Notify customer about expiration
         send_quote_expiration_notification.delay(str(quote.id))

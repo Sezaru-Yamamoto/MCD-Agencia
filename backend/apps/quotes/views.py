@@ -24,6 +24,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
+from apps.notifications.models import Notification
 from .models import QuoteRequest, Quote, QuoteLine, QuoteAttachment, QuoteChangeRequest
 from .tasks import send_quote_email_sync, notify_admin_new_quote_request, send_quote_accepted_notification, send_order_confirmation_email
 from .serializers import (
@@ -75,6 +76,19 @@ class QuoteRequestPublicView(APIView):
             notify_admin_new_quote_request.delay(str(quote_request.id))
         except Exception:
             pass  # Don't fail the request if notification fails
+
+        # In-app notification to staff
+        try:
+            Notification.notify_staff(
+                notification_type=Notification.TYPE_QUOTE_REQUEST,
+                title=f'Nueva solicitud #{quote_request.request_number}',
+                message=f'{quote_request.customer_name} — {quote_request.description[:100]}',
+                entity_type='QuoteRequest',
+                entity_id=quote_request.id,
+                action_url=f'/dashboard/solicitudes/{quote_request.id}',
+            )
+        except Exception:
+            pass
 
         return Response(
             {
@@ -266,6 +280,34 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
         return Response(QuoteRequestAdminSerializer(quote_request).data)
 
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Cancel a quote request (admin)."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote_request = self.get_object()
+        if quote_request.status in [QuoteRequest.STATUS_ACCEPTED, QuoteRequest.STATUS_CANCELLED]:
+            return Response(
+                {'error': _('This request cannot be cancelled.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reason = request.data.get('reason', '')
+        quote_request.status = QuoteRequest.STATUS_CANCELLED
+        quote_request.save(update_fields=['status', 'updated_at'])
+
+        AuditLog.log(
+            entity=quote_request,
+            action=AuditLog.ACTION_STATE_CHANGED,
+            actor=request.user,
+            after_state={'status': quote_request.status, 'reason': reason},
+            request=request,
+            metadata={'cancelled_reason': reason}
+        )
+
+        return Response(QuoteRequestAdminSerializer(quote_request).data)
+
 
 class QuoteViewSet(viewsets.ModelViewSet):
     """
@@ -426,6 +468,9 @@ class QuoteViewSet(viewsets.ModelViewSet):
         from apps.quotes.tasks import generate_quote_pdf
         try:
             generate_quote_pdf(str(quote.id))
+            # Also generate English PDF if quote language is English
+            if quote.language == 'en':
+                generate_quote_pdf(str(quote.id), language='en')
             quote.refresh_from_db()
         except Exception as e:
             logger.warning(f"PDF regeneration failed for {quote.quote_number}: {e}")
@@ -478,8 +523,28 @@ class QuoteViewSet(viewsets.ModelViewSet):
             quote.status = Quote.STATUS_ACCEPTED
             quote.accepted_at = timezone.now()
             quote.customer_notes = serializer.validated_data.get('notes', '')
+
+            # Handle electronic signature
+            signature_data = request.data.get('signature')
+            signature_name = request.data.get('signature_name', '')
+            if signature_data:
+                try:
+                    import base64
+                    from django.core.files.base import ContentFile
+                    # Expect base64 data URI: data:image/png;base64,...
+                    if ',' in signature_data:
+                        signature_data = signature_data.split(',')[1]
+                    img_data = base64.b64decode(signature_data)
+                    filename = f"signature_{quote.quote_number}_{timezone.now().strftime('%Y%m%d%H%M%S')}.png"
+                    quote.signature_image.save(filename, ContentFile(img_data), save=False)
+                    quote.signature_name = signature_name
+                    quote.signed_at = timezone.now()
+                except Exception as sig_error:
+                    logger.warning(f"Could not save signature for {quote.quote_number}: {sig_error}")
+
             quote.save(update_fields=[
-                'status', 'accepted_at', 'customer_notes', 'updated_at'
+                'status', 'accepted_at', 'customer_notes',
+                'signature_image', 'signature_name', 'signed_at', 'updated_at'
             ])
 
             # Update quote request status
@@ -500,6 +565,21 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 send_quote_accepted_notification.delay(str(quote.id))
             except Exception:
                 pass  # Don't fail the request if notification fails
+
+            # In-app notification to quote creator
+            try:
+                if quote.created_by:
+                    Notification.notify(
+                        recipient=quote.created_by,
+                        notification_type=Notification.TYPE_QUOTE_ACCEPTED,
+                        title=f'Cotización #{quote.quote_number} aceptada',
+                        message=f'{quote.customer_name} aceptó la cotización.',
+                        entity_type='Quote',
+                        entity_id=quote.id,
+                        action_url=f'/dashboard/cotizaciones/{quote.id}',
+                    )
+            except Exception:
+                pass
 
         return Response(QuoteSerializer(quote).data)
 
@@ -794,6 +874,132 @@ class QuoteViewSet(viewsets.ModelViewSet):
         generate_quote_pdf(str(quote.id))
 
         return Response({'message': _('PDF regenerated successfully.')})
+
+    @action(detail=True, methods=['post'], url_path='upload-attachment')
+    def upload_attachment(self, request, pk=None):
+        """Upload a file attachment to a quote (seller/admin)."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote = self.get_object()
+        file = request.FILES.get('file')
+        if not file:
+            return Response(
+                {'error': _('No file provided.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from .serializers import QuoteAttachmentSerializer
+        serializer = QuoteAttachmentSerializer(data={'file': file})
+        serializer.is_valid(raise_exception=True)
+
+        attachment = QuoteAttachment.objects.create(
+            quote=quote,
+            file=file,
+            filename=file.name,
+            file_type=file.content_type,
+            file_size=file.size,
+            description=request.data.get('description', ''),
+        )
+
+        return Response(
+            QuoteAttachmentSerializer(attachment).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['delete'], url_path='delete-attachment/(?P<attachment_id>[^/.]+)')
+    def delete_attachment(self, request, pk=None, attachment_id=None):
+        """Delete a file attachment from a quote (seller/admin)."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote = self.get_object()
+        try:
+            attachment = QuoteAttachment.objects.get(id=attachment_id, quote=quote)
+        except QuoteAttachment.DoesNotExist:
+            return Response(
+                {'error': _('Attachment not found.')},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        attachment.file.delete(save=False)
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Export filtered quotes to Excel."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from io import BytesIO
+
+        qs = self.get_queryset()
+        # Apply filters
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        search = request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                models.Q(quote_number__icontains=search) |
+                models.Q(customer_name__icontains=search) |
+                models.Q(customer_email__icontains=search) |
+                models.Q(customer_company__icontains=search)
+            )
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Cotizaciones'
+
+        # Header style
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='0DA3EF', end_color='0DA3EF', fill_type='solid')
+
+        headers = [
+            'Número', 'Estado', 'Versión', 'Cliente', 'Email', 'Empresa',
+            'Subtotal', 'IVA', 'Total', 'Moneda', 'Creada', 'Enviada',
+            'Válida hasta', 'Aceptada', 'Creada por',
+        ]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+
+        for row_idx, quote in enumerate(qs[:1000], 2):
+            ws.cell(row=row_idx, column=1, value=quote.quote_number)
+            ws.cell(row=row_idx, column=2, value=quote.get_status_display())
+            ws.cell(row=row_idx, column=3, value=quote.version)
+            ws.cell(row=row_idx, column=4, value=quote.customer_name)
+            ws.cell(row=row_idx, column=5, value=quote.customer_email)
+            ws.cell(row=row_idx, column=6, value=quote.customer_company or '')
+            ws.cell(row=row_idx, column=7, value=float(quote.subtotal))
+            ws.cell(row=row_idx, column=8, value=float(quote.tax_amount))
+            ws.cell(row=row_idx, column=9, value=float(quote.total))
+            ws.cell(row=row_idx, column=10, value=quote.currency)
+            ws.cell(row=row_idx, column=11, value=quote.created_at.strftime('%Y-%m-%d %H:%M') if quote.created_at else '')
+            ws.cell(row=row_idx, column=12, value=quote.sent_at.strftime('%Y-%m-%d %H:%M') if quote.sent_at else '')
+            ws.cell(row=row_idx, column=13, value=quote.valid_until.strftime('%Y-%m-%d') if quote.valid_until else '')
+            ws.cell(row=row_idx, column=14, value=quote.accepted_at.strftime('%Y-%m-%d %H:%M') if quote.accepted_at else '')
+            ws.cell(row=row_idx, column=15, value=quote.created_by.full_name if quote.created_by else '')
+
+        # Auto-width columns
+        for col in ws.columns:
+            max_length = max(len(str(cell.value or '')) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 40)
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="cotizaciones_export.xlsx"'
+        return response
 
 
 class QuotePublicView(APIView):
@@ -1317,3 +1523,35 @@ Agencia MCD
 
         serializer = self.get_serializer(pending, many=True)
         return Response(serializer.data)
+
+
+class QuoteCronView(APIView):
+    """
+    Protected endpoint for external cron scheduler.
+    Runs expired-quotes check + reminder emails.
+    Authenticate with ?key=<CRON_SECRET_KEY> or Authorization header.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def _check_cron_key(self, request):
+        from django.conf import settings
+        expected_key = getattr(settings, 'CRON_SECRET_KEY', None)
+        if not expected_key:
+            return False
+        key = request.query_params.get('key') or request.headers.get('X-Cron-Key', '')
+        return key == expected_key
+
+    def post(self, request):
+        if not self._check_cron_key(request):
+            return Response({'error': 'Invalid key'}, status=status.HTTP_403_FORBIDDEN)
+
+        from .tasks import expire_old_quotes, send_quote_reminders
+
+        expired_count = expire_old_quotes()
+        reminder_count = send_quote_reminders()
+
+        return Response({
+            'expired': expired_count,
+            'reminders': reminder_count,
+            'timestamp': timezone.now().isoformat(),
+        })

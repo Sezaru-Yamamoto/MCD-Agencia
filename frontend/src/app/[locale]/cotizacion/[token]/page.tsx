@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { Card, Button, LoadingPage } from '@/components/ui';
+import SignaturePad from '@/components/ui/SignaturePad';
 import QuoteChangeEditor from '@/components/quotes/QuoteChangeEditor';
 import {
   viewQuoteByToken,
@@ -54,6 +55,8 @@ export default function QuoteViewPage() {
   const [showAuthRequired, setShowAuthRequired] = useState(false);
   const [pendingAction, setPendingAction] = useState<'accept' | 'reject' | null>(null);
   const [showChangeEditor, setShowChangeEditor] = useState(false);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [signatureName, setSignatureName] = useState('');
 
   // Check if user can perform authenticated actions (accept/reject)
   const canPerformAuthActions = isAuthenticated && user?.email === quote?.customer_email;
@@ -109,7 +112,7 @@ export default function QuoteViewPage() {
 
     setIsSubmitting(true);
     try {
-      await acceptQuote(quote.id, responseComment);
+      await acceptQuote(quote.id, responseComment, signatureData, signatureName);
       setResponseAction(null);
       toast.success('¡Cotización aceptada! Redirigiendo a tu cuenta...');
       // Redirect to account quotes page after 1 second
@@ -556,6 +559,24 @@ export default function QuoteViewPage() {
                     ¿Estás seguro de que deseas aceptar esta cotización por{' '}
                     <strong className="text-white">{formatCurrency(quote.total)}</strong>?
                   </p>
+
+                  {/* Signature */}
+                  <label className="block text-neutral-400 text-sm mb-2">
+                    Firma electrónica (opcional)
+                  </label>
+                  <SignaturePad onChange={setSignatureData} width={380} height={160} />
+
+                  <label className="block text-neutral-400 text-sm mb-2 mt-4">
+                    Nombre del firmante
+                  </label>
+                  <input
+                    type="text"
+                    value={signatureName}
+                    onChange={(e) => setSignatureName(e.target.value)}
+                    placeholder="Tu nombre completo"
+                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan mb-4"
+                  />
+
                   <label className="block text-neutral-400 text-sm mb-2">
                     Notas adicionales (opcional)
                   </label>

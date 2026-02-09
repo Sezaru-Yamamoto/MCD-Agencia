@@ -76,6 +76,7 @@ api_v1_patterns = [
 
     # Audit Log
     path('audit/', include('apps.audit.urls')),
+    path('notifications/', include('apps.notifications.urls')),
 ]
 
 

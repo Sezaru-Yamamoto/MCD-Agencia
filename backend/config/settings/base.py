@@ -466,6 +466,9 @@ QUOTE_DEFAULT_VALIDITY_DAYS = 15
 QUOTE_MAX_ATTACHMENTS = 5
 QUOTE_MAX_ATTACHMENT_SIZE_MB = 10
 
+# Cron endpoint secret key
+CRON_SECRET_KEY = os.getenv('CRON_SECRET_KEY', 'change-me-in-production')
+
 # Pagination
 CATALOG_PAGE_SIZE = 20
 ADMIN_PAGE_SIZE = 50

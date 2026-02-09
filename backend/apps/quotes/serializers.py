@@ -372,6 +372,18 @@ class QuoteCreateSerializer(serializers.Serializer):
             quote_request.status = QuoteRequest.STATUS_QUOTED
             quote_request.save(update_fields=['status', 'updated_at'])
 
+        # B: Auto-link customer by email
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            customer_user = User.objects.get(
+                email__iexact=quote.customer_email, is_active=True
+            )
+            quote.customer = customer_user
+            quote.save(update_fields=['customer'])
+        except User.DoesNotExist:
+            pass
+
         return quote
 
 
@@ -386,6 +398,9 @@ class QuoteAcceptSerializer(serializers.Serializer):
     """Serializer for accepting a quote (customer)."""
 
     accepted = serializers.BooleanField(required=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    signature = serializers.CharField(required=False, allow_blank=True)
+    signature_name = serializers.CharField(required=False, allow_blank=True, max_length=255)
 
     def validate_accepted(self, value):
         """Ensure acceptance is true."""

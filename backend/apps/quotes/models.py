@@ -60,7 +60,6 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
     STATUS_PENDING = 'pending'
     STATUS_ASSIGNED = 'assigned'
     STATUS_IN_REVIEW = 'in_review'
-    STATUS_INFO_REQUESTED = 'info_requested'
     STATUS_QUOTED = 'quoted'
     STATUS_ACCEPTED = 'accepted'
     STATUS_REJECTED = 'rejected'
@@ -72,7 +71,6 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         (STATUS_PENDING, _('Pending Assignment')),
         (STATUS_ASSIGNED, _('Assigned')),
         (STATUS_IN_REVIEW, _('In Review')),
-        (STATUS_INFO_REQUESTED, _('Info Requested')),
         (STATUS_QUOTED, _('Quote Sent')),
         (STATUS_ACCEPTED, _('Accepted')),
         (STATUS_REJECTED, _('Rejected')),
@@ -697,6 +695,18 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         blank=True,
         help_text=_('Notes visible to customer.')
     )
+
+    # Electronic signature
+    signature_image = models.ImageField(
+        _('signature image'),
+        upload_to='quotes/signatures/',
+        blank=True, null=True,
+        help_text=_('Customer signature image captured on acceptance.')
+    )
+    signature_name = models.CharField(
+        _('signer name'), max_length=255, blank=True
+    )
+    signed_at = models.DateTimeField(_('signed at'), null=True, blank=True)
 
     # View tracking
     view_count = models.PositiveIntegerField(
