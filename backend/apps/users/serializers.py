@@ -361,13 +361,9 @@ class EmailVerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Check if email is verified
         if not self.user.is_email_verified:
             raise serializers.ValidationError(
-                {
-                    'detail': _(
-                        'Please verify your email address before logging in. '
-                        'Check your inbox for the verification email.'
-                    ),
-                    'code': 'email_not_verified'
-                }
+                'Debes verificar tu correo electrónico antes de iniciar sesión. '
+                'Revisa tu bandeja de entrada para el correo de verificación.',
+                code='email_not_verified',
             )
 
         return data

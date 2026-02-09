@@ -146,6 +146,6 @@ export async function verifyEmail(token: string): Promise<{ message: string }> {
 /**
  * Resend email verification.
  */
-export async function resendVerification(): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>('/auth/resend-verification/');
+export async function resendVerification(email: string): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>('/auth/resend-verification/', { email });
 }

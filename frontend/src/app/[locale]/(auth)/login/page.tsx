@@ -12,6 +12,7 @@ import { useTranslations, useLocale } from 'next-intl';
 
 import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { resendVerification } from '@/lib/api/auth';
 import { useRecaptcha } from '@/hooks';
 
 const loginSchema = z.object({
@@ -30,6 +31,8 @@ export default function LoginPage() {
   const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
   const redirectTo = searchParams.get('redirect') || `/${locale}`;
 
@@ -75,8 +78,23 @@ export default function LoginPage() {
 
       router.push(redirectTo);
     } catch (error: unknown) {
-      const err = error as { message?: string; data?: { detail?: string } };
-      toast.error(err.data?.detail || err.message || 'Error al iniciar sesión');
+      const err = error as { message?: string; data?: Record<string, unknown> };
+
+      // Detect email-not-verified error
+      const isNotVerified =
+        (err.message && err.message.toLowerCase().includes('verificar tu correo')) ||
+        (err.data?.non_field_errors &&
+          Array.isArray(err.data.non_field_errors) &&
+          (err.data.non_field_errors as string[]).some((e) =>
+            e.toLowerCase().includes('verificar tu correo')
+          ));
+
+      if (isNotVerified) {
+        setEmailNotVerified(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        toast.error(err.message || 'Error al iniciar sesión');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -89,6 +107,38 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-white mb-3">Iniciar Sesión</h1>
           <p className="text-neutral-400 text-lg">Ingresa a tu cuenta para continuar</p>
         </div>
+
+        {/* Email not verified banner */}
+        {emailNotVerified && (
+          <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/40 rounded-lg">
+            <p className="text-yellow-200 text-sm font-medium mb-1">
+              Debes verificar tu correo electrónico antes de iniciar sesión.
+            </p>
+            <p className="text-neutral-300 text-sm">
+              Revisa tu bandeja de entrada.{' '}
+              <button
+                type="button"
+                disabled={resendingEmail}
+                className="text-cyan-400 hover:text-cyan-300 font-semibold underline disabled:opacity-50"
+                onClick={async () => {
+                  const emailValue = document.querySelector<HTMLInputElement>('input[type=email]')?.value;
+                  if (!emailValue) return;
+                  setResendingEmail(true);
+                  try {
+                    await resendVerification(emailValue);
+                    toast.success('Correo de verificación reenviado. Revisa tu bandeja.');
+                  } catch {
+                    toast.error('No se pudo reenviar el correo. Intenta más tarde.');
+                  } finally {
+                    setResendingEmail(false);
+                  }
+                }}
+              >
+                {resendingEmail ? 'Reenviando...' : 'Reenviar correo de verificación'}
+              </button>
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Input
