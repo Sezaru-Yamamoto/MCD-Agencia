@@ -175,10 +175,18 @@ async function request<T>(
       // Response body is not JSON
     }
 
+    // Unwrap our custom error envelope: {success, error: {code, message, details}}
+    const envelope = errorData?.error as Record<string, unknown> | undefined;
+    const fieldErrors = (envelope?.details ?? errorData) as Record<string, unknown> | undefined;
+
     const error: ApiError = {
-      message: (errorData?.detail as string) || (errorData?.message as string) || 'An error occurred',
+      message:
+        (envelope?.message as string) ||
+        (errorData?.detail as string) ||
+        (errorData?.message as string) ||
+        'Error en el servidor',
       status: response.status,
-      data: errorData,
+      data: fieldErrors,
     };
 
     throw error;

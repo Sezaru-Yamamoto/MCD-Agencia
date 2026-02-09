@@ -87,17 +87,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'preferred_language',
         ]
         extra_kwargs = {
-            'email': {
-                'required': True,
-                'error_messages': {
-                    'unique': 'Ya existe una cuenta con este correo electrónico.',
-                },
-            },
+            'email': {'required': True},
             'first_name': {'required': True},
             'last_name': {'required': True},
             'phone': {'required': True},
             'date_of_birth': {'required': True},
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Replace DRF's auto-generated UniqueValidator message with clear Spanish text
+        from rest_framework.validators import UniqueValidator
+        for validator in self.fields['email'].validators:
+            if isinstance(validator, UniqueValidator):
+                validator.message = 'Ya existe una cuenta con este correo electrónico.'
 
     def validate(self, attrs):
         """Validate registration data."""

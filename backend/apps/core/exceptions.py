@@ -112,7 +112,16 @@ def custom_exception_handler(exc, context):
                 message = response.data['non_field_errors'][0]
                 details = {k: v for k, v in response.data.items() if k != 'non_field_errors'}
             else:
-                message = 'An error occurred'
+                # Use the first field-level error as the top-level message
+                first_error = None
+                for _field, errors in response.data.items():
+                    if isinstance(errors, list) and errors:
+                        first_error = str(errors[0])
+                        break
+                    elif isinstance(errors, str):
+                        first_error = errors
+                        break
+                message = first_error or 'Error de validación'
         elif isinstance(response.data, list):
             message = response.data[0] if response.data else 'An error occurred'
             details = None
