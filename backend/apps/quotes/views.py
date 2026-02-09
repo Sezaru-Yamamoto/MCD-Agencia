@@ -566,18 +566,17 @@ class QuoteViewSet(viewsets.ModelViewSet):
             except Exception:
                 pass  # Don't fail the request if notification fails
 
-            # In-app notification to quote creator
+            # In-app notification to quote owner + admins
             try:
-                if quote.created_by:
-                    Notification.notify(
-                        recipient=quote.created_by,
-                        notification_type=Notification.TYPE_QUOTE_ACCEPTED,
-                        title=f'Cotización #{quote.quote_number} aceptada',
-                        message=f'{quote.customer_name} aceptó la cotización.',
-                        entity_type='Quote',
-                        entity_id=quote.id,
-                        action_url=f'/dashboard/cotizaciones/{quote.id}',
-                    )
+                Notification.notify_owner_and_admins(
+                    owner=quote.created_by,
+                    notification_type=Notification.TYPE_QUOTE_ACCEPTED,
+                    title=f'Cotización #{quote.quote_number} aceptada',
+                    message=f'{quote.customer_name} aceptó la cotización.',
+                    entity_type='Quote',
+                    entity_id=quote.id,
+                    action_url=f'/dashboard/cotizaciones/{quote.id}',
+                )
             except Exception:
                 pass
 
@@ -691,6 +690,20 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 request=request
             )
 
+        # In-app notification: order created from quote
+        try:
+            Notification.notify_owner_and_admins(
+                owner=quote.created_by,
+                notification_type=Notification.TYPE_ORDER_CREATED,
+                title=f'Pedido #{order.order_number} creado',
+                message=f'Convertido desde cotización #{quote.quote_number} — {quote.customer_name}.',
+                entity_type='Order',
+                entity_id=order.id,
+                action_url=f'/dashboard/pedidos/{order.id}',
+            )
+        except Exception:
+            pass
+
         # Send order confirmation email to customer
         try:
             import threading as _threading
@@ -746,6 +759,20 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 after_state={'status': quote.status, 'reason': reason},
                 request=request
             )
+
+            # In-app notification: quote rejected
+            try:
+                Notification.notify_owner_and_admins(
+                    owner=quote.created_by,
+                    notification_type=Notification.TYPE_QUOTE_REJECTED,
+                    title=f'Cotización #{quote.quote_number} rechazada',
+                    message=f'{quote.customer_name}: {reason[:120]}' if reason else f'{quote.customer_name} rechazó la cotización.',
+                    entity_type='Quote',
+                    entity_id=quote.id,
+                    action_url=f'/dashboard/cotizaciones/{quote.id}',
+                )
+            except Exception:
+                pass
 
         return Response(QuoteSerializer(quote).data)
 
@@ -1170,6 +1197,30 @@ class QuoteChangeRequestView(APIView):
                 }
             )
 
+            # In-app notification: change request
+            try:
+                changes = change_request.get_changes_summary()
+                parts = []
+                if changes.get('added'):
+                    parts.append(f"{changes['added']} nuevas")
+                if changes.get('modified'):
+                    parts.append(f"{changes['modified']} modificadas")
+                if changes.get('deleted'):
+                    parts.append(f"{changes['deleted']} eliminadas")
+                changes_text = ', '.join(parts) if parts else 'ver detalle'
+
+                Notification.notify_owner_and_admins(
+                    owner=quote.created_by,
+                    notification_type=Notification.TYPE_CHANGE_REQUEST,
+                    title=f'Solicitud de cambios #{quote.quote_number}',
+                    message=f'{quote.customer_name} — {changes_text}',
+                    entity_type='QuoteChangeRequest',
+                    entity_id=change_request.id,
+                    action_url=f'/dashboard/cotizaciones/{quote.id}/cambios/{change_request.id}',
+                )
+            except Exception:
+                pass
+
         # Send notification email to sales team
         from django.core.mail import send_mail
         from django.conf import settings
@@ -1336,6 +1387,20 @@ class QuotePublicRejectView(APIView):
                     'rejected_via': 'public_token'
                 }
             )
+
+            # In-app notification: quote rejected (public)
+            try:
+                Notification.notify_owner_and_admins(
+                    owner=quote.created_by,
+                    notification_type=Notification.TYPE_QUOTE_REJECTED,
+                    title=f'Cotización #{quote.quote_number} rechazada',
+                    message=f'{quote.customer_name}: {reason[:120]}' if reason else f'{quote.customer_name} rechazó la cotización.',
+                    entity_type='Quote',
+                    entity_id=quote.id,
+                    action_url=f'/dashboard/cotizaciones/{quote.id}',
+                )
+            except Exception:
+                pass
 
         # Notify sales team
         from django.core.mail import send_mail
@@ -1545,13 +1610,20 @@ class QuoteCronView(APIView):
         if not self._check_cron_key(request):
             return Response({'error': 'Invalid key'}, status=status.HTTP_403_FORBIDDEN)
 
-        from .tasks import expire_old_quotes, send_quote_reminders
+        from .tasks import (
+            expire_old_quotes, send_quote_reminders,
+            check_expiring_quotes, check_unattended_requests,
+        )
 
         expired_count = expire_old_quotes()
         reminder_count = send_quote_reminders()
+        expiring_notifs = check_expiring_quotes()
+        unattended_notifs = check_unattended_requests()
 
         return Response({
             'expired': expired_count,
             'reminders': reminder_count,
+            'expiring_notifications': expiring_notifs,
+            'unattended_notifications': unattended_notifs,
             'timestamp': timezone.now().isoformat(),
         })

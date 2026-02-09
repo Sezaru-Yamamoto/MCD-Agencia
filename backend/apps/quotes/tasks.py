@@ -866,3 +866,107 @@ def send_order_confirmation_email(quote_id: str, order_number: str) -> bool:
     except Exception as e:
         logger.error(f"Error sending order confirmation for {order_number}: {e}")
         return False
+
+
+# ---------------------------------------------------------------------------
+# In-app notification reminders (called by cron or Celery beat)
+# ---------------------------------------------------------------------------
+
+def check_expiring_quotes():
+    """
+    Send in-app notifications for quotes expiring within 3 days.
+
+    Only notifies once per quote (checks if a QUOTE_EXPIRING notification
+    already exists for the same entity_id).
+
+    Returns:
+        int: Number of notifications created.
+    """
+    from apps.quotes.models import Quote
+    from apps.notifications.models import Notification
+
+    now = timezone.now()
+    threshold = now + timedelta(days=3)
+
+    expiring = Quote.objects.filter(
+        valid_until__gt=now,
+        valid_until__lte=threshold,
+        status__in=['sent', 'viewed'],
+    ).select_related('created_by')
+
+    count = 0
+    for quote in expiring:
+        # Skip if already notified
+        already = Notification.objects.filter(
+            notification_type=Notification.TYPE_QUOTE_EXPIRING,
+            entity_type='Quote',
+            entity_id=str(quote.id),
+        ).exists()
+        if already:
+            continue
+
+        days_left = (quote.valid_until - now).days
+        try:
+            Notification.notify_owner_and_admins(
+                owner=quote.created_by,
+                notification_type=Notification.TYPE_QUOTE_EXPIRING,
+                title=f'Cotización #{quote.quote_number} vence en {days_left}d',
+                message=f'{quote.customer_name} — sin respuesta aún.',
+                entity_type='Quote',
+                entity_id=quote.id,
+                action_url=f'/dashboard/cotizaciones/{quote.id}',
+            )
+            count += 1
+        except Exception:
+            pass
+
+    logger.info(f"Expiring-quote notifications: {count}")
+    return count
+
+
+def check_unattended_requests():
+    """
+    Send in-app notifications for quote requests that have been pending
+    for more than 24 hours without a quote being created.
+
+    Only notifies once per request.
+
+    Returns:
+        int: Number of notifications created.
+    """
+    from apps.quotes.models import QuoteRequest
+    from apps.notifications.models import Notification
+
+    cutoff = timezone.now() - timedelta(hours=24)
+
+    unattended = QuoteRequest.objects.filter(
+        status__in=['pending', 'assigned'],
+        created_at__lte=cutoff,
+    )
+
+    count = 0
+    for req in unattended:
+        already = Notification.objects.filter(
+            notification_type=Notification.TYPE_REQUEST_UNATTENDED,
+            entity_type='QuoteRequest',
+            entity_id=str(req.id),
+        ).exists()
+        if already:
+            continue
+
+        hours = int((timezone.now() - req.created_at).total_seconds() / 3600)
+        try:
+            Notification.notify_staff(
+                notification_type=Notification.TYPE_REQUEST_UNATTENDED,
+                title=f'Solicitud #{req.request_number} sin atender ({hours}h)',
+                message=f'{req.customer_name} — {req.description[:80]}',
+                entity_type='QuoteRequest',
+                entity_id=req.id,
+                action_url=f'/dashboard/solicitudes/{req.id}',
+            )
+            count += 1
+        except Exception:
+            pass
+
+    logger.info(f"Unattended-request notifications: {count}")
+    return count

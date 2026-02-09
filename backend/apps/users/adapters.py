@@ -160,4 +160,18 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         user.is_email_verified = True
         user.save(update_fields=['is_email_verified'])
 
+        # In-app notification to admins: new user via Google OAuth
+        try:
+            from apps.notifications.models import Notification
+            Notification.notify_admins(
+                notification_type=Notification.TYPE_NEW_USER,
+                title='Nuevo usuario (Google)',
+                message=f'{user.full_name} ({user.email})',
+                entity_type='User',
+                entity_id=user.id,
+                action_url='/dashboard/clientes',
+            )
+        except Exception:
+            pass
+
         return user

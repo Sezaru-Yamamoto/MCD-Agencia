@@ -297,6 +297,22 @@ class MercadoPagoWebhookView(APIView):
                 order.paid_at = timezone.now()
             order.save()
 
+            # In-app notification: payment received
+            try:
+                from apps.notifications.models import Notification
+                owner = order.quote.created_by if order.quote else None
+                Notification.notify_owner_and_admins(
+                    owner=owner,
+                    notification_type=Notification.TYPE_PAYMENT_RECEIVED,
+                    title=f'Pago recibido — Pedido #{order.order_number}',
+                    message=f'${payment.amount:,.2f} vía Mercado Pago',
+                    entity_type='Order',
+                    entity_id=order.id,
+                    action_url=f'/dashboard/pedidos/{order.id}',
+                )
+            except Exception:
+                pass
+
     def _get_client_ip(self, request):
         """Get client IP address."""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -461,6 +477,24 @@ class PayPalWebhookView(APIView):
                 after_state=PaymentSerializer(payment).data,
                 metadata={'webhook': True, 'provider': 'paypal'}
             )
+
+            # In-app notification: PayPal payment received
+            if payment.order:
+                try:
+                    from apps.notifications.models import Notification
+                    order = payment.order
+                    owner = order.quote.created_by if order.quote else None
+                    Notification.notify_owner_and_admins(
+                        owner=owner,
+                        notification_type=Notification.TYPE_PAYMENT_RECEIVED,
+                        title=f'Pago recibido — Pedido #{order.order_number}',
+                        message=f'${payment.amount:,.2f} vía PayPal',
+                        entity_type='Order',
+                        entity_id=order.id,
+                        action_url=f'/dashboard/pedidos/{order.id}',
+                    )
+                except Exception:
+                    pass
 
     def _verify_webhook(self, request):
         """

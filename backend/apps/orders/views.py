@@ -375,6 +375,20 @@ class OrderViewSet(viewsets.ModelViewSet):
                 request=request
             )
 
+            # In-app notification: catalog purchase (admins only)
+            try:
+                from apps.notifications.models import Notification
+                Notification.notify_admins(
+                    notification_type=Notification.TYPE_CATALOG_PURCHASE,
+                    title=f'Compra de catálogo #{order.order_number}',
+                    message=f'{request.user.full_name} — ${order.total:,.2f} {order.currency}',
+                    entity_type='Order',
+                    entity_id=order.id,
+                    action_url=f'/dashboard/pedidos/{order.id}',
+                )
+            except Exception:
+                pass
+
             # Clear cart
             cart.items.all().delete()
 
@@ -494,6 +508,56 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
                 request=request,
                 metadata={'notes': notes}
             )
+
+            # In-app notifications for important status transitions
+            try:
+                from apps.notifications.models import Notification
+
+                # Determine the salesperson (quote creator) if order came from a quote
+                owner = order.quote.created_by if order.quote else None
+                order_url = f'/dashboard/pedidos/{order.id}'
+
+                STATUS_LABELS = {
+                    'paid': 'Pagado', 'partially_paid': 'Pago parcial',
+                    'in_production': 'En producción', 'ready': 'Listo',
+                    'in_delivery': 'En entrega', 'completed': 'Completado',
+                    'cancelled': 'Cancelado', 'refunded': 'Reembolsado',
+                }
+                label = STATUS_LABELS.get(new_status, new_status)
+
+                if new_status == 'completed':
+                    Notification.notify_owner_and_admins(
+                        owner=owner,
+                        notification_type=Notification.TYPE_ORDER_COMPLETED,
+                        title=f'Pedido #{order.order_number} completado',
+                        message=f'Cliente: {order.user.full_name if order.user else "N/A"}',
+                        entity_type='Order',
+                        entity_id=order.id,
+                        action_url=order_url,
+                    )
+                elif new_status in ('paid', 'partially_paid'):
+                    Notification.notify_owner_and_admins(
+                        owner=owner,
+                        notification_type=Notification.TYPE_PAYMENT_RECEIVED,
+                        title=f'Pago registrado — Pedido #{order.order_number}',
+                        message=f'{label} — {order.user.full_name if order.user else "N/A"}',
+                        entity_type='Order',
+                        entity_id=order.id,
+                        action_url=order_url,
+                    )
+                else:
+                    # Generic status change
+                    Notification.notify_owner_and_admins(
+                        owner=owner,
+                        notification_type=Notification.TYPE_ORDER_STATUS,
+                        title=f'Pedido #{order.order_number} → {label}',
+                        message=f'Cliente: {order.user.full_name if order.user else "N/A"}',
+                        entity_type='Order',
+                        entity_id=order.id,
+                        action_url=order_url,
+                    )
+            except Exception:
+                pass
 
         return Response(OrderSerializer(order).data)
 
