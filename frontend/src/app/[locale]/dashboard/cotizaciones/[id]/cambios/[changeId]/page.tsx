@@ -355,8 +355,6 @@ export default function ChangeRequestReviewPage() {
                                       )}
                                     </div>
                                   )}
-                                    </div>
-                                  )}
                               </div>
                             </div>
                           )}
