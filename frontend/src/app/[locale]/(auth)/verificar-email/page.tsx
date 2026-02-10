@@ -46,12 +46,12 @@ export default function VerifyEmailPage() {
   }, [token]);
 
   return (
-    <Card className="w-full max-w-lg mt-6">
-      <div className="text-center py-6">
+    <Card className="w-full max-w-md max-h-[calc(100dvh-6rem)] overflow-y-auto" padding="sm">
+      <div className="text-center py-3">
         {status === 'loading' && (
           <>
-            <ArrowPathIcon className="h-16 w-16 text-cyan-400 mx-auto mb-4 animate-spin" />
-            <h1 className="text-2xl font-bold text-white mb-2">
+            <ArrowPathIcon className="h-12 w-12 text-cyan-400 mx-auto mb-3 animate-spin" />
+            <h1 className="text-xl font-bold text-white mb-1">
               Verificando tu correo...
             </h1>
             <p className="text-neutral-400">
@@ -62,13 +62,13 @@ export default function VerifyEmailPage() {
 
         {status === 'success' && (
           <>
-            <CheckCircleIcon className="h-16 w-16 text-green-400 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">
+            <CheckCircleIcon className="h-12 w-12 text-green-400 mx-auto mb-3" />
+            <h1 className="text-xl font-bold text-white mb-1">
               ¡Correo verificado!
             </h1>
-            <p className="text-neutral-400 mb-6">{message}</p>
+            <p className="text-neutral-400 mb-3">{message}</p>
             <Link href={`/${locale}/login`}>
-              <Button className="w-full" size="lg">
+              <Button className="w-full">
                 Iniciar Sesión
               </Button>
             </Link>
@@ -77,14 +77,14 @@ export default function VerifyEmailPage() {
 
         {status === 'error' && (
           <>
-            <ExclamationTriangleIcon className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">
+            <ExclamationTriangleIcon className="h-12 w-12 text-yellow-400 mx-auto mb-3" />
+            <h1 className="text-xl font-bold text-white mb-1">
               No se pudo verificar
             </h1>
-            <p className="text-neutral-400 mb-6">{message}</p>
+            <p className="text-neutral-400 mb-3">{message}</p>
             <div className="space-y-3">
               <Link href={`/${locale}/login`}>
-                <Button className="w-full" size="lg">
+                <Button className="w-full">
                   Ir a Iniciar Sesión
                 </Button>
               </Link>

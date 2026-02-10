@@ -132,14 +132,14 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mt-6 mb-16">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-white mb-2">Crear Cuenta</h1>
+    <Card className="w-full max-w-2xl max-h-[calc(100dvh-6rem)] overflow-y-auto" padding="sm">
+      <div className="text-center mb-3">
+        <h1 className="text-xl font-bold text-white mb-1">Crear Cuenta</h1>
       </div>
 
       {/* Duplicate email banner */}
       {duplicateEmail && (
-        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/40 rounded-lg">
+        <div className="mb-3 p-3 bg-yellow-500/10 border border-yellow-500/40 rounded-lg">
           <p className="text-yellow-200 text-sm font-medium mb-1">
             Ya existe una cuenta con este correo electrónico.
           </p>
@@ -164,15 +164,15 @@ export default function RegisterPage() {
       )}
 
       {prefillEmail && (
-        <div className="mb-6 p-4 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+        <div className="mb-3 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
           <p className="text-neutral-300 text-sm">
             Crea tu cuenta con <strong className="text-white">{prefillEmail}</strong> para gestionar tus cotizaciones y dar seguimiento a tus pedidos.
           </p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Nombre"
             placeholder="Juan"
@@ -199,7 +199,7 @@ export default function RegisterPage() {
           })}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Teléfono"
             type="tel"
@@ -218,7 +218,7 @@ export default function RegisterPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Contraseña"
             type={showPassword ? 'text' : 'password'}
@@ -265,7 +265,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Consents */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <label className="flex items-start">
             <input
               type="checkbox"
@@ -316,13 +316,13 @@ export default function RegisterPage() {
           </label>
         </div>
 
-        <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+        <Button type="submit" className="w-full" isLoading={isLoading}>
           Crear Cuenta
         </Button>
       </form>
 
       {/* Divider */}
-      <div className="relative my-6">
+      <div className="relative my-3">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-neutral-800"></div>
         </div>
@@ -370,7 +370,7 @@ export default function RegisterPage() {
       </Button>
 
       {/* Login link */}
-      <p className="mt-6 text-center text-neutral-400">
+      <p className="mt-3 text-center text-neutral-400">
         ¿Ya tienes cuenta?{' '}
         <Link
           href={`/${locale}/login`}

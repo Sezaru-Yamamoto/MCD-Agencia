@@ -74,12 +74,12 @@ export default function ResetPasswordPage() {
 
   if (isSuccess) {
     return (
-      <Card className="w-full max-w-md text-center">
-        <div className="mb-6">
-          <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+      <Card className="w-full max-w-md max-h-[calc(100dvh-6rem)] overflow-y-auto text-center" padding="sm">
+        <div className="mb-3">
+          <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-2">
             <CheckCircleIcon className="h-8 w-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-xl font-bold text-white mb-1">
             ¡Contraseña restablecida!
           </h1>
           <p className="text-neutral-400">
@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
         </div>
 
         <Link href="/login">
-          <Button className="w-full" size="lg">
+          <Button className="w-full">
             Ir a iniciar sesión
           </Button>
         </Link>
@@ -98,13 +98,13 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-white mb-2">Nueva Contraseña</h1>
+    <Card className="w-full max-w-md max-h-[calc(100dvh-6rem)] overflow-y-auto" padding="sm">
+      <div className="text-center mb-3">
+        <h1 className="text-xl font-bold text-white mb-1">Nueva Contraseña</h1>
         <p className="text-neutral-400">Ingresa tu nueva contraseña</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <Input
           label="Nueva contraseña"
           type={showPassword ? 'text' : 'password'}
@@ -150,7 +150,7 @@ export default function ResetPasswordPage() {
           {...register('password_confirm')}
         />
 
-        <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+        <Button type="submit" className="w-full" isLoading={isLoading}>
           Restablecer contraseña
         </Button>
       </form>

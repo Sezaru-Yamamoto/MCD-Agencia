@@ -47,19 +47,19 @@ export default function RecoverPasswordPage() {
 
   if (isSuccess) {
     return (
-      <Card className="w-full max-w-md text-center">
-        <div className="mb-6">
-          <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+      <Card className="w-full max-w-md max-h-[calc(100dvh-6rem)] overflow-y-auto text-center" padding="sm">
+        <div className="mb-3">
+          <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-2">
             <CheckCircleIcon className="h-8 w-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Revisa tu correo</h1>
+          <h1 className="text-xl font-bold text-white mb-1">Revisa tu correo</h1>
           <p className="text-neutral-400">
             Si existe una cuenta asociada a <strong className="text-white">{submittedEmail}</strong>,
             recibirás un enlace para restablecer tu contraseña.
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <p className="text-sm text-neutral-500">
             ¿No recibiste el correo? Revisa tu carpeta de spam o intenta de nuevo.
           </p>
@@ -82,15 +82,15 @@ export default function RecoverPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-white mb-2">Recuperar Contraseña</h1>
+    <Card className="w-full max-w-md max-h-[calc(100dvh-6rem)] overflow-y-auto" padding="sm">
+      <div className="text-center mb-3">
+        <h1 className="text-xl font-bold text-white mb-1">Recuperar Contraseña</h1>
         <p className="text-neutral-400">
           Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <Input
           label="Correo electrónico"
           type="email"
@@ -100,12 +100,12 @@ export default function RecoverPasswordPage() {
           {...register('email')}
         />
 
-        <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+        <Button type="submit" className="w-full" isLoading={isLoading}>
           Enviar enlace de recuperación
         </Button>
       </form>
 
-      <p className="mt-6 text-center">
+      <p className="mt-3 text-center text-sm">
         <Link
           href="/login"
           className="text-neutral-400 hover:text-white transition-colors inline-flex items-center"

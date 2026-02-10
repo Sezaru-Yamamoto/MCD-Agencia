@@ -1,8 +1,8 @@
 /**
  * Auth Layout - Minimal layout for authentication pages
+ * Constrained to viewport height: fits between fixed navbar and screen bottom
  */
 
-import Link from 'next/link';
 import Image from 'next/image';
 
 interface AuthLayoutProps {
@@ -11,33 +11,27 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-neutral-950 flex flex-col">
-      <div className="flex flex-1 items-stretch justify-center min-h-screen">
-        {/* Left: Logo (no fondo, no botón, mucho más grande, mensaje debajo) */}
-        <div className="hidden md:flex flex-col justify-center items-center w-1/2 bg-transparent">
-          <div className="flex flex-col items-center justify-center h-full w-full">
-            <Image
-              src="/images/logo.png"
-              alt="Agencia MCD"
-              width={700}
-              height={350}
-              className="w-[340px] lg:w-[420px] h-auto max-w-full drop-shadow-2xl mb-4"
-              priority
-            />
-            <span className="mt-2 text-xl lg:text-3xl font-bold text-white font-landing tracking-tight text-center select-none">
-              Da el primer paso.<br />Crea tu cuenta o inicia sesión.
-            </span>
-          </div>
+    <div className="bg-neutral-950 pt-16">
+      <div className="flex items-stretch h-[calc(100dvh-4rem)]">
+        {/* Left: Logo */}
+        <div className="hidden md:flex flex-col justify-center items-center w-1/2 px-8">
+          <Image
+            src="/images/logo.png"
+            alt="Agencia MCD"
+            width={700}
+            height={350}
+            className="w-[260px] lg:w-[320px] h-auto max-w-full drop-shadow-2xl mb-3"
+            priority
+          />
+          <span className="text-base lg:text-xl font-bold text-white font-landing tracking-tight text-center select-none">
+            Da el primer paso.<br />Crea tu cuenta o inicia sesión.
+          </span>
         </div>
-        {/* Right: Form */}
-        <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4 pt-8">
+        {/* Right: Form — vertically centered, scrollable if content overflows */}
+        <div className="flex flex-col justify-center items-center w-full md:w-1/2 px-4 sm:px-6 py-3">
           {children}
         </div>
       </div>
-      {/* Simple footer */}
-      <footer className="py-6 px-4 text-center text-sm text-neutral-500">
-        <p>&copy; {new Date().getFullYear()} Agencia MCD. Todos los derechos reservados.</p>
-      </footer>
     </div>
   );
 }
