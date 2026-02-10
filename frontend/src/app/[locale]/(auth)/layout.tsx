@@ -12,9 +12,9 @@ interface AuthLayoutProps {
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className="bg-neutral-950 pt-16">
-      <div className="flex items-stretch h-[calc(100dvh-4rem)]">
+      <div className="flex items-stretch min-h-[calc(100dvh-4rem)]">
         {/* Left: Logo */}
-        <div className="hidden md:flex flex-col justify-center items-center w-1/2 px-8">
+        <div className="hidden md:flex flex-col justify-center items-center w-1/2 px-8 sticky top-16 h-[calc(100dvh-4rem)]">
           <Image
             src="/images/logo.png"
             alt="Agencia MCD"
@@ -27,8 +27,8 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             Da el primer paso.<br />Crea tu cuenta o inicia sesión.
           </span>
         </div>
-        {/* Right: Form — vertically centered, scrollable if content overflows */}
-        <div className="flex flex-col justify-center items-center w-full md:w-1/2 px-4 sm:px-6 py-3">
+        {/* Right: Form — vertically centered, page scrolls if content overflows */}
+        <div className="flex flex-col justify-center items-center w-full md:w-1/2 px-4 sm:px-6 py-4">
           {children}
         </div>
       </div>
