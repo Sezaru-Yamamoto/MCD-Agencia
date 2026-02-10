@@ -115,6 +115,14 @@ services:
       - key: PAYPAL_CLIENT_SECRET
         sync: false
 
+      # Chatbot AI (Google Gemini — free tier: 1,500 req/day)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
+      - key: CHATBOT_AI_PROVIDER
+        value: "auto"
+
       # Sentry (optional — free tier)
       - key: SENTRY_DSN
         sync: false

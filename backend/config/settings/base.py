@@ -529,7 +529,7 @@ CHATBOT_AI_PROVIDER = os.getenv('CHATBOT_AI_PROVIDER', 'auto')
 
 # Google Gemini
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 
 
 # =============================================================================
