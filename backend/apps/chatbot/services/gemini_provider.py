@@ -157,11 +157,24 @@ class GeminiService(BaseAIService):
                 ),
             )
 
-            if not response or not response.text:
+            if not response or not response.candidates:
                 logger.warning('Empty response from Gemini')
                 return self._fallback_response(language)
 
-            ai_text = response.text.strip()
+            # Extract text — handle both regular and "thinking" models
+            ai_text = ''
+            if response.text:
+                ai_text = response.text.strip()
+            else:
+                # For thinking models (2.5+), text may be in parts
+                for part in response.candidates[0].content.parts:
+                    if part.text and not getattr(part, 'thought', False):
+                        ai_text = part.text.strip()
+                        break
+
+            if not ai_text:
+                logger.warning('No text content in Gemini response')
+                return self._fallback_response(language)
 
             # Detect intent from response content
             intent, should_escalate = self._detect_intent(message, ai_text, language)
