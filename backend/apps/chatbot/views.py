@@ -10,7 +10,8 @@ This module provides ViewSets for chatbot operations:
 
 import logging
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg, F
+from django.db.models.functions import TruncDate, TruncHour
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status
@@ -21,7 +22,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
-from .models import Lead, Conversation, Message
+from .models import Lead, Conversation, Message, MessageFeedback
+from .throttles import ChatMessageThrottle, ChatConfigThrottle
 from .serializers import (
     LeadSerializer,
     LeadListSerializer,
@@ -426,6 +428,7 @@ class WebChatConfigView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ChatConfigThrottle]
 
     def get(self, request):
         """Return chatbot widget configuration."""
@@ -444,6 +447,11 @@ class WebChatMessageView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ChatMessageThrottle]
+
+    # Message limits
+    MAX_MESSAGE_LENGTH = 1000
+    MAX_HISTORY_LENGTH = 10
 
     def post(self, request):
         """Process a web chat message and return AI response."""
@@ -464,6 +472,23 @@ class WebChatMessageView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validate message length
+        if len(message) > self.MAX_MESSAGE_LENGTH:
+            return Response(
+                {'error': f'Message too long. Maximum {self.MAX_MESSAGE_LENGTH} characters.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate language
+        if language not in ('es', 'en'):
+            language = 'es'
+
+        # Trim history to prevent abuse
+        if isinstance(history, list):
+            history = history[-self.MAX_HISTORY_LENGTH:]
+        else:
+            history = []
+
         # Get or create conversation
         conversation, created = Conversation.objects.get_or_create(
             session_id=session_id,
@@ -481,6 +506,13 @@ class WebChatMessageView(APIView):
             content=message,
         )
 
+        # Auto-capture lead if contact info detected
+        try:
+            from .services.lead_capture import try_capture_lead
+            try_capture_lead(conversation, message, request=request)
+        except Exception as e:
+            logger.debug(f'Lead capture skipped: {e}')
+
         # Get AI response
         ai_service = get_ai_service()
         response_data = ai_service.generate_response(
@@ -491,7 +523,7 @@ class WebChatMessageView(APIView):
         )
 
         # Store bot message
-        Message.objects.create(
+        bot_message = Message.objects.create(
             conversation=conversation,
             role='bot',
             content=response_data.content,
@@ -504,6 +536,7 @@ class WebChatMessageView(APIView):
 
         return Response({
             'message': response_data.content,
+            'message_id': str(bot_message.id),
             'source': response_data.source,
             'intent': response_data.intent,
             'confidence': response_data.confidence,
@@ -532,3 +565,195 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
         if conversation_id:
             qs = qs.filter(conversation_id=conversation_id)
         return qs.order_by('created_at')
+
+
+class WebChatFeedbackView(APIView):
+    """
+    Public endpoint for rating bot messages (thumbs up / down).
+
+    POST /api/v1/chatbot/web-chat/feedback/
+    Expected body: { message_id, rating, comment?, session_id }
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ChatMessageThrottle]
+
+    def post(self, request):
+        """Submit feedback for a bot message."""
+        message_id = request.data.get('message_id', '')
+        rating = request.data.get('rating', '')
+        comment = request.data.get('comment', '')
+        session_id = request.data.get('session_id', '')
+
+        if not message_id:
+            return Response(
+                {'error': 'message_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if rating not in ('positive', 'negative'):
+            return Response(
+                {'error': 'rating must be "positive" or "negative".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            message = Message.objects.get(id=message_id, role='bot')
+        except (Message.DoesNotExist, Exception):
+            return Response(
+                {'error': 'Message not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Create or update feedback
+        feedback, created = MessageFeedback.objects.update_or_create(
+            message=message,
+            defaults={
+                'rating': rating,
+                'comment': comment[:500] if comment else '',
+                'session_id': session_id[:100] if session_id else '',
+            },
+        )
+
+        return Response({
+            'success': True,
+            'feedback_id': str(feedback.id),
+            'rating': feedback.rating,
+        })
+
+
+class ChatAnalyticsView(APIView):
+    """
+    Analytics endpoint for chatbot metrics.
+
+    GET /api/v1/chatbot/analytics/?days=30
+
+    Returns: total conversations, messages, popular intents,
+    escalation rate, AI vs fallback ratio, feedback stats,
+    messages per day, busiest hours.
+    """
+
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        """Get chatbot analytics."""
+        days = min(int(request.query_params.get('days', 30)), 365)
+        start_date = timezone.now() - timezone.timedelta(days=days)
+
+        # Base querysets
+        conversations = Conversation.objects.filter(created_at__gte=start_date)
+        messages = Message.objects.filter(created_at__gte=start_date)
+        bot_messages = messages.filter(role='bot')
+        user_messages = messages.filter(role='user')
+
+        # Total counts
+        total_conversations = conversations.count()
+        total_messages = messages.count()
+        total_user_messages = user_messages.count()
+        total_bot_messages = bot_messages.count()
+
+        # Escalation rate
+        escalated = conversations.filter(status='escalated').count()
+        escalation_rate = (
+            round(escalated / total_conversations * 100, 1)
+            if total_conversations > 0
+            else 0
+        )
+
+        # AI vs Fallback source ratio
+        ai_count = bot_messages.filter(metadata__model__isnull=False).count()
+        fallback_count = total_bot_messages - ai_count
+
+        # Average messages per conversation
+        avg_messages = (
+            round(total_messages / total_conversations, 1)
+            if total_conversations > 0
+            else 0
+        )
+
+        # Popular intents
+        intent_counts = (
+            bot_messages
+            .exclude(intent='')
+            .values('intent')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:10]
+        )
+
+        # Feedback stats
+        feedbacks = MessageFeedback.objects.filter(created_at__gte=start_date)
+        positive_count = feedbacks.filter(rating='positive').count()
+        negative_count = feedbacks.filter(rating='negative').count()
+        total_feedback = positive_count + negative_count
+        satisfaction_rate = (
+            round(positive_count / total_feedback * 100, 1)
+            if total_feedback > 0
+            else None
+        )
+
+        # Conversations per day (for chart)
+        conversations_by_day = list(
+            conversations
+            .annotate(date=TruncDate('created_at'))
+            .values('date')
+            .annotate(count=Count('id'))
+            .order_by('date')
+        )
+
+        # Busiest hours
+        messages_by_hour = list(
+            user_messages
+            .annotate(hour=TruncHour('created_at'))
+            .values('hour')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:5]
+        )
+
+        # Average confidence
+        avg_confidence = bot_messages.aggregate(
+            avg=Avg('confidence')
+        )['avg']
+
+        # Lead capture stats
+        leads_from_chat = Lead.objects.filter(
+            source='chatbot',
+            created_at__gte=start_date,
+        ).count()
+
+        return Response({
+            'period_days': days,
+            'total_conversations': total_conversations,
+            'total_messages': total_messages,
+            'total_user_messages': total_user_messages,
+            'total_bot_messages': total_bot_messages,
+            'avg_messages_per_conversation': avg_messages,
+            'escalation_rate': escalation_rate,
+            'escalated_count': escalated,
+            'ai_responses': ai_count,
+            'fallback_responses': fallback_count,
+            'ai_ratio': (
+                round(ai_count / total_bot_messages * 100, 1)
+                if total_bot_messages > 0
+                else 0
+            ),
+            'avg_confidence': round(avg_confidence, 3) if avg_confidence else None,
+            'popular_intents': [
+                {'intent': item['intent'], 'count': item['count']}
+                for item in intent_counts
+            ],
+            'feedback': {
+                'total': total_feedback,
+                'positive': positive_count,
+                'negative': negative_count,
+                'satisfaction_rate': satisfaction_rate,
+            },
+            'leads_captured': leads_from_chat,
+            'conversations_by_day': [
+                {'date': str(item['date']), 'count': item['count']}
+                for item in conversations_by_day
+            ],
+            'busiest_hours': [
+                {'hour': item['hour'].strftime('%H:00'), 'count': item['count']}
+                for item in messages_by_hour
+            ],
+        })

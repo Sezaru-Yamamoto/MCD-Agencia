@@ -17,6 +17,8 @@ from .views import (
     ChatView,
     WebChatConfigView,
     WebChatMessageView,
+    WebChatFeedbackView,
+    ChatAnalyticsView,
     MessageViewSet,
 )
 
@@ -35,6 +37,10 @@ urlpatterns = [
     # Web chat widget endpoints (used by frontend ChatWidget)
     path('web-chat/config/', WebChatConfigView.as_view(), name='web_chat_config'),
     path('web-chat/message/', WebChatMessageView.as_view(), name='web_chat_message'),
+    path('web-chat/feedback/', WebChatFeedbackView.as_view(), name='web_chat_feedback'),
+
+    # Admin analytics
+    path('analytics/', ChatAnalyticsView.as_view(), name='chat_analytics'),
 
     # ViewSets
     path('', include(router.urls)),

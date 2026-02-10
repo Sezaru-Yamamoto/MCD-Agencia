@@ -338,3 +338,59 @@ class Message(TimeStampedModel):
 
     def __str__(self):
         return f"{self.role}: {self.content[:50]}"
+
+
+class MessageFeedback(TimeStampedModel):
+    """
+    User feedback on a bot message (thumbs up / thumbs down).
+
+    Used to track AI response quality and improve the service.
+
+    Attributes:
+        message: The bot message being rated
+        rating: 'positive' or 'negative'
+        comment: Optional text feedback
+        session_id: For anonymous tracking
+    """
+
+    RATING_CHOICES = [
+        ('positive', _('Positive')),
+        ('negative', _('Negative')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    message = models.OneToOneField(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='feedback',
+        help_text=_('The bot message being rated.')
+    )
+    rating = models.CharField(
+        _('rating'),
+        max_length=10,
+        choices=RATING_CHOICES,
+        help_text=_('Positive or negative rating.')
+    )
+    comment = models.TextField(
+        _('comment'),
+        blank=True,
+        help_text=_('Optional text feedback from user.')
+    )
+    session_id = models.CharField(
+        _('session ID'),
+        max_length=100,
+        blank=True,
+        help_text=_('Chat session for anonymous tracking.')
+    )
+
+    class Meta:
+        verbose_name = _('message feedback')
+        verbose_name_plural = _('message feedbacks')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.rating} on {self.message_id}"
