@@ -223,7 +223,8 @@ export default function RegisterPage() {
           <Input
             label="Contraseña"
             type={showPassword ? 'text' : 'password'}
-            placeholder="Min. 8, 1 mayúscula, 1 número"
+            placeholder="••••••••"
+            helperText="Min. 8 caracteres, 1 mayúscula, 1 número"
             leftIcon={<LockClosedIcon className="h-5 w-5" />}
             rightIcon={
               <button
