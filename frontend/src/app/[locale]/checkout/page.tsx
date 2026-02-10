@@ -19,6 +19,7 @@ import {
 
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 import { getAddresses, createAddress, createOrder, Address } from '@/lib/api/orders';
 import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
 import { Button, Input, Card, LoadingPage, Modal } from '@/components/ui';
@@ -58,6 +59,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { cart, isLoading: isCartLoading, refreshCart } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
+  const { openPrivacy, openTerms } = useLegalModal();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('mercadopago');
@@ -291,13 +293,13 @@ export default function CheckoutPage() {
                 />
                 <span className="text-sm text-neutral-400">
                   He leído y acepto los{' '}
-                  <Link href="/legal/terminos" className="text-cyan-400 hover:underline">
+                  <button type="button" onClick={openTerms} className="text-cyan-400 hover:underline">
                     Términos y Condiciones
-                  </Link>{' '}
+                  </button>{' '}
                   y la{' '}
-                  <Link href="/legal/privacidad" className="text-cyan-400 hover:underline">
+                  <button type="button" onClick={openPrivacy} className="text-cyan-400 hover:underline">
                     Política de Privacidad
-                  </Link>
+                  </button>
                 </span>
               </label>
             </Card>

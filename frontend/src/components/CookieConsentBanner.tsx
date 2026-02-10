@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 
 /**
  * GDPR / LFPDPPP compliant cookie consent banner.
@@ -16,6 +16,7 @@ export function CookieConsentBanner() {
   const [analytics, setAnalytics] = useState(true);
   const [marketing, setMarketing] = useState(false);
   const locale = useLocale();
+  const { openPrivacy } = useLegalModal();
 
   // Already consented → don't render
   if (consent !== null) return null;
@@ -36,12 +37,13 @@ export function CookieConsentBanner() {
                   ? 'Utilizamos cookies propias y de terceros para analizar el uso del sitio y mejorar tu experiencia. Puedes aceptar todas, rechazar las no esenciales o personalizar tu elección.'
                   : 'We use our own and third-party cookies to analyze site usage and improve your experience. You can accept all, reject non-essential ones, or customize your choice.'}
                 {' '}
-                <Link
-                  href={`/${locale}/privacidad`}
+                <button
+                  type="button"
+                  onClick={openPrivacy}
                   className="text-cmyk-cyan hover:underline"
                 >
                   {locale === 'es' ? 'Aviso de privacidad' : 'Privacy policy'}
-                </Link>
+                </button>
               </p>
             </div>
           </div>

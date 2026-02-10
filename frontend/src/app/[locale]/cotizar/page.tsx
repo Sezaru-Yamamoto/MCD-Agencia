@@ -21,6 +21,7 @@ import {
 
 import { submitQuoteRequest } from '@/lib/api/quotes';
 import { getProducts } from '@/lib/api/catalog';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 import { Button, Input, Textarea, Select, Card, Breadcrumb } from '@/components/ui';
 
 const quoteSchema = z.object({
@@ -54,6 +55,7 @@ const MATERIAL_OPTIONS = [
 export default function QuotePage() {
   const searchParams = useSearchParams();
   const preselectedProduct = searchParams.get('producto');
+  const { openPrivacy } = useLegalModal();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -354,9 +356,9 @@ export default function QuotePage() {
                 />
                 <span className="text-sm text-neutral-400">
                   He leído y acepto la{' '}
-                  <Link href="/legal/privacidad" className="text-cyan-400 hover:underline">
+                  <button type="button" onClick={openPrivacy} className="text-cyan-400 hover:underline">
                     Política de Privacidad
-                  </Link>
+                  </button>
                   . Entiendo que mis datos serán utilizados para procesar mi solicitud
                   de cotización.
                 </span>

@@ -21,6 +21,8 @@ import { UnifiedHeader } from '@/components/UnifiedHeader';
 import { Footer } from '@/components/landing/Footer';
 import { FooterWrapper } from '@/components/FooterWrapper';
 import { CookieConsentProvider } from '@/contexts/CookieConsentContext';
+import { LegalModalProvider } from '@/contexts/LegalModalContext';
+import { LegalModal } from '@/components/LegalModal';
 import { AnalyticsScripts } from '@/components/AnalyticsScripts';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
@@ -183,6 +185,7 @@ export default async function RootLayout({
       <body className="min-h-screen bg-neutral-950 font-sans text-white antialiased">
         <NextIntlClientProvider messages={messages}>
           <CookieConsentProvider>
+          <LegalModalProvider>
           <Providers>
             {/* Analytics – loads scripts only when consent is given */}
             <AnalyticsScripts />
@@ -215,7 +218,11 @@ export default async function RootLayout({
 
             {/* Cookie consent banner */}
             <CookieConsentBanner />
+
+            {/* Legal modals (privacy + terms) — available from any page */}
+            <LegalModal />
           </Providers>
+          </LegalModalProvider>
           </CookieConsentProvider>
         </NextIntlClientProvider>
       </body>

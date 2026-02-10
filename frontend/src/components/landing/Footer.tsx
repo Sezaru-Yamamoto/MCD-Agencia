@@ -1,11 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { CONTACT_INFO } from '@/lib/constants';
 import { SERVICE_IDS } from '@/lib/service-ids';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 
 const SOCIAL_LINKS = {
   facebookAcapulco: 'https://www.facebook.com/AgenciaMCDAcapulco',
@@ -19,6 +19,7 @@ export function Footer() {
   const tServices = useTranslations('landing.services');
   const locale = useLocale();
   const { resetConsent } = useCookieConsent();
+  const { openPrivacy, openTerms } = useLegalModal();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -240,18 +241,24 @@ export function Footer() {
               {t('copyright', { year: currentYear })}
             </div>
             <div className="flex space-x-4">
-              <Link href={`/${locale}/privacidad`} className="text-gray-400 hover:text-white transition-colors">
+              <button
+                onClick={openPrivacy}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
                 {t('privacy')}
-              </Link>
+              </button>
               <button
                 onClick={() => resetConsent()}
                 className="text-gray-400 hover:text-white transition-colors"
               >
                 Cookies
               </button>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <button
+                onClick={openTerms}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
                 {t('terms')}
-              </a>
+              </button>
             </div>
           </div>
         </div>

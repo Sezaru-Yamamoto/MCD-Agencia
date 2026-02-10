@@ -20,6 +20,7 @@ import {
 
 import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 import { useRecaptcha } from '@/hooks';
 
 const registerSchema = z
@@ -55,6 +56,7 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const locale = useLocale();
   const { register: registerUser } = useAuth();
+  const { openPrivacy, openTerms } = useLegalModal();
   const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -272,9 +274,9 @@ export default function RegisterPage() {
             />
             <span className="ml-2 text-sm text-neutral-400">
               Acepto los{' '}
-              <Link href={`/${locale}/legal/terminos`} className="text-cyan-400 hover:underline">
+              <button type="button" onClick={openTerms} className="text-cyan-400 hover:underline">
                 Términos y Condiciones
-              </Link>
+              </button>
               {errors.terms_accepted && (
                 <span className="block text-red-500 text-xs mt-1">
                   {errors.terms_accepted.message}
@@ -291,9 +293,9 @@ export default function RegisterPage() {
             />
             <span className="ml-2 text-sm text-neutral-400">
               Acepto la{' '}
-              <Link href={`/${locale}/legal/privacidad`} className="text-cyan-400 hover:underline">
+              <button type="button" onClick={openPrivacy} className="text-cyan-400 hover:underline">
                 Política de Privacidad
-              </Link>
+              </button>
               {errors.privacy_accepted && (
                 <span className="block text-red-500 text-xs mt-1">
                   {errors.privacy_accepted.message}

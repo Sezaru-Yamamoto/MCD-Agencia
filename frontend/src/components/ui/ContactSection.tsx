@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 import { motion } from 'framer-motion';
 import {
   MapPinIcon,
@@ -49,6 +50,7 @@ interface ContactSectionProps {
 export default function ContactSection({ branches, config }: ContactSectionProps) {
   const t = useTranslations('Contact');
   const locale = useLocale();
+  const { openPrivacy } = useLegalModal();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -237,9 +239,9 @@ export default function ContactSection({ branches, config }: ContactSectionProps
                   />
                   <label htmlFor="privacy_accepted" className="text-sm text-gray-600">
                     {t('form.privacyConsent')}{' '}
-                    <a href="/privacy" className="text-cyan-600 hover:underline">
+                    <button type="button" onClick={openPrivacy} className="text-cyan-600 hover:underline">
                       {t('form.privacyLink')}
-                    </a>
+                    </button>
                   </label>
                 </div>
 

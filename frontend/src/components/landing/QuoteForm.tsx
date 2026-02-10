@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { trackEvent, trackingEvents } from '@/lib/tracking';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 import { CONTACT_INFO } from '@/lib/constants';
 import {
   SERVICE_IDS,
@@ -165,6 +166,7 @@ interface QuoteFormData {
 export function QuoteForm() {
   const t = useTranslations('landing.quoteForm');
   const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
+  const { openPrivacy } = useLegalModal();
   const [formStatus, setFormStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -1473,7 +1475,7 @@ export function QuoteForm() {
               />
               <label htmlFor="privacidad" className="ml-3 text-sm text-gray-300">
                 {t('privacy')}{' '}
-                <a href="/privacidad" className="text-cmyk-magenta hover:underline">{t('privacyLink')}</a>
+                <button type="button" onClick={openPrivacy} className="text-cmyk-magenta hover:underline">{t('privacyLink')}</button>
                 . <span className="text-cmyk-magenta">*</span>
               </label>
             </div>

@@ -17,6 +17,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
+import { useLegalModal } from '@/contexts/LegalModalContext';
 
 // =============================================================================
 // Social Icons (inline SVG for simplicity)
@@ -52,6 +53,7 @@ const socialIcons = {
 export function Footer() {
   const t = useTranslations('footer');
   const locale = useLocale();
+  const { openPrivacy, openTerms } = useLegalModal();
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
@@ -73,9 +75,8 @@ export function Footer() {
       { name: t('links.tracking'), href: `/${locale}/mi-cuenta/pedidos` },
     ],
     legal: [
-      { name: t('links.terms'), href: `/${locale}/legal/terminos` },
-      { name: t('links.privacy'), href: `/${locale}/legal/privacidad` },
-      { name: t('links.cookies'), href: `/${locale}/legal/cookies` },
+      { name: t('links.terms'), action: openTerms },
+      { name: t('links.privacy'), action: openPrivacy },
     ],
   };
 
@@ -208,13 +209,13 @@ export function Footer() {
           {/* Legal Links */}
           <div className="flex flex-wrap justify-center gap-4 md:gap-6">
             {footerLinks.legal.map((link) => (
-              <Link
+              <button
                 key={link.name}
-                href={link.href}
+                onClick={link.action}
                 className="text-sm text-neutral-500 transition-colors hover:text-neutral-300"
               >
                 {link.name}
-              </Link>
+              </button>
             ))}
           </div>
         </div>
