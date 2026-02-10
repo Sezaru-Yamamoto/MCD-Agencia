@@ -280,20 +280,25 @@ Haga clic en **"Enviar solicitud"**. Recibirá una confirmación en pantalla y u
 
 ### 3.5 Chatbot
 
-El **chatbot** es un asistente virtual disponible como un botón flotante en la esquina inferior derecha de todas las páginas.
+El **chatbot** es un asistente virtual **potenciado con inteligencia artificial (Google Gemini)**, disponible como un botón flotante en la esquina inferior derecha de todas las páginas.
 
 1. Haga clic en el **icono de chat** (💬) para abrirlo.
-2. Se presenta un menú con opciones rápidas:
+2. Se presenta un mensaje de bienvenida y un menú con **acciones rápidas**:
 
    | Opción | Qué hace |
    |--------|----------|
-   | 📋 Solicitar cotización | Lo guía al formulario de cotización o a contactar por WhatsApp |
-   | 🛒 Información de productos | Muestra subcategorías (señalética, publicidad exterior, impresión) o lo lleva al catálogo completo |
-   | 📍 Ubicaciones y horarios | Muestra dirección de la sucursal, horario de atención y teléfono, con botones para ver en mapa o llamar |
-   | 💬 Hablar con un asesor | Ofrece contactar vía WhatsApp, correo electrónico o llamada telefónica |
+   | 🎨 Servicios | Información detallada sobre los servicios de la agencia |
+   | 📋 Cotizar | Lo guía al formulario de cotización o a contactar por WhatsApp |
+   | 🛒 Catálogo | Lo dirige al catálogo de productos |
+   | 📍 Ubicación | Muestra direcciones, horarios y datos de contacto de las sucursales |
+   | 💬 Asesor | Ofrece contactar vía WhatsApp con un asesor humano |
 
-3. También puede escribir libremente en el campo de texto. El bot responderá y lo guiará a la opción más adecuada.
-4. Para minimizar el chat, haga clic en el botón **"−"**. Para cerrarlo, haga clic en **"×"**.
+3. **Escriba libremente** en el campo de texto. El asistente de IA responderá de forma inteligente con información precisa sobre los servicios, productos, ubicaciones, horarios y más de Agencia MCD.
+4. Si el asistente no puede resolver su duda o usted solicita hablar con un humano, se mostrarán **botones de WhatsApp** para contactar directamente con la sucursal de Acapulco o Tecoanapa.
+5. El chatbot responde en **español e inglés** según el idioma seleccionado en el sitio.
+6. Para minimizar el chat, haga clic en el botón **"−"**. Para cerrarlo, haga clic en **"×"**.
+
+> **Nota**: El chatbot utiliza inteligencia artificial para proporcionar respuestas contextuales. Si el servicio de IA no está disponible temporalmente, el chatbot funciona con respuestas predefinidas como respaldo.
 
 ### 3.6 Cambio de idioma
 

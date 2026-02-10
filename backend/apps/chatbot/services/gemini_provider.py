@@ -6,7 +6,6 @@ To switch to another provider, create a similar class
 extending BaseAIService and register it in ai_service.py.
 """
 
-import json
 import logging
 from typing import Optional
 
@@ -83,31 +82,15 @@ class GeminiService(BaseAIService):
 
     def __init__(self):
         """Initialize Gemini client."""
-        import google.generativeai as genai
+        from google import genai
 
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
         if not api_key:
             raise ValueError('GEMINI_API_KEY not configured in settings')
 
-        genai.configure(api_key=api_key)
-
-        model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-2.0-flash')
-
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=500,
-                temperature=0.7,
-                top_p=0.9,
-            ),
-            safety_settings=[
-                {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_ONLY_HIGH'},
-                {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_ONLY_HIGH'},
-                {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_ONLY_HIGH'},
-                {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_ONLY_HIGH'},
-            ],
-        )
-        logger.info(f'Gemini service initialized with model: {model_name}')
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-2.0-flash')
+        logger.info(f'Gemini service initialized with model: {self.model_name}')
 
     def generate_response(
         self,
@@ -118,29 +101,61 @@ class GeminiService(BaseAIService):
     ) -> ChatResponse:
         """Generate response using Gemini."""
         try:
+            from google.genai import types
+
             system_prompt = _get_system_prompt(language)
 
             # Build conversation history for Gemini
             contents = []
 
-            # Add system instruction as first user/model exchange
-            contents.append({'role': 'user', 'parts': [{'text': f'[SYSTEM INSTRUCTIONS]\n{system_prompt}'}]})
-            contents.append({'role': 'model', 'parts': [{'text': 'Entendido. Soy el asistente virtual de Agencia MCD. Estoy listo para ayudar.' if language == 'es' else 'Understood. I am the virtual assistant of Agencia MCD. I\'m ready to help.'}]})
-
             # Add conversation history
             if history:
                 for msg in history[-8:]:  # Last 8 messages for context
                     role = 'model' if msg.get('role') == 'assistant' else 'user'
-                    contents.append({
-                        'role': role,
-                        'parts': [{'text': msg.get('content', '')}]
-                    })
+                    contents.append(
+                        types.Content(
+                            role=role,
+                            parts=[types.Part.from_text(text=msg.get('content', ''))],
+                        )
+                    )
 
             # Add current message
-            contents.append({'role': 'user', 'parts': [{'text': message}]})
+            contents.append(
+                types.Content(
+                    role='user',
+                    parts=[types.Part.from_text(text=message)],
+                )
+            )
 
-            # Call Gemini
-            response = self.model.generate_content(contents)
+            # Call Gemini with system instruction
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=500,
+                    temperature=0.7,
+                    top_p=0.9,
+                    safety_settings=[
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_HARASSMENT',
+                            threshold='BLOCK_ONLY_HIGH',
+                        ),
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_HATE_SPEECH',
+                            threshold='BLOCK_ONLY_HIGH',
+                        ),
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                            threshold='BLOCK_ONLY_HIGH',
+                        ),
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_DANGEROUS_CONTENT',
+                            threshold='BLOCK_ONLY_HIGH',
+                        ),
+                    ],
+                ),
+            )
 
             if not response or not response.text:
                 logger.warning('Empty response from Gemini')

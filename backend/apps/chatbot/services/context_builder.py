@@ -76,8 +76,8 @@ Sales modes: Some products are direct purchase from the catalog, others require 
 def _build_services_info(is_es: bool) -> str:
     """List of services from the content module."""
     try:
-        from apps.content.models import ServiceType
-        services = ServiceType.objects.filter(is_active=True).order_by('position')
+        from apps.content.models import Service
+        services = Service.objects.filter(is_active=True).order_by('position')
 
         if not services.exists():
             return _get_default_services(is_es)
@@ -85,8 +85,8 @@ def _build_services_info(is_es: bool) -> str:
         header = '=== SERVICIOS ===' if is_es else '=== SERVICES ==='
         lines = [header]
         for s in services:
-            name = s.name if is_es else (getattr(s, 'name_en', '') or s.name)
-            desc = s.description if is_es else (getattr(s, 'description_en', '') or s.description)
+            name = s.name if is_es else (s.name_en or s.name)
+            desc = s.description if is_es else (s.description_en or s.description)
             lines.append(f'• {name}: {desc[:200]}')
         return '\n'.join(lines)
     except Exception as e:
@@ -132,8 +132,8 @@ def _build_catalog_info(is_es: bool, language: str) -> str:
         header = '=== CATEGORÍAS DEL CATÁLOGO ===' if is_es else '=== CATALOG CATEGORIES ==='
         lines = [header]
         for cat in categories[:20]:
-            name = cat.name if is_es else (getattr(cat, 'name_en', '') or cat.name)
-            product_count = cat.products.filter(is_active=True).count() if hasattr(cat, 'products') else 0
+            name = cat.name if is_es else (cat.name_en or cat.name)
+            product_count = cat.items.filter(is_active=True).count() if hasattr(cat, 'items') else 0
             lines.append(f'• {name} ({product_count} productos)' if is_es else f'• {name} ({product_count} products)')
 
         url = 'https://agenciamcd.mx/es/catalogo' if is_es else 'https://agenciamcd.mx/en/catalogo'
@@ -157,17 +157,15 @@ def _build_branches_info(is_es: bool) -> str:
         lines = [header]
         for b in branches:
             address = f'{b.street}, {b.neighborhood}, {b.city}, {b.state}'
-            phone = getattr(b, 'phone', '')
-            hours = b.hours if is_es else (getattr(b, 'hours_en', '') or b.hours)
-            whatsapp = getattr(b, 'whatsapp', '')
+            hours = b.hours if is_es else (b.hours_en or b.hours)
             lines.append(f'📍 {b.name}')
             lines.append(f'   Dirección: {address}' if is_es else f'   Address: {address}')
-            if phone:
-                lines.append(f'   Teléfono: {phone}' if is_es else f'   Phone: {phone}')
+            if b.phone:
+                lines.append(f'   Teléfono: {b.phone}' if is_es else f'   Phone: {b.phone}')
+            if b.email:
+                lines.append(f'   Email: {b.email}')
             if hours:
                 lines.append(f'   Horario: {hours}' if is_es else f'   Hours: {hours}')
-            if whatsapp:
-                lines.append(f'   WhatsApp: {whatsapp}')
         return '\n'.join(lines)
     except Exception as e:
         logger.debug(f'Could not load branches: {e}')
