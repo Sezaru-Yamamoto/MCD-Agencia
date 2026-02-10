@@ -22,7 +22,7 @@ export function Locations() {
     <section id="ubicaciones" className="section py-12 sm:py-16 md:py-20 lg:py-24">
       <div className="container-custom">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12 px-4 sm:px-0">
+        <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">
             {t('title')}
           </h2>

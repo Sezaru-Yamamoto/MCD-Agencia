@@ -64,9 +64,9 @@ export function Hero() {
   const handleImageClick = useCallback((index: number) => { setFullscreenIndex(index); }, []);
 
   return (
-    <section className="relative min-h-screen lg:min-h-screen flex items-center pt-20 sm:pt-20 md:pt-20 pb-6 sm:pb-8 overflow-hidden">
+    <section className="relative min-h-screen lg:min-h-screen flex items-center pt-24 sm:pt-28 md:pt-32 pb-6 sm:pb-8 overflow-hidden">
 
-      <div className="container-custom relative z-10 px-4 sm:px-6 md:px-0">
+      <div className="container-custom relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 items-center">
           {/* Content */}
           <div className="space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in">

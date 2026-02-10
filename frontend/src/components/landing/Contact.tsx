@@ -11,14 +11,14 @@ export function Contact() {
   return (
     <section id="contacto" className="section bg-gradient-to-br from-cmyk-black to-cmyk-black py-8 sm:py-12 md:py-14 lg:py-18">
       <div className="container-custom">
-        <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-8 md:mb-12 px-4 sm:px-0">
+        <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-8 md:mb-12">
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl mb-3 sm:mb-4 font-bold text-white">¿Prefieres contacto directo?</h2>
           <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-300">
             Estamos disponibles para atenderte por los siguientes medios.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 max-w-5xl mx-auto px-4 sm:px-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 max-w-5xl mx-auto">
           {/* WhatsApp */}
           <div className="card bg-cmyk-black border-2 border-cmyk-cyan/20 text-center group hover:border-cmyk-cyan transition-all p-3 sm:p-4 md:p-6">
             <div className="w-10 sm:w-12 md:w-16 h-10 sm:h-12 md:h-16 bg-cmyk-cyan/20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 md:mb-4 group-hover:bg-cmyk-cyan transition-colors">
@@ -72,7 +72,7 @@ export function Contact() {
           </div>
         </div>
 
-        <div className="mt-4 sm:mt-6 md:mt-8 lg:mt-12 text-center px-4 sm:px-0">
+        <div className="mt-4 sm:mt-6 md:mt-8 lg:mt-12 text-center">
           <p className="text-xs sm:text-sm md:text-base lg:text-lg text-gray-100">
             <strong>Horario de atención:</strong> Lun-Vie {CONTACT_INFO.businessHours} hrs
           </p>

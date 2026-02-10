@@ -19,7 +19,7 @@ export function AboutUs() {
     <section id="nosotros" className="section py-12 sm:py-16 md:py-20 lg:py-24">
       <div className="container-custom">
         {/* Header */}
-        <div className="text-center max-w-4xl mx-auto mb-10 sm:mb-14 md:mb-16 px-4 sm:px-0">
+        <div className="text-center max-w-4xl mx-auto mb-10 sm:mb-14 md:mb-16">
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-6 font-bold text-white">
             {t('title')}
           </h2>
@@ -29,7 +29,7 @@ export function AboutUs() {
         </div>
 
         {/* Mission & Vision */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16 px-4 sm:px-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16">
           {/* Mission */}
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-cmyk-cyan/20 to-cmyk-magenta/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300 opacity-50"></div>
@@ -68,7 +68,7 @@ export function AboutUs() {
         </div>
 
         {/* Values */}
-        <div className="px-4 sm:px-0">
+        <div>
           <h3 className="text-2xl sm:text-3xl font-bold text-center text-white mb-8 sm:mb-10">
             {t('values.title')}
           </h3>

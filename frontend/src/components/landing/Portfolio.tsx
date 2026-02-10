@@ -121,14 +121,14 @@ export function Portfolio() {
   return (
     <section id="portafolio" className="section py-10 sm:py-14 md:py-18 lg:py-24">
       <div className="container-custom">
-        <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 md:mb-14 px-4 sm:px-0">
+        <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 md:mb-14">
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
           <p className="text-base sm:text-lg md:text-xl text-gray-300">{t('subtitle')}</p>
         </div>
 
         {/* Loading skeleton */}
         {videosLoading && (
-          <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 mb-10 sm:mb-14 px-4 sm:px-0">
+          <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 mb-10 sm:mb-14">
             {[0, 1].map((i) => (
               <div key={i} className="w-[45%] sm:w-[40%] md:w-[280px] lg:w-[320px] aspect-[9/16] rounded-2xl bg-neutral-800/60 animate-pulse flex items-center justify-center border border-cmyk-cyan/20">
                 <svg className="w-10 h-10 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -200,7 +200,7 @@ export function Portfolio() {
 
         {/* ─── Manual carousel (horizontal / mixed) ─── */}
         {useCarousel && (
-          <div className="relative flex items-center justify-center mb-10 sm:mb-14 px-4 sm:px-0">
+          <div className="relative flex items-center justify-center mb-10 sm:mb-14">
             {/* Prev arrow */}
             <button onClick={() => setCarouselIdx((p) => (p - 1 + videos.length) % videos.length)}
               className="absolute left-0 sm:-left-4 z-10 bg-white/10 hover:bg-white/25 text-white p-2 sm:p-3 rounded-full transition-colors backdrop-blur-sm" aria-label="Video anterior">
@@ -235,7 +235,7 @@ export function Portfolio() {
 
         {/* Single video (only 1) */}
         {!allVertical && !useCarousel && videos.length === 1 && (
-          <div className="flex justify-center mb-10 sm:mb-14 px-4 sm:px-0">
+          <div className="flex justify-center mb-10 sm:mb-14">
             <div className={videos[0].orientation === 'horizontal' ? 'w-full sm:w-[80%] md:w-[560px] lg:w-[640px]' : 'w-[55%] sm:w-[45%] md:w-[320px] lg:w-[360px]'}>
               <VideoCard videoId={videos[0].id} label={videos[0].labelKey} playLabel={t('playVideo')} altText={t('videoAlt')} orientation={videos[0].orientation} />
             </div>
@@ -243,7 +243,7 @@ export function Portfolio() {
         )}
 
         {/* CTA */}
-        <div className="text-center space-y-3 sm:space-y-4 px-4 sm:px-0 mt-8">
+        <div className="text-center space-y-3 sm:space-y-4 mt-8">
           <p className="text-gray-300 text-sm sm:text-base md:text-lg">{t('likeThis')}</p>
           <a href="#cotizar" onClick={handleQuoteClick} className="btn-primary inline-flex items-center text-sm sm:text-base">{t('requestQuote')}</a>
         </div>
