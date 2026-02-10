@@ -455,6 +455,33 @@ class WebChatMessageView(APIView):
 
     def post(self, request):
         """Process a web chat message and return AI response."""
+        try:
+            return self._handle_message(request)
+        except Exception as e:
+            logger.exception(f'Unhandled error in WebChatMessageView: {e}')
+            # Return a fallback response instead of 500
+            language = request.data.get('language', 'es') if hasattr(request, 'data') else 'es'
+            is_es = language == 'es'
+            return Response({
+                'message': (
+                    'Disculpa, tuve un problema técnico. Por favor intenta de nuevo en unos segundos.'
+                    if is_es else
+                    'Sorry, I had a technical issue. Please try again in a few seconds.'
+                ),
+                'message_id': '',
+                'source': 'error',
+                'intent': 'error',
+                'confidence': 0,
+                'suggestions': [
+                    'Reintentar' if is_es else 'Try again',
+                    'WhatsApp' if is_es else 'WhatsApp',
+                ],
+                'should_escalate': False,
+                'whatsapp_links': None,
+            })
+
+    def _handle_message(self, request):
+        """Internal handler — all logic here, wrapped by post()."""
         message = request.data.get('message', '').strip()
         session_id = request.data.get('session_id', '')
         language = request.data.get('language', 'es')
@@ -756,4 +783,74 @@ class ChatAnalyticsView(APIView):
                 {'hour': item['hour'].strftime('%H:00'), 'count': item['count']}
                 for item in messages_by_hour
             ],
+        })
+
+
+class ChatbotHealthView(APIView):
+    """
+    Public diagnostic endpoint for chatbot AI status.
+
+    GET /api/v1/chatbot/health/
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        """Check chatbot AI health and configuration."""
+        checks = {}
+
+        # 1. Check AI service initialization
+        try:
+            from .services import get_ai_service
+            svc = get_ai_service()
+            checks['service'] = type(svc).__name__
+        except Exception as e:
+            checks['service'] = f'ERROR: {e}'
+
+        # 2. Check Gemini API key
+        from django.conf import settings as s
+        has_key = bool(getattr(s, 'GEMINI_API_KEY', ''))
+        checks['gemini_key_set'] = has_key
+        checks['gemini_model'] = getattr(s, 'GEMINI_MODEL', 'not set')
+        checks['provider_setting'] = getattr(s, 'CHATBOT_AI_PROVIDER', 'not set')
+
+        # 3. Check google-genai import
+        try:
+            from google import genai  # noqa: F401
+            checks['google_genai_installed'] = True
+        except ImportError as e:
+            checks['google_genai_installed'] = f'MISSING: {e}'
+
+        # 4. Quick AI test (only if service is Gemini)
+        if checks.get('service') == 'GeminiService':
+            try:
+                resp = svc.generate_response(
+                    message='test',
+                    history=[],
+                    language='es',
+                    session_id='health_check',
+                )
+                checks['ai_test'] = 'OK' if resp.source == 'ai' else f'FALLBACK: {resp.source}'
+            except Exception as e:
+                checks['ai_test'] = f'ERROR: {e}'
+
+        # 5. Check database (chatbot tables)
+        try:
+            from .models import Conversation
+            Conversation.objects.count()
+            checks['database'] = 'OK'
+        except Exception as e:
+            checks['database'] = f'ERROR: {e}'
+
+        all_ok = (
+            checks.get('service') == 'GeminiService'
+            and checks.get('gemini_key_set') is True
+            and checks.get('google_genai_installed') is True
+            and checks.get('ai_test') == 'OK'
+            and checks.get('database') == 'OK'
+        )
+
+        return Response({
+            'healthy': all_ok,
+            'checks': checks,
         })

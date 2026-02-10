@@ -21,12 +21,11 @@ class ChatMessageThrottle(AnonRateThrottle):
     scope = 'chat_message'
 
     def get_cache_key(self, request, view):
-        """Use IP + session_id for more granular control."""
+        """Use IP for rate limiting."""
         ident = self.get_ident(request)
-        session_id = request.data.get('session_id', '')
         return self.cache_format % {
             'scope': self.scope,
-            'ident': f'{ident}_{session_id[:20]}',
+            'ident': ident,
         }
 
 

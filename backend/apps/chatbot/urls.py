@@ -19,6 +19,7 @@ from .views import (
     WebChatMessageView,
     WebChatFeedbackView,
     ChatAnalyticsView,
+    ChatbotHealthView,
     MessageViewSet,
 )
 
@@ -41,6 +42,9 @@ urlpatterns = [
 
     # Admin analytics
     path('analytics/', ChatAnalyticsView.as_view(), name='chat_analytics'),
+
+    # Chatbot health/diagnostics
+    path('health/', ChatbotHealthView.as_view(), name='chatbot_health'),
 
     # ViewSets
     path('', include(router.urls)),
