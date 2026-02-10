@@ -102,10 +102,10 @@ export default function LoginPage() {
 
   return (
     <div className="w-full flex items-center justify-center">
-      <Card className="w-full max-w-[680px]" padding="lg">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-white mb-3">Iniciar Sesión</h1>
-          <p className="text-neutral-400 text-lg">Ingresa a tu cuenta para continuar</p>
+      <Card className="w-full max-w-lg" padding="md">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-white mb-2">Iniciar Sesión</h1>
+          <p className="text-neutral-400 text-sm">Ingresa a tu cuenta para continuar</p>
         </div>
 
         {/* Email not verified banner */}
@@ -140,7 +140,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
             label="Correo electrónico"
             type="email"
@@ -188,13 +188,13 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+          <Button type="submit" className="w-full" isLoading={isLoading}>
             Iniciar Sesión
           </Button>
         </form>
 
         {/* Divider */}
-        <div className="relative my-8">
+        <div className="relative my-5">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-neutral-800"></div>
           </div>
@@ -237,6 +237,17 @@ export default function LoginPage() {
         >
           Iniciar con Google
         </Button>
+
+        {/* Register link */}
+        <p className="mt-6 text-center text-sm text-neutral-400">
+          ¿No tienes cuenta?{' '}
+          <Link
+            href={`/${locale}/registro`}
+            className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
+          >
+            Regístrate aquí
+          </Link>
+        </p>
       </Card>
     </div>
   );

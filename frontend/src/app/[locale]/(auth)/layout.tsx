@@ -21,16 +21,16 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               alt="Agencia MCD"
               width={700}
               height={350}
-              className="w-[520px] h-auto max-w-full drop-shadow-2xl mb-6"
+              className="w-[340px] lg:w-[420px] h-auto max-w-full drop-shadow-2xl mb-4"
               priority
             />
-            <span className="mt-2 text-3xl lg:text-5xl font-bold text-white font-landing tracking-tight text-center select-none">
+            <span className="mt-2 text-xl lg:text-3xl font-bold text-white font-landing tracking-tight text-center select-none">
               Da el primer paso.<br />Crea tu cuenta o inicia sesión.
             </span>
           </div>
         </div>
         {/* Right: Form */}
-        <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4 pt-16">
+        <div className="flex flex-col justify-center items-center w-full md:w-1/2 min-h-screen px-4 pt-8">
           {children}
         </div>
       </div>
