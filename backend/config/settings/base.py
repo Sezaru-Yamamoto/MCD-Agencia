@@ -521,6 +521,18 @@ PAYPAL_WEBHOOK_ID = os.getenv('PAYPAL_WEBHOOK_ID', '')
 
 
 # =============================================================================
+# CHATBOT AI CONFIGURATION
+# =============================================================================
+
+# AI provider: 'gemini', 'openai', 'auto' (auto-detects from available keys)
+CHATBOT_AI_PROVIDER = os.getenv('CHATBOT_AI_PROVIDER', 'auto')
+
+# Google Gemini
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+
+
+# =============================================================================
 # WHATSAPP BUSINESS API
 # =============================================================================
 

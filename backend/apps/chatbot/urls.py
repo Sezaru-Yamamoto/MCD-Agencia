@@ -15,6 +15,8 @@ from .views import (
     PublicLeadCreateView,
     ConversationViewSet,
     ChatView,
+    WebChatConfigView,
+    WebChatMessageView,
     MessageViewSet,
 )
 
@@ -29,6 +31,10 @@ urlpatterns = [
     # Public endpoints
     path('leads/create/', PublicLeadCreateView.as_view(), name='lead_create'),
     path('chat/', ChatView.as_view(), name='chat'),
+
+    # Web chat widget endpoints (used by frontend ChatWidget)
+    path('web-chat/config/', WebChatConfigView.as_view(), name='web_chat_config'),
+    path('web-chat/message/', WebChatMessageView.as_view(), name='web_chat_message'),
 
     # ViewSets
     path('', include(router.urls)),

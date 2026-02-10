@@ -4,8 +4,11 @@ Chatbot Views for MCD-Agencia.
 This module provides ViewSets for chatbot operations:
     - Lead management
     - Conversation handling
-    - Chat messaging
+    - Chat messaging (AI-powered via pluggable providers)
+    - Web chat widget config & messaging endpoints
 """
+
+import logging
 
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -34,6 +37,9 @@ from .serializers import (
     CloseConversationSerializer,
     LeadStatsSerializer,
 )
+from .services import get_ai_service
+
+logger = logging.getLogger(__name__)
 
 
 class LeadViewSet(viewsets.ModelViewSet):
@@ -366,17 +372,37 @@ class ChatView(APIView):
             metadata=metadata
         )
 
-        # Generate bot response
-        response_data = self._generate_response(content, conversation)
+        # Generate AI response
+        ai_service = get_ai_service()
+
+        # Build history from conversation
+        history = list(
+            conversation.messages
+            .order_by('-created_at')[:8]
+            .values('role', 'content')
+        )
+        history.reverse()
+        # Map 'bot' role to 'assistant' for AI service
+        for msg in history:
+            if msg['role'] == 'bot':
+                msg['role'] = 'assistant'
+
+        language = metadata.get('language', 'es')
+        response_data = ai_service.generate_response(
+            message=content,
+            history=history,
+            language=language,
+            session_id=session_id,
+        )
 
         # Store bot message
         bot_message = Message.objects.create(
             conversation=conversation,
             role='bot',
-            content=response_data['content'],
-            intent=response_data.get('intent', ''),
-            confidence=response_data.get('confidence'),
-            metadata=response_data.get('metadata', {})
+            content=response_data.content,
+            intent=response_data.intent,
+            confidence=response_data.confidence,
+            metadata=response_data.metadata,
         )
 
         # Update conversation
@@ -384,94 +410,107 @@ class ChatView(APIView):
 
         return Response({
             'session_id': session_id,
-            'content': response_data['content'],
-            'intent': response_data.get('intent', ''),
-            'confidence': response_data.get('confidence'),
-            'suggestions': response_data.get('suggestions', []),
-            'actions': response_data.get('actions', [])
+            'content': response_data.content,
+            'intent': response_data.intent,
+            'confidence': response_data.confidence,
+            'suggestions': response_data.suggestions,
+            'actions': response_data.actions,
         })
 
-    def _generate_response(self, content, conversation):
-        """
-        Generate chatbot response.
 
-        In production, this would connect to an AI/NLP service.
-        This is a basic rule-based implementation.
-        """
-        content_lower = content.lower()
+class WebChatConfigView(APIView):
+    """
+    Public endpoint for chat widget configuration.
 
-        # Intent detection
-        if any(word in content_lower for word in ['precio', 'price', 'costo', 'cost', 'cuanto', 'how much']):
-            return {
-                'content': _('I can help you with pricing! Could you tell me what product or service you\'re interested in?'),
-                'intent': 'pricing_inquiry',
-                'confidence': 0.85,
-                'suggestions': [
-                    _('Show me the catalog'),
-                    _('I need a custom quote'),
-                    _('Talk to a representative')
-                ]
-            }
+    GET /api/v1/chatbot/web-chat/config/?language=es
+    """
 
-        if any(word in content_lower for word in ['cotización', 'cotizacion', 'quote', 'presupuesto']):
-            return {
-                'content': _('I\'d be happy to help you get a quote! You can request one directly from our website or I can connect you with our sales team.'),
-                'intent': 'quote_request',
-                'confidence': 0.9,
-                'suggestions': [
-                    _('Request a quote'),
-                    _('View products'),
-                    _('Contact sales')
-                ],
-                'actions': [
-                    {'type': 'link', 'label': _('Request Quote'), 'url': '/quote'}
-                ]
-            }
+    permission_classes = [permissions.AllowAny]
 
-        if any(word in content_lower for word in ['hola', 'hello', 'hi', 'buenos', 'buenas']):
-            return {
-                'content': _('Hello! Welcome to Agencia MCD. How can I help you today?'),
-                'intent': 'greeting',
-                'confidence': 0.95,
-                'suggestions': [
-                    _('View products'),
-                    _('Request a quote'),
-                    _('Contact us')
-                ]
-            }
+    def get(self, request):
+        """Return chatbot widget configuration."""
+        language = request.query_params.get('language', 'es')
+        ai_service = get_ai_service()
+        config = ai_service.get_config(language=language)
+        return Response(config)
 
-        if any(word in content_lower for word in ['horario', 'hours', 'schedule', 'abierto', 'open']):
-            return {
-                'content': _('Our business hours are Monday to Friday from 9:00 AM to 6:00 PM, and Saturday from 9:00 AM to 2:00 PM.'),
-                'intent': 'business_hours',
-                'confidence': 0.9,
-                'suggestions': [
-                    _('Contact us'),
-                    _('Find our location')
-                ]
-            }
 
-        if any(word in content_lower for word in ['humano', 'human', 'person', 'agente', 'agent', 'representante']):
-            return {
-                'content': _('I\'ll connect you with a human agent. Please leave your contact information and someone will reach out to you shortly.'),
-                'intent': 'escalation_request',
-                'confidence': 0.95,
-                'actions': [
-                    {'type': 'escalate', 'label': _('Request Human Agent')}
-                ]
-            }
+class WebChatMessageView(APIView):
+    """
+    Public endpoint for web chat messages (used by frontend ChatWidget).
 
-        # Default response
-        return {
-            'content': _('I\'m here to help! You can ask me about our products, request a quote, or I can connect you with our team.'),
-            'intent': 'unknown',
-            'confidence': 0.3,
-            'suggestions': [
-                _('View products'),
-                _('Request a quote'),
-                _('Talk to a representative')
-            ]
-        }
+    POST /api/v1/chatbot/web-chat/message/
+    Expected body: { message, session_id, language, history }
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        """Process a web chat message and return AI response."""
+        message = request.data.get('message', '').strip()
+        session_id = request.data.get('session_id', '')
+        language = request.data.get('language', 'es')
+        history = request.data.get('history', [])
+
+        if not message:
+            return Response(
+                {'error': 'Message is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not session_id:
+            return Response(
+                {'error': 'session_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get or create conversation
+        conversation, created = Conversation.objects.get_or_create(
+            session_id=session_id,
+            defaults={
+                'channel': 'web',
+                'status': Conversation.STATUS_ACTIVE,
+                'metadata': {'language': language},
+            },
+        )
+
+        # Store user message
+        Message.objects.create(
+            conversation=conversation,
+            role='user',
+            content=message,
+        )
+
+        # Get AI response
+        ai_service = get_ai_service()
+        response_data = ai_service.generate_response(
+            message=message,
+            history=history,
+            language=language,
+            session_id=session_id,
+        )
+
+        # Store bot message
+        Message.objects.create(
+            conversation=conversation,
+            role='bot',
+            content=response_data.content,
+            intent=response_data.intent,
+            confidence=response_data.confidence,
+            metadata=response_data.metadata,
+        )
+
+        conversation.save(update_fields=['updated_at'])
+
+        return Response({
+            'message': response_data.content,
+            'source': response_data.source,
+            'intent': response_data.intent,
+            'confidence': response_data.confidence,
+            'suggestions': response_data.suggestions,
+            'should_escalate': response_data.should_escalate,
+            'whatsapp_links': response_data.whatsapp_links,
+        })
 
 
 class MessageViewSet(viewsets.ReadOnlyModelViewSet):
