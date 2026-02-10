@@ -478,7 +478,6 @@ class WebChatMessageView(APIView):
                 ],
                 'should_escalate': False,
                 'whatsapp_links': None,
-                '_debug_error': f'{type(e).__name__}: {e}',
             })
 
     def _handle_message(self, request):

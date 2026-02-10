@@ -194,6 +194,12 @@ class Conversation(TimeStampedModel):
         ('closed', _('Closed')),
     ]
 
+    # Convenience constants
+    STATUS_ACTIVE = 'active'
+    STATUS_WAITING = 'waiting'
+    STATUS_ESCALATED = 'escalated'
+    STATUS_CLOSED = 'closed'
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
