@@ -62,6 +62,44 @@ interface RouteInfo {
   routeData: { coordinates: Array<[number, number]>; distance: number; duration: number } | null;
 }
 
+// Multi-route entry for vallas/perifoneo (configurable map route + schedule)
+interface ConfigurableRouteEntry {
+  id: string;
+  fechaInicio: string;
+  fechaFin: string;
+  horarioInicio: string;
+  horarioFin: string;
+  route: RouteInfo | null;
+}
+
+// Multi-route entry for publibuses (established route + schedule)
+interface EstablishedRouteEntry {
+  id: string;
+  ruta: string;
+  fechaInicio: string;
+  fechaFin: string;
+  horarioInicio: string;
+  horarioFin: string;
+}
+
+const createConfigurableRoute = (): ConfigurableRouteEntry => ({
+  id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+  fechaInicio: '',
+  fechaFin: '',
+  horarioInicio: '',
+  horarioFin: '',
+  route: null,
+});
+
+const createEstablishedRoute = (): EstablishedRouteEntry => ({
+  id: `er-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+  ruta: '',
+  fechaInicio: '',
+  fechaFin: '',
+  horarioInicio: '',
+  horarioFin: '',
+});
+
 // Form data structure
 interface QuoteFormData {
   // Global fields
@@ -99,25 +137,14 @@ interface QuoteFormData {
   vallas_cantidad?: number;
   vallas_zona?: string;
   vallas_tiempoCampana?: string;
-  vallas_fechaInicio?: string;
-  vallas_fechaFin?: string;
-  vallas_horarioInicio?: string;
-  vallas_horarioFin?: string;
-  vallas_diasSeleccionados?: string;
   vallas_impresionIncluida?: 'si' | 'no';
   // Publibuses
   pub_ciudadZona?: string;
   pub_mesesCampana?: number;
   pub_impresionIncluida?: 'si' | 'no';
-  pub_rutaPreestablecida?: string;
   // Perifoneo
   pub_zonaCobertura?: string;
   pub_duracion?: string;
-  pub_fechaInicio?: string;
-  pub_fechaFin?: string;
-  pub_horarioInicio?: string;
-  pub_horarioFin?: string;
-  pub_diasSeleccionados?: string;
   pub_archivoGrabacion?: 'si' | 'no';
   pub_requiereGrabacion?: 'si' | 'no';
   pub_descripcionZona?: string;
@@ -182,7 +209,9 @@ export function QuoteForm() {
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [vallasRoutes, setVallasRoutes] = useState<ConfigurableRouteEntry[]>([createConfigurableRoute()]);
+  const [perifoneoRoutes, setPerifoneoRoutes] = useState<ConfigurableRouteEntry[]>([createConfigurableRoute()]);
+  const [pubRoutes, setPubRoutes] = useState<EstablishedRouteEntry[]>([createEstablishedRoute()]);
   const [selectionFeedback, setSelectionFeedback] = useState<{ service: string; subtype: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -288,7 +317,9 @@ export function QuoteForm() {
 
   // Reset service-specific fields when service changes
   useEffect(() => {
-    setRouteInfo(null);
+    setVallasRoutes([createConfigurableRoute()]);
+    setPerifoneoRoutes([createConfigurableRoute()]);
+    setPubRoutes([createEstablishedRoute()]);
   }, [servicioValue]);
 
   const onSubmit = async (data: QuoteFormData) => {
@@ -315,7 +346,7 @@ export function QuoteForm() {
       }
 
       // Build structured payload
-      const payload = buildPayload(data, routeInfo, recaptchaToken);
+      const payload = buildPayload(data, recaptchaToken);
 
       // Prepare request
       const formData = new FormData();
@@ -341,7 +372,9 @@ export function QuoteForm() {
       });
       reset();
       setSelectedFiles([]);
-      setRouteInfo(null);
+      setVallasRoutes([createConfigurableRoute()]);
+      setPerifoneoRoutes([createConfigurableRoute()]);
+      setPubRoutes([createEstablishedRoute()]);
 
       setTimeout(() => {
         document.getElementById('form-status')?.scrollIntoView({ behavior: 'smooth' });
@@ -355,7 +388,7 @@ export function QuoteForm() {
   };
 
   // Build structured JSON payload
-  const buildPayload = (data: QuoteFormData, route: RouteInfo | null, recaptchaToken: string | null) => {
+  const buildPayload = (data: QuoteFormData, recaptchaToken: string | null) => {
     const timestamp = new Date().toISOString();
     const quoteId = `COT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
@@ -416,19 +449,21 @@ export function QuoteForm() {
             cantidad: data.vallas_cantidad,
             zona: data.vallas_zona,
             tiempo_campana: data.vallas_tiempoCampana,
-            fecha_inicio: data.vallas_fechaInicio,
-            fecha_fin: data.vallas_fechaFin,
-            horario_inicio: data.vallas_horarioInicio,
-            horario_fin: data.vallas_horarioFin,
-            dias_seleccionados: data.vallas_diasSeleccionados,
             impresion_incluida: data.vallas_impresionIncluida === 'si',
-            ruta: route ? {
-              punto_a: route.pointA,
-              punto_b: route.pointB,
-              distancia_metros: route.routeData?.distance,
-              duracion_segundos: route.routeData?.duration,
-              coordenadas: route.routeData?.coordinates,
-            } : null,
+            rutas: vallasRoutes.map((r, i) => ({
+              numero: i + 1,
+              fecha_inicio: r.fechaInicio || null,
+              fecha_fin: r.fechaFin || null,
+              horario_inicio: r.horarioInicio || null,
+              horario_fin: r.horarioFin || null,
+              ruta: r.route ? {
+                punto_a: r.route.pointA,
+                punto_b: r.route.pointB,
+                distancia_metros: r.route.routeData?.distance,
+                duracion_segundos: r.route.routeData?.duration,
+                coordenadas: r.route.routeData?.coordinates,
+              } : null,
+            })),
           };
         } else if (data.pub_subtipo === 'publibuses') {
           basePayload.detalles = {
@@ -436,28 +471,37 @@ export function QuoteForm() {
             ciudad_zona: data.pub_ciudadZona,
             meses_campana: data.pub_mesesCampana,
             impresion_incluida: data.pub_impresionIncluida === 'si',
-            ruta_preestablecida: data.pub_rutaPreestablecida,
+            rutas: pubRoutes.map((r, i) => ({
+              numero: i + 1,
+              ruta_preestablecida: r.ruta || null,
+              fecha_inicio: r.fechaInicio || null,
+              fecha_fin: r.fechaFin || null,
+              horario_inicio: r.horarioInicio || null,
+              horario_fin: r.horarioFin || null,
+            })),
           };
         } else if (data.pub_subtipo === 'perifoneo') {
           basePayload.detalles = {
             subtipo: 'perifoneo',
             zona_cobertura: data.pub_zonaCobertura,
             duracion: data.pub_duracion,
-            fecha_inicio: data.pub_fechaInicio,
-            fecha_fin: data.pub_fechaFin,
-            horario_inicio: data.pub_horarioInicio,
-            horario_fin: data.pub_horarioFin,
-            dias_seleccionados: data.pub_diasSeleccionados,
             archivo_grabacion_proporcionado: data.pub_archivoGrabacion === 'si',
             requiere_grabacion: data.pub_requiereGrabacion === 'si',
             delimitacion_zona: data.pub_descripcionZona || null,
-            ruta: route ? {
-              punto_a: route.pointA,
-              punto_b: route.pointB,
-              distancia_metros: route.routeData?.distance,
-              duracion_segundos: route.routeData?.duration,
-              coordenadas: route.routeData?.coordinates,
-            } : null,
+            rutas: perifoneoRoutes.map((r, i) => ({
+              numero: i + 1,
+              fecha_inicio: r.fechaInicio || null,
+              fecha_fin: r.fechaFin || null,
+              horario_inicio: r.horarioInicio || null,
+              horario_fin: r.horarioFin || null,
+              ruta: r.route ? {
+                punto_a: r.route.pointA,
+                punto_b: r.route.pointB,
+                distancia_metros: r.route.routeData?.distance,
+                duracion_segundos: r.route.routeData?.duration,
+                coordenadas: r.route.routeData?.coordinates,
+              } : null,
+            })),
           };
         } else if (data.pub_subtipo === 'otro') {
           basePayload.detalles = {
@@ -948,69 +992,69 @@ export function QuoteForm() {
                         </div>
                       </div>
 
-                      {/* Schedule section */}
+                      {/* Multi-route section */}
                       <div className="md:col-span-2 space-y-4">
-                        <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          Calendario y horario de circulación
-                        </h4>
-                        <p className="text-xs text-gray-400 -mt-2">Indica cuándo deseas que las vallas circulen. Selecciona el rango de fechas, los días de la semana y el horario.</p>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="label-field">Fecha de inicio</label>
-                            <input {...register('vallas_fechaInicio')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">¿Cuándo inicia la campaña?</p>
-                          </div>
-                          <div>
-                            <label className="label-field">Fecha de fin</label>
-                            <input {...register('vallas_fechaFin')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">¿Cuándo termina la campaña?</p>
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                            Rutas de circulación
+                          </h4>
+                          <span className="text-xs text-gray-500">{vallasRoutes.length} ruta{vallasRoutes.length > 1 ? 's' : ''}</span>
                         </div>
-                        <div>
-                          <label className="label-field">Días de la semana</label>
-                          <p className="text-xs text-gray-500 mt-0.5 mb-1">Toca los días en que deseas que circulen</p>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dia) => {
-                              const currentDays = watch('vallas_diasSeleccionados') || '';
-                              const selected = currentDays.split(',').filter(Boolean).includes(dia);
-                              return (
-                                <button key={dia} type="button"
-                                  onClick={() => {
-                                    const days = currentDays.split(',').filter(Boolean);
-                                    const newDays = selected ? days.filter(d => d !== dia) : [...days, dia];
-                                    setValue('vallas_diasSeleccionados', newDays.join(','));
-                                  }}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                    selected
-                                      ? 'bg-cmyk-cyan text-white shadow-[0_0_10px_rgba(0,183,235,0.4)]'
-                                      : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700 hover:text-white border border-neutral-700'
-                                  }`}
-                                  disabled={formStatus === 'submitting'}
-                                >
-                                  {dia}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="label-field">Horario de inicio</label>
-                            <input {...register('vallas_horarioInicio')} type="time" className="input-field" placeholder="09:00" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">Ej. 09:00 a.m.</p>
-                          </div>
-                          <div>
-                            <label className="label-field">Horario de fin</label>
-                            <input {...register('vallas_horarioFin')} type="time" className="input-field" placeholder="18:00" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">Ej. 06:00 p.m.</p>
-                          </div>
-                        </div>
-                      </div>
+                        <p className="text-xs text-gray-400 -mt-2">Agrega una o más rutas con sus fechas y horarios. Cada ruta puede tener su propio calendario.</p>
 
-                      <div className="md:col-span-2">
-                        <label className="label-field mb-2 block">Ruta de circulación (opcional)</label>
-                        <RouteSelector onChange={setRouteInfo} />
+                        {vallasRoutes.map((entry, idx) => (
+                          <div key={entry.id} className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-3 sm:p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-cmyk-cyan">Ruta {idx + 1}</span>
+                              {vallasRoutes.length > 1 && (
+                                <button type="button" onClick={() => setVallasRoutes(prev => prev.filter(r => r.id !== entry.id))} className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                              <div>
+                                <label className="label-field text-xs">Fecha inicio</label>
+                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.fechaInicio}
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Fecha fin</label>
+                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.fechaFin}
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Horario inicio</label>
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.horarioInicio}
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Horario fin</label>
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.horarioFin}
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa (opcional)</label>
+                              <RouteSelector onChange={(route) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
+                            </div>
+                          </div>
+                        ))}
+
+                        <button type="button"
+                          onClick={() => setVallasRoutes(prev => [...prev, createConfigurableRoute()])}
+                          className="w-full py-2.5 rounded-xl border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan text-sm font-medium hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan transition-all flex items-center justify-center gap-2"
+                          disabled={formStatus === 'submitting'}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                          Agregar otra ruta
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1042,39 +1086,101 @@ export function QuoteForm() {
                           </label>
                         </div>
                       </div>
-                      <div className="md:col-span-2 space-y-3">
-                        <label className="label-field mb-2 block">Selecciona una ruta preestablecida</label>
-                        <div className="space-y-3">
-                          <select {...register('pub_rutaPreestablecida')} className="input-field" disabled={formStatus === 'submitting'}>
-                            <option value="">Selecciona una ruta</option>
-                            <option value="ruta-centro">Ruta Centro</option>
-                            <option value="ruta-norte">Ruta Norte</option>
-                            <option value="ruta-sur">Ruta Sur</option>
-                            <option value="ruta-oriente">Ruta Oriente</option>
-                            <option value="ruta-poniente">Ruta Poniente</option>
-                            <option value="ruta-periferico">Ruta Periférico</option>
-                          </select>
-                          <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
-                            <div className="p-3 bg-neutral-800/50 border-b border-neutral-700">
-                              <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-                                Mapa de rutas preestablecidas
-                              </p>
-                            </div>
-                            <iframe
-                              src="https://www.google.com/maps/d/embed?mid=1wDq-your-map-id"
-                              width="100%"
-                              height="350"
-                              style={{ border: 0, minHeight: '280px' }}
-                              allowFullScreen
-                              loading="lazy"
-                              referrerPolicy="no-referrer-when-downgrade"
-                              className="w-full"
-                              title="Mapa de rutas de publibuses"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500">Consulta el mapa para ver las rutas disponibles y selecciona la que más se ajuste a tu campaña.</p>
+
+                      {/* Multi-route for publibuses */}
+                      <div className="md:col-span-2 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                            Rutas preestablecidas
+                          </h4>
+                          <span className="text-xs text-gray-500">{pubRoutes.length} ruta{pubRoutes.length > 1 ? 's' : ''}</span>
                         </div>
+                        <p className="text-xs text-gray-400 -mt-2">Selecciona una o más rutas con sus fechas y horarios de campaña.</p>
+
+                        {pubRoutes.map((entry, idx) => (
+                          <div key={entry.id} className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-3 sm:p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-cmyk-cyan">Ruta {idx + 1}</span>
+                              {pubRoutes.length > 1 && (
+                                <button type="button" onClick={() => setPubRoutes(prev => prev.filter(r => r.id !== entry.id))} className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                            <div>
+                              <label className="label-field text-xs">Ruta preestablecida</label>
+                              <select className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                value={entry.ruta}
+                                onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, ruta: e.target.value } : r))}>
+                                <option value="">Selecciona una ruta</option>
+                                <option value="ruta-centro">Ruta Centro</option>
+                                <option value="ruta-norte">Ruta Norte</option>
+                                <option value="ruta-sur">Ruta Sur</option>
+                                <option value="ruta-oriente">Ruta Oriente</option>
+                                <option value="ruta-poniente">Ruta Poniente</option>
+                                <option value="ruta-periferico">Ruta Periférico</option>
+                              </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                              <div>
+                                <label className="label-field text-xs">Fecha inicio</label>
+                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.fechaInicio}
+                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Fecha fin</label>
+                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.fechaFin}
+                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Horario inicio</label>
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.horarioInicio}
+                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Horario fin</label>
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.horarioFin}
+                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        <button type="button"
+                          onClick={() => setPubRoutes(prev => [...prev, createEstablishedRoute()])}
+                          className="w-full py-2.5 rounded-xl border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan text-sm font-medium hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan transition-all flex items-center justify-center gap-2"
+                          disabled={formStatus === 'submitting'}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                          Agregar otra ruta
+                        </button>
+
+                        <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
+                          <div className="p-3 bg-neutral-800/50 border-b border-neutral-700">
+                            <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                              Mapa de rutas preestablecidas
+                            </p>
+                          </div>
+                          <iframe
+                            src="https://www.google.com/maps/d/embed?mid=1wDq-your-map-id"
+                            width="100%"
+                            height="350"
+                            style={{ border: 0, minHeight: '280px' }}
+                            allowFullScreen
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            className="w-full"
+                            title="Mapa de rutas de publibuses"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">Consulta el mapa para ver las rutas disponibles y selecciona la que más se ajuste a tu campaña.</p>
                       </div>
                     </div>
                   )}
@@ -1113,74 +1219,74 @@ export function QuoteForm() {
                         </div>
                       </div>
 
-                      {/* Schedule section */}
+                      {/* Multi-route section for perifoneo */}
                       <div className="md:col-span-2 space-y-4">
-                        <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          Calendario y horario de perifoneo
-                        </h4>
-                        <p className="text-xs text-gray-400 -mt-2">Indica cuándo deseas que se realice el perifoneo. Selecciona el rango de fechas, los días de la semana y el horario.</p>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="label-field">Fecha de inicio</label>
-                            <input {...register('pub_fechaInicio')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">¿Cuándo inicia el perifoneo?</p>
-                          </div>
-                          <div>
-                            <label className="label-field">Fecha de fin</label>
-                            <input {...register('pub_fechaFin')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">¿Cuándo termina el perifoneo?</p>
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                            Rutas de perifoneo
+                          </h4>
+                          <span className="text-xs text-gray-500">{perifoneoRoutes.length} ruta{perifoneoRoutes.length > 1 ? 's' : ''}</span>
                         </div>
-                        <div>
-                          <label className="label-field">Días de la semana</label>
-                          <p className="text-xs text-gray-500 mt-0.5 mb-1">Toca los días en que deseas el perifoneo</p>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dia) => {
-                              const currentDays = watch('pub_diasSeleccionados') || '';
-                              const selected = currentDays.split(',').filter(Boolean).includes(dia);
-                              return (
-                                <button key={dia} type="button"
-                                  onClick={() => {
-                                    const days = currentDays.split(',').filter(Boolean);
-                                    const newDays = selected ? days.filter(d => d !== dia) : [...days, dia];
-                                    setValue('pub_diasSeleccionados', newDays.join(','));
-                                  }}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                    selected
-                                      ? 'bg-cmyk-cyan text-white shadow-[0_0_10px_rgba(0,183,235,0.4)]'
-                                      : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700 hover:text-white border border-neutral-700'
-                                  }`}
-                                  disabled={formStatus === 'submitting'}
-                                >
-                                  {dia}
+                        <p className="text-xs text-gray-400 -mt-2">Agrega una o más rutas con sus fechas y horarios de perifoneo.</p>
+
+                        {perifoneoRoutes.map((entry, idx) => (
+                          <div key={entry.id} className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-3 sm:p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-cmyk-cyan">Ruta {idx + 1}</span>
+                              {perifoneoRoutes.length > 1 && (
+                                <button type="button" onClick={() => setPerifoneoRoutes(prev => prev.filter(r => r.id !== entry.id))} className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  Eliminar
                                 </button>
-                              );
-                            })}
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                              <div>
+                                <label className="label-field text-xs">Fecha inicio</label>
+                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.fechaInicio}
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Fecha fin</label>
+                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.fechaFin}
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Horario inicio</label>
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.horarioInicio}
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                              </div>
+                              <div>
+                                <label className="label-field text-xs">Horario fin</label>
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  value={entry.horarioFin}
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa (opcional)</label>
+                              <RouteSelector onChange={(route) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
+                            </div>
                           </div>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="label-field">Horario de inicio</label>
-                            <input {...register('pub_horarioInicio')} type="time" className="input-field" placeholder="09:00" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">Ej. 09:00 a.m.</p>
-                          </div>
-                          <div>
-                            <label className="label-field">Horario de fin</label>
-                            <input {...register('pub_horarioFin')} type="time" className="input-field" placeholder="18:00" disabled={formStatus === 'submitting'} />
-                            <p className="text-xs text-gray-500 mt-1">Ej. 06:00 p.m.</p>
-                          </div>
-                        </div>
+                        ))}
+
+                        <button type="button"
+                          onClick={() => setPerifoneoRoutes(prev => [...prev, createConfigurableRoute()])}
+                          className="w-full py-2.5 rounded-xl border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan text-sm font-medium hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan transition-all flex items-center justify-center gap-2"
+                          disabled={formStatus === 'submitting'}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                          Agregar otra ruta
+                        </button>
                       </div>
 
                       <div className="md:col-span-2">
                         <label className="label-field mb-2 block">Descripción de zona</label>
                         <textarea {...register('pub_descripcionZona')} className="input-field" rows={3} placeholder="Describe las calles, colonias o puntos de referencia que delimitan la zona de perifoneo" disabled={formStatus === 'submitting'} />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="label-field mb-2 block">Ruta de circulación (opcional)</label>
-                        <RouteSelector onChange={setRouteInfo} />
                       </div>
                     </div>
                   )}
