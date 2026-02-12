@@ -424,5 +424,6 @@ export default function QuoteRequestsListPage() {
               </Card>
             </div>
           </>
-
+    </div>
+  );
 }
