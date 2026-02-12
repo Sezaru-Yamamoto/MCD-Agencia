@@ -16,13 +16,28 @@ import {
   ClockIcon,
   EyeIcon,
   ShoppingCartIcon,
+  PencilSquareIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
-import { getAdminQuoteById, sendQuote, deleteQuote, duplicateQuote, downloadQuotePdf, Quote, QuoteStatus } from '@/lib/api/quotes';
+import {
+  getAdminQuoteById,
+  sendQuote,
+  deleteQuote,
+  duplicateQuote,
+  downloadQuotePdf,
+  getQuoteResponses,
+  getAdminChangeRequests,
+  Quote,
+  QuoteStatus,
+  QuoteResponse,
+  QuoteChangeRequest,
+  ChangeRequestStatus,
+} from '@/lib/api/quotes';
 import { convertQuoteToOrder } from '@/lib/api/orders';
 
 const statusColors: Record<QuoteStatus, string> = {
@@ -58,6 +73,34 @@ const statusIcons: Record<QuoteStatus, React.ComponentType<{ className?: string 
   converted: ShoppingCartIcon,
 };
 
+const changeRequestStatusColors: Record<ChangeRequestStatus, string> = {
+  pending: 'bg-orange-500/20 text-orange-400',
+  approved: 'bg-green-500/20 text-green-400',
+  rejected: 'bg-red-500/20 text-red-400',
+};
+
+const changeRequestStatusLabels: Record<ChangeRequestStatus, string> = {
+  pending: 'Pendiente',
+  approved: 'Aprobada',
+  rejected: 'Rechazada',
+};
+
+const responseActionLabels: Record<string, string> = {
+  view: 'Vista',
+  accept: 'Aceptada',
+  reject: 'Rechazada',
+  change_request: 'Solicitud de cambio',
+  comment: 'Comentario',
+};
+
+const responseActionColors: Record<string, string> = {
+  view: 'text-purple-400',
+  accept: 'text-green-400',
+  reject: 'text-red-400',
+  change_request: 'text-orange-400',
+  comment: 'text-blue-400',
+};
+
 export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -72,6 +115,8 @@ export default function QuoteDetailPage() {
   const [isConverting, setIsConverting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [responses, setResponses] = useState<QuoteResponse[]>([]);
+  const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
 
   const quoteId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -92,8 +137,14 @@ export default function QuoteDetailPage() {
 
       setIsLoading(true);
       try {
-        const data = await getAdminQuoteById(quoteId);
+        const [data, responsesData, crData] = await Promise.all([
+          getAdminQuoteById(quoteId),
+          getQuoteResponses(quoteId).catch(() => []),
+          getAdminChangeRequests({ quote: quoteId }).catch(() => ({ results: [] })),
+        ]);
         setQuote(data);
+        setResponses(responsesData);
+        setChangeRequests((crData as { results: QuoteChangeRequest[] }).results || []);
       } catch (error) {
         console.error('Error fetching quote:', error);
         toast.error('Error al cargar la cotizacion');
@@ -246,6 +297,11 @@ export default function QuoteDetailPage() {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-white">{quote.quote_number}</h1>
+                {quote.version > 1 && (
+                  <span className="bg-purple-500/20 text-purple-400 text-xs font-bold px-2 py-1 rounded-full border border-purple-500/30">
+                    v{quote.version}
+                  </span>
+                )}
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${statusColors[quote.status]}`}>
                   <StatusIcon className="h-4 w-4" />
                   {statusLabels[quote.status]}
@@ -398,6 +454,193 @@ export default function QuoteDetailPage() {
                 <p className="text-neutral-300 whitespace-pre-wrap">{quote.terms}</p>
               </Card>
             )}
+
+            {/* Change Requests Section */}
+            {changeRequests.length > 0 && (
+              <Card className="p-6 border-orange-500/20">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <PencilSquareIcon className="h-5 w-5 text-orange-400" />
+                    Solicitudes de Cambio
+                    {changeRequests.filter(cr => cr.status === 'pending').length > 0 && (
+                      <span className="bg-orange-500/20 text-orange-400 text-xs font-medium px-2 py-0.5 rounded-full">
+                        {changeRequests.filter(cr => cr.status === 'pending').length} pendiente{changeRequests.filter(cr => cr.status === 'pending').length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {changeRequests.map((cr) => (
+                    <Link
+                      key={cr.id}
+                      href={`/${locale}/dashboard/cotizaciones/${quoteId}/cambios/${cr.id}`}
+                      className={`block p-4 rounded-lg border transition-colors ${
+                        cr.status === 'pending'
+                          ? 'bg-orange-500/10 border-orange-500/30 hover:bg-orange-500/20'
+                          : cr.status === 'approved'
+                          ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10'
+                          : 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${changeRequestStatusColors[cr.status]}`}>
+                              {cr.status === 'pending' && <ClockIcon className="h-3 w-3" />}
+                              {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3" />}
+                              {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3" />}
+                              {changeRequestStatusLabels[cr.status]}
+                            </span>
+                            <span className="text-neutral-500 text-xs">
+                              {new Date(cr.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          {cr.customer_comments && (
+                            <p className="text-neutral-300 text-sm mt-1">
+                              &ldquo;{cr.customer_comments}&rdquo;
+                            </p>
+                          )}
+                          {cr.changes_summary && (
+                            <div className="flex gap-3 mt-2 text-xs text-neutral-500">
+                              {cr.changes_summary.modified > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <ArrowPathIcon className="h-3 w-3 text-yellow-400" />
+                                  {cr.changes_summary.modified} modificada{cr.changes_summary.modified > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {cr.changes_summary.added > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <CheckCircleIcon className="h-3 w-3 text-green-400" />
+                                  {cr.changes_summary.added} nueva{cr.changes_summary.added > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {cr.changes_summary.deleted > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <XCircleIcon className="h-3 w-3 text-red-400" />
+                                  {cr.changes_summary.deleted} eliminada{cr.changes_summary.deleted > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {cr.reviewed_by_name && (
+                            <p className="text-neutral-500 text-xs mt-2">
+                              Revisada por {cr.reviewed_by_name}
+                              {cr.reviewed_at && ` el ${new Date(cr.reviewed_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}`}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`text-sm font-medium ${
+                          cr.status === 'pending' ? 'text-orange-400' : 'text-neutral-400'
+                        }`}>
+                          {cr.status === 'pending' ? 'Revisar →' : 'Ver →'}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Activity History */}
+            {responses.length > 0 && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <ClockIcon className="h-5 w-5 text-neutral-400" />
+                  Historial de Actividad
+                </h2>
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-3 top-0 bottom-0 w-px bg-neutral-700"></div>
+
+                  <div className="space-y-4">
+                    {/* Version badge at top if version > 1 */}
+                    {quote.version > 1 && (
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex items-center justify-center w-6 h-6 bg-purple-500/20 rounded-full border border-purple-500/40">
+                          <span className="text-purple-400 text-xs font-bold">v{quote.version}</span>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <p className="text-purple-400 text-sm font-medium">
+                            Versión actual: v{quote.version}
+                          </p>
+                          <p className="text-neutral-500 text-xs">
+                            La cotización ha sido modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {responses.map((response) => (
+                      <div key={response.id} className="relative flex items-start gap-4">
+                        <div className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full border ${
+                          response.action === 'accept' ? 'bg-green-500/20 border-green-500/40' :
+                          response.action === 'reject' ? 'bg-red-500/20 border-red-500/40' :
+                          response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
+                          response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
+                          'bg-blue-500/20 border-blue-500/40'
+                        }`}>
+                          {response.action === 'accept' && <CheckCircleIcon className="h-3.5 w-3.5 text-green-400" />}
+                          {response.action === 'reject' && <XCircleIcon className="h-3.5 w-3.5 text-red-400" />}
+                          {response.action === 'change_request' && <PencilSquareIcon className="h-3.5 w-3.5 text-orange-400" />}
+                          {response.action === 'view' && <EyeIcon className="h-3.5 w-3.5 text-purple-400" />}
+                          {response.action === 'comment' && <PencilIcon className="h-3.5 w-3.5 text-blue-400" />}
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <p className={`text-sm font-medium ${responseActionColors[response.action] || 'text-neutral-400'}`}>
+                            {responseActionLabels[response.action] || response.action_display}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-neutral-500 mt-0.5">
+                            <span>
+                              {response.responded_by_name || response.guest_name || 'Cliente'}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {new Date(response.created_at).toLocaleDateString('es-MX', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          {response.comment && (
+                            <p className="text-neutral-300 text-sm mt-1 bg-neutral-800/50 rounded p-2">
+                              &ldquo;{response.comment}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Created event */}
+                    <div className="relative flex items-start gap-4">
+                      <div className="relative z-10 flex items-center justify-center w-6 h-6 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                        <PaperAirplaneIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-cmyk-cyan text-sm font-medium">
+                          Cotización creada
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-neutral-500 mt-0.5">
+                          {quote.created_by_name && <span>{quote.created_by_name}</span>}
+                          {quote.created_by_name && <span>•</span>}
+                          <span>
+                            {new Date(quote.created_at).toLocaleDateString('es-MX', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -406,6 +649,17 @@ export default function QuoteDetailPage() {
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Estado</h2>
               <div className="space-y-4">
+                {quote.version > 1 && (
+                  <div>
+                    <p className="text-neutral-500 text-sm">Versión</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-medium">v{quote.version}</p>
+                      <span className="text-neutral-500 text-xs">
+                        ({quote.version - 1} {quote.version - 1 === 1 ? 'revisión' : 'revisiones'})
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="text-neutral-500 text-sm">Valida hasta</p>
                   <p className={`font-medium ${quote.is_expired ? 'text-red-400' : 'text-white'}`}>
