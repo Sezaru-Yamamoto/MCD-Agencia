@@ -363,7 +363,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
                 </div>
 
                 {/* Publibuses: ruta preestablecida */}
-                {subtipo === 'publibuses' && ruta.ruta_preestablecida && (
+                {subtipo === 'publibuses' && !!ruta.ruta_preestablecida && (
                   <div className="p-3 bg-neutral-800/50 rounded-lg">
                     <p className="text-neutral-500 text-xs">Ruta preestablecida</p>
                     <p className="text-white font-medium">
@@ -374,25 +374,25 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
 
                 {/* Dates and times grid */}
                 <div className="grid grid-cols-2 gap-2">
-                  {ruta.fecha_inicio && (
+                  {!!ruta.fecha_inicio && (
                     <div className="p-2.5 bg-neutral-800/50 rounded-lg">
                       <p className="text-neutral-500 text-xs">Fecha inicio</p>
                       <p className="text-white text-sm font-medium">{String(ruta.fecha_inicio)}</p>
                     </div>
                   )}
-                  {ruta.fecha_fin && (
+                  {!!ruta.fecha_fin && (
                     <div className="p-2.5 bg-neutral-800/50 rounded-lg">
                       <p className="text-neutral-500 text-xs">Fecha fin{subtipo === 'publibuses' ? ' (auto)' : ''}</p>
                       <p className="text-white text-sm font-medium">{String(ruta.fecha_fin)}</p>
                     </div>
                   )}
-                  {ruta.horario_inicio && (
+                  {!!ruta.horario_inicio && (
                     <div className="p-2.5 bg-neutral-800/50 rounded-lg">
                       <p className="text-neutral-500 text-xs">Horario inicio</p>
                       <p className="text-white text-sm font-medium">{String(ruta.horario_inicio)}</p>
                     </div>
                   )}
-                  {ruta.horario_fin && (
+                  {!!ruta.horario_fin && (
                     <div className="p-2.5 bg-neutral-800/50 rounded-lg">
                       <p className="text-neutral-500 text-xs">Horario fin</p>
                       <p className="text-white text-sm font-medium">{String(ruta.horario_fin)}</p>
@@ -403,7 +403,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
                 {/* Route map data (vallas / perifoneo) */}
                 {routeObj && (
                   <div className="p-3 bg-neutral-800/50 rounded-lg space-y-2">
-                    {routeObj.punto_a && (() => {
+                    {!!routeObj.punto_a && (() => {
                       const pa = routeObj.punto_a as { name?: string; lat?: number; lon?: number };
                       return (
                         <div className="flex items-start gap-2">
@@ -415,7 +415,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
                         </div>
                       );
                     })()}
-                    {routeObj.punto_b && (() => {
+                    {!!routeObj.punto_b && (() => {
                       const pb = routeObj.punto_b as { name?: string; lat?: number; lon?: number };
                       return (
                         <div className="flex items-start gap-2">
@@ -427,7 +427,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
                         </div>
                       );
                     })()}
-                    {routeObj.distancia_metros && (() => {
+                    {!!routeObj.distancia_metros && (() => {
                       const d = routeObj.distancia_metros as number;
                       return (
                         <div className="flex items-center gap-2 mt-1">
@@ -438,7 +438,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
                         </div>
                       );
                     })()}
-                    {routeObj.duracion_segundos && (() => {
+                    {!!routeObj.duracion_segundos && (() => {
                       const s = routeObj.duracion_segundos as number;
                       const mins = Math.round(s / 60);
                       return (
