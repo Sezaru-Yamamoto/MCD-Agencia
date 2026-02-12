@@ -50,7 +50,7 @@ export function Clients() {
 
   const clients: ClientItem[] = (apiClients && apiClients.length > 0)
     ? apiClients.map((c) => ({ name: c.name, logo: c.logo }))
-    : CLIENTS;
+    : [...CLIENTS];
 
   // Duplicate items for seamless infinite scroll
   const duplicated = [...clients, ...clients, ...clients];
