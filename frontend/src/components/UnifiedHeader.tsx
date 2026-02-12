@@ -294,7 +294,7 @@ export function UnifiedHeader() {
                           </Link>
                           {/* Submenu */}
                           {openSubmenu === 'dashboard' && (
-                            <div className="absolute left-full top-0 ml-0 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50">
+                            <div className="absolute right-full top-0 mr-1 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50">
                               {[
                                 { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
                                 { href: '/dashboard/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon },
