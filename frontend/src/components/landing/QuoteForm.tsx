@@ -923,7 +923,7 @@ export function QuoteForm() {
 
                   {/* Vallas móviles fields */}
                   {pubSubtipo === 'vallas-moviles' && (
-                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700">
+                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700 overflow-hidden">
                       <div>
                         <label className="label-field">Cantidad de vallas <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('vallas_cantidad', { required: pubSubtipo === 'vallas-moviles' ? 'La cantidad es requerida' : false, min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="1" disabled={formStatus === 'submitting'} />
@@ -1081,7 +1081,7 @@ export function QuoteForm() {
 
                   {/* Perifoneo fields */}
                   {pubSubtipo === 'perifoneo' && (
-                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700">
+                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700 overflow-hidden">
                       <div>
                         <label className="label-field">Zona de cobertura <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('pub_zonaCobertura', { required: pubSubtipo === 'perifoneo' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Colonia, municipio o área" disabled={formStatus === 'submitting'} />

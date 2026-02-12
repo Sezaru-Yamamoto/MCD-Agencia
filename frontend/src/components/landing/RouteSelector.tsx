@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -422,7 +423,7 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
   const hasRoute = pointA && pointB && routeData;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 max-w-full overflow-hidden">
       {/* Botón para abrir */}
       <button
         type="button"
@@ -463,9 +464,9 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
         </div>
       )}
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm overscroll-contain">
+      {/* Modal — rendered via portal to avoid corrupting parent layout */}
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm" style={{ touchAction: 'none' }}>
           <div className="relative w-full max-w-4xl h-[95dvh] sm:h-[85dvh] bg-cmyk-black sm:rounded-2xl rounded-t-2xl border-2 border-cmyk-cyan/30 shadow-2xl flex flex-col overflow-hidden">
             
             {/* Header */}
@@ -646,7 +647,8 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
