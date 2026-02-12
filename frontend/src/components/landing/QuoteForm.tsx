@@ -77,9 +77,6 @@ interface EstablishedRouteEntry {
   id: string;
   ruta: string;
   fechaInicio: string;
-  fechaFin: string;
-  horarioInicio: string;
-  horarioFin: string;
 }
 
 const createConfigurableRoute = (): ConfigurableRouteEntry => ({
@@ -95,10 +92,14 @@ const createEstablishedRoute = (): EstablishedRouteEntry => ({
   id: `er-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
   ruta: '',
   fechaInicio: '',
-  fechaFin: '',
-  horarioInicio: '',
-  horarioFin: '',
 });
+
+// Helper: add N months to a date string (YYYY-MM-DD) and return YYYY-MM-DD
+const addMonths = (dateStr: string, months: number): string => {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().split('T')[0];
+};
 
 // Form data structure
 interface QuoteFormData {
@@ -240,6 +241,7 @@ export function QuoteForm() {
   const senTipo = watch('sen_tipo');
   const cncTipo = watch('cnc_tipo');
   const disTipo = watch('dis_tipo');
+  const pubMesesCampana = watch('pub_mesesCampana');
 
   // Read URL hash parameters to pre-select service and subtype
   useEffect(() => {
@@ -475,9 +477,7 @@ export function QuoteForm() {
               numero: i + 1,
               ruta_preestablecida: r.ruta || null,
               fecha_inicio: r.fechaInicio || null,
-              fecha_fin: r.fechaFin || null,
-              horario_inicio: r.horarioInicio || null,
-              horario_fin: r.horarioFin || null,
+              fecha_fin: r.fechaInicio && data.pub_mesesCampana ? addMonths(r.fechaInicio, Number(data.pub_mesesCampana)) : null,
             })),
           };
         } else if (data.pub_subtipo === 'perifoneo') {
@@ -712,20 +712,23 @@ export function QuoteForm() {
                 {errors.email && <p className="error-message">{errors.email.message}</p>}
               </div>
 
-              <div>
-                <label htmlFor="fechaRequerida" className="label-field">
-                  Fecha estimada requerida <span className="text-cmyk-magenta">*</span>
-                </label>
-                <input
-                  {...register('fechaRequerida', { required: 'La fecha es requerida' })}
-                  type="date"
-                  id="fechaRequerida"
-                  className="input-field"
-                  min={today}
-                  disabled={formStatus === 'submitting'}
-                />
-                {errors.fechaRequerida && <p className="error-message">{errors.fechaRequerida.message}</p>}
-              </div>
+              {/* Hide fecha requerida for publibuses — they use per-route fecha inicio + meses */}
+              {!(servicioValue === 'publicidad-movil' && pubSubtipo === 'publibuses') && (
+                <div>
+                  <label htmlFor="fechaRequerida" className="label-field">
+                    Fecha estimada requerida <span className="text-cmyk-magenta">*</span>
+                  </label>
+                  <input
+                    {...register('fechaRequerida', { required: servicioValue === 'publicidad-movil' && pubSubtipo === 'publibuses' ? false : 'La fecha es requerida' })}
+                    type="date"
+                    id="fechaRequerida"
+                    className="input-field"
+                    min={today}
+                    disabled={formStatus === 'submitting'}
+                  />
+                  {errors.fechaRequerida && <p className="error-message">{errors.fechaRequerida.message}</p>}
+                </div>
+              )}
 
               <div>
                 <div className="flex justify-between items-center">
@@ -1096,7 +1099,11 @@ export function QuoteForm() {
                           </h4>
                           <span className="text-xs text-gray-500">{pubRoutes.length} ruta{pubRoutes.length > 1 ? 's' : ''}</span>
                         </div>
-                        <p className="text-xs text-gray-400 -mt-2">Selecciona una o más rutas con sus fechas y horarios de campaña.</p>
+                        <p className="text-xs text-gray-400 -mt-2">Selecciona una o más rutas. La fecha fin se calcula automáticamente según los meses de campaña.</p>
+
+                        {!pubMesesCampana && (
+                          <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">⚠️ Primero selecciona los meses de campaña arriba para habilitar las fechas.</p>
+                        )}
 
                         {pubRoutes.map((entry, idx) => (
                           <div key={entry.id} className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-3 sm:p-4 space-y-3">
@@ -1115,38 +1122,23 @@ export function QuoteForm() {
                                 value={entry.ruta}
                                 onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, ruta: e.target.value } : r))}>
                                 <option value="">Selecciona una ruta</option>
-                                <option value="ruta-centro">Ruta Centro</option>
-                                <option value="ruta-norte">Ruta Norte</option>
-                                <option value="ruta-sur">Ruta Sur</option>
-                                <option value="ruta-oriente">Ruta Oriente</option>
-                                <option value="ruta-poniente">Ruta Poniente</option>
-                                <option value="ruta-periferico">Ruta Periférico</option>
+                                <option value="zocalo-base">Zócalo Base</option>
+                                <option value="colosio-zocalo">Colosio Zócalo</option>
                               </select>
                             </div>
                             <div className="grid grid-cols-2 gap-2 sm:gap-3">
                               <div>
                                 <label className="label-field text-xs">Fecha inicio</label>
-                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="date" className="input-field text-sm"
+                                  disabled={formStatus === 'submitting' || !pubMesesCampana}
+                                  min={today}
                                   value={entry.fechaInicio}
                                   onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
                               </div>
                               <div>
-                                <label className="label-field text-xs">Fecha fin</label>
-                                <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
-                                  value={entry.fechaFin}
-                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
-                              </div>
-                              <div>
-                                <label className="label-field text-xs">Horario inicio</label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
-                                  value={entry.horarioInicio}
-                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
-                              </div>
-                              <div>
-                                <label className="label-field text-xs">Horario fin</label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
-                                  value={entry.horarioFin}
-                                  onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                                <label className="label-field text-xs">Fecha fin <span className="text-gray-500">(auto)</span></label>
+                                <input type="date" className="input-field text-sm bg-neutral-800 cursor-not-allowed" readOnly
+                                  value={entry.fechaInicio && pubMesesCampana ? addMonths(entry.fechaInicio, Number(pubMesesCampana)) : ''} />
                               </div>
                             </div>
                           </div>
@@ -1161,26 +1153,48 @@ export function QuoteForm() {
                           Agregar otra ruta
                         </button>
 
-                        <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
-                          <div className="p-3 bg-neutral-800/50 border-b border-neutral-700">
-                            <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-                              Mapa de rutas preestablecidas
-                            </p>
+                        {/* Google My Maps embeds */}
+                        <div className="space-y-3">
+                          <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
+                            <div className="p-3 bg-neutral-800/50 border-b border-neutral-700">
+                              <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                                Ruta: Zócalo Base
+                              </p>
+                            </div>
+                            <iframe
+                              src="https://www.google.com/maps/d/embed?mid=1VXvDDqbLCqv54dbwkmtfNs8XKjUxzvo&ll=16.835724183151132%2C-99.87844209999999&z=13"
+                              width="100%"
+                              height="300"
+                              style={{ border: 0, minHeight: '250px' }}
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              className="w-full"
+                              title="Ruta Zócalo Base"
+                            />
                           </div>
-                          <iframe
-                            src="https://www.google.com/maps/d/embed?mid=1wDq-your-map-id"
-                            width="100%"
-                            height="350"
-                            style={{ border: 0, minHeight: '280px' }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            className="w-full"
-                            title="Mapa de rutas de publibuses"
-                          />
+                          <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
+                            <div className="p-3 bg-neutral-800/50 border-b border-neutral-700">
+                              <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                                Ruta: Colosio Zócalo
+                              </p>
+                            </div>
+                            <iframe
+                              src="https://www.google.com/maps/d/embed?mid=1NrsT2SEvgGKOh7NusgOHD6-NJd4h1GE&ll=16.82830914325928%2C-99.85695&z=13"
+                              width="100%"
+                              height="300"
+                              style={{ border: 0, minHeight: '250px' }}
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              className="w-full"
+                              title="Ruta Colosio Zócalo"
+                            />
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500">Consulta el mapa para ver las rutas disponibles y selecciona la que más se ajuste a tu campaña.</p>
+                        <p className="text-xs text-gray-500">Consulta los mapas para ver las rutas disponibles y selecciona la que más se ajuste a tu campaña.</p>
                       </div>
                     </div>
                   )}
