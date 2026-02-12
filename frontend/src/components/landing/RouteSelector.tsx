@@ -454,10 +454,10 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
               <div className="w-0.5 h-4 bg-gray-500"></div>
               <div className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">B</div>
             </div>
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="text-xs sm:text-sm text-white truncate">{pointA?.name}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm text-white break-words">{pointA?.name}</p>
               <p className="text-xs text-gray-500 my-1">↓ {formatDistance(routeData.distance)}</p>
-              <p className="text-xs sm:text-sm text-white truncate">{pointB?.name}</p>
+              <p className="text-xs sm:text-sm text-white break-words">{pointB?.name}</p>
             </div>
             <button type="button" onClick={() => setIsModalOpen(true)} className="text-cmyk-cyan text-xs flex-shrink-0">{t('edit')}</button>
           </div>
