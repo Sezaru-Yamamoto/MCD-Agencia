@@ -967,6 +967,18 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=['patch'], url_path='internal-notes')
+    def update_internal_notes(self, request, pk=None):
+        """Update internal notes for a quote (admin/sales) regardless of status."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote = self.get_object()
+        notes = request.data.get('internal_notes', '')
+        quote.internal_notes = notes
+        quote.save(update_fields=['internal_notes', 'updated_at'])
+        return Response(QuoteAdminSerializer(quote).data)
+
     @action(detail=True, methods=['post'], url_path='regenerate-pdf')
     def regenerate_pdf(self, request, pk=None):
         """Regenerate quote PDF (admin)."""

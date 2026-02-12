@@ -640,6 +640,13 @@ export async function deleteQuote(id: string): Promise<void> {
 }
 
 /**
+ * Update internal notes for a quote (admin/sales, any status).
+ */
+export async function updateQuoteInternalNotes(id: string, internalNotes: string): Promise<Quote> {
+  return apiClient.patch<Quote>(`/quotes/${id}/internal-notes/`, { internal_notes: internalNotes });
+}
+
+/**
  * Get quote responses/history.
  */
 export async function getQuoteResponses(quoteId: string): Promise<QuoteResponse[]> {

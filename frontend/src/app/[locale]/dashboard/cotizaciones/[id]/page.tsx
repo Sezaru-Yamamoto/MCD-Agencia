@@ -18,6 +18,7 @@ import {
   ShoppingCartIcon,
   PencilSquareIcon,
   ArrowPathIcon,
+  ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -32,6 +33,7 @@ import {
   downloadQuotePdf,
   getQuoteResponses,
   getAdminChangeRequests,
+  updateQuoteInternalNotes,
   Quote,
   QuoteStatus,
   QuoteResponse,
@@ -117,6 +119,9 @@ export default function QuoteDetailPage() {
   const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [responses, setResponses] = useState<QuoteResponse[]>([]);
   const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editedNotes, setEditedNotes] = useState('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   const quoteId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -252,6 +257,39 @@ export default function QuoteDetailPage() {
       setModal({ open: true, title: 'Error al descargar PDF', message: msg, variant: 'error' });
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!quote) return;
+    setIsSavingNotes(true);
+    try {
+      const updated = await updateQuoteInternalNotes(quote.id, editedNotes);
+      setQuote(updated);
+      setIsEditingNotes(false);
+      toast.success('Notas actualizadas');
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast.error('Error al guardar las notas');
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleDeleteNotes = async () => {
+    if (!quote) return;
+    if (!confirm('¿Eliminar las notas internas?')) return;
+    setIsSavingNotes(true);
+    try {
+      const updated = await updateQuoteInternalNotes(quote.id, '');
+      setQuote(updated);
+      setIsEditingNotes(false);
+      toast.success('Notas eliminadas');
+    } catch (error) {
+      console.error('Error deleting notes:', error);
+      toast.error('Error al eliminar las notas');
+    } finally {
+      setIsSavingNotes(false);
     }
   };
 
@@ -645,49 +683,127 @@ export default function QuoteDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Status & Validity */}
+            {/* Status & Timeline */}
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Estado</h2>
-              <div className="space-y-4">
-                {quote.version > 1 && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Versión</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-white font-medium">v{quote.version}</p>
-                      <span className="text-neutral-500 text-xs">
-                        ({quote.version - 1} {quote.version - 1 === 1 ? 'revisión' : 'revisiones'})
-                      </span>
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700"></div>
+
+                <div className="space-y-4">
+                  {/* Current status */}
+                  <div className="relative flex items-start gap-3">
+                    <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${statusColors[quote.status]}`}>
+                      <StatusIcon className="h-3 w-3" />
+                    </div>
+                    <div className="flex-1 -mt-0.5">
+                      <p className={`text-sm font-semibold ${statusColors[quote.status].split(' ')[1]}`}>
+                        {statusLabels[quote.status]}
+                      </p>
+                      {quote.version > 1 && (
+                        <p className="text-neutral-500 text-xs">
+                          v{quote.version} · {quote.version - 1} {quote.version - 1 === 1 ? 'revisión' : 'revisiones'}
+                        </p>
+                      )}
                     </div>
                   </div>
-                )}
-                <div>
-                  <p className="text-neutral-500 text-sm">Valida hasta</p>
-                  <p className={`font-medium ${quote.is_expired ? 'text-red-400' : 'text-white'}`}>
-                    {formatDate(quote.valid_until)}
+
+                  {/* Change Requests in timeline */}
+                  {changeRequests.length > 0 && changeRequests.map((cr) => (
+                    <Link
+                      key={cr.id}
+                      href={`/${locale}/dashboard/cotizaciones/${quoteId}/cambios/${cr.id}`}
+                      className="relative flex items-start gap-3 group"
+                    >
+                      <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                        cr.status === 'pending'
+                          ? 'bg-orange-500/20 border-orange-500/40'
+                          : cr.status === 'approved'
+                          ? 'bg-green-500/20 border-green-500/40'
+                          : 'bg-red-500/20 border-red-500/40'
+                      }`}>
+                        {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
+                        {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                        {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium ${changeRequestStatusColors[cr.status].split(' ')[1]}`}>
+                            Cambio {changeRequestStatusLabels[cr.status].toLowerCase()}
+                          </span>
+                          <span className="text-neutral-600 text-xs">
+                            {new Date(cr.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                        {cr.customer_comments && (
+                          <p className="text-neutral-500 text-xs mt-0.5 line-clamp-1 group-hover:text-neutral-300 transition-colors">
+                            &ldquo;{cr.customer_comments}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+
+                  {/* Accepted */}
+                  {quote.accepted_at && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-green-500/20 rounded-full border border-green-500/40">
+                        <CheckCircleIcon className="h-3 w-3 text-green-400" />
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <p className="text-green-400 text-xs font-medium">Aceptada</p>
+                        <p className="text-neutral-500 text-xs">{formatDate(quote.accepted_at)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Viewed */}
+                  {quote.viewed_at && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
+                        <EyeIcon className="h-3 w-3 text-purple-400" />
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <p className="text-purple-400 text-xs font-medium">Vista por cliente</p>
+                        <p className="text-neutral-500 text-xs">{formatDate(quote.viewed_at)} · {quote.view_count} {quote.view_count === 1 ? 'vez' : 'veces'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sent */}
+                  {quote.sent_at && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                        <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <p className="text-cmyk-cyan text-xs font-medium">Enviada</p>
+                        <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Created */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-neutral-700 rounded-full border border-neutral-600">
+                      <PencilIcon className="h-3 w-3 text-neutral-400" />
+                    </div>
+                    <div className="flex-1 -mt-0.5">
+                      <p className="text-neutral-400 text-xs font-medium">Creada</p>
+                      <p className="text-neutral-500 text-xs">{formatDate(quote.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Validity */}
+              <div className="mt-4 pt-4 border-t border-neutral-700">
+                <div className="flex items-center justify-between">
+                  <p className="text-neutral-500 text-sm">Válida hasta</p>
+                  <p className={`text-sm font-medium ${quote.is_expired ? 'text-red-400' : 'text-white'}`}>
+                    {quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                     {quote.is_expired && ' (Expirada)'}
                   </p>
-                </div>
-                {quote.sent_at && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Enviada</p>
-                    <p className="text-white">{formatDate(quote.sent_at)}</p>
-                  </div>
-                )}
-                {quote.viewed_at && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Vista por cliente</p>
-                    <p className="text-white">{formatDate(quote.viewed_at)}</p>
-                  </div>
-                )}
-                {quote.accepted_at && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Aceptada</p>
-                    <p className="text-green-400">{formatDate(quote.accepted_at)}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-neutral-500 text-sm">Vistas</p>
-                  <p className="text-white">{quote.view_count} veces</p>
                 </div>
               </div>
             </Card>
@@ -740,23 +856,88 @@ export default function QuoteDetailPage() {
               </Card>
             )}
 
-            {/* Internal Notes */}
-            {quote.internal_notes && (
-              <Card className="p-6 border-yellow-500/30">
-                <h2 className="text-lg font-semibold text-yellow-400 mb-4">Notas Internas</h2>
-                <p className="text-neutral-300 whitespace-pre-wrap">{quote.internal_notes}</p>
-              </Card>
-            )}
+            {/* Internal Notes - Editable */}
+            <Card className="p-6 border-yellow-500/30">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-yellow-400">Notas Internas</h2>
+                {!isEditingNotes && quote.internal_notes && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setEditedNotes(quote.internal_notes || ''); setIsEditingNotes(true); }}
+                      className="p-1 text-neutral-500 hover:text-yellow-400 transition-colors"
+                      title="Editar notas"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleDeleteNotes}
+                      disabled={isSavingNotes}
+                      className="p-1 text-neutral-500 hover:text-red-400 transition-colors"
+                      title="Eliminar notas"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {isEditingNotes ? (
+                <div className="space-y-3">
+                  <textarea
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-600 rounded-lg p-3 text-neutral-200 text-sm placeholder-neutral-500 focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/30 focus:outline-none resize-y min-h-[80px]"
+                    placeholder="Notas internas para el equipo..."
+                    rows={3}
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      onClick={() => setIsEditingNotes(false)}
+                      className="px-3 py-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                      className="px-3 py-1.5 text-sm bg-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors disabled:opacity-50"
+                    >
+                      {isSavingNotes ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              ) : quote.internal_notes ? (
+                <p className="text-neutral-300 whitespace-pre-wrap text-sm">{quote.internal_notes}</p>
+              ) : (
+                <button
+                  onClick={() => { setEditedNotes(''); setIsEditingNotes(true); }}
+                  className="w-full py-3 border border-dashed border-neutral-700 rounded-lg text-neutral-500 text-sm hover:border-yellow-500/40 hover:text-yellow-400/70 transition-colors flex items-center justify-center gap-2"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  Agregar notas internas
+                </button>
+              )}
+            </Card>
 
             {/* Related Request */}
             {quote.quote_request && (
               <Card className="p-6">
-                <h2 className="text-lg font-semibold text-white mb-4">Solicitud Relacionada</h2>
+                <h2 className="text-lg font-semibold text-white mb-3">Origen</h2>
                 <Link
                   href={`/${locale}/dashboard/solicitudes/${quote.quote_request.id}`}
-                  className="text-cmyk-cyan hover:underline"
+                  className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 hover:bg-neutral-800 transition-colors group"
                 >
-                  {quote.quote_request.request_number}
+                  <div className="flex items-center justify-center w-8 h-8 bg-cmyk-cyan/10 rounded-full border border-cmyk-cyan/30">
+                    <ChatBubbleLeftIcon className="h-4 w-4 text-cmyk-cyan" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-cmyk-cyan text-sm font-medium group-hover:underline">
+                      {quote.quote_request.request_number}
+                    </p>
+                    <p className="text-neutral-500 text-xs">
+                      Solicitud de cotización
+                    </p>
+                  </div>
                 </Link>
               </Card>
             )}
