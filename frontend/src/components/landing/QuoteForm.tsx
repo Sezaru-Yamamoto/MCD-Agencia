@@ -451,6 +451,13 @@ export function QuoteForm() {
             archivo_grabacion_proporcionado: data.pub_archivoGrabacion === 'si',
             requiere_grabacion: data.pub_requiereGrabacion === 'si',
             delimitacion_zona: data.pub_descripcionZona || null,
+            ruta: route ? {
+              punto_a: route.pointA,
+              punto_b: route.pointB,
+              distancia_metros: route.routeData?.distance,
+              duracion_segundos: route.routeData?.duration,
+              coordenadas: route.routeData?.coordinates,
+            } : null,
           };
         } else if (data.pub_subtipo === 'otro') {
           basePayload.detalles = {
@@ -947,18 +954,22 @@ export function QuoteForm() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                           Calendario y horario de circulación
                         </h4>
+                        <p className="text-xs text-gray-400 -mt-2">Indica cuándo deseas que las vallas circulen. Selecciona el rango de fechas, los días de la semana y el horario.</p>
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
                             <label className="label-field">Fecha de inicio</label>
-                            <input {...register('vallas_fechaInicio')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('vallas_fechaInicio')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">¿Cuándo inicia la campaña?</p>
                           </div>
                           <div>
                             <label className="label-field">Fecha de fin</label>
-                            <input {...register('vallas_fechaFin')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('vallas_fechaFin')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">¿Cuándo termina la campaña?</p>
                           </div>
                         </div>
                         <div>
                           <label className="label-field">Días de la semana</label>
+                          <p className="text-xs text-gray-500 mt-0.5 mb-1">Toca los días en que deseas que circulen</p>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dia) => {
                               const currentDays = watch('vallas_diasSeleccionados') || '';
@@ -986,14 +997,15 @@ export function QuoteForm() {
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
                             <label className="label-field">Horario de inicio</label>
-                            <input {...register('vallas_horarioInicio')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('vallas_horarioInicio')} type="time" className="input-field" placeholder="09:00" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">Ej. 09:00 a.m.</p>
                           </div>
                           <div>
                             <label className="label-field">Horario de fin</label>
-                            <input {...register('vallas_horarioFin')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('vallas_horarioFin')} type="time" className="input-field" placeholder="18:00" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">Ej. 06:00 p.m.</p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500">Selecciona las fechas y horarios en los que deseas que circulen las vallas.</p>
                       </div>
 
                       <div className="md:col-span-2">
@@ -1107,18 +1119,22 @@ export function QuoteForm() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                           Calendario y horario de perifoneo
                         </h4>
+                        <p className="text-xs text-gray-400 -mt-2">Indica cuándo deseas que se realice el perifoneo. Selecciona el rango de fechas, los días de la semana y el horario.</p>
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
                             <label className="label-field">Fecha de inicio</label>
-                            <input {...register('pub_fechaInicio')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('pub_fechaInicio')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">¿Cuándo inicia el perifoneo?</p>
                           </div>
                           <div>
                             <label className="label-field">Fecha de fin</label>
-                            <input {...register('pub_fechaFin')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('pub_fechaFin')} type="date" className="input-field" placeholder="dd/mm/aaaa" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">¿Cuándo termina el perifoneo?</p>
                           </div>
                         </div>
                         <div>
                           <label className="label-field">Días de la semana</label>
+                          <p className="text-xs text-gray-500 mt-0.5 mb-1">Toca los días en que deseas el perifoneo</p>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dia) => {
                               const currentDays = watch('pub_diasSeleccionados') || '';
@@ -1146,19 +1162,25 @@ export function QuoteForm() {
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
                             <label className="label-field">Horario de inicio</label>
-                            <input {...register('pub_horarioInicio')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('pub_horarioInicio')} type="time" className="input-field" placeholder="09:00" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">Ej. 09:00 a.m.</p>
                           </div>
                           <div>
                             <label className="label-field">Horario de fin</label>
-                            <input {...register('pub_horarioFin')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                            <input {...register('pub_horarioFin')} type="time" className="input-field" placeholder="18:00" disabled={formStatus === 'submitting'} />
+                            <p className="text-xs text-gray-500 mt-1">Ej. 06:00 p.m.</p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500">Selecciona las fechas, días y horarios en los que se realizará el perifoneo.</p>
                       </div>
 
                       <div className="md:col-span-2">
                         <label className="label-field mb-2 block">Descripción de zona</label>
                         <textarea {...register('pub_descripcionZona')} className="input-field" rows={3} placeholder="Describe las calles, colonias o puntos de referencia que delimitan la zona de perifoneo" disabled={formStatus === 'submitting'} />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="label-field mb-2 block">Ruta de circulación (opcional)</label>
+                        <RouteSelector onChange={setRouteInfo} />
                       </div>
                     </div>
                   )}

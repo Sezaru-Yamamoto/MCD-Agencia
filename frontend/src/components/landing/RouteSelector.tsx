@@ -446,34 +446,34 @@ export function RouteSelector({ onChange }: RouteSelectorProps) {
 
       {/* Resumen si hay ruta */}
       {hasRoute && (
-        <div className="p-3 rounded-lg bg-cmyk-cyan/10 border border-cmyk-cyan/30">
-          <div className="flex items-start gap-3">
-            <div className="flex flex-col items-center gap-1">
+        <div className="p-3 rounded-lg bg-cmyk-cyan/10 border border-cmyk-cyan/30 overflow-hidden">
+          <div className="flex items-start gap-2 sm:gap-3 w-full overflow-hidden">
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
               <div className="w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center">A</div>
               <div className="w-0.5 h-4 bg-gray-500"></div>
               <div className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">B</div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-white truncate">{pointA?.name}</p>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="text-xs sm:text-sm text-white truncate">{pointA?.name}</p>
               <p className="text-xs text-gray-500 my-1">↓ {formatDistance(routeData.distance)}</p>
-              <p className="text-sm text-white truncate">{pointB?.name}</p>
+              <p className="text-xs sm:text-sm text-white truncate">{pointB?.name}</p>
             </div>
-            <button type="button" onClick={() => setIsModalOpen(true)} className="text-cmyk-cyan text-xs">{t('edit')}</button>
+            <button type="button" onClick={() => setIsModalOpen(true)} className="text-cmyk-cyan text-xs flex-shrink-0">{t('edit')}</button>
           </div>
         </div>
       )}
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overscroll-contain">
-          <div className="relative w-full max-w-4xl h-[85dvh] bg-cmyk-black rounded-2xl border-2 border-cmyk-cyan/30 shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm overscroll-contain">
+          <div className="relative w-full max-w-4xl h-[95dvh] sm:h-[85dvh] bg-cmyk-black sm:rounded-2xl rounded-t-2xl border-2 border-cmyk-cyan/30 shadow-2xl flex flex-col overflow-hidden">
             
             {/* Header */}
-            <div className="flex-shrink-0 bg-cmyk-black border-b border-gray-700 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="text-xl font-bold text-white">{t('configureRouteTitle')}</h3>
-                  <p className="text-sm text-gray-400">{t('configureRouteDesc')}</p>
+            <div className="flex-shrink-0 bg-cmyk-black border-b border-gray-700 p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className="min-w-0 flex-1 mr-2">
+                  <h3 className="text-base sm:text-xl font-bold text-white truncate">{t('configureRouteTitle')}</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">{t('configureRouteDesc')}</p>
                 </div>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 rounded-full bg-gray-800 hover:bg-red-600 transition-colors">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
