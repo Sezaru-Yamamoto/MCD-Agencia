@@ -263,38 +263,47 @@ export function UnifiedHeader() {
                     <>
                       <div className="px-4 py-3 border-b border-cmyk-cyan/10">
                         <p className="text-sm text-gray-300">{t('welcome')}</p>
-                        <p className="text-white font-semibold truncate">{user?.email}</p>
+                        <p className="text-white font-semibold truncate">{user?.full_name || user?.first_name || user?.email}</p>
                       </div>
 
                       {/* Mi Cuenta */}
                       <Link
                         href={`/${locale}/mi-cuenta`}
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
+                        className="px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
                       >
                         <UserCircleIcon className="w-5 h-5" />
                         {t('myAccount')}
                       </Link>
 
-                      {/* Panel de Control - unified dashboard */}
+                      {/* Cerrar Sesión */}
+                      <button
+                        onClick={() => {
+                          logout();
+                          setIsUserMenuOpen(false);
+                          router.push(`/${locale}`);
+                        }}
+                        className="w-full text-left px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3 border-b border-cmyk-cyan/10"
+                      >
+                        <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                        {t('logout')}
+                      </button>
+
+                      {/* Panel de Control - accordion style */}
                       {isStaff && (
-                        <div
-                          className="relative border-b border-cmyk-cyan/10"
-                          onMouseEnter={() => setOpenSubmenu('dashboard')}
-                          onMouseLeave={() => setOpenSubmenu(null)}
-                        >
-                          <Link
-                            href={`/${locale}/dashboard`}
-                            onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
-                            className="w-full px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setOpenSubmenu(openSubmenu === 'dashboard' ? null : 'dashboard')}
+                            className="w-full px-4 py-3 text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
                           >
                             <Cog6ToothIcon className="w-5 h-5" />
-                            <span className="flex-1 text-left">Panel de Control</span>
-                            <ChevronRightIcon className="w-4 h-4 text-neutral-500" />
-                          </Link>
-                          {/* Submenu */}
+                            <span className="flex-1 text-left font-medium">Panel de Control</span>
+                            <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${openSubmenu === 'dashboard' ? 'rotate-180' : ''}`} />
+                          </button>
+                          {/* Submenu inline */}
                           {openSubmenu === 'dashboard' && (
-                            <div className="absolute right-full top-0 mr-1 w-56 bg-cmyk-black/95 border border-cmyk-cyan/30 rounded-lg shadow-xl backdrop-blur-sm z-50">
+                            <div className="bg-cmyk-black/50 border-t border-cmyk-cyan/10">
                               {[
                                 { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
                                 { href: '/dashboard/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon },
@@ -314,9 +323,9 @@ export function UnifiedHeader() {
                                   key={item.href}
                                   href={`/${locale}${item.href}`}
                                   onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
-                                  className="px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
+                                  className="pl-8 pr-4 py-2.5 text-sm text-neutral-300 hover:text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
                                 >
-                                  <item.icon className="w-5 h-5" />
+                                  <item.icon className="w-4 h-4" />
                                   {item.label}
                                 </Link>
                               ))}
@@ -324,19 +333,6 @@ export function UnifiedHeader() {
                           )}
                         </div>
                       )}
-
-                      {/* Cerrar Sesión */}
-                      <button
-                        onClick={() => {
-                          logout();
-                          setIsUserMenuOpen(false);
-                          router.push(`/${locale}`);
-                        }}
-                        className="w-full text-left px-4 py-3 text-white hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
-                      >
-                        <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                        {t('logout')}
-                      </button>
                     </>
                   )}
                 </div>
