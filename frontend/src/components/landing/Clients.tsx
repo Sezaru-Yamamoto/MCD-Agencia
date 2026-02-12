@@ -16,8 +16,8 @@ function ClientCard({ client }: { client: ClientItem }) {
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="flex-shrink-0 w-28 sm:w-32 md:w-36 lg:w-40 flex flex-col items-center justify-center p-3 sm:p-4">
-      <div className="relative w-20 h-16 sm:w-24 sm:h-20 md:w-28 md:h-24 mb-2 grayscale hover:grayscale-0 opacity-70 hover:opacity-100 transition-all duration-500">
+    <div className="flex-shrink-0 w-36 sm:w-44 md:w-48 lg:w-52 flex flex-col items-center justify-center p-4 sm:p-5">
+      <div className="relative w-28 h-24 sm:w-32 sm:h-28 md:w-36 md:h-32 mb-3 hover:scale-105 transition-transform duration-300">
         {imageError ? (
           <div className="flex items-center justify-center h-full w-full text-2xl text-cmyk-cyan">🏢</div>
         ) : (
@@ -25,13 +25,13 @@ function ClientCard({ client }: { client: ClientItem }) {
             src={client.logo}
             alt={client.name}
             fill
-            className="object-contain drop-shadow-sm"
+            className="object-contain"
             title={client.name}
             onError={() => setImageError(true)}
           />
         )}
       </div>
-      <p className="text-center text-[11px] sm:text-xs text-gray-400 line-clamp-1">{client.name}</p>
+      <p className="text-center text-xs sm:text-sm font-medium text-gray-300 line-clamp-1">{client.name}</p>
     </div>
   );
 }
