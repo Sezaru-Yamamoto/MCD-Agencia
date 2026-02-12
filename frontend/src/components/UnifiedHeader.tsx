@@ -30,6 +30,7 @@ import {
   CubeIcon,
   PhotoIcon,
   ChartBarIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 
 export function UnifiedHeader() {
@@ -302,6 +303,7 @@ export function UnifiedHeader() {
                                 { href: '/dashboard/clientes', label: 'Clientes', icon: UsersIcon },
                                 ...(isAdmin ? [
                                   { href: '/dashboard/catalogo', label: 'Catálogo', icon: CubeIcon },
+                                  { href: '/dashboard/inventario', label: 'Inventario', icon: ArchiveBoxIcon },
                                   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon },
                                   { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon },
                                   { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon },
@@ -473,6 +475,7 @@ export function UnifiedHeader() {
                           { href: '/dashboard/clientes', label: 'Clientes', icon: UsersIcon },
                           ...(isAdmin ? [
                             { href: '/dashboard/catalogo', label: 'Catálogo', icon: CubeIcon },
+                            { href: '/dashboard/inventario', label: 'Inventario', icon: ArchiveBoxIcon },
                             { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon },
                             { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon },
                             { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon },

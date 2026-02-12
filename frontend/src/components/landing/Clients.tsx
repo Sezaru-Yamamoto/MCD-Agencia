@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
@@ -16,8 +16,8 @@ function ClientCard({ client }: { client: ClientItem }) {
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="flex-shrink-0 w-36 sm:w-40 md:w-44 flex flex-col items-center justify-center p-4 sm:p-5 bg-cmyk-black rounded-lg border border-cmyk-cyan/30 hover:border-cmyk-cyan/60 transition-all duration-300 group hover:shadow-lg hover:shadow-cmyk-cyan/20">
-      <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 mb-3 group-hover:scale-105 transition-transform duration-300">
+    <div className="flex-shrink-0 w-28 sm:w-32 md:w-36 lg:w-40 flex flex-col items-center justify-center p-3 sm:p-4">
+      <div className="relative w-20 h-16 sm:w-24 sm:h-20 md:w-28 md:h-24 mb-2 grayscale hover:grayscale-0 opacity-70 hover:opacity-100 transition-all duration-500">
         {imageError ? (
           <div className="flex items-center justify-center h-full w-full text-2xl text-cmyk-cyan">🏢</div>
         ) : (
@@ -25,13 +25,13 @@ function ClientCard({ client }: { client: ClientItem }) {
             src={client.logo}
             alt={client.name}
             fill
-            className="object-contain"
+            className="object-contain drop-shadow-sm"
             title={client.name}
             onError={() => setImageError(true)}
           />
         )}
       </div>
-      <p className="text-center text-xs sm:text-sm font-semibold text-gray-300 line-clamp-2">{client.name}</p>
+      <p className="text-center text-[11px] sm:text-xs text-gray-400 line-clamp-1">{client.name}</p>
     </div>
   );
 }
@@ -39,7 +39,12 @@ function ClientCard({ client }: { client: ClientItem }) {
 export function Clients() {
   const t = useTranslations('landing.clients');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
+  const animRef = useRef<number>(0);
+  const scrollPosRef = useRef(0);
+  const isPausedRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragScrollLeftRef = useRef(0);
 
   // Fetch client logos from API, fallback to constants
   const { data: apiClients } = useQuery({
@@ -52,33 +57,68 @@ export function Clients() {
     ? apiClients.map((c) => ({ name: c.name, logo: c.logo }))
     : [...CLIENTS];
 
-  // Duplicate items for seamless infinite scroll
-  const duplicated = [...clients, ...clients, ...clients];
+  // Only duplicate if more than 1 client
+  const shouldAnimate = clients.length > 1;
+  const items = shouldAnimate ? [...clients, ...clients, ...clients] : clients;
 
-  // Infinite scroll animation
+  // Auto-scroll animation (only when > 1 client)
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || clients.length < 2) return;
+    if (!el || !shouldAnimate) return;
 
-    let animFrame: number;
-    let scrollPos = 0;
-    const speed = 0.5; // px per frame
     const singleSetWidth = el.scrollWidth / 3;
+    scrollPosRef.current = singleSetWidth; // start in the middle copy
+    el.scrollLeft = singleSetWidth;
 
     const animate = () => {
-      if (!isPaused) {
-        scrollPos += speed;
-        if (scrollPos >= singleSetWidth) {
-          scrollPos -= singleSetWidth;
+      if (!isPausedRef.current && !isDraggingRef.current) {
+        scrollPosRef.current += 0.5;
+        if (scrollPosRef.current >= singleSetWidth * 2) {
+          scrollPosRef.current -= singleSetWidth;
         }
-        el.scrollLeft = scrollPos;
+        el.scrollLeft = scrollPosRef.current;
       }
-      animFrame = requestAnimationFrame(animate);
+      animRef.current = requestAnimationFrame(animate);
     };
 
-    animFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animFrame);
-  }, [clients.length, isPaused]);
+    animRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [shouldAnimate, clients.length]);
+
+  // Drag / swipe handlers
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    const el = scrollRef.current;
+    if (!el || !shouldAnimate) return;
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragScrollLeftRef.current = el.scrollLeft;
+    el.setPointerCapture(e.pointerId);
+  }, [shouldAnimate]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const dx = e.clientX - dragStartXRef.current;
+    const newPos = dragScrollLeftRef.current - dx;
+    el.scrollLeft = newPos;
+    scrollPosRef.current = newPos;
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    const el = scrollRef.current;
+    if (!el || !shouldAnimate) return;
+    el.releasePointerCapture(e.pointerId);
+    // Reset position if out of bounds
+    const singleSetWidth = el.scrollWidth / 3;
+    if (scrollPosRef.current >= singleSetWidth * 2) {
+      scrollPosRef.current -= singleSetWidth;
+    } else if (scrollPosRef.current < 0) {
+      scrollPosRef.current += singleSetWidth;
+    }
+  }, [shouldAnimate]);
 
   return (
     <section id="clientes" className="section py-10 sm:py-14 md:py-18 lg:py-24">
@@ -88,28 +128,39 @@ export function Clients() {
           <p className="text-base sm:text-lg md:text-xl text-gray-300">{t('subtitle')}</p>
         </div>
 
-        {/* Infinite carousel */}
-        <div className="relative overflow-hidden">
-          {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-20 bg-gradient-to-r from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-20 bg-gradient-to-l from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
+        {/* Carousel */}
+        <div className="relative">
+          {/* Fade edges (only when animating) */}
+          {shouldAnimate && (
+            <>
+              <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[var(--background,#0a0a0a)] to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[var(--background,#0a0a0a)] to-transparent z-10 pointer-events-none" />
+            </>
+          )}
 
           <div
             ref={scrollRef}
-            className="flex gap-4 sm:gap-5 overflow-hidden"
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
-            onTouchStart={() => setIsPaused(true)}
-            onTouchEnd={() => setIsPaused(false)}
+            className={`flex gap-2 sm:gap-3 select-none ${
+              shouldAnimate
+                ? 'overflow-hidden cursor-grab active:cursor-grabbing'
+                : 'overflow-x-auto justify-center'
+            }`}
+            style={{ touchAction: shouldAnimate ? 'none' : 'auto' }}
+            onMouseEnter={() => { isPausedRef.current = true; }}
+            onMouseLeave={() => { isPausedRef.current = false; }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
-            {duplicated.map((client, index) => (
+            {items.map((client, index) => (
               <ClientCard key={`${client.name}-${index}`} client={client} />
             ))}
           </div>
         </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-gray-300 italic">{t('satisfied', { count: String(clients.length) })}</p>
+        <div className="mt-8 sm:mt-12 text-center">
+          <p className="text-gray-400 italic text-sm">{t('satisfied', { count: String(clients.length) })}</p>
         </div>
       </div>
     </section>
