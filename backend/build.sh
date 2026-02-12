@@ -128,4 +128,7 @@ else:
     print('No DJANGO_SUPERUSER_EMAIL/PASSWORD set, skipping superuser creation')
 "
 
+echo "=== Flushing test quote data ==="
+python manage.py flush_quotes --yes
+
 echo "=== Build completed successfully ==="
