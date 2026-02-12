@@ -267,6 +267,69 @@ export async function submitContactForm(data: ContactFormData): Promise<{ messag
   return apiClient.post<{ message: string }>('/content/contact/', data);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Client Logos Admin API
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ClientLogoAdmin extends ClientLogo {
+  is_active: boolean;
+}
+
+/**
+ * Get all client logos (admin — includes inactive).
+ */
+export async function getAdminClientLogos(): Promise<ClientLogoAdmin[]> {
+  const response = await apiClient.get<{ results: ClientLogoAdmin[] } | ClientLogoAdmin[]>('/content/clients/');
+  return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Create client logo with file upload (admin).
+ */
+export async function createClientLogo(data: {
+  name: string;
+  logo: File;
+  website?: string;
+  position?: number;
+  is_active?: boolean;
+}): Promise<ClientLogoAdmin> {
+  const formData = new FormData();
+  formData.append('name', data.name);
+  formData.append('logo', data.logo);
+  if (data.website) formData.append('website', data.website);
+  formData.append('position', String(data.position ?? 0));
+  formData.append('is_active', String(data.is_active ?? true));
+  return apiClient.upload<ClientLogoAdmin>('/content/clients/', formData);
+}
+
+/**
+ * Update client logo (admin). Optionally replace logo file.
+ */
+export async function updateClientLogo(
+  id: string,
+  data: Record<string, unknown>,
+  logoFile?: File,
+): Promise<ClientLogoAdmin> {
+  if (!logoFile) {
+    return apiClient.patch<ClientLogoAdmin>(`/content/clients/${id}/`, data);
+  }
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+  formData.append('logo', logoFile);
+  return apiClient.uploadPatch<ClientLogoAdmin>(`/content/clients/${id}/`, formData);
+}
+
+/**
+ * Delete client logo (admin).
+ */
+export async function deleteClientLogo(id: string): Promise<void> {
+  return apiClient.delete(`/content/clients/${id}/`);
+}
+
 // Admin types with is_active field
 export interface CarouselSlideAdmin extends CarouselSlide {
   is_active: boolean;

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import {
   PlusIcon, PencilIcon, TrashIcon, PhotoIcon,
   EyeIcon, EyeSlashIcon, PlayIcon, FilmIcon,
+  UserGroupIcon, GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 
 import {
@@ -15,6 +16,7 @@ import {
   getAdminServiceImages, createServiceImage, deleteServiceImage, ServiceImageAdmin,
   getAdminPortfolioVideos, createPortfolioVideo, updatePortfolioVideo,
   deletePortfolioVideo, PortfolioVideoAdmin,
+  getAdminClientLogos, createClientLogo, updateClientLogo, deleteClientLogo, ClientLogoAdmin,
 } from '@/lib/api/content';
 import { Card, Button, Input, Textarea, Modal, Badge, LoadingPage } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -49,7 +51,7 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type ContentTab = 'carousel' | 'services' | 'videos';
+type ContentTab = 'carousel' | 'services' | 'videos' | 'clients';
 
 // ═══════════════════════════════════════════════════════════════════════════
 function ImageUploadInput({ label, required, hint, currentUrl, onChange }: {
@@ -106,20 +108,22 @@ export default function AdminContentPage() {
   const { data: slides = [], isLoading: l1 } = useQuery({ queryKey: ['admin-carousel'], queryFn: getAdminCarouselSlides });
   const { data: services = [], isLoading: l2 } = useQuery({ queryKey: ['admin-services'], queryFn: getAdminServices });
   const { data: videos = [], isLoading: l3 } = useQuery({ queryKey: ['admin-portfolio-videos'], queryFn: getAdminPortfolioVideos });
+  const { data: clientLogos = [], isLoading: l4 } = useQuery({ queryKey: ['admin-client-logos'], queryFn: getAdminClientLogos });
 
-  if (l1 || l2 || l3) return <LoadingPage message="Cargando contenido..." />;
+  if (l1 || l2 || l3 || l4) return <LoadingPage message="Cargando contenido..." />;
 
   const tabs: { id: ContentTab; label: string; count: number }[] = [
     { id: 'carousel', label: '🖼️ Hero Carrusel', count: slides.length },
     { id: 'services', label: '🔧 Servicios', count: services.length },
     { id: 'videos', label: '🎬 Videos Portafolio', count: videos.length },
+    { id: 'clients', label: '🏢 Logos Clientes', count: clientLogos.length },
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Contenido del Landing</h1>
-        <p className="text-neutral-400">Gestiona imágenes del carrusel, servicios y videos del portafolio</p>
+        <p className="text-neutral-400 text-sm">Gestiona imágenes del carrusel, servicios, videos del portafolio y logos de clientes</p>
       </div>
 
       {/* Info banner */}
@@ -129,10 +133,10 @@ export default function AdminContentPage() {
         </p>
       </div>
 
-      <div className="flex gap-2 border-b border-neutral-800 pb-2 overflow-x-auto">
+      <div className="flex gap-2 border-b border-neutral-800 pb-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
         {tabs.map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={cn('px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm',
+            className={cn('px-3 sm:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-xs sm:text-sm',
               activeTab === tab.id ? 'bg-cyan-500/20 text-cyan-400' : 'text-neutral-400 hover:bg-neutral-800 hover:text-white')}>
             {tab.label} ({tab.count})
           </button>
@@ -142,6 +146,7 @@ export default function AdminContentPage() {
       {activeTab === 'carousel' && <CarouselTab slides={slides} queryClient={queryClient} />}
       {activeTab === 'services' && <ServicesTab services={services} queryClient={queryClient} />}
       {activeTab === 'videos' && <VideosTab videos={videos} queryClient={queryClient} />}
+      {activeTab === 'clients' && <ClientLogosTab logos={clientLogos} queryClient={queryClient} />}
     </div>
   );
 }
@@ -212,12 +217,12 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <p className="text-sm text-neutral-400">Cada slide representa un servicio cotizable. Recomendado: <strong>{HERO_DIMENSIONS}</strong>.</p>
           <p className="text-xs text-neutral-500 mt-1">Máximo {MAX_HERO_SLIDES} slides · JPEG, PNG o WebP · Máx {MAX_IMAGE_SIZE_MB} MB</p>
         </div>
-        <Button onClick={openCreate} disabled={slides.length >= MAX_HERO_SLIDES}><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Slide</Button>
+        <Button onClick={openCreate} disabled={slides.length >= MAX_HERO_SLIDES} className="flex-shrink-0"><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Slide</Button>
       </div>
 
       {sorted.length === 0 ? (
@@ -230,12 +235,12 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
         <div className="grid gap-3">
           {sorted.map((slide) => (
             <Card key={slide.id} className="p-3">
-              <div className="flex items-center gap-4">
-                <div className="w-36 h-20 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                <div className="w-full sm:w-36 h-28 sm:h-20 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {slide.image ? <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><PhotoIcon className="h-8 w-8 text-neutral-600" /></div>}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 w-full">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-medium text-white truncate">{slide.title || 'Sin título'}</h3>
                     <Badge variant={slide.is_active ? 'success' : 'default'}>{slide.is_active ? 'Activo' : 'Inactivo'}</Badge>
@@ -356,10 +361,10 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
             return (
               <div key={svc.id}>
                 <Card className="p-3">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                     <div className="w-12 h-12 bg-neutral-800 rounded-lg flex items-center justify-center flex-shrink-0 text-xl">{svc.icon || '📋'}</div>
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedKey(isExpanded ? null : svc.id)}>
-                      <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex-1 min-w-0 cursor-pointer w-full" onClick={() => setExpandedKey(isExpanded ? null : svc.id)}>
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5">
                         <h3 className="font-medium text-white truncate">{svc.name}</h3>
                         <Badge variant={svc.is_active ? 'success' : 'default'}>{svc.is_active ? 'Activo' : 'Inactivo'}</Badge>
                         {svc.is_featured && <Badge variant="cyan">Destacado</Badge>}
@@ -380,7 +385,7 @@ function ServicesTab({ services, queryClient }: { services: ServiceAdmin[]; quer
                   </div>
                 </Card>
                 {isExpanded && (
-                  <div className="ml-6 mt-2 mb-4">
+                  <div className="sm:ml-6 mt-2 mb-4">
                     <ServiceSubtypeImagesPanel serviceId={svc.id} serviceKey={key} queryClient={queryClient} />
                   </div>
                 )}
@@ -588,13 +593,13 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <p className="text-sm text-neutral-400">Videos de YouTube para &quot;Trabajos que hablan por nosotros&quot;.</p>
           <p className="text-xs text-neutral-500 mt-1">Máximo {MAX_PORTFOLIO_VIDEOS} videos · Pega URL o solo el ID</p>
           <p className="text-xs text-neutral-500">Ambos vertical → lado a lado · Si alguno es horizontal → carrusel manual</p>
         </div>
-        <Button onClick={openCreate} disabled={videos.length >= MAX_PORTFOLIO_VIDEOS}><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Video</Button>
+        <Button onClick={openCreate} disabled={videos.length >= MAX_PORTFOLIO_VIDEOS} className="flex-shrink-0"><PlusIcon className="h-5 w-5 mr-1" /> Nuevo Video</Button>
       </div>
 
       {sorted.length === 0 ? (
@@ -650,6 +655,170 @@ function VideosTab({ videos, queryClient }: { videos: PortfolioVideoAdmin[]; que
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={closeModal}>Cancelar</Button>
             <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>{editing ? 'Guardar' : 'Agregar'}</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLIENT LOGOS TAB — Carousel of client logos (scalable 20-30+)
+// ═══════════════════════════════════════════════════════════════════════════
+const MAX_CLIENT_LOGOS = 50;
+
+function ClientLogosTab({ logos, queryClient }: { logos: ClientLogoAdmin[]; queryClient: ReturnType<typeof useQueryClient> }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<ClientLogoAdmin | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [form, setForm] = useState({ name: '', website: '', position: 0, is_active: true });
+
+  const createMut = useMutation({
+    mutationFn: createClientLogo,
+    onSuccess: () => { toast.success('Logo agregado'); queryClient.invalidateQueries({ queryKey: ['admin-client-logos'] }); closeModal(); },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al crear logo')),
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, data, file }: { id: string; data: Record<string, unknown>; file?: File }) => updateClientLogo(id, data, file),
+    onSuccess: () => { toast.success('Logo actualizado'); queryClient.invalidateQueries({ queryKey: ['admin-client-logos'] }); closeModal(); },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al actualizar')),
+  });
+  const deleteMut = useMutation({
+    mutationFn: deleteClientLogo,
+    onSuccess: () => { toast.success('Logo eliminado'); queryClient.invalidateQueries({ queryKey: ['admin-client-logos'] }); },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
+  });
+
+  const toggleActive = (logo: ClientLogoAdmin) => {
+    updateClientLogo(logo.id, { is_active: !logo.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ['admin-client-logos'] }));
+  };
+
+  const openCreate = () => {
+    setEditing(null); setLogoFile(null);
+    setForm({ name: '', website: '', position: logos.length, is_active: true });
+    setShowModal(true);
+  };
+  const openEdit = (l: ClientLogoAdmin) => {
+    setEditing(l); setLogoFile(null);
+    setForm({ name: l.name, website: l.website || '', position: l.position, is_active: l.is_active });
+    setShowModal(true);
+  };
+  const closeModal = () => { setShowModal(false); setEditing(null); setLogoFile(null); };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editing) {
+      updateMut.mutate({ id: editing.id, data: form, file: logoFile || undefined });
+    } else {
+      if (!logoFile) { toast.error('Selecciona una imagen de logo'); return; }
+      createMut.mutate({ ...form, logo: logoFile });
+    }
+  };
+
+  const sorted = [...logos].sort((a, b) => a.position - b.position);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <p className="text-sm text-neutral-400">Logos de clientes mostrados en carrusel infinito en el landing.</p>
+          <p className="text-xs text-neutral-500 mt-1">Máximo {MAX_CLIENT_LOGOS} logos · PNG transparente recomendado · Máx {MAX_IMAGE_SIZE_MB} MB</p>
+        </div>
+        <Button onClick={openCreate} disabled={logos.length >= MAX_CLIENT_LOGOS} className="flex-shrink-0">
+          <PlusIcon className="h-5 w-5 mr-1" /> Nuevo Logo
+        </Button>
+      </div>
+
+      {sorted.length === 0 ? (
+        <Card className="text-center py-12">
+          <UserGroupIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" />
+          <p className="text-neutral-400">No hay logos de clientes — agrega el primero</p>
+          <Button variant="outline" className="mt-4" onClick={openCreate}>Agregar primer logo</Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {sorted.map((logo) => (
+            <Card key={logo.id} className="overflow-hidden group relative">
+              <div className="aspect-[3/2] bg-neutral-800 flex items-center justify-center p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logo.logo} alt={logo.name} className="max-w-full max-h-full object-contain" />
+              </div>
+              <div className="p-2 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-white truncate flex-1">{logo.name}</p>
+                  <Badge variant={logo.is_active ? 'success' : 'default'} className="text-[10px] flex-shrink-0">
+                    {logo.is_active ? 'Activo' : 'Oculto'}
+                  </Badge>
+                </div>
+                {logo.website && (
+                  <a href={logo.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-cyan-400 hover:underline truncate">
+                    <GlobeAltIcon className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{logo.website.replace(/^https?:\/\//, '')}</span>
+                  </a>
+                )}
+                <div className="flex gap-0.5 pt-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(logo)} className="!p-1"><PencilIcon className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => toggleActive(logo)} className="!p-1">
+                    {logo.is_active ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeSlashIcon className="h-3.5 w-3.5" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar logo?')) deleteMut.mutate(logo.id); }} className="!p-1">
+                    <TrashIcon className="h-3.5 w-3.5 text-red-400" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Editar Logo de Cliente' : 'Nuevo Logo de Cliente'} size="md">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <ImageUploadInput
+            label="Logo del cliente"
+            required={!editing}
+            hint={`PNG transparente recomendado. Máx ${MAX_IMAGE_SIZE_MB} MB.`}
+            currentUrl={editing?.logo}
+            onChange={setLogoFile}
+          />
+
+          <Input
+            label="Nombre del cliente"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Nombre de la empresa"
+            required
+          />
+
+          <Input
+            label="Sitio web (opcional)"
+            value={form.website}
+            onChange={(e) => setForm({ ...form, website: e.target.value })}
+            placeholder="https://www.ejemplo.com"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              type="number"
+              label="Posición"
+              value={form.position.toString()}
+              onChange={(e) => setForm({ ...form, position: parseInt(e.target.value) || 0 })}
+            />
+            <div className="flex items-center gap-2 pt-8">
+              <input
+                type="checkbox"
+                checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                className="rounded border-neutral-700 bg-neutral-800 text-cyan-500"
+              />
+              <label className="text-sm text-white">Activo (visible en el landing)</label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={closeModal}>Cancelar</Button>
+            <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>
+              {editing ? 'Guardar' : 'Agregar'}
+            </Button>
           </div>
         </form>
       </Modal>

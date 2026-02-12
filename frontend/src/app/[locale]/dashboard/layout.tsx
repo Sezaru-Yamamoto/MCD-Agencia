@@ -18,6 +18,7 @@ import {
   ArrowLeftOnRectangleIcon,
   LockClosedIcon,
   Cog6ToothIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +51,7 @@ const MENU_ITEMS: MenuItem[] = [
 
   // ── Admin-only ──────────────────────────────────────────────────────────
   { href: '/dashboard/catalogo', label: 'Catálogo', icon: CubeIcon, permission: 'canEditCatalog', separator: true },
+  { href: '/dashboard/inventario', label: 'Inventario', icon: ArchiveBoxIcon, permission: 'canEditCatalog' },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon, permission: 'canEditUsers' },
   { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon, permission: 'canEditContent' },
   { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon, permission: 'canViewLeads' },

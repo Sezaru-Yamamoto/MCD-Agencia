@@ -99,14 +99,25 @@ interface QuoteFormData {
   vallas_cantidad?: number;
   vallas_zona?: string;
   vallas_tiempoCampana?: string;
+  vallas_fechaInicio?: string;
+  vallas_fechaFin?: string;
+  vallas_horarioInicio?: string;
+  vallas_horarioFin?: string;
+  vallas_diasSeleccionados?: string;
   vallas_impresionIncluida?: 'si' | 'no';
   // Publibuses
   pub_ciudadZona?: string;
-  pub_tiempoCampana?: string;
+  pub_mesesCampana?: number;
   pub_impresionIncluida?: 'si' | 'no';
+  pub_rutaPreestablecida?: string;
   // Perifoneo
   pub_zonaCobertura?: string;
   pub_duracion?: string;
+  pub_fechaInicio?: string;
+  pub_fechaFin?: string;
+  pub_horarioInicio?: string;
+  pub_horarioFin?: string;
+  pub_diasSeleccionados?: string;
   pub_archivoGrabacion?: 'si' | 'no';
   pub_requiereGrabacion?: 'si' | 'no';
   pub_descripcionZona?: string;
@@ -405,6 +416,11 @@ export function QuoteForm() {
             cantidad: data.vallas_cantidad,
             zona: data.vallas_zona,
             tiempo_campana: data.vallas_tiempoCampana,
+            fecha_inicio: data.vallas_fechaInicio,
+            fecha_fin: data.vallas_fechaFin,
+            horario_inicio: data.vallas_horarioInicio,
+            horario_fin: data.vallas_horarioFin,
+            dias_seleccionados: data.vallas_diasSeleccionados,
             impresion_incluida: data.vallas_impresionIncluida === 'si',
             ruta: route ? {
               punto_a: route.pointA,
@@ -418,29 +434,23 @@ export function QuoteForm() {
           basePayload.detalles = {
             subtipo: 'publibuses',
             ciudad_zona: data.pub_ciudadZona,
-            tiempo_campana: data.pub_tiempoCampana,
+            meses_campana: data.pub_mesesCampana,
             impresion_incluida: data.pub_impresionIncluida === 'si',
-            ruta: route ? {
-              punto_a: route.pointA,
-              punto_b: route.pointB,
-              distancia_metros: route.routeData?.distance,
-              duracion_segundos: route.routeData?.duration,
-              coordenadas: route.routeData?.coordinates,
-            } : null,
+            ruta_preestablecida: data.pub_rutaPreestablecida,
           };
         } else if (data.pub_subtipo === 'perifoneo') {
           basePayload.detalles = {
             subtipo: 'perifoneo',
             zona_cobertura: data.pub_zonaCobertura,
             duracion: data.pub_duracion,
+            fecha_inicio: data.pub_fechaInicio,
+            fecha_fin: data.pub_fechaFin,
+            horario_inicio: data.pub_horarioInicio,
+            horario_fin: data.pub_horarioFin,
+            dias_seleccionados: data.pub_diasSeleccionados,
             archivo_grabacion_proporcionado: data.pub_archivoGrabacion === 'si',
             requiere_grabacion: data.pub_requiereGrabacion === 'si',
-            delimitacion_zona: route ? {
-              punto_a: route.pointA,
-              punto_b: route.pointB,
-              area_aproximada: route.routeData?.distance,
-              coordenadas: route.routeData?.coordinates,
-            } : { descripcion: data.pub_descripcionZona },
+            delimitacion_zona: data.pub_descripcionZona || null,
           };
         } else if (data.pub_subtipo === 'otro') {
           basePayload.detalles = {
@@ -916,7 +926,7 @@ export function QuoteForm() {
                         <input {...register('vallas_zona', { required: pubSubtipo === 'vallas-moviles' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Zona o ciudades donde circularán" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
-                        <label className="label-field">Tiempo de campaña <span className="text-cmyk-magenta">*</span></label>
+                        <label className="label-field">Duración general de campaña <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('vallas_tiempoCampana', { required: pubSubtipo === 'vallas-moviles' ? 'El tiempo es requerido' : false })} type="text" className="input-field" placeholder="ej. 1 mes, 2 semanas" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
@@ -930,6 +940,62 @@ export function QuoteForm() {
                           </label>
                         </div>
                       </div>
+
+                      {/* Schedule section */}
+                      <div className="md:col-span-2 space-y-4">
+                        <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          Calendario y horario de circulación
+                        </h4>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="label-field">Fecha de inicio</label>
+                            <input {...register('vallas_fechaInicio')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                          <div>
+                            <label className="label-field">Fecha de fin</label>
+                            <input {...register('vallas_fechaFin')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="label-field">Días de la semana</label>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dia) => {
+                              const currentDays = watch('vallas_diasSeleccionados') || '';
+                              const selected = currentDays.split(',').filter(Boolean).includes(dia);
+                              return (
+                                <button key={dia} type="button"
+                                  onClick={() => {
+                                    const days = currentDays.split(',').filter(Boolean);
+                                    const newDays = selected ? days.filter(d => d !== dia) : [...days, dia];
+                                    setValue('vallas_diasSeleccionados', newDays.join(','));
+                                  }}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    selected
+                                      ? 'bg-cmyk-cyan text-white shadow-[0_0_10px_rgba(0,183,235,0.4)]'
+                                      : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700 hover:text-white border border-neutral-700'
+                                  }`}
+                                  disabled={formStatus === 'submitting'}
+                                >
+                                  {dia}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="label-field">Horario de inicio</label>
+                            <input {...register('vallas_horarioInicio')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                          <div>
+                            <label className="label-field">Horario de fin</label>
+                            <input {...register('vallas_horarioFin')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500">Selecciona las fechas y horarios en los que deseas que circulen las vallas.</p>
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="label-field mb-2 block">Ruta de circulación (opcional)</label>
                         <RouteSelector onChange={setRouteInfo} />
@@ -945,8 +1011,13 @@ export function QuoteForm() {
                         <input {...register('pub_ciudadZona', { required: pubSubtipo === 'publibuses' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Ciudad o zona de campaña" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
-                        <label className="label-field">Tiempo de campaña <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('pub_tiempoCampana', { required: pubSubtipo === 'publibuses' ? 'El tiempo es requerido' : false })} type="text" className="input-field" placeholder="ej. 2 semanas" disabled={formStatus === 'submitting'} />
+                        <label className="label-field">Tiempo de campaña (meses) <span className="text-cmyk-magenta">*</span></label>
+                        <select {...register('pub_mesesCampana', { required: pubSubtipo === 'publibuses' ? 'Selecciona los meses' : false, valueAsNumber: true })} className="input-field" disabled={formStatus === 'submitting'}>
+                          <option value="">Selecciona duración</option>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                            <option key={m} value={m}>{m} {m === 1 ? 'mes' : 'meses'}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="label-field">¿Impresión incluida? <span className="text-cmyk-magenta">*</span></label>
@@ -959,9 +1030,39 @@ export function QuoteForm() {
                           </label>
                         </div>
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="label-field mb-2 block">Mapa de rutas (opcional)</label>
-                        <RouteSelector onChange={setRouteInfo} />
+                      <div className="md:col-span-2 space-y-3">
+                        <label className="label-field mb-2 block">Selecciona una ruta preestablecida</label>
+                        <div className="space-y-3">
+                          <select {...register('pub_rutaPreestablecida')} className="input-field" disabled={formStatus === 'submitting'}>
+                            <option value="">Selecciona una ruta</option>
+                            <option value="ruta-centro">Ruta Centro</option>
+                            <option value="ruta-norte">Ruta Norte</option>
+                            <option value="ruta-sur">Ruta Sur</option>
+                            <option value="ruta-oriente">Ruta Oriente</option>
+                            <option value="ruta-poniente">Ruta Poniente</option>
+                            <option value="ruta-periferico">Ruta Periférico</option>
+                          </select>
+                          <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
+                            <div className="p-3 bg-neutral-800/50 border-b border-neutral-700">
+                              <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                                Mapa de rutas preestablecidas
+                              </p>
+                            </div>
+                            <iframe
+                              src="https://www.google.com/maps/d/embed?mid=1wDq-your-map-id"
+                              width="100%"
+                              height="350"
+                              style={{ border: 0, minHeight: '280px' }}
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              className="w-full"
+                              title="Mapa de rutas de publibuses"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">Consulta el mapa para ver las rutas disponibles y selecciona la que más se ajuste a tu campaña.</p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -974,7 +1075,7 @@ export function QuoteForm() {
                         <input {...register('pub_zonaCobertura', { required: pubSubtipo === 'perifoneo' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Colonia, municipio o área" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
-                        <label className="label-field">Duración <span className="text-cmyk-magenta">*</span></label>
+                        <label className="label-field">Duración total <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('pub_duracion', { required: pubSubtipo === 'perifoneo' ? 'La duración es requerida' : false })} type="text" className="input-field" placeholder="ej. 4 horas / 2 días" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
@@ -999,11 +1100,65 @@ export function QuoteForm() {
                           </label>
                         </div>
                       </div>
+
+                      {/* Schedule section */}
+                      <div className="md:col-span-2 space-y-4">
+                        <h4 className="text-sm font-semibold text-cmyk-cyan flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          Calendario y horario de perifoneo
+                        </h4>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="label-field">Fecha de inicio</label>
+                            <input {...register('pub_fechaInicio')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                          <div>
+                            <label className="label-field">Fecha de fin</label>
+                            <input {...register('pub_fechaFin')} type="date" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="label-field">Días de la semana</label>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dia) => {
+                              const currentDays = watch('pub_diasSeleccionados') || '';
+                              const selected = currentDays.split(',').filter(Boolean).includes(dia);
+                              return (
+                                <button key={dia} type="button"
+                                  onClick={() => {
+                                    const days = currentDays.split(',').filter(Boolean);
+                                    const newDays = selected ? days.filter(d => d !== dia) : [...days, dia];
+                                    setValue('pub_diasSeleccionados', newDays.join(','));
+                                  }}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    selected
+                                      ? 'bg-cmyk-cyan text-white shadow-[0_0_10px_rgba(0,183,235,0.4)]'
+                                      : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700 hover:text-white border border-neutral-700'
+                                  }`}
+                                  disabled={formStatus === 'submitting'}
+                                >
+                                  {dia}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="label-field">Horario de inicio</label>
+                            <input {...register('pub_horarioInicio')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                          <div>
+                            <label className="label-field">Horario de fin</label>
+                            <input {...register('pub_horarioFin')} type="time" className="input-field" disabled={formStatus === 'submitting'} />
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500">Selecciona las fechas, días y horarios en los que se realizará el perifoneo.</p>
+                      </div>
+
                       <div className="md:col-span-2">
-                        <label className="label-field mb-2 block">Delimitación de zona <span className="text-cmyk-magenta">*</span></label>
-                        <RouteSelector onChange={setRouteInfo} />
-                        <p className="text-xs text-gray-400 mt-2">O describe la zona detalladamente:</p>
-                        <textarea {...register('pub_descripcionZona')} className="input-field mt-2" rows={3} placeholder="Describe las calles, colonias o puntos de referencia que delimitan la zona de perifoneo" disabled={formStatus === 'submitting'} />
+                        <label className="label-field mb-2 block">Descripción de zona</label>
+                        <textarea {...register('pub_descripcionZona')} className="input-field" rows={3} placeholder="Describe las calles, colonias o puntos de referencia que delimitan la zona de perifoneo" disabled={formStatus === 'submitting'} />
                       </div>
                     </div>
                   )}
