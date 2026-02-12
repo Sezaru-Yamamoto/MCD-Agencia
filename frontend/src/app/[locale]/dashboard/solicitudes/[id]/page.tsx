@@ -127,6 +127,17 @@ const serviceDetailsLabels: Record<string, string> = {
   punto_a: 'Punto de inicio',
   punto_b: 'Punto final',
   distancia_metros: 'Distancia',
+
+  // Rutas (array)
+  rutas: 'Rutas',
+  meses_campana: 'Meses de campaña',
+  ruta_preestablecida: 'Ruta preestablecida',
+  fecha_inicio: 'Fecha inicio',
+  fecha_fin: 'Fecha fin',
+  horario_inicio: 'Horario inicio',
+  horario_fin: 'Horario fin',
+  numero: 'Número de ruta',
+  duracion_segundos: 'Duración estimada',
 };
 
 // Labels for subtypes
@@ -163,6 +174,9 @@ const subtipoLabels: Record<string, string> = {
   'tarjetas-presentacion': 'Tarjetas de presentación',
   'volantes': 'Volantes',
   'otro': 'Otro',
+  // Rutas preestablecidas publibuses
+  'zocalo-base': 'Zócalo Base',
+  'colosio-zocalo': 'Colosio Zócalo',
 };
 
 // Component to render service details
@@ -271,7 +285,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
   });
 
   // Fields to hide (internal indicators)
-  const hiddenFields = ['ruta', 'delimitacion_zona', 'coordenadas', 'tipo_personalizado',
+  const hiddenFields = ['ruta', 'delimitacion_zona', 'coordenadas', 'rutas', 'tipo_personalizado',
     'subtipo_personalizado', 'material_personalizado', 'tipo_rotulacion_personalizado',
     'producto_personalizado', 'tipo_impresion_personalizado'];
 
@@ -282,6 +296,10 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
   const complexFields = sortedKeys.filter(key =>
     key === 'ruta' || key === 'delimitacion_zona'
   );
+
+  // Routes array (vallas, publibuses, perifoneo)
+  const rutasArray = serviceDetails.rutas as Array<Record<string, unknown>> | undefined;
+  const subtipo = serviceDetails.subtipo as string | undefined;
 
   return (
     <div className="space-y-4">
@@ -308,7 +326,7 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
         })}
       </div>
 
-      {/* Complex fields (routes) */}
+      {/* Complex fields (single route object) */}
       {complexFields.map((key) => {
         const value = serviceDetails[key];
         if (value === null || value === undefined) return null;
@@ -323,6 +341,120 @@ function ServiceDetailsDisplay({ serviceType, serviceDetails }: { serviceType?: 
           </div>
         );
       })}
+
+      {/* Routes array (vallas-moviles, publibuses, perifoneo) */}
+      {rutasArray && rutasArray.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <MapPinIcon className="h-5 w-5 text-cmyk-cyan" />
+            <p className="text-neutral-400 text-sm font-medium">
+              {subtipo === 'publibuses' ? 'Rutas preestablecidas' : 'Rutas de circulación'}
+              <span className="ml-2 text-neutral-500">({rutasArray.length})</span>
+            </p>
+          </div>
+
+          {rutasArray.map((ruta, idx) => {
+            const routeObj = ruta.ruta as Record<string, unknown> | null;
+
+            return (
+              <div key={idx} className="rounded-xl border border-neutral-700 bg-neutral-800/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-cmyk-cyan">Ruta {ruta.numero as number || idx + 1}</span>
+                </div>
+
+                {/* Publibuses: ruta preestablecida */}
+                {subtipo === 'publibuses' && ruta.ruta_preestablecida && (
+                  <div className="p-3 bg-neutral-800/50 rounded-lg">
+                    <p className="text-neutral-500 text-xs">Ruta preestablecida</p>
+                    <p className="text-white font-medium">
+                      {subtipoLabels[ruta.ruta_preestablecida as string] || String(ruta.ruta_preestablecida)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Dates and times grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  {ruta.fecha_inicio && (
+                    <div className="p-2.5 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Fecha inicio</p>
+                      <p className="text-white text-sm font-medium">{String(ruta.fecha_inicio)}</p>
+                    </div>
+                  )}
+                  {ruta.fecha_fin && (
+                    <div className="p-2.5 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Fecha fin{subtipo === 'publibuses' ? ' (auto)' : ''}</p>
+                      <p className="text-white text-sm font-medium">{String(ruta.fecha_fin)}</p>
+                    </div>
+                  )}
+                  {ruta.horario_inicio && (
+                    <div className="p-2.5 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Horario inicio</p>
+                      <p className="text-white text-sm font-medium">{String(ruta.horario_inicio)}</p>
+                    </div>
+                  )}
+                  {ruta.horario_fin && (
+                    <div className="p-2.5 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Horario fin</p>
+                      <p className="text-white text-sm font-medium">{String(ruta.horario_fin)}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Route map data (vallas / perifoneo) */}
+                {routeObj && (
+                  <div className="p-3 bg-neutral-800/50 rounded-lg space-y-2">
+                    {routeObj.punto_a && (() => {
+                      const pa = routeObj.punto_a as { name?: string; lat?: number; lon?: number };
+                      return (
+                        <div className="flex items-start gap-2">
+                          <MapPinIcon className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-neutral-400 text-xs">Inicio:</span>
+                            <p className="text-white text-sm break-words">{pa.name || `${pa.lat?.toFixed(5)}, ${pa.lon?.toFixed(5)}`}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {routeObj.punto_b && (() => {
+                      const pb = routeObj.punto_b as { name?: string; lat?: number; lon?: number };
+                      return (
+                        <div className="flex items-start gap-2">
+                          <MapPinIcon className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-neutral-400 text-xs">Fin:</span>
+                            <p className="text-white text-sm break-words">{pb.name || `${pb.lat?.toFixed(5)}, ${pb.lon?.toFixed(5)}`}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {routeObj.distancia_metros && (() => {
+                      const d = routeObj.distancia_metros as number;
+                      return (
+                        <div className="flex items-center gap-2 mt-1">
+                          <TruckIcon className="h-4 w-4 text-cmyk-cyan flex-shrink-0" />
+                          <span className="text-cmyk-cyan font-medium text-sm">
+                            {d >= 1000 ? `${(d / 1000).toFixed(2)} km` : `${d.toFixed(0)} m`}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    {routeObj.duracion_segundos && (() => {
+                      const s = routeObj.duracion_segundos as number;
+                      const mins = Math.round(s / 60);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <ClockIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                          <span className="text-neutral-300 text-sm">{mins} min aprox.</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
