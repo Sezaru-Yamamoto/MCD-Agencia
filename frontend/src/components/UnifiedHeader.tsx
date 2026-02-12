@@ -291,16 +291,19 @@ export function UnifiedHeader() {
 
                       {/* Panel de Control - accordion style */}
                       {isStaff && (
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setOpenSubmenu(openSubmenu === 'dashboard' ? null : 'dashboard')}
+                        <div
+                          onMouseEnter={() => setOpenSubmenu('dashboard')}
+                          onMouseLeave={() => setOpenSubmenu(null)}
+                        >
+                          <Link
+                            href={`/${locale}/dashboard`}
+                            onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
                             className="w-full px-4 py-3 text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
                           >
                             <Cog6ToothIcon className="w-5 h-5" />
                             <span className="flex-1 text-left font-medium">Panel de Control</span>
                             <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${openSubmenu === 'dashboard' ? 'rotate-180' : ''}`} />
-                          </button>
+                          </Link>
                           {/* Submenu inline */}
                           {openSubmenu === 'dashboard' && (
                             <div className="bg-cmyk-black/50 border-t border-cmyk-cyan/10">
