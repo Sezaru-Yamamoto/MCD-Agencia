@@ -236,19 +236,19 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
           {sorted.map((slide) => (
             <Card key={slide.id} className="p-3">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                <div className="w-full sm:w-36 h-28 sm:h-20 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
+                <div className="w-full sm:w-36 h-36 sm:h-20 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {slide.image ? <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><PhotoIcon className="h-8 w-8 text-neutral-600" /></div>}
                 </div>
                 <div className="flex-1 min-w-0 w-full">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium text-white truncate">{slide.title || 'Sin título'}</h3>
-                    <Badge variant={slide.is_active ? 'success' : 'default'}>{slide.is_active ? 'Activo' : 'Inactivo'}</Badge>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                    <h3 className="font-medium text-white text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{slide.title || 'Sin título'}</h3>
+                    <Badge variant={slide.is_active ? 'success' : 'default'} className="text-[10px] sm:text-xs">{slide.is_active ? 'Activo' : 'Inactivo'}</Badge>
                   </div>
-                  {slide.service_key && <p className="text-xs text-cyan-400">Servicio: {SERVICE_LABELS[slide.service_key as ServiceId] || slide.service_key}</p>}
-                  <p className="text-xs text-neutral-500 mt-0.5">Pos: {slide.position}</p>
+                  {slide.service_key && <p className="text-[11px] sm:text-xs text-cyan-400">Servicio: {SERVICE_LABELS[slide.service_key as ServiceId] || slide.service_key}</p>}
+                  <p className="text-[11px] sm:text-xs text-neutral-500 mt-0.5">Pos: {slide.position}</p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 w-full sm:w-auto justify-end border-t sm:border-t-0 border-neutral-800 pt-2 sm:pt-0 mt-1 sm:mt-0">
                   <Button variant="ghost" size="sm" onClick={() => toggleActive(slide)}>{slide.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}</Button>
                   <Button variant="ghost" size="sm" onClick={() => openEdit(slide)}><PencilIcon className="h-5 w-5" /></Button>
                   <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar?')) deleteMut.mutate(slide.id); }}><TrashIcon className="h-5 w-5 text-red-400" /></Button>

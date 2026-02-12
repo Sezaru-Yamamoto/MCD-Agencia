@@ -10,7 +10,7 @@ import {
   PhotoIcon,
 } from '@heroicons/react/24/outline';
 
-import { getProducts, getCategories, type ProductListItem, type Category } from '@/lib/api/catalog';
+import { getProducts, getCategories, getCategoryTree, type ProductListItem, type Category } from '@/lib/api/catalog';
 import { createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage, type CreateProductData } from '@/lib/api/admin';
 import toast from 'react-hot-toast';
 import { Card, Badge, Button, Input, Select, Modal, Pagination, LoadingPage } from '@/components/ui';
@@ -103,10 +103,16 @@ export default function AdminCatalogPage() {
     }),
   });
 
-  // Fetch categories for select
+  // Fetch categories for select (tree structure with children)
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
+  });
+
+  // Fetch category tree for the product form (grouped with subtypes)
+  const { data: categoryTree = [] } = useQuery({
+    queryKey: ['category-tree'],
+    queryFn: getCategoryTree,
   });
 
   const products = productsData?.results || [];
@@ -255,6 +261,7 @@ export default function AdminCatalogPage() {
     deleteMutation.mutate(id);
   };
 
+  // Build flat options from tree for filter Select component
   const categoryOptions = [
     { value: '', label: 'Sin categoría' },
     ...categories.map((cat: Category) => ({ value: cat.id, label: cat.name })),
@@ -519,11 +526,21 @@ export default function AdminCatalogPage() {
               <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Categoría
               </label>
-              <Select
+              <select
                 value={formData.category_id}
-                onChange={(value) => setFormData({ ...formData, category_id: value })}
-                options={categoryOptions}
-              />
+                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              >
+                <option value="">Sin categoría</option>
+                {categoryTree.map((cat) => (
+                  <optgroup key={cat.id} label={`📁 ${cat.name}`}>
+                    <option value={cat.id}>{cat.name} (general)</option>
+                    {cat.children && cat.children.map((sub) => (
+                      <option key={sub.id} value={sub.id}>↳ {sub.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
           </div>
 
