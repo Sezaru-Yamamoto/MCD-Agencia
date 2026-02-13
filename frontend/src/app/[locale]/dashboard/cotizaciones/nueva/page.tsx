@@ -720,11 +720,18 @@ export default function NewQuotePage() {
                       item.serviceDetails.service_type,
                       item.serviceDetails.subtipo as string | undefined
                     );
-                    const routeTotal = itemIsRouteBased ? computeRoutesTotal(item.serviceDetails!) : 0;
 
                     return (
-                    <div key={item.id} className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
-                      <div className="flex items-start gap-4">
+                    <div key={item.id} className="relative p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
+                      {/* Delete button — top right */}
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="absolute top-2 right-2 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                        title="Eliminar concepto"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                      <div className="flex items-start gap-4 pr-8">
                         <span className="text-neutral-500 text-sm font-medium mt-2">{index + 1}.</span>
                         <div className="flex-1 space-y-3">
                           {/* Header: Concept & Description */}
@@ -816,23 +823,7 @@ export default function NewQuotePage() {
                             </div>
                           )}
 
-                          {/* Route-based total summary */}
-                          {itemIsRouteBased && (
-                            <div className="flex items-center justify-between px-1">
-                              <span className="text-neutral-400 text-xs">Total de rutas:</span>
-                              <span className="text-white font-medium">{formatCurrency(routeTotal)}</span>
-                            </div>
-                          )}
 
-                          {/* Delete button */}
-                          <div className="flex justify-end">
-                            <button
-                              onClick={() => removeItem(item.id)}
-                              className="p-1 text-neutral-400 hover:text-red-400 transition-colors"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
-                          </div>
 
                           {/* Service Form Toggle & Fields */}
                           {item.serviceDetails && (
