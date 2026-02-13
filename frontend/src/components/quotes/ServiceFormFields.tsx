@@ -345,6 +345,75 @@ export function countRoutes(details: ServiceDetailsData): number {
   return rutas ? rutas.length : 0;
 }
 
+/* ─── Expand a route-based item into one line per route ────── */
+export interface ExpandedRouteLine {
+  concept: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  line_total: number;
+  position?: number;
+  service_details?: Record<string, unknown>;
+}
+
+export function expandRouteLines(
+  details: ServiceDetailsData,
+  baseConcept: string,
+  baseDescription: string,
+): ExpandedRouteLine[] {
+  // Try internal routes first, then API-facing rutas
+  const internalRoutes = (details._vallasRoutes ||
+    details._pubRoutes ||
+    details._perifoneoRoutes) as
+    | Array<{ cantidad?: number; unit_price?: number; unidad?: string; ruta?: string }>
+    | undefined;
+
+  if (internalRoutes && internalRoutes.length > 0) {
+    return internalRoutes.map((r, i) => {
+      const qty = r.cantidad || 1;
+      const price = r.unit_price || 0;
+      return {
+        concept: `${baseConcept} — Ruta ${i + 1}`,
+        description: baseDescription,
+        quantity: qty,
+        unit: r.unidad || 'servicio',
+        unit_price: price,
+        line_total: qty * price,
+      };
+    });
+  }
+
+  // Fallback: API-facing rutas
+  const rutas = details.rutas as
+    | Array<{ numero?: number; cantidad?: number; precio_unitario?: number; unidad?: string; ruta_preestablecida?: string }>
+    | undefined;
+  if (rutas && rutas.length > 0) {
+    return rutas.map((r, i) => {
+      const qty = r.cantidad || 1;
+      const price = r.precio_unitario || 0;
+      return {
+        concept: `${baseConcept} — Ruta ${r.numero || i + 1}`,
+        description: baseDescription,
+        quantity: qty,
+        unit: r.unidad || 'servicio',
+        unit_price: price,
+        line_total: qty * price,
+      };
+    });
+  }
+
+  // No routes found — return single line with zero
+  return [{
+    concept: baseConcept,
+    description: baseDescription,
+    quantity: 1,
+    unit: 'servicio',
+    unit_price: 0,
+    line_total: 0,
+  }];
+}
+
 /* ════════════════════════════════════════════════════════════════
  *  Component
  * ════════════════════════════════════════════════════════════════ */

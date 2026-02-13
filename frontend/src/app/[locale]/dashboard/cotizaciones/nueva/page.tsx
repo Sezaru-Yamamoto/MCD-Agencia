@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
-import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, countRoutes } from '@/components/quotes/ServiceFormFields';
+import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, expandRouteLines } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -327,9 +327,7 @@ export default function NewQuotePage() {
         internal_notes: internalNotes || undefined,
         delivery_time_text: deliveryTimeText || undefined,
         payment_conditions: paymentConditions || undefined,
-        lines: items.map((item, index) => {
-          // For route-based services, quantity=1, unit_price = total from all routes
-          const isRoute = isRouteBasedDetails(item.serviceDetails);
+        lines: items.flatMap((item) => {
           // Auto-generate concept from service details if it's a service item
           let concept = item.concept;
           if (item.serviceDetails && item.serviceDetails.service_type) {
@@ -339,18 +337,35 @@ export default function NewQuotePage() {
               : '';
             concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
           }
-          return {
+
+          // Route-based: expand into one line per route
+          if (isRouteBasedDetails(item.serviceDetails)) {
+            const routeLines = expandRouteLines(item.serviceDetails!, concept, item.description || '');
+            return routeLines.map((rl, ri) => ({
+              concept: rl.concept,
+              concept_en: item.concept_en,
+              description: rl.description,
+              description_en: item.description_en,
+              quantity: rl.quantity,
+              unit: rl.unit,
+              unit_price: rl.unit_price,
+              position: 0, // will be set below
+              service_details: ri === 0 ? (item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined) : undefined,
+            }));
+          }
+
+          return [{
             concept,
             concept_en: item.concept_en,
             description: item.description,
             description_en: item.description_en,
-            quantity: isRoute ? countRoutes(item.serviceDetails!) : item.quantity,
-            unit: isRoute ? 'ruta' : item.unit,
-            unit_price: isRoute ? (countRoutes(item.serviceDetails!) > 0 ? computeRoutesTotal(item.serviceDetails!) / countRoutes(item.serviceDetails!) : 0) : item.unit_price,
-            position: index + 1,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.unit_price,
+            position: 0,
             service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
-          };
-        }),
+          }];
+        }).map((line, idx) => ({ ...line, position: idx + 1 })),
       };
 
       const quote = await createQuote(quoteData);
@@ -1058,8 +1073,7 @@ export default function NewQuotePage() {
       isLoading={isSubmitting}
       customerName={customerName}
       customerEmail={customerEmail}
-      lines={items.map((item) => {
-        const isRoute = isRouteBasedDetails(item.serviceDetails);
+      lines={items.flatMap((item) => {
         let concept = item.concept;
         if (item.serviceDetails && item.serviceDetails.service_type) {
           const svcLabel = SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type;
@@ -1068,15 +1082,16 @@ export default function NewQuotePage() {
             : '';
           concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
         }
-        const routeTotal = isRoute ? computeRoutesTotal(item.serviceDetails!) : 0;
-        const numRoutes = isRoute ? countRoutes(item.serviceDetails!) : 0;
-        return {
+        if (isRouteBasedDetails(item.serviceDetails)) {
+          return expandRouteLines(item.serviceDetails!, concept, item.description || '');
+        }
+        return [{
           concept,
-          quantity: isRoute ? numRoutes : item.quantity,
-          unit: isRoute ? 'ruta' : item.unit,
-          unit_price: isRoute ? (numRoutes > 0 ? routeTotal / numRoutes : 0) : item.unit_price,
-          line_total: isRoute ? routeTotal : item.quantity * item.unit_price,
-        };
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          line_total: item.quantity * item.unit_price,
+        }];
       })}
       subtotal={subtotal}
       taxAmount={taxAmount}
