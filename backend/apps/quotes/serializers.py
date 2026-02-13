@@ -539,6 +539,7 @@ class ProposedLineSerializer(serializers.Serializer):
         allow_null=True
     )
     original_values = serializers.DictField(required=False)
+    service_details = serializers.DictField(required=False, allow_null=True)
 
     def validate(self, attrs):
         """Validate line based on action."""

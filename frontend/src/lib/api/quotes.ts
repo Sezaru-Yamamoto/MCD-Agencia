@@ -203,6 +203,7 @@ export interface ProposedLine {
   quantity?: number;
   unit?: string;
   unit_price?: number;
+  service_details?: Record<string, unknown>;
   original_values?: {
     concept?: string;
     description?: string;

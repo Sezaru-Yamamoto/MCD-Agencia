@@ -10,11 +10,18 @@ import {
   ArrowUturnLeftIcon,
   InformationCircleIcon,
   PhotoIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 import { Button, Card } from '@/components/ui';
 import { QuoteLine, ProposedLine, SubmitChangeRequestData } from '@/lib/api/quotes';
+import {
+  ServiceFormFields,
+  type ServiceDetailsData,
+  serviceDetailsFromRequest,
+  cleanServiceDetailsForApi,
+} from '@/components/quotes/ServiceFormFields';
 import {
   SERVICE_LABELS,
   SERVICE_SUBCATEGORIES,
@@ -32,6 +39,8 @@ interface EditingLine extends QuoteLine {
   serviceType?: string;
   subtype?: string;
   dimensions?: string;
+  serviceDetails?: ServiceDetailsData;
+  showServiceForm?: boolean;
 }
 
 interface NewItemForm {
@@ -41,6 +50,8 @@ interface NewItemForm {
   quantity: string;
   unit: string;
   description: string;
+  serviceDetails?: ServiceDetailsData;
+  showServiceForm?: boolean;
 }
 
 const INITIAL_NEW_ITEM: NewItemForm = {
@@ -50,6 +61,8 @@ const INITIAL_NEW_ITEM: NewItemForm = {
   quantity: '1',
   unit: 'pz',
   description: '',
+  serviceDetails: undefined,
+  showServiceForm: false,
 };
 
 // Max file size: 10MB
@@ -71,7 +84,20 @@ export default function QuoteChangeEditor({
 }: QuoteChangeEditorProps) {
   // Convert QuoteLine[] to EditingLine[] with editable state
   const [editingLines, setEditingLines] = useState<EditingLine[]>(() =>
-    lines.map((line) => ({ ...line }))
+    lines.map((line) => {
+      const editLine: EditingLine = { ...line };
+      // Reconstruct serviceDetails from service_details if present
+      if (line.service_details && typeof line.service_details === 'object') {
+        const sd = line.service_details as Record<string, unknown>;
+        const serviceType = (sd.service_type as string) || '';
+        if (serviceType) {
+          editLine.serviceDetails = serviceDetailsFromRequest(serviceType, sd);
+          editLine.serviceType = serviceType;
+          editLine.subtype = (sd.subtipo as string) || '';
+        }
+      }
+      return editLine;
+    })
   );
   const [newLines, setNewLines] = useState<EditingLine[]>([]);
   const [customerComments, setCustomerComments] = useState('');
@@ -103,7 +129,7 @@ export default function QuoteChangeEditor({
     }).format(num || 0);
   };
 
-  const handleModifyLine = (lineId: string, field: 'quantity' | 'description', value: string | number) => {
+  const handleModifyLine = (lineId: string, field: 'quantity' | 'description' | 'serviceDetails', value: string | number | ServiceDetailsData) => {
     setEditingLines((prev) =>
       prev.map((line) => {
         if (line.id !== lineId) return line;
@@ -115,6 +141,8 @@ export default function QuoteChangeEditor({
           newLine.newQuantity = Number(value);
         } else if (field === 'description') {
           newLine.newDescription = String(value);
+        } else if (field === 'serviceDetails') {
+          newLine.serviceDetails = value as ServiceDetailsData;
         }
 
         // Check if actually modified compared to original
@@ -124,7 +152,8 @@ export default function QuoteChangeEditor({
         const descChanged =
           newLine.newDescription !== undefined &&
           newLine.newDescription.trim() !== '';
-        newLine.isModified = qtyChanged || descChanged;
+        const serviceChanged = newLine.serviceDetails !== undefined;
+        newLine.isModified = qtyChanged || descChanged || serviceChanged;
 
         return newLine;
       })
@@ -151,6 +180,16 @@ export default function QuoteChangeEditor({
     const originalLine = lines.find((l) => l.id === lineId);
     if (!originalLine) return;
 
+    // Reconstruct original serviceDetails
+    let originalServiceDetails: ServiceDetailsData | undefined;
+    if (originalLine.service_details && typeof originalLine.service_details === 'object') {
+      const sd = originalLine.service_details as Record<string, unknown>;
+      const serviceType = (sd.service_type as string) || '';
+      if (serviceType) {
+        originalServiceDetails = serviceDetailsFromRequest(serviceType, sd);
+      }
+    }
+
     setEditingLines((prev) =>
       prev.map((line) =>
         line.id === lineId
@@ -159,6 +198,8 @@ export default function QuoteChangeEditor({
               isModified: false,
               newQuantity: undefined,
               newDescription: undefined,
+              serviceDetails: originalServiceDetails,
+              showServiceForm: false,
             }
           : line
       )
@@ -209,6 +250,7 @@ export default function QuoteChangeEditor({
         serviceType: newItemForm.serviceType,
         subtype: newItemForm.subtype,
         dimensions: newItemForm.dimensions,
+        serviceDetails: newItemForm.serviceDetails,
       },
     ]);
 
@@ -227,6 +269,8 @@ export default function QuoteChangeEditor({
       quantity: String(line.quantity),
       unit: line.unit,
       description: line.description?.replace(/^Medidas: .+\n?/, '').trim() || '',
+      serviceDetails: line.serviceDetails,
+      showServiceForm: !!line.serviceDetails,
     });
     // Remove the line being edited — it'll be re-added on confirm
     setNewLines(prev => prev.filter(l => l.id !== lineId));
@@ -292,7 +336,7 @@ export default function QuoteChangeEditor({
         });
       } else if (line.isModified) {
         const hasChangeNotes = line.newDescription !== undefined && line.newDescription.trim() !== '';
-        proposedLines.push({
+        const proposed: ProposedLine = {
           id: line.id,
           action: 'modify',
           quantity: line.newQuantity ?? originalLine.quantity,
@@ -301,20 +345,30 @@ export default function QuoteChangeEditor({
             quantity: String(originalLine.quantity),
             description: originalLine.description,
           },
-        });
+        };
+        // Include updated service_details if present
+        if (line.serviceDetails && line.serviceDetails.service_type) {
+          proposed.service_details = cleanServiceDetailsForApi(line.serviceDetails) ?? undefined;
+        }
+        proposedLines.push(proposed);
       }
     });
 
     // Add new lines
     newLines.forEach((line) => {
       if (line.concept?.trim()) {
-        proposedLines.push({
+        const proposed: ProposedLine = {
           action: 'add',
           concept: line.concept,
           description: line.description || '',
           quantity: line.quantity,
           unit: line.unit,
-        });
+        };
+        // Include service_details for new items
+        if (line.serviceDetails && line.serviceDetails.service_type) {
+          proposed.service_details = cleanServiceDetailsForApi(line.serviceDetails) ?? undefined;
+        }
+        proposedLines.push(proposed);
       }
     });
 
@@ -445,6 +499,38 @@ export default function QuoteChangeEditor({
                           />
                           <p className="text-xs text-neutral-600 mt-1">Ej: Cambiar medidas a 4x3m, usar material diferente, etc.</p>
                         </div>
+
+                        {/* Service detail fields for items with service_details */}
+                        {line.serviceDetails && (
+                          <div className="pt-3 border-t border-neutral-700/50">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingLines(prev =>
+                                  prev.map(l =>
+                                    l.id === line.id
+                                      ? { ...l, showServiceForm: !l.showServiceForm }
+                                      : l
+                                  )
+                                );
+                              }}
+                              className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
+                            >
+                              <WrenchScrewdriverIcon className="h-4 w-4" />
+                              <span>{line.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
+                              <svg className={`h-3 w-3 transition-transform ${line.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                            {line.showServiceForm && (
+                              <ServiceFormFields
+                                value={line.serviceDetails}
+                                onChange={(details) => handleModifyLine(line.id, 'serviceDetails', details)}
+                              />
+                            )}
+                          </div>
+                        )}
+
                         <div className="flex gap-2 mt-2">
                           <Button
                             size="sm"
@@ -640,7 +726,16 @@ export default function QuoteChangeEditor({
                 value={newItemForm.serviceType}
                 onChange={(e) => {
                   const val = e.target.value as ServiceId | '';
-                  setNewItemForm(prev => ({ ...prev, serviceType: val, subtype: '' }));
+                  const details: ServiceDetailsData | undefined = val
+                    ? { service_type: val }
+                    : undefined;
+                  setNewItemForm(prev => ({
+                    ...prev,
+                    serviceType: val,
+                    subtype: '',
+                    serviceDetails: details,
+                    showServiceForm: !!val,
+                  }));
                 }}
                 className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
               >
@@ -660,7 +755,13 @@ export default function QuoteChangeEditor({
                 <label className="text-xs text-neutral-400">Subtipo</label>
                 <select
                   value={newItemForm.subtype}
-                  onChange={(e) => setNewItemForm(prev => ({ ...prev, subtype: e.target.value }))}
+                  onChange={(e) => setNewItemForm(prev => ({
+                    ...prev,
+                    subtype: e.target.value,
+                    serviceDetails: prev.serviceDetails
+                      ? { ...prev.serviceDetails, subtipo: e.target.value }
+                      : prev.serviceDetails,
+                  }))}
                   className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
                 >
                   <option value="">Selecciona subtipo</option>
@@ -730,6 +831,29 @@ export default function QuoteChangeEditor({
                 className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
               />
             </div>
+
+            {/* Service-specific fields */}
+            {newItemForm.serviceDetails && newItemForm.serviceType && (
+              <div className="pt-3 border-t border-neutral-700/50">
+                <button
+                  type="button"
+                  onClick={() => setNewItemForm(prev => ({ ...prev, showServiceForm: !prev.showServiceForm }))}
+                  className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
+                >
+                  <WrenchScrewdriverIcon className="h-4 w-4" />
+                  <span>{newItemForm.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
+                  <svg className={`h-3 w-3 transition-transform ${newItemForm.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {newItemForm.showServiceForm && (
+                  <ServiceFormFields
+                    value={newItemForm.serviceDetails}
+                    onChange={(details) => setNewItemForm(prev => ({ ...prev, serviceDetails: details }))}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-2 pt-1">
