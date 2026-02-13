@@ -734,27 +734,72 @@ export default function NewQuotePage() {
                       <div className="flex items-start gap-4 pr-8">
                         <span className="text-neutral-500 text-sm font-medium mt-2">{index + 1}.</span>
                         <div className="flex-1 space-y-3">
-                          {/* Header: Concept & Description */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
-                              {item.serviceDetails ? (() => {
-                                const svcType = item.serviceDetails!.service_type as ServiceId;
-                                const svcSubtipo = item.serviceDetails!.subtipo as string | undefined;
-                                return (
-                                  <div className="px-3 py-2 bg-neutral-800/50 border border-neutral-700/50 rounded text-sm">
-                                    <span className="text-cmyk-cyan font-medium">
-                                      {SERVICE_LABELS[svcType] || svcType}
-                                    </span>
-                                    {svcSubtipo && (
-                                      <span className="text-white">
-                                        {' — '}
-                                        {subtipoLabels[svcSubtipo] || svcSubtipo}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })() : (
+                          {/* Header: Categoría / Subtipo / Descripción */}
+                          {item.serviceDetails ? (() => {
+                            const svcType = item.serviceDetails!.service_type as ServiceId;
+                            const svcSubtipo = item.serviceDetails!.subtipo as string | undefined;
+                            const subcats = SERVICE_SUBCATEGORIES[svcType as LandingServiceId] || [];
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-neutral-500 text-xs mb-1">Categoría *</label>
+                                  <select
+                                    value={svcType}
+                                    onChange={(e) => {
+                                      const newType = e.target.value as ServiceId;
+                                      const newSubcats = SERVICE_SUBCATEGORIES[newType as LandingServiceId] || [];
+                                      updateItem(item.id, 'serviceDetails', {
+                                        ...item.serviceDetails!,
+                                        service_type: newType,
+                                        subtipo: newSubcats.length > 0 ? newSubcats[0].id : undefined,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                  >
+                                    {Object.entries(SERVICE_LABELS).map(([key, label]) => (
+                                      <option key={key} value={key}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-neutral-500 text-xs mb-1">Subtipo</label>
+                                  {subcats.length > 0 ? (
+                                    <select
+                                      value={svcSubtipo || ''}
+                                      onChange={(e) => {
+                                        updateItem(item.id, 'serviceDetails', {
+                                          ...item.serviceDetails!,
+                                          subtipo: e.target.value || undefined,
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    >
+                                      {subcats.map((sc) => (
+                                        <option key={sc.id} value={sc.id}>{sc.label}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <div className="px-3 py-2 bg-neutral-800/30 border border-neutral-700/30 rounded text-neutral-500 text-sm">
+                                      Sin subtipos
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
+                                  <textarea
+                                    value={item.description || ''}
+                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                    placeholder="Descripción opcional"
+                                    rows={2}
+                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })() : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
                                 <input
                                   type="text"
                                   value={item.concept}
@@ -762,19 +807,19 @@ export default function NewQuotePage() {
                                   placeholder="Nombre del concepto"
                                   className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
                                 />
-                              )}
+                              </div>
+                              <div>
+                                <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                  placeholder="Descripción opcional"
+                                  rows={2}
+                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
-                              <textarea
-                                value={item.description || ''}
-                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                placeholder="Descripción opcional"
-                                rows={item.description && item.description.includes('\n') ? Math.min(item.description.split('\n').length + 1, 12) : 2}
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-y"
-                              />
-                            </div>
-                          </div>
+                          )}
 
                           {/* Qty / Unit / Price — only for NON-route-based items */}
                           {!itemIsRouteBased && (
