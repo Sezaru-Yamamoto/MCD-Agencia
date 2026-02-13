@@ -976,28 +976,29 @@ export function ServiceFormFields({
                     formatCurrency={formatCurrency}
                   />
 
-                  {/* Route info from client (read-only) */}
+                  {/* Route info from client (reference) */}
                   {entry.clientRouteInfo && (
-                    <RoutePointsDisplay routeInfo={entry.clientRouteInfo} />
-                  )}
-
-                  {/* Map tracer only when no pre-filled route info */}
-                  {!entry.clientRouteInfo && (
                     <div>
-                      <label className={labelCls}>
-                        Trazar ruta en mapa (opcional)
-                      </label>
-                      <RouteSelector
-                        onChange={(route) =>
-                          setVallasRoutes((prev) =>
-                            prev.map((r) =>
-                              r.id === entry.id ? { ...r, route } : r
-                            )
-                          )
-                        }
-                      />
+                      <p className="text-xs text-neutral-500 mb-1">Ruta actual del cliente:</p>
+                      <RoutePointsDisplay routeInfo={entry.clientRouteInfo} />
                     </div>
                   )}
+
+                  {/* Map tracer — always available for editing */}
+                  <div>
+                    <label className={labelCls}>
+                      {entry.clientRouteInfo ? 'Modificar ruta en mapa' : 'Trazar ruta en mapa (opcional)'}
+                    </label>
+                    <RouteSelector
+                      onChange={(route) =>
+                        setVallasRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, route } : r
+                          )
+                        )
+                      }
+                    />
+                  </div>
                 </div>
               ))}
 
@@ -1441,28 +1442,29 @@ export function ServiceFormFields({
                     formatCurrency={formatCurrency}
                   />
 
-                  {/* Route info from client (read-only) */}
+                  {/* Route info from client (reference) */}
                   {entry.clientRouteInfo && (
-                    <RoutePointsDisplay routeInfo={entry.clientRouteInfo} />
-                  )}
-
-                  {/* Map tracer only when no pre-filled route info */}
-                  {!entry.clientRouteInfo && (
                     <div>
-                      <label className={labelCls}>
-                        Trazar ruta en mapa (opcional)
-                      </label>
-                      <RouteSelector
-                        onChange={(route) =>
-                          setPerifoneoRoutes((prev) =>
-                            prev.map((r) =>
-                              r.id === entry.id ? { ...r, route } : r
-                            )
-                          )
-                        }
-                      />
+                      <p className="text-xs text-neutral-500 mb-1">Ruta actual del cliente:</p>
+                      <RoutePointsDisplay routeInfo={entry.clientRouteInfo} />
                     </div>
                   )}
+
+                  {/* Map tracer — always available for editing */}
+                  <div>
+                    <label className={labelCls}>
+                      {entry.clientRouteInfo ? 'Modificar ruta en mapa' : 'Trazar ruta en mapa (opcional)'}
+                    </label>
+                    <RouteSelector
+                      onChange={(route) =>
+                        setPerifoneoRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, route } : r
+                          )
+                        )
+                      }
+                    />
+                  </div>
                 </div>
               ))}
 

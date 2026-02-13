@@ -46,7 +46,6 @@ interface EditingLine extends QuoteLine {
 interface NewItemForm {
   serviceType: ServiceId | '';
   subtype: string;
-  dimensions: string;
   quantity: string;
   unit: string;
   description: string;
@@ -57,7 +56,6 @@ interface NewItemForm {
 const INITIAL_NEW_ITEM: NewItemForm = {
   serviceType: '',
   subtype: '',
-  dimensions: '',
   quantity: '1',
   unit: 'pz',
   description: '',
@@ -120,14 +118,6 @@ export default function QuoteChangeEditor({
   const remainingLinesCount = useMemo(() => {
     return editingLines.filter((line) => !line.isDeleted).length + newLines.length;
   }, [editingLines, newLines]);
-
-  const formatCurrency = (amount: string | number) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(num || 0);
-  };
 
   const handleModifyLine = (lineId: string, field: 'quantity' | 'description' | 'serviceDetails', value: string | number | ServiceDetailsData) => {
     setEditingLines((prev) =>
@@ -221,7 +211,6 @@ export default function QuoteChangeEditor({
 
   const buildNewLineDescription = (form: NewItemForm) => {
     const parts: string[] = [];
-    if (form.dimensions) parts.push(`Medidas: ${form.dimensions}`);
     if (form.description) parts.push(form.description);
     return parts.join('\n');
   };
@@ -249,7 +238,6 @@ export default function QuoteChangeEditor({
         isNew: true,
         serviceType: newItemForm.serviceType,
         subtype: newItemForm.subtype,
-        dimensions: newItemForm.dimensions,
         serviceDetails: newItemForm.serviceDetails,
       },
     ]);
@@ -265,7 +253,6 @@ export default function QuoteChangeEditor({
     setNewItemForm({
       serviceType: (line.serviceType as ServiceId) || '',
       subtype: line.subtype || '',
-      dimensions: line.dimensions || '',
       quantity: String(line.quantity),
       unit: line.unit,
       description: line.description?.replace(/^Medidas: .+\n?/, '').trim() || '',
@@ -435,15 +422,9 @@ export default function QuoteChangeEditor({
                         {/* Current details - read-only reference */}
                         <div className="p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
                           <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2 font-medium">Detalles actuales</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-xs text-neutral-500">Concepto</p>
-                              <p className="text-sm text-white">{line.concept}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-neutral-500">Precio unitario</p>
-                              <p className="text-sm text-white">{formatCurrency(line.unit_price)}</p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-neutral-500">Concepto</p>
+                            <p className="text-sm text-white">{line.concept}</p>
                           </div>
                           {line.description && (
                             <div className="mt-2">
@@ -591,10 +572,6 @@ export default function QuoteChangeEditor({
                                 (antes: {originalLine?.quantity})
                               </span>
                             )}
-                          <span className="text-neutral-500">x</span>
-                          <span className="text-neutral-300">
-                            {formatCurrency(line.unit_price)}
-                          </span>
                         </div>
                       </>
                     )}
@@ -773,18 +750,6 @@ export default function QuoteChangeEditor({
                 </select>
               </div>
             )}
-
-            {/* Dimensions */}
-            <div>
-              <label className="text-xs text-neutral-400">Medidas (opcional)</label>
-              <input
-                type="text"
-                value={newItemForm.dimensions}
-                onChange={(e) => setNewItemForm(prev => ({ ...prev, dimensions: e.target.value }))}
-                placeholder="Ej: 4x3 metros, 90x60 cm..."
-                className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-              />
-            </div>
 
             {/* Quantity + Unit */}
             <div className="flex items-center gap-4">
