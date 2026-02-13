@@ -236,6 +236,8 @@ export interface QuoteChangeRequest {
       unit: string;
       unit_price: string;
       line_total: string;
+      service_type?: string;
+      service_details?: Record<string, unknown>;
     }>;
   };
   changes_summary: {
@@ -243,6 +245,15 @@ export interface QuoteChangeRequest {
     modified: number;
     deleted: number;
   };
+  attachments?: Array<{
+    id: string;
+    file: string;
+    filename: string;
+    file_type: string;
+    file_size: number;
+    description?: string;
+    created_at: string;
+  }>;
   reviewed_by?: string;
   reviewed_by_name?: string;
   reviewed_at?: string;

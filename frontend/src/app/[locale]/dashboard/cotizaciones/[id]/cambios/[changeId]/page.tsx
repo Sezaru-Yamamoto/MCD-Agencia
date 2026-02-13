@@ -14,11 +14,15 @@ import {
   PencilIcon,
   TrashIcon,
   ChatBubbleLeftRightIcon,
+  PaperClipIcon,
+  PhotoIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage } from '@/components/ui';
+import { ServiceDetailsDisplay } from '@/components/quotes';
 import {
   getChangeRequestById,
   reviewChangeRequest,
@@ -300,6 +304,16 @@ export default function ChangeRequestReviewPage() {
                               <p className="text-neutral-300 text-sm mt-1">
                                 Cantidad: {line.quantity} {line.unit}
                               </p>
+                              {/* Service details for new items */}
+                              {line.service_details && Object.keys(line.service_details).length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-green-500/20">
+                                  <p className="text-xs text-neutral-400 font-medium mb-2">Detalle del servicio solicitado:</p>
+                                  <ServiceDetailsDisplay
+                                    serviceType={String(line.service_details.service_type || '')}
+                                    serviceDetails={line.service_details}
+                                  />
+                                </div>
+                              )}
                             </div>
                           ) : line.action === 'delete' ? (
                             <div>
@@ -355,6 +369,31 @@ export default function ChangeRequestReviewPage() {
                                       )}
                                     </div>
                                   )}
+
+                                {/* Service details modified by client */}
+                                {line.service_details && Object.keys(line.service_details).length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-yellow-500/20">
+                                    <p className="text-xs text-yellow-500 font-medium mb-2">Detalle del servicio (modificado por el cliente):</p>
+                                    <ServiceDetailsDisplay
+                                      serviceType={String(line.service_details.service_type || originalLine?.service_type || '')}
+                                      serviceDetails={line.service_details}
+                                    />
+                                    {/* Show original service details for comparison */}
+                                    {originalLine?.service_details && Object.keys(originalLine.service_details).length > 0 && (
+                                      <details className="mt-2">
+                                        <summary className="text-neutral-500 text-xs cursor-pointer hover:text-neutral-400">
+                                          Ver detalle de servicio original
+                                        </summary>
+                                        <div className="mt-2 p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
+                                          <ServiceDetailsDisplay
+                                            serviceType={originalLine.service_type || ''}
+                                            serviceDetails={originalLine.service_details}
+                                          />
+                                        </div>
+                                      </details>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -376,6 +415,65 @@ export default function ChangeRequestReviewPage() {
                 <p className="text-neutral-300 whitespace-pre-wrap">
                   {changeRequest.customer_comments}
                 </p>
+              </Card>
+            )}
+
+            {/* Attachments */}
+            {changeRequest.attachments && changeRequest.attachments.length > 0 && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
+                  Archivos Adjuntos ({changeRequest.attachments.length})
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {changeRequest.attachments.map((attachment) => {
+                    const isImage = attachment.file_type?.startsWith('image/');
+                    const fileSize = attachment.file_size
+                      ? attachment.file_size < 1024 * 1024
+                        ? `${(attachment.file_size / 1024).toFixed(0)} KB`
+                        : `${(attachment.file_size / (1024 * 1024)).toFixed(1)} MB`
+                      : '';
+
+                    return (
+                      <a
+                        key={attachment.id}
+                        href={attachment.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative block rounded-lg border border-neutral-700 bg-neutral-800 overflow-hidden hover:border-cmyk-cyan/50 transition-colors"
+                      >
+                        {isImage ? (
+                          <div className="aspect-square">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={attachment.file}
+                              alt={attachment.filename}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-square flex flex-col items-center justify-center p-3">
+                            <PhotoIcon className="h-8 w-8 text-neutral-500 mb-1" />
+                            <span className="text-[10px] text-neutral-500 text-center truncate w-full">
+                              {attachment.filename}
+                            </span>
+                          </div>
+                        )}
+                        <div className="p-2 border-t border-neutral-700">
+                          <p className="text-xs text-neutral-300 truncate" title={attachment.filename}>
+                            {attachment.filename}
+                          </p>
+                          {fileSize && (
+                            <p className="text-[10px] text-neutral-500">{fileSize}</p>
+                          )}
+                        </div>
+                        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ArrowTopRightOnSquareIcon className="h-4 w-4 text-white bg-black/50 rounded p-0.5" />
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
               </Card>
             )}
 
@@ -401,6 +499,19 @@ export default function ChangeRequestReviewPage() {
                           <p className="text-white font-medium">{line.concept}</p>
                           {line.description && (
                             <p className="text-neutral-500 text-sm">{line.description}</p>
+                          )}
+                          {line.service_details && Object.keys(line.service_details).length > 0 && (
+                            <details className="mt-1">
+                              <summary className="text-neutral-500 text-xs cursor-pointer hover:text-neutral-400">
+                                Ver detalle de servicio
+                              </summary>
+                              <div className="mt-2">
+                                <ServiceDetailsDisplay
+                                  serviceType={line.service_type || ''}
+                                  serviceDetails={line.service_details}
+                                />
+                              </div>
+                            </details>
                           )}
                         </td>
                         <td className="py-3 pr-4 text-right text-white">{line.quantity}</td>

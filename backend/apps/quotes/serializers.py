@@ -624,6 +624,8 @@ class QuoteChangeRequestCreateSerializer(serializers.Serializer):
                     'unit': line.unit,
                     'unit_price': str(line.unit_price),
                     'line_total': str(line.line_total),
+                    'service_type': line.service_type or '',
+                    'service_details': line.service_details or {},
                 }
                 for line in quote.lines.all()
             ]
