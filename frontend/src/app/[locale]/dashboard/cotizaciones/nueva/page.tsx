@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
-import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi } from '@/components/quotes/ServiceFormFields';
+import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, computeRoutesTotal } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -256,7 +256,16 @@ export default function NewQuotePage() {
   };
 
   // Calculate totals
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+  const subtotal = items.reduce((sum, item) => {
+    // For route-based services, total comes from individual routes
+    if (item.serviceDetails && isRouteBasedService(
+      item.serviceDetails.service_type,
+      item.serviceDetails.subtipo as string | undefined
+    )) {
+      return sum + computeRoutesTotal(item.serviceDetails);
+    }
+    return sum + (item.quantity * item.unit_price);
+  }, 0);
   const taxRate = 0.16;
   const taxAmount = subtotal * taxRate;
   const total = subtotal + taxAmount;
@@ -283,11 +292,22 @@ export default function NewQuotePage() {
       toast.error('Agrega al menos un concepto');
       return false;
     }
-    if (items.some(item => !item.concept.trim())) {
+    if (items.some(item => {
+      // Service items get their concept from the service details display
+      if (item.serviceDetails && item.serviceDetails.service_type) return false;
+      return !item.concept.trim();
+    })) {
       toast.error('Todos los conceptos deben tener un nombre');
       return false;
     }
-    if (items.some(item => item.unit_price <= 0)) {
+    if (items.some(item => {
+      // Route-based services get their pricing from routes, so skip top-level price check
+      if (item.serviceDetails && isRouteBasedService(
+        item.serviceDetails.service_type,
+        item.serviceDetails.subtipo as string | undefined
+      )) return false;
+      return item.unit_price <= 0;
+    })) {
       toast.error('Todos los conceptos deben tener un precio válido');
       return false;
     }
@@ -313,17 +333,33 @@ export default function NewQuotePage() {
         internal_notes: internalNotes || undefined,
         delivery_time_text: deliveryTimeText || undefined,
         payment_conditions: paymentConditions || undefined,
-        lines: items.map((item, index) => ({
-          concept: item.concept,
-          concept_en: item.concept_en,
-          description: item.description,
-          description_en: item.description_en,
-          quantity: item.quantity,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          position: index + 1,
-          service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
-        })),
+        lines: items.map((item, index) => {
+          // For route-based services, quantity=1, unit_price = total from all routes
+          const isRoute = item.serviceDetails && isRouteBasedService(
+            item.serviceDetails.service_type,
+            item.serviceDetails.subtipo as string | undefined
+          );
+          // Auto-generate concept from service details if it's a service item
+          let concept = item.concept;
+          if (item.serviceDetails && item.serviceDetails.service_type) {
+            const svcLabel = SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type;
+            const subLabel = item.serviceDetails.subtipo
+              ? subtipoLabels[item.serviceDetails.subtipo as string] || (item.serviceDetails.subtipo as string)
+              : '';
+            concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
+          }
+          return {
+            concept,
+            concept_en: item.concept_en,
+            description: item.description,
+            description_en: item.description_en,
+            quantity: isRoute ? 1 : item.quantity,
+            unit: isRoute ? 'servicio' : item.unit,
+            unit_price: isRoute ? computeRoutesTotal(item.serviceDetails!) : item.unit_price,
+            position: index + 1,
+            service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
+          };
+        }),
       };
 
       const quote = await createQuote(quoteData);
@@ -679,21 +715,47 @@ export default function NewQuotePage() {
               {/* Items List */}
               {items.length > 0 ? (
                 <div className="space-y-4">
-                  {items.map((item, index) => (
+                  {items.map((item, index) => {
+                    const itemIsRouteBased = item.serviceDetails && isRouteBasedService(
+                      item.serviceDetails.service_type,
+                      item.serviceDetails.subtipo as string | undefined
+                    );
+                    const routeTotal = itemIsRouteBased ? computeRoutesTotal(item.serviceDetails!) : 0;
+
+                    return (
                     <div key={item.id} className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
                       <div className="flex items-start gap-4">
                         <span className="text-neutral-500 text-sm font-medium mt-2">{index + 1}.</span>
                         <div className="flex-1 space-y-3">
+                          {/* Header: Concept & Description */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
-                              <input
-                                type="text"
-                                value={item.concept}
-                                onChange={(e) => updateItem(item.id, 'concept', e.target.value)}
-                                placeholder="Nombre del concepto"
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
+                              {item.serviceDetails ? (() => {
+                                const svcType = item.serviceDetails!.service_type as ServiceId;
+                                const svcSubtipo = item.serviceDetails!.subtipo as string | undefined;
+                                return (
+                                  <div className="px-3 py-2 bg-neutral-800/50 border border-neutral-700/50 rounded text-sm">
+                                    <span className="text-cmyk-cyan font-medium">
+                                      {SERVICE_LABELS[svcType] || svcType}
+                                    </span>
+                                    {svcSubtipo && (
+                                      <span className="text-white">
+                                        {' — '}
+                                        {subtipoLabels[svcSubtipo] || svcSubtipo}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })() : (
+                                <input
+                                  type="text"
+                                  value={item.concept}
+                                  onChange={(e) => updateItem(item.id, 'concept', e.target.value)}
+                                  placeholder="Nombre del concepto"
+                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
+                                />
+                              )}
                             </div>
                             <div>
                               <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
@@ -706,54 +768,70 @@ export default function NewQuotePage() {
                               />
                             </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Cantidad:</label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
+
+                          {/* Qty / Unit / Price — only for NON-route-based items */}
+                          {!itemIsRouteBased && (
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <label className="text-neutral-500 text-xs">Cantidad:</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                  className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-neutral-500 text-xs">Unidad:</label>
+                                <select
+                                  value={item.unit}
+                                  onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                                  className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                >
+                                  <option value="pza">pza</option>
+                                  <option value="m2">m²</option>
+                                  <option value="ml">ml</option>
+                                  <option value="kg">kg</option>
+                                  <option value="hr">hr</option>
+                                  <option value="servicio">servicio</option>
+                                </select>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-neutral-500 text-xs">Precio Unit.:</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.unit_price}
+                                  onChange={(e) => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                                  className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                />
+                              </div>
+                              <div className="ml-auto flex items-center gap-3">
+                                <span className="text-white font-medium">
+                                  {formatCurrency(item.quantity * item.unit_price)}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Unidad:</label>
-                              <select
-                                value={item.unit}
-                                onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                                className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
-                              >
-                                <option value="pza">pza</option>
-                                <option value="m2">m²</option>
-                                <option value="ml">ml</option>
-                                <option value="kg">kg</option>
-                                <option value="hr">hr</option>
-                                <option value="servicio">servicio</option>
-                              </select>
+                          )}
+
+                          {/* Route-based total summary */}
+                          {itemIsRouteBased && (
+                            <div className="flex items-center justify-between px-1">
+                              <span className="text-neutral-400 text-xs">Total de rutas:</span>
+                              <span className="text-white font-medium">{formatCurrency(routeTotal)}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Precio Unit.:</label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.unit_price}
-                                onChange={(e) => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                                className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
-                            </div>
-                            <div className="ml-auto flex items-center gap-3">
-                              <span className="text-white font-medium">
-                                {formatCurrency(item.quantity * item.unit_price)}
-                              </span>
-                              <button
-                                onClick={() => removeItem(item.id)}
-                                className="p-1 text-neutral-400 hover:text-red-400 transition-colors"
-                              >
-                                <TrashIcon className="h-5 w-5" />
-                              </button>
-                            </div>
+                          )}
+
+                          {/* Delete button */}
+                          <div className="flex justify-end">
+                            <button
+                              onClick={() => removeItem(item.id)}
+                              className="p-1 text-neutral-400 hover:text-red-400 transition-colors"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
                           </div>
 
                           {/* Service Form Toggle & Fields */}
@@ -774,13 +852,6 @@ export default function NewQuotePage() {
                                 <ServiceFormFields
                                   value={item.serviceDetails}
                                   onChange={(details) => updateItem(item.id, 'serviceDetails', details)}
-                                  showRoutePrices={true}
-                                  onTotalPriceChange={(total) => {
-                                    // Optionally auto-set unit_price from routes total
-                                    if (total > 0) {
-                                      updateItem(item.id, 'unit_price', total);
-                                    }
-                                  }}
                                 />
                               )}
                             </div>
@@ -788,7 +859,8 @@ export default function NewQuotePage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-neutral-400 border border-dashed border-neutral-700 rounded-lg">
