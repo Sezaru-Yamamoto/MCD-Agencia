@@ -4,6 +4,8 @@ Core Views for MCD-Agencia.
 This module provides utility views such as health checks.
 """
 
+import subprocess
+
 from django.conf import settings
 from django.db import connection
 from django.core.cache import cache
@@ -11,6 +13,21 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+
+def _get_git_commit():
+    """Get current git commit hash (short)."""
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        ).decode().strip()
+    except Exception:
+        return 'unknown'
+
+
+GIT_COMMIT = _get_git_commit()
 
 
 class HealthCheckView(APIView):
@@ -72,6 +89,7 @@ class HealthCheckView(APIView):
         response_data = {
             'status': 'healthy' if is_healthy else 'unhealthy',
             'version': '1.0.0',
+            'commit': GIT_COMMIT,
             'environment': 'production' if not settings.DEBUG else 'development',
             'checks': checks,
         }
