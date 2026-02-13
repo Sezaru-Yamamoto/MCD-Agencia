@@ -584,6 +584,13 @@ export async function markQuoteRequestInReview(id: string): Promise<QuoteRequest
 }
 
 /**
+ * Revert quote request from in_review back to assigned/pending.
+ */
+export async function unmarkQuoteRequestInReview(id: string): Promise<QuoteRequest> {
+  return apiClient.post<QuoteRequest>(`/quotes/requests/${id}/unmark_in_review/`);
+}
+
+/**
  * Get all quotes (admin/sales).
  */
 export async function getAdminQuotes(filters?: {

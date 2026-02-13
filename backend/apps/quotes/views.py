@@ -77,16 +77,29 @@ class QuoteRequestPublicView(APIView):
         except Exception:
             pass  # Don't fail the request if notification fails
 
-        # In-app notification to staff
+        # In-app notification: targeted based on urgency
         try:
-            Notification.notify_staff(
-                notification_type=Notification.TYPE_QUOTE_REQUEST,
-                title=f'Nueva solicitud #{quote_request.request_number}',
-                message=f'{quote_request.customer_name} — {quote_request.description[:100]}',
-                entity_type='QuoteRequest',
-                entity_id=quote_request.id,
-                action_url=f'/dashboard/solicitudes/{quote_request.id}',
-            )
+            if quote_request.urgency == QuoteRequest.URGENCY_HIGH:
+                # Urgent → notify ALL staff (admin + sales)
+                Notification.notify_staff(
+                    notification_type=Notification.TYPE_QUOTE_REQUEST,
+                    title=f'🔴 Solicitud urgente #{quote_request.request_number}',
+                    message=f'{quote_request.customer_name} — {quote_request.description[:100]}',
+                    entity_type='QuoteRequest',
+                    entity_id=quote_request.id,
+                    action_url=f'/dashboard/solicitudes/{quote_request.id}',
+                )
+            else:
+                # Normal/Medium → notify assigned seller + admins
+                Notification.notify_assigned_seller_and_admins(
+                    assigned_to=quote_request.assigned_to,
+                    notification_type=Notification.TYPE_QUOTE_REQUEST,
+                    title=f'Nueva solicitud #{quote_request.request_number}',
+                    message=f'{quote_request.customer_name} — {quote_request.description[:100]}',
+                    entity_type='QuoteRequest',
+                    entity_id=quote_request.id,
+                    action_url=f'/dashboard/solicitudes/{quote_request.id}',
+                )
         except Exception:
             pass
 
@@ -120,15 +133,29 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
     search_fields = ['request_number', 'customer_name', 'customer_email', 'customer_company', 'catalog_item_name']
 
     def get_queryset(self):
-        """Return requests based on user role."""
+        """Return requests based on user role and visibility rules.
+
+        Visibility rules:
+            - Admin: sees ALL requests.
+            - Sales rep:
+                - Normal/Medium urgency: only requests assigned to them.
+                - High urgency (urgent): ALL urgent requests visible to all sellers.
+            - Regular customer: only their own requests (by email).
+        """
         user = self.request.user
         base_qs = QuoteRequest.objects.select_related(
             'catalog_item', 'assigned_to'
         ).prefetch_related('attachments')
 
         if user.is_staff:
-            # All staff members (admin and sales) see all requests
-            return base_qs
+            # Admin sees everything
+            if hasattr(user, 'role') and user.role and user.role.name == 'admin':
+                return base_qs
+
+            # Sales rep: assigned to them OR urgent (high urgency)
+            return base_qs.filter(
+                models.Q(assigned_to=user) | models.Q(urgency=QuoteRequest.URGENCY_HIGH)
+            )
 
         # Regular customer sees their own requests
         return base_qs.filter(
@@ -150,9 +177,12 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
         user = request.user
 
-        # Get requests assigned to this user (or all for admin)
+        # Get requests based on role visibility rules
         if hasattr(user, 'role') and user.role and user.role.name == 'sales':
-            requests_qs = QuoteRequest.objects.filter(assigned_to=user)
+            # Sales rep: assigned to them + urgent
+            requests_qs = QuoteRequest.objects.filter(
+                models.Q(assigned_to=user) | models.Q(urgency=QuoteRequest.URGENCY_HIGH)
+            )
             quotes_qs = Quote.objects.filter(created_by=user)
         else:
             requests_qs = QuoteRequest.objects.all()
@@ -258,16 +288,60 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             request=request
         )
 
+        # Notify the newly assigned seller
+        try:
+            Notification.notify(
+                recipient=assigned_to,
+                notification_type=Notification.TYPE_QUOTE_REQUEST,
+                title=f'Solicitud asignada: #{quote_request.request_number}',
+                message=f'Se te asignó la solicitud de {quote_request.customer_name}',
+                entity_type='QuoteRequest',
+                entity_id=quote_request.id,
+                action_url=f'/dashboard/solicitudes/{quote_request.id}',
+            )
+        except Exception:
+            pass
+
         return Response(QuoteRequestAdminSerializer(quote_request).data)
 
     @action(detail=True, methods=['post'])
     def mark_in_review(self, request, pk=None):
-        """Mark request as in review (admin)."""
+        """Mark request as in review (admin/sales)."""
         if not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote_request = self.get_object()
         quote_request.status = QuoteRequest.STATUS_IN_REVIEW
+        quote_request.save(update_fields=['status', 'updated_at'])
+
+        AuditLog.log(
+            entity=quote_request,
+            action=AuditLog.ACTION_STATE_CHANGED,
+            actor=request.user,
+            after_state={'status': quote_request.status},
+            request=request
+        )
+
+        return Response(QuoteRequestAdminSerializer(quote_request).data)
+
+    @action(detail=True, methods=['post'])
+    def unmark_in_review(self, request, pk=None):
+        """Revert request from in_review back to assigned/pending."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote_request = self.get_object()
+        if quote_request.status != QuoteRequest.STATUS_IN_REVIEW:
+            return Response(
+                {'error': _('Only requests in review can be reverted.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Revert to assigned (if has an assignee) or pending
+        if quote_request.assigned_to:
+            quote_request.status = QuoteRequest.STATUS_ASSIGNED
+        else:
+            quote_request.status = QuoteRequest.STATUS_PENDING
         quote_request.save(update_fields=['status', 'updated_at'])
 
         AuditLog.log(

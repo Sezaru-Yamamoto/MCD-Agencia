@@ -27,6 +27,7 @@ import { MapPinIcon, TruckIcon, PrinterIcon, WrenchScrewdriverIcon } from '@hero
 import {
   getAdminQuoteRequestById,
   markQuoteRequestInReview,
+  unmarkQuoteRequestInReview,
   assignQuoteRequest,
   getSalesReps,
   QuoteRequest,
@@ -525,6 +526,22 @@ export default function QuoteRequestDetailPage() {
     }
   };
 
+  const handleUnmarkInReview = async () => {
+    if (!request) return;
+
+    setIsUpdating(true);
+    try {
+      const updated = await unmarkQuoteRequestInReview(request.id);
+      setRequest(updated);
+      toast.success('Solicitud devuelta a estado anterior');
+    } catch (error) {
+      console.error('Error updating request:', error);
+      toast.error('Error al actualizar la solicitud');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleAssign = async (salesRepId: string) => {
     if (!request) return;
 
@@ -823,7 +840,7 @@ export default function QuoteRequestDetailPage() {
                   </div>
                 )}
 
-                {request.status === 'pending' && (
+                {['pending', 'assigned'].includes(request.status) && (
                   <Button
                     onClick={handleMarkInReview}
                     disabled={isUpdating}
@@ -836,7 +853,20 @@ export default function QuoteRequestDetailPage() {
                   </Button>
                 )}
 
-                {isAdmin && ['pending', 'assigned'].includes(request.status) && (
+                {request.status === 'in_review' && (
+                  <Button
+                    onClick={handleUnmarkInReview}
+                    disabled={isUpdating}
+                    isLoading={isUpdating}
+                    variant="outline"
+                    className="w-full"
+                    leftIcon={<ArrowPathIcon className="h-5 w-5" />}
+                  >
+                    Desmarcar Revisión
+                  </Button>
+                )}
+
+                {isAdmin && ['pending', 'assigned', 'in_review'].includes(request.status) && (
                   <Button
                     onClick={() => setShowAssignModal(true)}
                     disabled={isUpdating}

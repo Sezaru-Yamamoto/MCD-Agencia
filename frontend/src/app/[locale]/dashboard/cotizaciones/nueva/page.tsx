@@ -96,6 +96,93 @@ export default function NewQuotePage() {
       let descriptionText = request.description || '';
       let quantityValue = request.quantity || 1;
 
+      // Map subtypes to readable labels
+      const subtipoLabels: Record<string, string> = {
+        'vallas-moviles': 'Vallas móviles',
+        'publibuses': 'Publibuses',
+        'perifoneo': 'Perifoneo',
+        'unipolar': 'Unipolar',
+        'azotea': 'Azotea',
+        'mural': 'Mural publicitario',
+        'cajas-luz': 'Cajas de luz',
+        'letras-3d': 'Letras 3D',
+        'anuncios-2d': 'Anuncios 2D',
+        'bastidores': 'Bastidores',
+        'toldos': 'Toldos',
+        'neon': 'Neón',
+        'completa': 'Rotulación completa',
+        'parcial': 'Rotulación parcial',
+        'vinil-recortado': 'Vinil recortado',
+        'impresion-digital': 'Impresión digital',
+        'lona': 'Lona',
+        'vinil': 'Vinil',
+        'tela': 'Tela',
+        'corte': 'Corte',
+        'grabado': 'Grabado',
+        'offset': 'Offset',
+        'serigrafia': 'Serigrafía',
+        'sublimacion': 'Sublimación',
+        'interior': 'Interior',
+        'exterior': 'Exterior',
+        'impresion': 'Impresión',
+        'digital': 'Digital',
+        'ambos': 'Ambos',
+        'tarjetas-presentacion': 'Tarjetas de presentación',
+        'volantes': 'Volantes',
+        'router-cnc': 'Router CNC',
+        'corte-laser': 'Corte Láser',
+        'grabado-laser': 'Grabado Láser',
+        'logotipos': 'Logotipos',
+        'papeleria': 'Papelería',
+        'redes-sociales': 'Redes Sociales',
+        'zocalo-base': 'Zócalo Base',
+        'colosio-zocalo': 'Colosio Zócalo',
+      };
+
+      // Labels for detail fields
+      const fieldLabels: Record<string, string> = {
+        subtipo: 'Subtipo',
+        tipo: 'Tipo',
+        tipo_anuncio: 'Tipo de anuncio',
+        tipo_vehiculo: 'Tipo de vehículo',
+        tipo_rotulacion: 'Tipo de rotulación',
+        tipo_servicio: 'Tipo de servicio',
+        tipo_impresion: 'Tipo de impresión',
+        descripcion: 'Descripción',
+        medidas: 'Medidas',
+        cantidad: 'Cantidad',
+        numero_piezas: 'Número de piezas',
+        ubicacion: 'Ubicación',
+        zona: 'Zona de circulación',
+        ciudad_zona: 'Ciudad / Zona',
+        zona_cobertura: 'Zona de cobertura',
+        tiempo_exhibicion: 'Tiempo de exhibición',
+        tiempo_campana: 'Tiempo de campaña',
+        meses_campana: 'Meses de campaña',
+        duracion: 'Duración',
+        uso: 'Uso',
+        uso_diseno: 'Uso del diseño',
+        material: 'Material',
+        producto: 'Producto',
+        servicio: 'Servicio',
+        impresion_incluida: 'Impresión incluida',
+        instalacion_incluida: 'Instalación incluida',
+        iluminacion: 'Iluminación',
+        diseno_incluido: 'Diseño incluido',
+        archivo_listo: 'Archivo listo para imprimir',
+        archivo_grabacion_proporcionado: 'Archivo de grabación proporcionado',
+        requiere_grabacion: 'Requiere grabación',
+        cambios_incluidos: 'Cambios incluidos',
+        delimitacion_zona: 'Delimitación de zona',
+      };
+
+      // Fields to skip in the description (internal/structural)
+      const skipFields = new Set([
+        'tipo_personalizado', 'subtipo_personalizado', 'material_personalizado',
+        'tipo_rotulacion_personalizado', 'producto_personalizado', 'tipo_impresion_personalizado',
+        'coordenadas', 'rutas',
+      ]);
+
       if (request.service_type) {
         // Get service label
         const serviceLabel = SERVICE_LABELS[request.service_type as ServiceId] || request.service_type;
@@ -104,35 +191,7 @@ export default function NewQuotePage() {
         // Add subtype if available
         const details = request.service_details as Record<string, unknown> | undefined;
         if (details) {
-          // Map subtypes to readable labels
-          const subtipoLabels: Record<string, string> = {
-            'vallas-moviles': 'Vallas móviles',
-            'publibuses': 'Publibuses',
-            'perifoneo': 'Perifoneo',
-            'unipolar': 'Unipolar',
-            'azotea': 'Azotea',
-            'mural': 'Mural publicitario',
-            'cajas-luz': 'Cajas de luz',
-            'letras-3d': 'Letras 3D',
-            'anuncios-2d': 'Anuncios 2D',
-            'bastidores': 'Bastidores',
-            'toldos': 'Toldos',
-            'neon': 'Neón',
-            'completa': 'Rotulación completa',
-            'parcial': 'Rotulación parcial',
-            'vinil-recortado': 'Vinil recortado',
-            'impresion-digital': 'Impresión digital',
-            'lona': 'Lona',
-            'vinil': 'Vinil',
-            'tela': 'Tela',
-            'corte': 'Corte',
-            'grabado': 'Grabado',
-            'offset': 'Offset',
-            'serigrafia': 'Serigrafía',
-            'sublimacion': 'Sublimación',
-          };
-
-          // Check for subtype/tipo fields
+          // Check for subtype/tipo fields to enrich the concept name
           const subtype = details.subtipo || details.tipo || details.tipo_anuncio ||
                          details.tipo_rotulacion || details.material || details.tipo_diseno ||
                          details.producto || details.servicio || details.tipo_servicio;
@@ -147,30 +206,97 @@ export default function NewQuotePage() {
             quantityValue = details.cantidad;
           }
 
-          // Build description from service details
-          const descParts: string[] = [];
+          // Build structured description — each field on its own line
+          const descLines: string[] = [];
 
-          if (details.medidas) descParts.push(`Medidas: ${details.medidas}`);
-          if (details.ubicacion) descParts.push(`Ubicación: ${details.ubicacion}`);
-          if (details.zona) descParts.push(`Zona: ${details.zona}`);
-          if (details.ciudad_zona) descParts.push(`Ciudad/Zona: ${details.ciudad_zona}`);
-          if (details.tiempo_exhibicion) descParts.push(`Tiempo de exhibición: ${details.tiempo_exhibicion}`);
-          if (details.tiempo_campana) descParts.push(`Tiempo de campaña: ${details.tiempo_campana}`);
-          if (details.tipo_vehiculo) descParts.push(`Tipo de vehículo: ${details.tipo_vehiculo}`);
-          if (typeof details.impresion_incluida === 'boolean') {
-            descParts.push(`Impresión incluida: ${details.impresion_incluida ? 'Sí' : 'No'}`);
-          }
-          if (typeof details.instalacion_incluida === 'boolean') {
-            descParts.push(`Instalación incluida: ${details.instalacion_incluida ? 'Sí' : 'No'}`);
-          }
-          if (typeof details.diseno_incluido === 'boolean') {
-            descParts.push(`Diseño incluido: ${details.diseno_incluido ? 'Sí' : 'No'}`);
-          }
-          if (details.descripcion) descParts.push(`Descripción: ${details.descripcion}`);
+          // Ordered list of keys to include
+          const orderedKeys = [
+            'tipo_servicio', 'subtipo', 'tipo', 'tipo_anuncio', 'tipo_vehiculo',
+            'tipo_rotulacion', 'descripcion',
+            'cantidad', 'numero_piezas', 'medidas', 'material', 'producto',
+            'ubicacion', 'zona', 'ciudad_zona', 'zona_cobertura',
+            'tiempo_exhibicion', 'tiempo_campana', 'meses_campana', 'duracion',
+            'uso', 'uso_diseno', 'servicio', 'tipo_impresion',
+            'impresion_incluida', 'instalacion_incluida', 'iluminacion', 'diseno_incluido',
+            'archivo_listo', 'archivo_grabacion_proporcionado', 'requiere_grabacion', 'cambios_incluidos',
+            'delimitacion_zona',
+          ];
 
-          if (descParts.length > 0) {
-            descriptionText = descParts.join(' | ') + (request.description ? ` | Comentarios: ${request.description}` : '');
+          for (const key of orderedKeys) {
+            if (skipFields.has(key)) continue;
+            const val = details[key];
+            if (val === null || val === undefined || val === '') continue;
+
+            const label = fieldLabels[key] || key;
+            if (typeof val === 'boolean') {
+              descLines.push(`${label}: ${val ? 'Sí' : 'No'}`);
+            } else if (typeof val === 'string') {
+              descLines.push(`${label}: ${subtipoLabels[val] || val}`);
+            } else {
+              descLines.push(`${label}: ${val}`);
+            }
           }
+
+          // Add routes info (vallas, publibuses, perifoneo)
+          const rutas = details.rutas as Array<Record<string, unknown>> | undefined;
+          if (rutas && rutas.length > 0) {
+            descLines.push('');
+            descLines.push(`--- Rutas (${rutas.length}) ---`);
+            for (const ruta of rutas) {
+              const num = ruta.numero || '';
+              const parts: string[] = [];
+
+              // Publibuses: ruta preestablecida
+              if (ruta.ruta_preestablecida) {
+                parts.push(`Ruta: ${subtipoLabels[ruta.ruta_preestablecida as string] || ruta.ruta_preestablecida}`);
+              }
+
+              if (ruta.fecha_inicio) parts.push(`Inicio: ${ruta.fecha_inicio}`);
+              if (ruta.fecha_fin) parts.push(`Fin: ${ruta.fecha_fin}`);
+              if (ruta.horario_inicio) parts.push(`Horario: ${ruta.horario_inicio} - ${ruta.horario_fin || '?'}`);
+
+              // Route points (vallas/perifoneo)
+              const routeObj = ruta.ruta as Record<string, unknown> | undefined;
+              if (routeObj) {
+                const pa = routeObj.punto_a as { name?: string } | undefined;
+                const pb = routeObj.punto_b as { name?: string } | undefined;
+                if (pa?.name) parts.push(`Desde: ${pa.name}`);
+                if (pb?.name) parts.push(`Hasta: ${pb.name}`);
+                const dist = routeObj.distancia_metros as number | undefined;
+                if (dist) {
+                  parts.push(`Distancia: ${dist >= 1000 ? `${(dist / 1000).toFixed(2)} km` : `${dist.toFixed(0)} m`}`);
+                }
+              }
+
+              descLines.push(`Ruta ${num}: ${parts.join(' | ')}`);
+            }
+          }
+
+          // Add any remaining detail keys not in orderedKeys (catch-all)
+          for (const key of Object.keys(details)) {
+            if (skipFields.has(key) || orderedKeys.includes(key) || key === 'rutas') continue;
+            const val = details[key];
+            if (val === null || val === undefined || val === '' || typeof val === 'object') continue;
+            const label = fieldLabels[key] || key;
+            if (typeof val === 'boolean') {
+              descLines.push(`${label}: ${val ? 'Sí' : 'No'}`);
+            } else {
+              descLines.push(`${label}: ${subtipoLabels[String(val)] || val}`);
+            }
+          }
+
+          // Add comments from the original request
+          if (request.description) {
+            descLines.push('');
+            descLines.push(`Comentarios del cliente: ${request.description}`);
+          }
+
+          // Add required date if present
+          if (request.required_date) {
+            descLines.push(`Fecha requerida: ${request.required_date}`);
+          }
+
+          descriptionText = descLines.join('\n');
         }
       } else if (request.catalog_item) {
         conceptText = request.catalog_item.name;
@@ -551,12 +677,12 @@ export default function NewQuotePage() {
                             </div>
                             <div>
                               <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
-                              <input
-                                type="text"
+                              <textarea
                                 value={item.description || ''}
                                 onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                                 placeholder="Descripción opcional"
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
+                                rows={item.description && item.description.includes('\n') ? Math.min(item.description.split('\n').length + 1, 12) : 2}
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-y"
                               />
                             </div>
                           </div>

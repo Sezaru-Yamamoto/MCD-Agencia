@@ -122,6 +122,68 @@ class Notification(models.Model):
         return cls.objects.bulk_create(notifications)
 
     @classmethod
+    def notify_sales(cls, notification_type, title, message='',
+                     entity_type='', entity_id='', action_url=''):
+        """Create a notification for ALL sales users."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        sales_users = User.objects.filter(
+            is_staff=True, is_active=True, role__name='sales'
+        )
+        notifications = []
+        for user in sales_users:
+            notifications.append(cls(
+                recipient=user,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                entity_type=entity_type,
+                entity_id=str(entity_id) if entity_id else '',
+                action_url=action_url,
+            ))
+        return cls.objects.bulk_create(notifications)
+
+    @classmethod
+    def notify_assigned_seller_and_admins(cls, assigned_to, notification_type,
+                                          title, message='', entity_type='',
+                                          entity_id='', action_url=''):
+        """
+        Notify the assigned seller + all admins.
+
+        If assigned_to is None, only admins are notified.
+        If assigned_to IS an admin, no duplicate.
+        """
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        recipients = set()
+
+        # Always include admins
+        admin_ids = set(
+            User.objects.filter(
+                is_staff=True, is_active=True, role__name='admin',
+            ).values_list('id', flat=True)
+        )
+        recipients.update(admin_ids)
+
+        # Include assigned seller
+        if assigned_to and assigned_to.is_active:
+            recipients.add(assigned_to.id)
+
+        notifications = []
+        for uid in recipients:
+            notifications.append(cls(
+                recipient_id=uid,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                entity_type=entity_type,
+                entity_id=str(entity_id) if entity_id else '',
+                action_url=action_url,
+            ))
+        return cls.objects.bulk_create(notifications)
+
+    @classmethod
     def notify_admins(cls, notification_type, title, message='',
                       entity_type='', entity_id='', action_url=''):
         """Create a notification for admin users only."""

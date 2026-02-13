@@ -379,6 +379,18 @@ class QuoteCreateSerializer(serializers.Serializer):
             quote_request.status = QuoteRequest.STATUS_QUOTED
             quote_request.save(update_fields=['status', 'updated_at'])
 
+        # Auto-assign urgent request to this seller when they create a quote
+        if quote_request and created_by and quote_request.assigned_to_id != created_by.id:
+            from django.utils import timezone as tz
+            quote_request.assigned_to = created_by
+            quote_request.assignment_method = QuoteRequest.ASSIGNMENT_MANUAL
+            quote_request.assigned_at = tz.now()
+            if quote_request.status == QuoteRequest.STATUS_PENDING:
+                quote_request.status = QuoteRequest.STATUS_ASSIGNED
+            quote_request.save(update_fields=[
+                'assigned_to', 'assignment_method', 'assigned_at', 'status', 'updated_at'
+            ])
+
         # B: Auto-link customer by email
         from django.contrib.auth import get_user_model
         User = get_user_model()

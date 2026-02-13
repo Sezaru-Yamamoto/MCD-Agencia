@@ -403,7 +403,17 @@ export function QuoteForm() {
         telefono: data.telefono,
         email: data.email,
       },
-      fecha_requerida: data.fechaRequerida,
+      fecha_requerida: data.fechaRequerida || (() => {
+        // For publibuses: auto-calculate from earliest route fecha_inicio
+        if (data.servicio === 'publicidad-movil' && data.pub_subtipo === 'publibuses' && pubRoutes.length > 0) {
+          const dates = pubRoutes
+            .map(r => r.fechaInicio)
+            .filter(d => !!d)
+            .sort();
+          return dates.length > 0 ? dates[0] : null;
+        }
+        return null;
+      })(),
       servicio: data.servicio,
       detalles: {} as Record<string, unknown>,
       archivos: selectedFiles.map(f => ({ nombre: f.name, tamano: f.size })),
