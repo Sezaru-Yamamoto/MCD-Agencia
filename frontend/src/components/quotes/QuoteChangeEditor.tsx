@@ -597,22 +597,6 @@ export default function QuoteChangeEditor({
                             </div>
                           </div>
                         )}
-                        <div>
-                          <label className="text-xs text-neutral-400">
-                            Cambios solicitados
-                          </label>
-                          <textarea
-                            value={line.newDescription ?? ''}
-                            onChange={(e) =>
-                              handleModifyLine(line.id, 'description', e.target.value)
-                            }
-                            placeholder="Describe aquí los cambios que necesitas para este elemento..."
-                            className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
-                            rows={2}
-                          />
-                          <p className="text-xs text-neutral-600 mt-1">Ej: Cambiar medidas a 4x3m, usar material diferente, etc.</p>
-                        </div>
-
                         {/* Service detail fields for items with service_details */}
                         {line.serviceDetails && (
                           <div className="pt-3 border-t border-neutral-700/50">
@@ -630,6 +614,23 @@ export default function QuoteChangeEditor({
 
                         {/* Imágenes por elemento */}
                         {renderImageUpload(line.attachments || [], { type: 'editing', id: line.id })}
+
+                        {/* Cambios solicitados — debajo de imágenes */}
+                        <div>
+                          <label className="text-xs text-neutral-400">
+                            Cambios solicitados
+                          </label>
+                          <textarea
+                            value={line.newDescription ?? ''}
+                            onChange={(e) =>
+                              handleModifyLine(line.id, 'description', e.target.value)
+                            }
+                            placeholder="Describe aquí los cambios que necesitas para este elemento..."
+                            className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
+                            rows={2}
+                          />
+                          <p className="text-xs text-neutral-600 mt-1">Ej: Cambiar medidas a 4x3m, usar material diferente, etc.</p>
+                        </div>
 
                         <div className="flex gap-2 mt-2">
                           <Button
