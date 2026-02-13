@@ -298,26 +298,51 @@ export function isRouteBasedService(
   );
 }
 
+/* ─── Check if a ServiceDetailsData object is route-based ──── */
+export function isRouteBasedDetails(details: ServiceDetailsData | undefined | null): boolean {
+  if (!details) return false;
+  // Primary check via type + subtipo
+  if (isRouteBasedService(details.service_type, details.subtipo as string | undefined)) return true;
+  // Fallback: check if route arrays exist (internal or API-facing)
+  const hasInternalRoutes = !!(details._vallasRoutes || details._pubRoutes || details._perifoneoRoutes);
+  const rutas = details.rutas as unknown[] | undefined;
+  const hasApiRoutes = !!(rutas && rutas.length > 0);
+  return hasInternalRoutes || hasApiRoutes;
+}
+
 /* ─── Compute total from routes ────────────────────────────── */
 export function computeRoutesTotal(details: ServiceDetailsData): number {
-  const routes = (details._vallasRoutes ||
+  const internalRoutes = (details._vallasRoutes ||
     details._pubRoutes ||
     details._perifoneoRoutes) as
     | Array<{ cantidad?: number; unit_price?: number }>
     | undefined;
-  if (!routes) return 0;
-  return routes.reduce(
-    (sum, r) => sum + (r.cantidad || 1) * (r.unit_price || 0),
+  if (internalRoutes && internalRoutes.length > 0) {
+    return internalRoutes.reduce(
+      (sum, r) => sum + (r.cantidad || 1) * (r.unit_price || 0),
+      0
+    );
+  }
+  // Fallback: use the API-facing `rutas` array
+  const rutas = details.rutas as
+    | Array<{ cantidad?: number; precio_unitario?: number }>
+    | undefined;
+  if (!rutas) return 0;
+  return rutas.reduce(
+    (sum, r) => sum + (r.cantidad || 1) * (r.precio_unitario || 0),
     0
   );
 }
 
 /* ─── Count number of routes ───────────────────────────────── */
 export function countRoutes(details: ServiceDetailsData): number {
-  const routes = (details._vallasRoutes ||
+  const internalRoutes = (details._vallasRoutes ||
     details._pubRoutes ||
     details._perifoneoRoutes) as unknown[] | undefined;
-  return routes ? routes.length : 0;
+  if (internalRoutes && internalRoutes.length > 0) return internalRoutes.length;
+  // Fallback: use the API-facing `rutas` array
+  const rutas = details.rutas as unknown[] | undefined;
+  return rutas ? rutas.length : 0;
 }
 
 /* ════════════════════════════════════════════════════════════════

@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
-import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, computeRoutesTotal, countRoutes } from '@/components/quotes/ServiceFormFields';
+import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, countRoutes } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -258,11 +258,8 @@ export default function NewQuotePage() {
   // Calculate totals
   const subtotal = items.reduce((sum, item) => {
     // For route-based services, total comes from individual routes
-    if (item.serviceDetails && isRouteBasedService(
-      item.serviceDetails.service_type,
-      item.serviceDetails.subtipo as string | undefined
-    )) {
-      return sum + computeRoutesTotal(item.serviceDetails);
+    if (isRouteBasedDetails(item.serviceDetails)) {
+      return sum + computeRoutesTotal(item.serviceDetails!);
     }
     return sum + (item.quantity * item.unit_price);
   }, 0);
@@ -302,10 +299,7 @@ export default function NewQuotePage() {
     }
     if (items.some(item => {
       // Route-based services get their pricing from routes, so skip top-level price check
-      if (item.serviceDetails && isRouteBasedService(
-        item.serviceDetails.service_type,
-        item.serviceDetails.subtipo as string | undefined
-      )) return false;
+      if (isRouteBasedDetails(item.serviceDetails)) return false;
       return item.unit_price <= 0;
     })) {
       toast.error('Todos los conceptos deben tener un precio válido');
@@ -335,10 +329,7 @@ export default function NewQuotePage() {
         payment_conditions: paymentConditions || undefined,
         lines: items.map((item, index) => {
           // For route-based services, quantity=1, unit_price = total from all routes
-          const isRoute = item.serviceDetails && isRouteBasedService(
-            item.serviceDetails.service_type,
-            item.serviceDetails.subtipo as string | undefined
-          );
+          const isRoute = isRouteBasedDetails(item.serviceDetails);
           // Auto-generate concept from service details if it's a service item
           let concept = item.concept;
           if (item.serviceDetails && item.serviceDetails.service_type) {
@@ -716,10 +707,7 @@ export default function NewQuotePage() {
               {items.length > 0 ? (
                 <div className="space-y-4">
                   {items.map((item, index) => {
-                    const itemIsRouteBased = item.serviceDetails && isRouteBasedService(
-                      item.serviceDetails.service_type,
-                      item.serviceDetails.subtipo as string | undefined
-                    );
+                    const itemIsRouteBased = isRouteBasedDetails(item.serviceDetails);
 
                     return (
                     <div key={item.id} className="relative p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
@@ -1071,10 +1059,7 @@ export default function NewQuotePage() {
       customerName={customerName}
       customerEmail={customerEmail}
       lines={items.map((item) => {
-        const isRoute = item.serviceDetails && isRouteBasedService(
-          item.serviceDetails.service_type,
-          item.serviceDetails.subtipo as string | undefined
-        );
+        const isRoute = isRouteBasedDetails(item.serviceDetails);
         let concept = item.concept;
         if (item.serviceDetails && item.serviceDetails.service_type) {
           const svcLabel = SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type;
