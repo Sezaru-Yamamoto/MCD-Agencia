@@ -21,7 +21,7 @@ import {
   type ServiceDetailsData,
   serviceDetailsFromRequest,
   cleanServiceDetailsForApi,
-  isRouteBasedService,
+  serviceHasOwnQuantity,
 } from '@/components/quotes/ServiceFormFields';
 import {
   SERVICE_LABELS,
@@ -41,6 +41,7 @@ interface EditingLine extends QuoteLine {
   subtype?: string;
   dimensions?: string;
   serviceDetails?: ServiceDetailsData;
+  attachments?: File[];
 }
 
 interface NewItemForm {
@@ -50,6 +51,7 @@ interface NewItemForm {
   unit: string;
   description: string;
   serviceDetails?: ServiceDetailsData;
+  attachments?: File[];
 }
 
 const INITIAL_NEW_ITEM: NewItemForm = {
@@ -59,6 +61,7 @@ const INITIAL_NEW_ITEM: NewItemForm = {
   unit: 'pz',
   description: '',
   serviceDetails: undefined,
+  attachments: [],
 };
 
 // Max file size: 10MB
@@ -100,8 +103,10 @@ export default function QuoteChangeEditor({
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [showNewItemForm, setShowNewItemForm] = useState(false);
   const [newItemForm, setNewItemForm] = useState<NewItemForm>(INITIAL_NEW_ITEM);
-  const [attachments, setAttachments] = useState<File[]>([]);
+  // Per-element attachments are stored in EditingLine.attachments and NewItemForm.attachments
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track which element's file input is active
+  const activeFileTarget = useRef<{ type: 'editing' | 'newItem' | 'newLine'; id?: string } | null>(null);
 
   // Calculate if there are any changes
   const hasChanges = useMemo(() => {
@@ -236,6 +241,7 @@ export default function QuoteChangeEditor({
         serviceType: newItemForm.serviceType,
         subtype: newItemForm.subtype,
         serviceDetails: newItemForm.serviceDetails,
+        attachments: newItemForm.attachments || [],
       },
     ]);
 
@@ -254,15 +260,22 @@ export default function QuoteChangeEditor({
       unit: line.unit,
       description: line.description?.replace(/^Medidas: .+\n?/, '').trim() || '',
       serviceDetails: line.serviceDetails,
+      attachments: line.attachments || [],
     });
     // Remove the line being edited — it'll be re-added on confirm
     setNewLines(prev => prev.filter(l => l.id !== lineId));
     setShowNewItemForm(true);
   };
 
-  // Image attachment handlers
+  // Image attachment handlers — per element
+  const openFilePickerFor = (target: { type: 'editing' | 'newItem' | 'newLine'; id?: string }) => {
+    activeFileTarget.current = target;
+    fileInputRef.current?.click();
+  };
+
   const handleFileSelect = (files: FileList | null) => {
-    if (!files) return;
+    if (!files || !activeFileTarget.current) return;
+    const target = activeFileTarget.current;
     const valid: File[] = [];
     Array.from(files).forEach(file => {
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -275,15 +288,69 @@ export default function QuoteChangeEditor({
       }
       valid.push(file);
     });
-    if (attachments.length + valid.length > 5) {
-      toast.error('Máximo 5 archivos');
-      return;
+    if (valid.length === 0) return;
+
+    if (target.type === 'editing' && target.id) {
+      setEditingLines(prev =>
+        prev.map(l => {
+          if (l.id !== target.id) return l;
+          const current = l.attachments || [];
+          if (current.length + valid.length > 5) {
+            toast.error('Máximo 5 archivos por elemento');
+            return l;
+          }
+          return { ...l, attachments: [...current, ...valid], isModified: true };
+        })
+      );
+    } else if (target.type === 'newItem') {
+      setNewItemForm(prev => {
+        const current = prev.attachments || [];
+        if (current.length + valid.length > 5) {
+          toast.error('Máximo 5 archivos por elemento');
+          return prev;
+        }
+        return { ...prev, attachments: [...current, ...valid] };
+      });
+    } else if (target.type === 'newLine' && target.id) {
+      setNewLines(prev =>
+        prev.map(l => {
+          if (l.id !== target.id) return l;
+          const current = l.attachments || [];
+          if (current.length + valid.length > 5) {
+            toast.error('Máximo 5 archivos por elemento');
+            return l;
+          }
+          return { ...l, attachments: [...current, ...valid] };
+        })
+      );
     }
-    setAttachments(prev => [...prev, ...valid]);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleRemoveAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveAttachment = (target: { type: 'editing' | 'newItem' | 'newLine'; id?: string }, index: number) => {
+    if (target.type === 'editing' && target.id) {
+      setEditingLines(prev =>
+        prev.map(l =>
+          l.id === target.id
+            ? { ...l, attachments: (l.attachments || []).filter((_, i) => i !== index) }
+            : l
+        )
+      );
+    } else if (target.type === 'newItem') {
+      setNewItemForm(prev => ({
+        ...prev,
+        attachments: (prev.attachments || []).filter((_, i) => i !== index),
+      }));
+    } else if (target.type === 'newLine' && target.id) {
+      setNewLines(prev =>
+        prev.map(l =>
+          l.id === target.id
+            ? { ...l, attachments: (l.attachments || []).filter((_, i) => i !== index) }
+            : l
+        )
+      );
+    }
   };
 
   const handleRemoveNewLine = (tempId: string) => {
@@ -360,12 +427,79 @@ export default function QuoteChangeEditor({
       return;
     }
 
+    // Collect all per-element attachments into a single array
+    const allAttachments: File[] = [];
+    editingLines.forEach(l => {
+      if (l.attachments && l.attachments.length > 0 && (l.isModified || l.isDeleted)) {
+        allAttachments.push(...l.attachments);
+      }
+    });
+    newLines.forEach(l => {
+      if (l.attachments && l.attachments.length > 0) {
+        allAttachments.push(...l.attachments);
+      }
+    });
+
     await onSubmit({
       proposed_lines: proposedLines,
       customer_comments: customerComments.trim() || undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: allAttachments.length > 0 ? allAttachments : undefined,
     });
   };
+
+  /** Inline image upload UI — reused per element */
+  const renderImageUpload = (
+    files: File[],
+    target: { type: 'editing' | 'newItem' | 'newLine'; id?: string },
+  ) => (
+    <div className="pt-3 border-t border-neutral-700/50">
+      <p className="text-xs text-neutral-400 mb-2 flex items-center gap-1.5">
+        <PhotoIcon className="h-3.5 w-3.5" />
+        Imágenes de referencia (opcional, máx. 5)
+      </p>
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {files.map((file, index) => (
+            <div
+              key={`${file.name}-${index}`}
+              className="relative group w-16 h-16 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800"
+            >
+              {file.type.startsWith('image/') ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={file.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-1">
+                  <PhotoIcon className="h-4 w-4 text-neutral-500" />
+                  <span className="text-[9px] text-neutral-500 text-center truncate w-full">{file.name}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => handleRemoveAttachment(target, index)}
+                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <XMarkIcon className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {files.length < 5 && (
+        <button
+          type="button"
+          onClick={() => openFilePickerFor(target)}
+          className="w-full py-2 border border-dashed border-neutral-700 rounded-lg hover:border-cmyk-cyan/50 transition-colors text-center cursor-pointer text-xs text-neutral-400 flex items-center justify-center gap-1.5"
+        >
+          <PhotoIcon className="h-4 w-4" />
+          Agregar imágenes
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -430,37 +564,39 @@ export default function QuoteChangeEditor({
                           )}
                         </div>
 
-                        {/* Editable fields */}
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <label className="text-xs text-neutral-400">
-                              Nueva cantidad
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              inputMode="numeric"
-                              value={line.newQuantity ?? line.quantity}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                handleModifyLine(
-                                  line.id,
-                                  'quantity',
-                                  raw === '' ? 0 : parseInt(raw) || 0
-                                );
-                              }}
-                              onBlur={(e) => {
-                                const v = parseInt(e.target.value);
-                                if (!v || v < 1) handleModifyLine(line.id, 'quantity', 1);
-                              }}
-                              className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-                            />
+                        {/* Editable fields — hide qty if service manages its own */}
+                        {!serviceHasOwnQuantity(line.serviceType || '', line.subtype) && (
+                          <div className="flex items-center gap-4">
+                            <div>
+                              <label className="text-xs text-neutral-400">
+                                Nueva cantidad
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                inputMode="numeric"
+                                value={line.newQuantity ?? line.quantity}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  handleModifyLine(
+                                    line.id,
+                                    'quantity',
+                                    raw === '' ? 0 : parseInt(raw) || 0
+                                  );
+                                }}
+                                onBlur={(e) => {
+                                  const v = parseInt(e.target.value);
+                                  if (!v || v < 1) handleModifyLine(line.id, 'quantity', 1);
+                                }}
+                                className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                              />
+                            </div>
+                            <div className="text-neutral-400 text-sm pt-5">
+                              {line.unit}
+                            </div>
                           </div>
-                          <div className="text-neutral-400 text-sm pt-5">
-                            {line.unit}
-                          </div>
-                        </div>
+                        )}
                         <div>
                           <label className="text-xs text-neutral-400">
                             Cambios solicitados
@@ -491,6 +627,9 @@ export default function QuoteChangeEditor({
                             />
                           </div>
                         )}
+
+                        {/* Imágenes por elemento */}
+                        {renderImageUpload(line.attachments || [], { type: 'editing', id: line.id })}
 
                         <div className="flex gap-2 mt-2">
                           <Button
@@ -531,28 +670,47 @@ export default function QuoteChangeEditor({
                             <p className="text-sm text-yellow-400 whitespace-pre-line">{line.newDescription}</p>
                           </div>
                         )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span
-                            className={`text-sm ${
-                              line.isDeleted
-                                ? 'text-red-400/70 line-through'
-                                : line.isModified &&
-                                  line.newQuantity !== undefined &&
-                                  line.newQuantity !== originalLine?.quantity
-                                ? 'text-yellow-400'
-                                : 'text-neutral-300'
-                            }`}
-                          >
-                            {line.newQuantity ?? line.quantity} {line.unit}
-                          </span>
-                          {line.isModified &&
-                            line.newQuantity !== undefined &&
-                            line.newQuantity !== originalLine?.quantity && (
-                              <span className="text-xs text-neutral-500">
-                                (antes: {originalLine?.quantity})
-                              </span>
-                            )}
-                        </div>
+                        {!serviceHasOwnQuantity(line.serviceType || '', line.subtype) && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span
+                              className={`text-sm ${
+                                line.isDeleted
+                                  ? 'text-red-400/70 line-through'
+                                  : line.isModified &&
+                                    line.newQuantity !== undefined &&
+                                    line.newQuantity !== originalLine?.quantity
+                                  ? 'text-yellow-400'
+                                  : 'text-neutral-300'
+                              }`}
+                            >
+                              {line.newQuantity ?? line.quantity} {line.unit}
+                            </span>
+                            {line.isModified &&
+                              line.newQuantity !== undefined &&
+                              line.newQuantity !== originalLine?.quantity && (
+                                <span className="text-xs text-neutral-500">
+                                  (antes: {originalLine?.quantity})
+                                </span>
+                              )}
+                          </div>
+                        )}
+                        {/* Thumbnails de imágenes adjuntas */}
+                        {(line.attachments && line.attachments.length > 0) && (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {line.attachments.map((file, idx) => (
+                              <div key={`${file.name}-${idx}`} className="w-10 h-10 rounded overflow-hidden border border-neutral-700 bg-neutral-800">
+                                {file.type.startsWith('image/') ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <PhotoIcon className="h-3 w-3 text-neutral-500" />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -635,9 +793,11 @@ export default function QuoteChangeEditor({
                         {line.description}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-1 text-sm text-neutral-300">
-                      <span>{line.quantity} {line.unit}</span>
-                    </div>
+                    {!serviceHasOwnQuantity(line.serviceType || '', line.subtype) && (
+                      <div className="flex items-center gap-2 mt-1 text-sm text-neutral-300">
+                        <span>{line.quantity} {line.unit}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-start gap-1">
                     <Button
@@ -660,6 +820,23 @@ export default function QuoteChangeEditor({
                     </Button>
                   </div>
                 </div>
+                {/* Imágenes adjuntas de este nuevo elemento */}
+                {(line.attachments && line.attachments.length > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {line.attachments.map((file, idx) => (
+                      <div key={`${file.name}-${idx}`} className="w-10 h-10 rounded overflow-hidden border border-neutral-700 bg-neutral-800">
+                        {file.type.startsWith('image/') ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <PhotoIcon className="h-3 w-3 text-neutral-500" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-2 pt-2 border-t border-neutral-700/50">
                   <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
                     Nuevo elemento
@@ -730,8 +907,8 @@ export default function QuoteChangeEditor({
               </div>
             )}
 
-            {/* Quantity + Unit — hidden when service handles its own quantity (route-based) */}
-            {!isRouteBasedService(newItemForm.serviceType, newItemForm.subtype) && (
+            {/* Quantity + Unit — hidden when service handles its own quantity */}
+            {!serviceHasOwnQuantity(newItemForm.serviceType, newItemForm.subtype) && (
               <div className="flex items-center gap-4">
                 <div>
                   <label className="text-xs text-neutral-400">Cantidad</label>
@@ -793,6 +970,9 @@ export default function QuoteChangeEditor({
               </div>
             )}
 
+            {/* Imágenes por elemento */}
+            {renderImageUpload(newItemForm.attachments || [], { type: 'newItem' })}
+
             {/* Actions */}
             <div className="flex gap-2 pt-1">
               <Button
@@ -826,75 +1006,15 @@ export default function QuoteChangeEditor({
         </Button>
       )}
 
-      {/* Image attachments */}
-      <Card className="p-4">
-        <h3 className="font-semibold text-white mb-3">
-          Imágenes de referencia (opcional)
-        </h3>
-        <p className="text-xs text-neutral-500 mb-3">
-          Adjunta fotos, bocetos o archivos de referencia para que el vendedor entienda mejor tus cambios. Máx. 5 archivos, 10 MB c/u.
-        </p>
-
-        {/* File previews */}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-3 mb-3">
-            {attachments.map((file, index) => (
-              <div
-                key={`${file.name}-${index}`}
-                className="relative group w-20 h-20 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800"
-              >
-                {file.type.startsWith('image/') ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt={file.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-1">
-                    <PhotoIcon className="h-6 w-6 text-neutral-500" />
-                    <span className="text-[10px] text-neutral-500 text-center truncate w-full mt-1">
-                      {file.name}
-                    </span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveAttachment(index)}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <XMarkIcon className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Upload area */}
-        {attachments.length < 5 && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full p-4 border-2 border-dashed border-neutral-700 rounded-lg hover:border-cmyk-cyan/50 transition-colors text-center cursor-pointer"
-          >
-            <PhotoIcon className="h-8 w-8 text-neutral-500 mx-auto mb-1" />
-            <p className="text-sm text-neutral-400">
-              Haz clic para seleccionar archivos
-            </p>
-            <p className="text-xs text-neutral-600 mt-0.5">
-              JPG, PNG, WebP, GIF, PDF
-            </p>
-          </button>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-          className="hidden"
-          onChange={(e) => handleFileSelect(e.target.files)}
-        />
-      </Card>
+      {/* Hidden file input for per-element uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+        className="hidden"
+        onChange={(e) => handleFileSelect(e.target.files)}
+      />
 
       {/* Comments */}
       <Card className="p-4">

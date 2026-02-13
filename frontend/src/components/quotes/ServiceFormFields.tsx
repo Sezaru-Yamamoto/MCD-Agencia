@@ -300,6 +300,24 @@ export function isRouteBasedService(
   );
 }
 
+/* ─── Check if a service type manages its own quantity fields ── */
+export function serviceHasOwnQuantity(
+  serviceType: string,
+  subtipo?: string
+): boolean {
+  // Route-based services manage quantity per route
+  if (isRouteBasedService(serviceType, subtipo)) return true;
+  // Services that have a "Cantidad" / "Número de piezas" field in ServiceFormFields
+  return [
+    'impresion-gran-formato',
+    'senalizacion',
+    'corte-grabado-cnc-laser',
+    'diseno-grafico',
+    'impresion-offset-serigrafia',
+    'otros',
+  ].includes(serviceType);
+}
+
 /* ─── Check if a ServiceDetailsData object is route-based ──── */
 export function isRouteBasedDetails(details: ServiceDetailsData | undefined | null): boolean {
   if (!details) return false;
