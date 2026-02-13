@@ -17,6 +17,7 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ArrowPathIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -29,6 +30,7 @@ import {
   markQuoteRequestInReview,
   unmarkQuoteRequestInReview,
   assignQuoteRequest,
+  deleteQuoteRequest,
   getSalesReps,
   QuoteRequest,
   QuoteRequestStatus,
@@ -471,6 +473,8 @@ export default function QuoteRequestDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const requestId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -558,6 +562,25 @@ export default function QuoteRequestDetailPage() {
       setIsUpdating(false);
     }
   };
+
+  const handleDelete = async () => {
+    if (!request) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteQuoteRequest(request.id);
+      toast.success(`Solicitud ${request.request_number} eliminada`);
+      router.push(`/${locale}/dashboard/solicitudes`);
+    } catch (error: unknown) {
+      const err = error as { data?: { error?: string } };
+      toast.error(err?.data?.error || 'Error al eliminar la solicitud');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const deletableStatuses = ['pending', 'assigned', 'in_review', 'rejected', 'cancelled'];
 
   if (authLoading || isLoading) {
     return <LoadingPage message="Cargando..." />;
@@ -877,6 +900,18 @@ export default function QuoteRequestDetailPage() {
                     {request.assigned_to ? 'Reasignar' : 'Asignar Vendedor'}
                   </Button>
                 )}
+
+                {isAdmin && deletableStatuses.includes(request.status) && (
+                  <Button
+                    onClick={() => setShowDeleteModal(true)}
+                    disabled={isUpdating || isDeleting}
+                    variant="outline"
+                    className="w-full !border-red-500/50 !text-red-400 hover:!bg-red-500/10"
+                    leftIcon={<TrashIcon className="h-5 w-5" />}
+                  >
+                    Eliminar Solicitud
+                  </Button>
+                )}
               </div>
             </Card>
 
@@ -1013,6 +1048,43 @@ export default function QuoteRequestDetailPage() {
                 </Button>
               </div>
             </Card>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && request && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <TrashIcon className="h-5 w-5 text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Eliminar solicitud</h3>
+              </div>
+              <p className="text-neutral-400 mb-2">
+                ¿Estás seguro de que deseas eliminar la solicitud{' '}
+                <span className="text-white font-medium">{request.request_number}</span>?
+              </p>
+              <p className="text-neutral-500 text-sm mb-6">
+                De: {request.customer_name} ({request.customer_email})
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleDelete}
+                  isLoading={isDeleting}
+                  className="!bg-red-600 hover:!bg-red-700 !border-red-600"
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </div>
           </div>
         )}
     </div>

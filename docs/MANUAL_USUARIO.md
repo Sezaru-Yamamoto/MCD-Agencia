@@ -561,6 +561,7 @@ Esta sección tiene **dos pestañas**:
 | **Marcar en revisión** | Cambia el estado a "En revisión" para indicar que está trabajando en ella |
 | **Asignar a vendedor** | Solo administradores. Seleccione el vendedor responsable del menú desplegable |
 | **Crear cotización** | Abre el formulario de nueva cotización prellenado con los datos del cliente y la solicitud |
+| **Eliminar solicitud** | Solo administradores. Elimina la solicitud (solo si no ha sido cotizada o aceptada). Requiere confirmación |
 
 #### Pestaña: Solicitudes de Cambio
 

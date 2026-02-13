@@ -298,6 +298,46 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
         return Response(QuoteRequestAdminSerializer(quote_request).data)
 
+    def destroy(self, request, pk=None):
+        """Delete quote request (admin only, non-quoted requests only)."""
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        # Only admins can delete
+        if not (hasattr(request.user, 'role') and request.user.role and request.user.role.name == 'admin'):
+            return Response(
+                {'error': _('Only administrators can delete requests.')},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        quote_request = self.get_object()
+
+        # Don't allow deleting requests that already have quotes
+        deletable_statuses = [
+            QuoteRequest.STATUS_PENDING,
+            QuoteRequest.STATUS_ASSIGNED,
+            QuoteRequest.STATUS_IN_REVIEW,
+            QuoteRequest.STATUS_REJECTED,
+            QuoteRequest.STATUS_CANCELLED,
+        ]
+        if quote_request.status not in deletable_statuses:
+            return Response(
+                {'error': _('Cannot delete a request that has been quoted or accepted.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Log deletion
+        AuditLog.log(
+            entity=quote_request,
+            action=AuditLog.ACTION_DELETED,
+            actor=request.user,
+            before_state=QuoteRequestAdminSerializer(quote_request).data,
+            request=request
+        )
+
+        quote_request.delete()  # Soft delete via SoftDeleteModel
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['post'])
     def mark_in_review(self, request, pk=None):
         """Mark request as in review (admin/sales)."""

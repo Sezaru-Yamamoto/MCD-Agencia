@@ -14,13 +14,16 @@ import {
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, Pagination } from '@/components/ui';
 import { SERVICE_LABELS, type ServiceId } from '@/lib/service-ids';
 import {
   getAdminQuoteRequests,
+  deleteQuoteRequest,
   QuoteRequest,
   QuoteRequestStatus,
   UrgencyLevel,
@@ -86,6 +89,8 @@ export default function QuoteRequestsListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
+  const [deleteTarget, setDeleteTarget] = useState<QuoteRequest | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
   const isAdmin = user?.role?.name === 'admin';
@@ -157,6 +162,24 @@ export default function QuoteRequestsListPage() {
     e.preventDefault();
     fetchRequests(1);
   };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteQuoteRequest(deleteTarget.id);
+      toast.success(`Solicitud ${deleteTarget.request_number} eliminada`);
+      setDeleteTarget(null);
+      fetchRequests(requestsPagination.page);
+    } catch (error: unknown) {
+      const err = error as { data?: { error?: string } };
+      toast.error(err?.data?.error || 'Error al eliminar la solicitud');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const deletableStatuses = ['pending', 'assigned', 'in_review', 'rejected', 'cancelled'];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-MX', {
@@ -321,6 +344,15 @@ export default function QuoteRequestsListPage() {
                                     <DocumentPlusIcon className="h-5 w-5" />
                                   </Link>
                                 )}
+                                {isAdmin && deletableStatuses.includes(request.status) && (
+                                  <button
+                                    onClick={() => setDeleteTarget(request)}
+                                    className="p-2 text-neutral-400 hover:text-red-400 transition-colors"
+                                    title="Eliminar solicitud"
+                                  >
+                                    <TrashIcon className="h-5 w-5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -424,6 +456,43 @@ export default function QuoteRequestsListPage() {
               </Card>
             </div>
           </>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                <TrashIcon className="h-5 w-5 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Eliminar solicitud</h3>
+            </div>
+            <p className="text-neutral-400 mb-2">
+              ¿Estás seguro de que deseas eliminar la solicitud{' '}
+              <span className="text-white font-medium">{deleteTarget.request_number}</span>?
+            </p>
+            <p className="text-neutral-500 text-sm mb-6">
+              De: {deleteTarget.customer_name} ({deleteTarget.customer_email})
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleDelete}
+                isLoading={isDeleting}
+                className="!bg-red-600 hover:!bg-red-700 !border-red-600"
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

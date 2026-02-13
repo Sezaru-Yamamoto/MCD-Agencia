@@ -591,6 +591,13 @@ export async function unmarkQuoteRequestInReview(id: string): Promise<QuoteReque
 }
 
 /**
+ * Delete a quote request (admin only).
+ */
+export async function deleteQuoteRequest(id: string): Promise<void> {
+  return apiClient.delete(`/quotes/requests/${id}/`);
+}
+
+/**
  * Get all quotes (admin/sales).
  */
 export async function getAdminQuotes(filters?: {
