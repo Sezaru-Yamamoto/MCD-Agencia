@@ -312,6 +312,14 @@ export function computeRoutesTotal(details: ServiceDetailsData): number {
   );
 }
 
+/* ─── Count number of routes ───────────────────────────────── */
+export function countRoutes(details: ServiceDetailsData): number {
+  const routes = (details._vallasRoutes ||
+    details._pubRoutes ||
+    details._perifoneoRoutes) as unknown[] | undefined;
+  return routes ? routes.length : 0;
+}
+
 /* ════════════════════════════════════════════════════════════════
  *  Component
  * ════════════════════════════════════════════════════════════════ */

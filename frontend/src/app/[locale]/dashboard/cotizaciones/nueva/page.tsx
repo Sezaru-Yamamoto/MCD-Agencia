@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
-import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, computeRoutesTotal } from '@/components/quotes/ServiceFormFields';
+import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, computeRoutesTotal, countRoutes } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -353,9 +353,9 @@ export default function NewQuotePage() {
             concept_en: item.concept_en,
             description: item.description,
             description_en: item.description_en,
-            quantity: isRoute ? 1 : item.quantity,
-            unit: isRoute ? 'servicio' : item.unit,
-            unit_price: isRoute ? computeRoutesTotal(item.serviceDetails!) : item.unit_price,
+            quantity: isRoute ? countRoutes(item.serviceDetails!) : item.quantity,
+            unit: isRoute ? 'ruta' : item.unit,
+            unit_price: isRoute ? (countRoutes(item.serviceDetails!) > 0 ? computeRoutesTotal(item.serviceDetails!) / countRoutes(item.serviceDetails!) : 0) : item.unit_price,
             position: index + 1,
             service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
           };
@@ -1084,11 +1084,12 @@ export default function NewQuotePage() {
           concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
         }
         const routeTotal = isRoute ? computeRoutesTotal(item.serviceDetails!) : 0;
+        const numRoutes = isRoute ? countRoutes(item.serviceDetails!) : 0;
         return {
           concept,
-          quantity: isRoute ? 1 : item.quantity,
-          unit: isRoute ? 'servicio' : item.unit,
-          unit_price: isRoute ? routeTotal : item.unit_price,
+          quantity: isRoute ? numRoutes : item.quantity,
+          unit: isRoute ? 'ruta' : item.unit,
+          unit_price: isRoute ? (numRoutes > 0 ? routeTotal / numRoutes : 0) : item.unit_price,
           line_total: isRoute ? routeTotal : item.quantity * item.unit_price,
         };
       })}
