@@ -118,6 +118,29 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
         # Create quote request
         quote_request = QuoteRequest.objects.create(**validated_data)
 
+        # Auto-compute required_date from route dates in service_details
+        # (for publicidad-movil subtypes that have per-route fecha_inicio)
+        service_details = validated_data.get('service_details')
+        if service_details and isinstance(service_details, dict):
+            rutas = service_details.get('rutas')
+            if isinstance(rutas, list) and rutas:
+                from datetime import date as date_cls
+                route_dates = []
+                for ruta in rutas:
+                    if isinstance(ruta, dict):
+                        fi = ruta.get('fecha_inicio')
+                        if fi and isinstance(fi, str):
+                            try:
+                                route_dates.append(date_cls.fromisoformat(fi))
+                            except (ValueError, TypeError):
+                                pass
+                if route_dates:
+                    earliest = min(route_dates)
+                    # Override required_date if not set or if routes have an earlier date
+                    if not quote_request.required_date or earliest < quote_request.required_date:
+                        quote_request.required_date = earliest
+                        quote_request.save(update_fields=['required_date'])
+
         # Calculate and set urgency
         quote_request.urgency = quote_request.calculate_urgency()
         quote_request.save(update_fields=['urgency'])

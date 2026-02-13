@@ -378,38 +378,54 @@ export default function QuoteRequestDetailPage() {
                 </div>
               )}
 
-              {request.required_date && (
-                <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
-                  <CalendarIcon className="h-5 w-5 text-neutral-400" />
-                  <div>
-                    <p className="text-neutral-500 text-xs">Fecha Requerida</p>
-                    <p className="text-white">
-                      {new Date(request.required_date).toLocaleString('es-MX', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {request.days_until_required !== undefined && (
-                        <span className={`ml-2 text-sm ${
-                          request.days_until_required <= 0
-                            ? 'text-red-400'
-                            : request.days_until_required <= 7
-                            ? 'text-yellow-400'
-                            : 'text-neutral-400'
-                        }`}>
-                          ({request.days_until_required > 0
-                            ? `en ${request.days_until_required} días`
-                            : request.days_until_required === 0
-                            ? 'Hoy'
-                            : 'Vencido'})
-                        </span>
-                      )}
-                    </p>
+              {(() => {
+                // Compute the correct required date from route dates if available
+                let displayDate = request.required_date;
+                const details = request.service_details as Record<string, unknown> | undefined;
+                if (details && Array.isArray(details.rutas)) {
+                  const routeDates = (details.rutas as Array<Record<string, unknown>>)
+                    .map(r => r.fecha_inicio as string)
+                    .filter(d => !!d)
+                    .sort();
+                  if (routeDates.length > 0) {
+                    const earliest = routeDates[0];
+                    if (!displayDate || earliest < displayDate) {
+                      displayDate = earliest;
+                    }
+                  }
+                }
+                if (!displayDate) return null;
+                return (
+                  <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
+                    <CalendarIcon className="h-5 w-5 text-neutral-400" />
+                    <div>
+                      <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                      <p className="text-white">
+                        {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                        {request.days_until_required !== undefined && (
+                          <span className={`ml-2 text-sm ${
+                            request.days_until_required <= 0
+                              ? 'text-red-400'
+                              : request.days_until_required <= 7
+                              ? 'text-yellow-400'
+                              : 'text-neutral-400'
+                          }`}>
+                            ({request.days_until_required > 0
+                              ? `en ${request.days_until_required} días`
+                              : request.days_until_required === 0
+                              ? 'Hoy'
+                              : 'Vencido'})
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </Card>
 
             {/* Attachments */}

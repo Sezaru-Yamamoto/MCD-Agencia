@@ -384,11 +384,30 @@ export default function NewQuotePage() {
                     {quoteRequest.description}
                   </p>
                 )}
-                {quoteRequest.required_date && (
-                  <p className="text-cmyk-cyan text-sm mt-1">
-                    Fecha requerida: {new Date(quoteRequest.required_date).toLocaleString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                )}
+                {(() => {
+                  // Compute the correct required date from route dates if available
+                  let displayDate = quoteRequest.required_date;
+                  const details = quoteRequest.service_details as Record<string, unknown> | undefined;
+                  if (details && Array.isArray(details.rutas)) {
+                    const routeDates = (details.rutas as Array<Record<string, unknown>>)
+                      .map(r => r.fecha_inicio as string)
+                      .filter(d => !!d)
+                      .sort();
+                    if (routeDates.length > 0) {
+                      const earliest = routeDates[0];
+                      // Use earliest route date if it's earlier than stored required_date
+                      if (!displayDate || earliest < displayDate) {
+                        displayDate = earliest;
+                      }
+                    }
+                  }
+                  if (!displayDate) return null;
+                  return (
+                    <p className="text-cmyk-cyan text-sm mt-1">
+                      Fecha requerida: {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                  );
+                })()}
               </div>
             </div>
 
