@@ -136,10 +136,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
         """Return requests based on user role and visibility rules.
 
         Visibility rules:
-            - Admin: sees ALL requests.
-            - Sales rep:
-                - Normal/Medium urgency: only requests assigned to them.
-                - High urgency (urgent): ALL urgent requests visible to all sellers.
+            - Staff (admin + sales): sees ALL requests.
             - Regular customer: only their own requests (by email).
         """
         user = self.request.user
@@ -148,14 +145,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
         ).prefetch_related('attachments')
 
         if user.is_staff:
-            # Admin sees everything
-            if hasattr(user, 'role') and user.role and user.role.name == 'admin':
-                return base_qs
-
-            # Sales rep: assigned to them OR urgent (high urgency)
-            return base_qs.filter(
-                models.Q(assigned_to=user) | models.Q(urgency=QuoteRequest.URGENCY_HIGH)
-            )
+            return base_qs
 
         # Regular customer sees their own requests
         return base_qs.filter(
@@ -179,7 +169,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
         # Get requests based on role visibility rules
         if hasattr(user, 'role') and user.role and user.role.name == 'sales':
-            # Sales rep: assigned to them + urgent
+            # Sales rep: stats scoped to assigned requests + their quotes
             requests_qs = QuoteRequest.objects.filter(
                 models.Q(assigned_to=user) | models.Q(urgency=QuoteRequest.URGENCY_HIGH)
             )
@@ -278,13 +268,17 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             )
 
         quote_request.assigned_to = assigned_to
-        quote_request.save(update_fields=['assigned_to', 'updated_at'])
+        quote_request.assigned_at = timezone.now()
+        # Update status to assigned if currently pending
+        if quote_request.status in [QuoteRequest.STATUS_PENDING, QuoteRequest.STATUS_IN_REVIEW]:
+            quote_request.status = QuoteRequest.STATUS_ASSIGNED
+        quote_request.save(update_fields=['assigned_to', 'assigned_at', 'status', 'updated_at'])
 
         AuditLog.log(
             entity=quote_request,
             action=AuditLog.ACTION_UPDATED,
             actor=request.user,
-            after_state={'assigned_to': str(assigned_to.id)},
+            after_state={'assigned_to': str(assigned_to.id), 'status': quote_request.status},
             request=request
         )
 
