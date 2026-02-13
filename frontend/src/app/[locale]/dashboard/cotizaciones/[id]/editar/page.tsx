@@ -8,12 +8,23 @@ import {
   PlusIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
+import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
+import {
+  ServiceFormFields,
+  type ServiceDetailsData,
+  serviceDetailsFromRequest,
+  cleanServiceDetailsForApi,
+  isRouteBasedDetails,
+  computeRoutesTotal,
+  expandRouteLines,
+} from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteById,
   updateQuote,
@@ -22,6 +33,7 @@ import {
   CreateQuoteData,
 } from '@/lib/api/quotes';
 import { getProducts, ProductListItem } from '@/lib/api/catalog';
+import { SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceId, type LandingServiceId } from '@/lib/service-ids';
 
 type CatalogItem = ProductListItem;
 
@@ -35,6 +47,8 @@ interface QuoteLineItem {
   unit: string;
   unit_price: number;
   catalogItem?: CatalogItem;
+  serviceDetails?: ServiceDetailsData;
+  showServiceForm?: boolean;
 }
 
 export default function EditQuotePage() {
@@ -54,6 +68,9 @@ export default function EditQuotePage() {
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [searchTab, setSearchTab] = useState<'products' | 'services'>('products');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [validDays, setValidDays] = useState(15);
   const [paymentMode, setPaymentMode] = useState<'FULL' | 'DEPOSIT_ALLOWED'>('FULL');
   const [depositPercentage, setDepositPercentage] = useState(50);
@@ -101,22 +118,77 @@ export default function EditQuotePage() {
         setValidDays(Math.max(1, diffDays));
       }
 
-      // Load line items
+      // Load line items — group expanded route lines back into a single item
       if (quote.lines && quote.lines.length > 0) {
-        setItems(quote.lines.map((line, index) => ({
-          id: line.id || `item-${index}`,
-          concept: line.concept,
-          concept_en: line.concept_en,
-          description: line.description,
-          description_en: line.description_en,
-          quantity: line.quantity,
-          unit: line.unit,
-          unit_price: Number(line.unit_price),
-        })));
+        const loadedItems: QuoteLineItem[] = [];
+        const processedLineIds = new Set<string>();
+
+        for (let i = 0; i < quote.lines.length; i++) {
+          const line = quote.lines[i];
+          if (processedLineIds.has(line.id)) continue;
+
+          // If this line has service_details, reconstruct the service item
+          if (line.service_details && typeof line.service_details === 'object') {
+            const sd = line.service_details as Record<string, unknown>;
+            const serviceType = sd.service_type as string | undefined;
+
+            if (serviceType) {
+              // Reconstruct service details using serviceDetailsFromRequest
+              const prefillDetails = serviceDetailsFromRequest(serviceType, sd);
+
+              // Determine concept from service labels
+              const svcLabel = SERVICE_LABELS[serviceType as ServiceId] || serviceType;
+              const subtipo = sd.subtipo as string | undefined;
+              const subLabel = subtipo ? (subtipoLabels[subtipo] || subtipo) : '';
+              const conceptText = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
+
+              // For route-based items, the routes are already inside prefillDetails
+              loadedItems.push({
+                id: line.id || `item-${i}`,
+                concept: conceptText,
+                concept_en: line.concept_en,
+                description: line.description,
+                description_en: line.description_en,
+                quantity: line.quantity,
+                unit: line.unit,
+                unit_price: Number(line.unit_price),
+                serviceDetails: prefillDetails,
+                showServiceForm: true,
+              });
+
+              // Mark subsequent route lines (without service_details) as processed
+              if (isRouteBasedDetails(prefillDetails)) {
+                for (let j = i + 1; j < quote.lines.length; j++) {
+                  const nextLine = quote.lines[j];
+                  if (!nextLine.service_details) {
+                    processedLineIds.add(nextLine.id);
+                  } else {
+                    break;
+                  }
+                }
+              }
+              continue;
+            }
+          }
+
+          // Regular (non-service) line
+          loadedItems.push({
+            id: line.id || `item-${i}`,
+            concept: line.concept,
+            concept_en: line.concept_en,
+            description: line.description,
+            description_en: line.description_en,
+            quantity: line.quantity,
+            unit: line.unit,
+            unit_price: Number(line.unit_price),
+          });
+        }
+
+        setItems(loadedItems);
       }
     } catch (error) {
       console.error('Error loading quote:', error);
-      toast.error('Error al cargar la cotizacion');
+      toast.error('Error al cargar la cotización');
       router.push(`/${locale}/dashboard/cotizaciones`);
     } finally {
       setIsLoading(false);
@@ -151,7 +223,7 @@ export default function EditQuotePage() {
   }, [isAuthenticated, isSalesOrAdmin, loadQuote, loadCatalogItems]);
 
   if (authLoading || isLoading) {
-    return <LoadingPage message="Cargando cotizacion..." />;
+    return <LoadingPage message="Cargando cotización..." />;
   }
 
   if (!isAuthenticated || !isSalesOrAdmin || !originalQuote) {
@@ -204,7 +276,13 @@ export default function EditQuotePage() {
   };
 
   // Calculate totals
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+  const subtotal = items.reduce((sum, item) => {
+    // For route-based services, total comes from individual routes
+    if (isRouteBasedDetails(item.serviceDetails)) {
+      return sum + computeRoutesTotal(item.serviceDetails!);
+    }
+    return sum + (item.quantity * item.unit_price);
+  }, 0);
   const taxRate = 0.16;
   const taxAmount = subtotal * taxRate;
   const total = subtotal + taxAmount;
@@ -231,12 +309,20 @@ export default function EditQuotePage() {
       toast.error('Agrega al menos un concepto');
       return false;
     }
-    if (items.some(item => !item.concept.trim())) {
+    if (items.some(item => {
+      // Service items get their concept from the service details display
+      if (item.serviceDetails && item.serviceDetails.service_type) return false;
+      return !item.concept.trim();
+    })) {
       toast.error('Todos los conceptos deben tener un nombre');
       return false;
     }
-    if (items.some(item => item.unit_price <= 0)) {
-      toast.error('Todos los conceptos deben tener un precio valido');
+    if (items.some(item => {
+      // Route-based services get their pricing from routes, so skip top-level price check
+      if (isRouteBasedDetails(item.serviceDetails)) return false;
+      return item.unit_price <= 0;
+    })) {
+      toast.error('Todos los conceptos deben tener un precio válido');
       return false;
     }
     return true;
@@ -260,16 +346,45 @@ export default function EditQuotePage() {
         internal_notes: internalNotes || undefined,
         delivery_time_text: deliveryTimeText || undefined,
         payment_conditions: paymentConditions || undefined,
-        lines: items.map((item, index) => ({
-          concept: item.concept,
-          concept_en: item.concept_en,
-          description: item.description,
-          description_en: item.description_en,
-          quantity: item.quantity,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          position: index + 1,
-        })),
+        lines: items.flatMap((item) => {
+          // Auto-generate concept from service details if it's a service item
+          let concept = item.concept;
+          if (item.serviceDetails && item.serviceDetails.service_type) {
+            const svcLabel = SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type;
+            const subLabel = item.serviceDetails.subtipo
+              ? subtipoLabels[item.serviceDetails.subtipo as string] || (item.serviceDetails.subtipo as string)
+              : '';
+            concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
+          }
+
+          // Route-based: expand into one line per route
+          if (isRouteBasedDetails(item.serviceDetails)) {
+            const routeLines = expandRouteLines(item.serviceDetails!, concept, item.description || '');
+            return routeLines.map((rl, ri) => ({
+              concept: rl.concept,
+              concept_en: item.concept_en,
+              description: rl.description,
+              description_en: item.description_en,
+              quantity: rl.quantity,
+              unit: rl.unit,
+              unit_price: rl.unit_price,
+              position: 0, // will be set below
+              service_details: ri === 0 ? (item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined) : undefined,
+            }));
+          }
+
+          return [{
+            concept,
+            concept_en: item.concept_en,
+            description: item.description,
+            description_en: item.description_en,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.unit_price,
+            position: 0,
+            service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
+          }];
+        }).map((line, idx) => ({ ...line, position: idx + 1 })),
       };
 
       const quote = await updateQuote(quoteId, quoteData);
@@ -299,7 +414,7 @@ export default function EditQuotePage() {
             <ArrowLeftIcon className="h-6 w-6" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-white">Editar Cotizacion</h1>
+            <h1 className="text-3xl font-bold text-white">Editar Cotización</h1>
             <p className="text-neutral-400">{originalQuote.quote_number}</p>
           </div>
         </div>
@@ -309,7 +424,7 @@ export default function EditQuotePage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Customer Info */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Informacion del Cliente</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Información del Cliente</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-neutral-400 text-sm mb-2">
@@ -362,13 +477,43 @@ export default function EditQuotePage() {
                 </Button>
               </div>
 
-              {/* Product Search */}
-              <div className="relative mb-4">
+              {/* Search Tabs */}
+              <div className="mb-4">
+                <div className="flex gap-1 mb-3 bg-neutral-800/50 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSearchTab('products')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      searchTab === 'products'
+                        ? 'bg-neutral-700 text-white'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <MagnifyingGlassIcon className="h-4 w-4" />
+                    Productos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSearchTab('services')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      searchTab === 'services'
+                        ? 'bg-neutral-700 text-white'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <WrenchScrewdriverIcon className="h-4 w-4" />
+                    Servicios
+                  </button>
+                </div>
+
+                {/* Product Search */}
+                {searchTab === 'products' && (
+              <div className="relative">
                 <div className="relative">
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
                   <input
                     type="text"
-                    placeholder="Buscar producto del catalogo..."
+                    placeholder="Buscar producto del catálogo..."
                     value={productSearch}
                     onChange={(e) => {
                       setProductSearch(e.target.value);
@@ -402,37 +547,201 @@ export default function EditQuotePage() {
                   </div>
                 )}
               </div>
+                )}
+
+                {/* Service Search */}
+                {searchTab === 'services' && (
+                  <div className="relative">
+                    <div className="relative">
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
+                      <input
+                        type="text"
+                        placeholder="Buscar servicio..."
+                        value={serviceSearchQuery}
+                        onChange={(e) => {
+                          setServiceSearchQuery(e.target.value);
+                          setShowServiceDropdown(true);
+                        }}
+                        onFocus={() => setShowServiceDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowServiceDropdown(false), 200)}
+                        className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                      />
+                    </div>
+
+                    {showServiceDropdown && (
+                      <div className="absolute z-10 w-full mt-2 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl max-h-72 overflow-auto">
+                        {(() => {
+                          const query = serviceSearchQuery.toLowerCase();
+                          const entries = Object.entries(SERVICE_SUBCATEGORIES) as [LandingServiceId, typeof SERVICE_SUBCATEGORIES[LandingServiceId]][];
+                          let hasResults = false;
+
+                          const content = entries.map(([serviceId, subcategories]) => {
+                            const serviceLabel = SERVICE_LABELS[serviceId] || serviceId;
+                            const matchingSubs = subcategories.filter(sub =>
+                              !query ||
+                              serviceLabel.toLowerCase().includes(query) ||
+                              sub.label.toLowerCase().includes(query) ||
+                              `${serviceLabel} ${sub.label}`.toLowerCase().includes(query)
+                            );
+
+                            if (matchingSubs.length === 0) return null;
+                            hasResults = true;
+
+                            return (
+                              <div key={serviceId}>
+                                <div className="px-4 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider bg-neutral-800/80 sticky top-0">
+                                  {serviceLabel}
+                                </div>
+                                {matchingSubs.map(sub => (
+                                  <button
+                                    key={`${serviceId}-${sub.id}`}
+                                    onClick={() => {
+                                      const conceptName = `${serviceLabel} - ${sub.label}`;
+                                      const details: ServiceDetailsData = { service_type: serviceId as ServiceId };
+                                      if (serviceId === 'publicidad-movil') {
+                                        details.subtipo = sub.id;
+                                      }
+                                      setItems(prev => [...prev, {
+                                        id: `item-${Date.now()}`,
+                                        concept: conceptName,
+                                        description: '',
+                                        quantity: 1,
+                                        unit: 'servicio',
+                                        unit_price: 0,
+                                        serviceDetails: details,
+                                        showServiceForm: true,
+                                      }]);
+                                      setServiceSearchQuery('');
+                                      setShowServiceDropdown(false);
+                                    }}
+                                    className="w-full px-4 py-2.5 pl-8 text-left hover:bg-neutral-700 transition-colors"
+                                  >
+                                    <p className="text-white text-sm">{sub.label}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          });
+
+                          if (!hasResults) {
+                            return <p className="p-4 text-center text-neutral-400">No se encontraron servicios</p>;
+                          }
+                          return content;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Items List */}
               {items.length > 0 ? (
                 <div className="space-y-4">
-                  {items.map((item, index) => (
-                    <div key={item.id} className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
-                      <div className="flex items-start gap-4">
+                  {items.map((item, index) => {
+                    const itemIsRouteBased = isRouteBasedDetails(item.serviceDetails);
+
+                    return (
+                    <div key={item.id} className="relative p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
+                      {/* Delete button — top right */}
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="absolute top-2 right-2 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                        title="Eliminar concepto"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                      <div className="flex items-start gap-4 pr-8">
                         <span className="text-neutral-500 text-sm font-medium mt-2">{index + 1}.</span>
                         <div className="flex-1 space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
-                              <input
-                                type="text"
-                                value={item.concept}
-                                onChange={(e) => updateItem(item.id, 'concept', e.target.value)}
-                                placeholder="Nombre del concepto"
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
+                          {/* Header: Categoría / Subtipo / Descripción (service items) OR Concepto / Descripción */}
+                          {item.serviceDetails ? (() => {
+                            const svcType = item.serviceDetails!.service_type as ServiceId;
+                            const svcSubtipo = item.serviceDetails!.subtipo as string | undefined;
+                            const subcats = SERVICE_SUBCATEGORIES[svcType as LandingServiceId] || [];
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-neutral-500 text-xs mb-1">Categoría *</label>
+                                  <select
+                                    value={svcType}
+                                    onChange={(e) => {
+                                      const newType = e.target.value as ServiceId;
+                                      const newSubcats = SERVICE_SUBCATEGORIES[newType as LandingServiceId] || [];
+                                      updateItem(item.id, 'serviceDetails', {
+                                        ...item.serviceDetails!,
+                                        service_type: newType,
+                                        subtipo: newSubcats.length > 0 ? newSubcats[0].id : undefined,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                  >
+                                    {Object.entries(SERVICE_LABELS).map(([key, label]) => (
+                                      <option key={key} value={key}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-neutral-500 text-xs mb-1">Subtipo</label>
+                                  {subcats.length > 0 ? (
+                                    <select
+                                      value={svcSubtipo || ''}
+                                      onChange={(e) => {
+                                        updateItem(item.id, 'serviceDetails', {
+                                          ...item.serviceDetails!,
+                                          subtipo: e.target.value || undefined,
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    >
+                                      {subcats.map((sc) => (
+                                        <option key={sc.id} value={sc.id}>{sc.label}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <div className="px-3 py-2 bg-neutral-800/30 border border-neutral-700/30 rounded text-neutral-500 text-sm">
+                                      Sin subtipos
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
+                                  <textarea
+                                    value={item.description || ''}
+                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                    placeholder="Descripción opcional"
+                                    rows={2}
+                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })() : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
+                                <input
+                                  type="text"
+                                  value={item.concept}
+                                  onChange={(e) => updateItem(item.id, 'concept', e.target.value)}
+                                  placeholder="Nombre del concepto"
+                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                  placeholder="Descripción opcional"
+                                  rows={2}
+                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-neutral-500 text-xs mb-1">Descripcion</label>
-                              <input
-                                type="text"
-                                value={item.description || ''}
-                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                placeholder="Descripcion opcional"
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
-                            </div>
-                          </div>
+                          )}
+
+                          {/* Qty / Unit / Price — only for NON-route-based items */}
+                          {!itemIsRouteBased && (
                           <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-2">
                               <label className="text-neutral-500 text-xs">Cantidad:</label>
@@ -452,7 +761,7 @@ export default function EditQuotePage() {
                                 className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
                               >
                                 <option value="pza">pza</option>
-                                <option value="m2">m2</option>
+                                <option value="m2">m²</option>
                                 <option value="ml">ml</option>
                                 <option value="kg">kg</option>
                                 <option value="hr">hr</option>
@@ -474,34 +783,53 @@ export default function EditQuotePage() {
                               <span className="text-white font-medium">
                                 {formatCurrency(item.quantity * item.unit_price)}
                               </span>
-                              <button
-                                onClick={() => removeItem(item.id)}
-                                className="p-1 text-neutral-400 hover:text-red-400 transition-colors"
-                              >
-                                <TrashIcon className="h-5 w-5" />
-                              </button>
                             </div>
                           </div>
+                          )}
+
+                          {/* Service Form Toggle & Fields */}
+                          {item.serviceDetails && (
+                            <div className="pt-3 border-t border-neutral-700/50">
+                              <button
+                                type="button"
+                                onClick={() => updateItem(item.id, 'showServiceForm', !item.showServiceForm)}
+                                className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
+                              >
+                                <WrenchScrewdriverIcon className="h-4 w-4" />
+                                <span>{item.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
+                                <svg className={`h-3 w-3 transition-transform ${item.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                              {item.showServiceForm && (
+                                <ServiceFormFields
+                                  value={item.serviceDetails}
+                                  onChange={(details) => updateItem(item.id, 'serviceDetails', details)}
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-neutral-400 border border-dashed border-neutral-700 rounded-lg">
                   <p>No hay conceptos agregados</p>
-                  <p className="text-sm mt-1">Busca productos del catalogo o agrega conceptos personalizados</p>
+                  <p className="text-sm mt-1">Busca productos o servicios del catálogo, o agrega conceptos personalizados</p>
                 </div>
               )}
             </Card>
 
             {/* Additional Options */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Configuracion</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Configuración</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-neutral-400 text-sm mb-2">Vigencia (dias)</label>
+                  <label className="block text-neutral-400 text-sm mb-2">Vigencia (días)</label>
                   <input
                     type="number"
                     min="1"
@@ -545,7 +873,7 @@ export default function EditQuotePage() {
                     type="text"
                     value={deliveryTimeText}
                     onChange={(e) => setDeliveryTimeText(e.target.value)}
-                    placeholder="Ej: 5 a 7 dias habiles"
+                    placeholder="Ej: 5 a 7 días hábiles"
                     className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
                   />
                 </div>
@@ -562,11 +890,11 @@ export default function EditQuotePage() {
               </div>
 
               <div className="mb-4">
-                <label className="block text-neutral-400 text-sm mb-2">Terminos y Condiciones</label>
+                <label className="block text-neutral-400 text-sm mb-2">Términos y Condiciones</label>
                 <textarea
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
-                  placeholder="Terminos y condiciones para el cliente..."
+                  placeholder="Términos y condiciones para el cliente..."
                   rows={3}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan resize-none"
                 />
@@ -652,7 +980,26 @@ export default function EditQuotePage() {
       isLoading={isSubmitting}
       customerName={customerName}
       customerEmail={customerEmail}
-      lines={items}
+      lines={items.flatMap((item) => {
+        let concept = item.concept;
+        if (item.serviceDetails && item.serviceDetails.service_type) {
+          const svcLabel = SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type;
+          const subLabel = item.serviceDetails.subtipo
+            ? subtipoLabels[item.serviceDetails.subtipo as string] || (item.serviceDetails.subtipo as string)
+            : '';
+          concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
+        }
+        if (isRouteBasedDetails(item.serviceDetails)) {
+          return expandRouteLines(item.serviceDetails!, concept, item.description || '');
+        }
+        return [{
+          concept,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          line_total: item.quantity * item.unit_price,
+        }];
+      })}
       subtotal={subtotal}
       taxAmount={taxAmount}
       total={total}

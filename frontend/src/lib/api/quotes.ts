@@ -30,6 +30,7 @@ export interface QuoteLine {
   unit_price: string;
   line_total: string;
   position: number;
+  service_details?: Record<string, unknown>;
 }
 
 export interface QuoteAttachment {
