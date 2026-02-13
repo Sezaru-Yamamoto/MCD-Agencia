@@ -358,14 +358,41 @@ export default function QuoteChangeEditor({
   };
 
   const handleSubmit = async () => {
+    // Auto-confirm an unsaved new item form if the user filled it out
+    let effectiveNewLines = [...newLines];
+    if (showNewItemForm && newItemForm.serviceType) {
+      const qty = parseInt(newItemForm.quantity) || 1;
+      const tempId = `new-${Date.now()}`;
+      effectiveNewLines.push({
+        id: tempId,
+        concept: buildNewLineConcept(newItemForm),
+        description: buildNewLineDescription(newItemForm),
+        quantity: qty,
+        unit: newItemForm.unit,
+        unit_price: '0',
+        line_total: '0',
+        position: editingLines.length + newLines.length,
+        isNew: true,
+        serviceType: newItemForm.serviceType,
+        subtype: newItemForm.subtype,
+        serviceDetails: newItemForm.serviceDetails,
+        attachments: newItemForm.attachments || [],
+      });
+      // Update state so the UI reflects the auto-confirmed item
+      setNewLines(effectiveNewLines);
+      setShowNewItemForm(false);
+      setNewItemForm(INITIAL_NEW_ITEM);
+    }
+
     // Validate we have at least one remaining line
-    if (remainingLinesCount === 0) {
+    const effectiveRemainingCount = editingLines.filter((line) => !line.isDeleted).length + effectiveNewLines.length;
+    if (effectiveRemainingCount === 0) {
       toast.error('Debe quedar al menos un elemento en la cotización');
       return;
     }
 
     // Validate new lines have concept
-    const incompleteNewLines = newLines.filter((line) => !line.concept?.trim());
+    const incompleteNewLines = effectiveNewLines.filter((line) => !line.concept?.trim());
     if (incompleteNewLines.length > 0) {
       toast.error('Los nuevos elementos deben tener un concepto');
       return;
@@ -405,7 +432,7 @@ export default function QuoteChangeEditor({
     });
 
     // Add new lines
-    newLines.forEach((line) => {
+    effectiveNewLines.forEach((line) => {
       if (line.concept?.trim()) {
         const proposed: ProposedLine = {
           action: 'add',
@@ -434,7 +461,7 @@ export default function QuoteChangeEditor({
         allAttachments.push(...l.attachments);
       }
     });
-    newLines.forEach(l => {
+    effectiveNewLines.forEach(l => {
       if (l.attachments && l.attachments.length > 0) {
         allAttachments.push(...l.attachments);
       }

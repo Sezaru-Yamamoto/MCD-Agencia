@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import {
   MapPinIcon,
   TruckIcon,
@@ -7,6 +8,11 @@ import {
   WrenchScrewdriverIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
+
+const RouteMapPreview = dynamic(
+  () => import('./RouteMapPreview').then(mod => mod.RouteMapPreview),
+  { ssr: false, loading: () => <div className="h-[200px] bg-neutral-800 rounded-lg animate-pulse" /> }
+);
 
 // Labels for service-specific fields
 export const serviceDetailsLabels: Record<string, string> = {
@@ -192,6 +198,16 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
               <span className="text-cmyk-cyan font-medium">
                 {distance >= 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(0)} m`}
               </span>
+            </div>
+          )}
+          {/* Read-only map preview */}
+          {pointA && pointA.lat && pointA.lon && (
+            <div className="mt-2">
+              <RouteMapPreview
+                pointA={pointA}
+                pointB={pointB}
+                height={180}
+              />
             </div>
           )}
         </div>
@@ -398,6 +414,23 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
                           <span className="text-neutral-300 text-sm">{mins} min aprox.</span>
                         </div>
                       );
+                    })()}
+                    {/* Read-only map preview for this route */}
+                    {(() => {
+                      const pa = routeObj.punto_a as { name?: string; lat?: number; lon?: number } | undefined;
+                      const pb = routeObj.punto_b as { name?: string; lat?: number; lon?: number } | undefined;
+                      if (pa && pa.lat && pa.lon) {
+                        return (
+                          <div className="mt-2">
+                            <RouteMapPreview
+                              pointA={{ name: pa.name || '', lat: pa.lat, lon: pa.lon }}
+                              pointB={pb && pb.lat && pb.lon ? { name: pb.name || '', lat: pb.lat, lon: pb.lon } : null}
+                              height={160}
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
                     })()}
                   </div>
                 )}
