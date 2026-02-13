@@ -512,14 +512,21 @@ class UserAdminViewSet(viewsets.ModelViewSet):
 
         old_role = user.role
         user.role = role
-        user.save(update_fields=['role', 'updated_at'])
+
+        # Sync is_staff based on new role
+        if role.name in (Role.ADMIN, Role.SALES):
+            user.is_staff = True
+        elif role.name == Role.CUSTOMER and not user.is_superuser:
+            user.is_staff = False
+
+        user.save(update_fields=['role', 'is_staff', 'updated_at'])
 
         AuditLog.log(
             entity=user,
             action=AuditLog.ACTION_PERMISSION_CHANGED,
             actor=request.user,
             before_state={'role': str(old_role.id) if old_role else None},
-            after_state={'role': str(role.id)},
+            after_state={'role': str(role.id), 'is_staff': user.is_staff},
             request=request
         )
 

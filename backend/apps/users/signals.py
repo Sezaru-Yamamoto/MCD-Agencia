@@ -37,6 +37,28 @@ def assign_default_role(sender, instance, created, **kwargs):
 
 
 @receiver(pre_save, sender=User)
+def sync_is_staff_with_role(sender, instance, **kwargs):
+    """
+    Automatically sync is_staff based on the user's role.
+
+    Admin and Sales roles require is_staff=True for Django permissions
+    and staff-only views. Customer role sets is_staff=False.
+    """
+    if instance.role_id:
+        try:
+            role_name = instance.role.name if instance.role else None
+        except Role.DoesNotExist:
+            role_name = None
+
+        if role_name in (Role.ADMIN, Role.SALES):
+            instance.is_staff = True
+        elif role_name == Role.CUSTOMER:
+            # Don't demote superusers
+            if not instance.is_superuser:
+                instance.is_staff = False
+
+
+@receiver(pre_save, sender=User)
 def normalize_email(sender, instance, **kwargs):
     """
     Normalize email address before saving.

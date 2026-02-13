@@ -128,4 +128,27 @@ else:
     print('No DJANGO_SUPERUSER_EMAIL/PASSWORD set, skipping superuser creation')
 "
 
+echo "=== Syncing is_staff flag with user roles ==="
+python manage.py shell -c "
+from apps.users.models import User, Role
+
+# Sales and admin users must have is_staff=True
+staff_updated = User.objects.filter(
+    role__name__in=['admin', 'sales'],
+    is_staff=False,
+    is_active=True,
+).update(is_staff=True)
+print(f'Set is_staff=True for {staff_updated} admin/sales users')
+
+# Customer users should have is_staff=False (except superusers)
+customer_updated = User.objects.filter(
+    role__name='customer',
+    is_staff=True,
+    is_superuser=False,
+).update(is_staff=False)
+print(f'Set is_staff=False for {customer_updated} customer users')
+
+print('is_staff sync completed.')
+"
+
 echo "=== Build completed successfully ==="
