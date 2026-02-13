@@ -140,6 +140,11 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             - Admin: sees ALL requests.
             - Sales: sees requests assigned to them + high urgency requests.
             - Regular customer: only their own requests (by email).
+
+        List-view default: hide already-quoted / accepted / rejected requests
+        (they live in the Cotizaciones section). The filter is skipped when:
+            - an explicit ?status= query-param is provided, OR
+            - the action is 'retrieve' (detail view).
         """
         user = self.request.user
         base_qs = QuoteRequest.objects.select_related(
@@ -149,11 +154,23 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
         if _is_internal_user(user):
             # Sales reps: only assigned to them + high urgency
             if hasattr(user, 'role') and user.role and user.role.name == 'sales':
-                return base_qs.filter(
+                base_qs = base_qs.filter(
                     models.Q(assigned_to=user) |
                     models.Q(urgency=QuoteRequest.URGENCY_HIGH)
                 )
-            # Admins: see everything
+            # else: admins see everything (no extra filter)
+
+            # On list action, hide already-processed requests unless the
+            # user explicitly filters by status.
+            if self.action == 'list' and 'status' not in self.request.query_params:
+                base_qs = base_qs.exclude(
+                    status__in=[
+                        QuoteRequest.STATUS_QUOTED,
+                        QuoteRequest.STATUS_ACCEPTED,
+                        QuoteRequest.STATUS_REJECTED,
+                    ]
+                )
+
             return base_qs
 
         # Regular customer sees their own requests

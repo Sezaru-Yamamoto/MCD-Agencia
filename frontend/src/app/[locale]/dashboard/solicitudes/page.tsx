@@ -239,9 +239,7 @@ export default function QuoteRequestsListPage() {
                     <option value="pending">Pendiente</option>
                     <option value="assigned">Asignada</option>
                     <option value="in_review">En Revisión</option>
-                    <option value="quoted">Cotizada</option>
-                    <option value="accepted">Aceptada</option>
-                    <option value="rejected">Rechazada</option>
+                    <option value="cancelled">Cancelada</option>
                   </select>
                 </div>
 
@@ -449,9 +447,9 @@ export default function QuoteRequestsListPage() {
                 </p>
               </Card>
               <Card className="p-4">
-                <p className="text-neutral-400 text-sm">Cotizadas</p>
-                <p className="text-2xl font-bold text-cmyk-cyan">
-                  {requests.filter(r => r.status === 'quoted').length}
+                <p className="text-neutral-400 text-sm">En Revisión</p>
+                <p className="text-2xl font-bold text-purple-400">
+                  {requests.filter(r => r.status === 'in_review').length}
                 </p>
               </Card>
             </div>
