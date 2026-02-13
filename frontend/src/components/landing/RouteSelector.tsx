@@ -28,6 +28,10 @@ interface RouteData {
 
 interface RouteSelectorProps {
   onChange?: (route: { pointA: Location | null; pointB: Location | null; routeData: RouteData | null }) => void;
+  /** Pre-populate point A on the map */
+  initialPointA?: Location | null;
+  /** Pre-populate point B on the map */
+  initialPointB?: Location | null;
 }
 
 const ACAPULCO_BOUNDS = {
@@ -37,15 +41,15 @@ const ACAPULCO_BOUNDS = {
   east: -99.7800,
 };
 
-export function RouteSelector({ onChange }: RouteSelectorProps) {
+export function RouteSelector({ onChange, initialPointA, initialPointB }: RouteSelectorProps) {
   const t = useTranslations('landing.routeSelector');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   
-  const [pointA, setPointA] = useState<Location | null>(null);
-  const [pointB, setPointB] = useState<Location | null>(null);
+  const [pointA, setPointA] = useState<Location | null>(initialPointA ?? null);
+  const [pointB, setPointB] = useState<Location | null>(initialPointB ?? null);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);

@@ -21,6 +21,7 @@ import {
   type ServiceDetailsData,
   serviceDetailsFromRequest,
   cleanServiceDetailsForApi,
+  isRouteBasedService,
 } from '@/components/quotes/ServiceFormFields';
 import {
   SERVICE_LABELS,
@@ -40,7 +41,6 @@ interface EditingLine extends QuoteLine {
   subtype?: string;
   dimensions?: string;
   serviceDetails?: ServiceDetailsData;
-  showServiceForm?: boolean;
 }
 
 interface NewItemForm {
@@ -50,7 +50,6 @@ interface NewItemForm {
   unit: string;
   description: string;
   serviceDetails?: ServiceDetailsData;
-  showServiceForm?: boolean;
 }
 
 const INITIAL_NEW_ITEM: NewItemForm = {
@@ -60,7 +59,6 @@ const INITIAL_NEW_ITEM: NewItemForm = {
   unit: 'pz',
   description: '',
   serviceDetails: undefined,
-  showServiceForm: false,
 };
 
 // Max file size: 10MB
@@ -189,7 +187,6 @@ export default function QuoteChangeEditor({
               newQuantity: undefined,
               newDescription: undefined,
               serviceDetails: originalServiceDetails,
-              showServiceForm: false,
             }
           : line
       )
@@ -257,7 +254,6 @@ export default function QuoteChangeEditor({
       unit: line.unit,
       description: line.description?.replace(/^Medidas: .+\n?/, '').trim() || '',
       serviceDetails: line.serviceDetails,
-      showServiceForm: !!line.serviceDetails,
     });
     // Remove the line being edited — it'll be re-added on confirm
     setNewLines(prev => prev.filter(l => l.id !== lineId));
@@ -484,31 +480,15 @@ export default function QuoteChangeEditor({
                         {/* Service detail fields for items with service_details */}
                         {line.serviceDetails && (
                           <div className="pt-3 border-t border-neutral-700/50">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingLines(prev =>
-                                  prev.map(l =>
-                                    l.id === line.id
-                                      ? { ...l, showServiceForm: !l.showServiceForm }
-                                      : l
-                                  )
-                                );
-                              }}
-                              className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
-                            >
+                            <div className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan mb-3">
                               <WrenchScrewdriverIcon className="h-4 w-4" />
-                              <span>{line.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
-                              <svg className={`h-3 w-3 transition-transform ${line.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </button>
-                            {line.showServiceForm && (
-                              <ServiceFormFields
-                                value={line.serviceDetails}
-                                onChange={(details) => handleModifyLine(line.id, 'serviceDetails', details)}
-                              />
-                            )}
+                              <span>Detalle de servicio</span>
+                            </div>
+                            <ServiceFormFields
+                              value={line.serviceDetails}
+                              onChange={(details) => handleModifyLine(line.id, 'serviceDetails', details)}
+                              hideRoutePricing
+                            />
                           </div>
                         )}
 
@@ -711,7 +691,6 @@ export default function QuoteChangeEditor({
                     serviceType: val,
                     subtype: '',
                     serviceDetails: details,
-                    showServiceForm: !!val,
                   }));
                 }}
                 className="w-full px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
@@ -751,39 +730,41 @@ export default function QuoteChangeEditor({
               </div>
             )}
 
-            {/* Quantity + Unit */}
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="text-xs text-neutral-400">Cantidad</label>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputMode="numeric"
-                  value={newItemForm.quantity}
-                  onChange={(e) => setNewItemForm(prev => ({ ...prev, quantity: e.target.value }))}
-                  onBlur={(e) => {
-                    const v = parseInt(e.target.value);
-                    if (!v || v < 1) setNewItemForm(prev => ({ ...prev, quantity: '1' }));
-                  }}
-                  className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-                />
+            {/* Quantity + Unit — hidden when service handles its own quantity (route-based) */}
+            {!isRouteBasedService(newItemForm.serviceType, newItemForm.subtype) && (
+              <div className="flex items-center gap-4">
+                <div>
+                  <label className="text-xs text-neutral-400">Cantidad</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={newItemForm.quantity}
+                    onChange={(e) => setNewItemForm(prev => ({ ...prev, quantity: e.target.value }))}
+                    onBlur={(e) => {
+                      const v = parseInt(e.target.value);
+                      if (!v || v < 1) setNewItemForm(prev => ({ ...prev, quantity: '1' }));
+                    }}
+                    className="w-24 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-400">Unidad</label>
+                  <select
+                    value={newItemForm.unit}
+                    onChange={(e) => setNewItemForm(prev => ({ ...prev, unit: e.target.value }))}
+                    className="w-28 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                  >
+                    <option value="pz">pz</option>
+                    <option value="m²">m²</option>
+                    <option value="ml">ml</option>
+                    <option value="hr">hr</option>
+                    <option value="servicio">servicio</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-neutral-400">Unidad</label>
-                <select
-                  value={newItemForm.unit}
-                  onChange={(e) => setNewItemForm(prev => ({ ...prev, unit: e.target.value }))}
-                  className="w-28 px-3 py-2 mt-1 bg-neutral-800 border border-neutral-600 rounded text-white text-sm focus:border-cmyk-cyan focus:outline-none"
-                >
-                  <option value="pz">pz</option>
-                  <option value="m²">m²</option>
-                  <option value="ml">ml</option>
-                  <option value="hr">hr</option>
-                  <option value="servicio">servicio</option>
-                </select>
-              </div>
-            </div>
+            )}
 
             {/* Additional notes */}
             <div>
@@ -797,26 +778,18 @@ export default function QuoteChangeEditor({
               />
             </div>
 
-            {/* Service-specific fields */}
+            {/* Service-specific fields — always visible */}
             {newItemForm.serviceDetails && newItemForm.serviceType && (
               <div className="pt-3 border-t border-neutral-700/50">
-                <button
-                  type="button"
-                  onClick={() => setNewItemForm(prev => ({ ...prev, showServiceForm: !prev.showServiceForm }))}
-                  className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
-                >
+                <div className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan mb-3">
                   <WrenchScrewdriverIcon className="h-4 w-4" />
-                  <span>{newItemForm.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
-                  <svg className={`h-3 w-3 transition-transform ${newItemForm.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {newItemForm.showServiceForm && (
-                  <ServiceFormFields
-                    value={newItemForm.serviceDetails}
-                    onChange={(details) => setNewItemForm(prev => ({ ...prev, serviceDetails: details }))}
-                  />
-                )}
+                  <span>Detalle de servicio</span>
+                </div>
+                <ServiceFormFields
+                  value={newItemForm.serviceDetails}
+                  onChange={(details) => setNewItemForm(prev => ({ ...prev, serviceDetails: details }))}
+                  hideRoutePricing
+                />
               </div>
             )}
 

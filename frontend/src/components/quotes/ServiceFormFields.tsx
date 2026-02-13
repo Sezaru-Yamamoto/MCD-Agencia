@@ -111,6 +111,8 @@ interface ServiceFormFieldsProps {
   value: ServiceDetailsData;
   onChange: (details: ServiceDetailsData) => void;
   disabled?: boolean;
+  /** Hide route pricing fields (Cantidad, Unidad, Precio Unit.) — used in client-facing views */
+  hideRoutePricing?: boolean;
 }
 
 /* ─── Shared field styles ──────────────────────────────────────── */
@@ -421,6 +423,7 @@ export function ServiceFormFields({
   value,
   onChange,
   disabled,
+  hideRoutePricing,
 }: ServiceFormFieldsProps) {
   const serviceType = value.service_type as ServiceId | '';
 
@@ -946,35 +949,37 @@ export function ServiceFormFields({
                     </div>
                   </div>
 
-                  {/* Cantidad + Unidad + Precio Unit. */}
-                  <RoutePricingRow
-                    cantidad={entry.cantidad}
-                    unidad={entry.unidad}
-                    unitPrice={entry.unit_price}
-                    onCantidadChange={(v) =>
-                      setVallasRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, cantidad: v } : r
+                  {/* Cantidad + Unidad + Precio Unit. (hidden in client view) */}
+                  {!hideRoutePricing && (
+                    <RoutePricingRow
+                      cantidad={entry.cantidad}
+                      unidad={entry.unidad}
+                      unitPrice={entry.unit_price}
+                      onCantidadChange={(v) =>
+                        setVallasRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, cantidad: v } : r
+                          )
                         )
-                      )
-                    }
-                    onUnidadChange={(v) =>
-                      setVallasRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, unidad: v } : r
+                      }
+                      onUnidadChange={(v) =>
+                        setVallasRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, unidad: v } : r
+                          )
                         )
-                      )
-                    }
-                    onUnitPriceChange={(v) =>
-                      setVallasRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, unit_price: v } : r
+                      }
+                      onUnitPriceChange={(v) =>
+                        setVallasRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, unit_price: v } : r
+                          )
                         )
-                      )
-                    }
-                    disabled={disabled}
-                    formatCurrency={formatCurrency}
-                  />
+                      }
+                      disabled={disabled}
+                      formatCurrency={formatCurrency}
+                    />
+                  )}
 
                   {/* Route info from client (reference) */}
                   {entry.clientRouteInfo && (
@@ -996,6 +1001,16 @@ export function ServiceFormFields({
                             r.id === entry.id ? { ...r, route } : r
                           )
                         )
+                      }
+                      initialPointA={
+                        entry.clientRouteInfo?.punto_a?.lat != null
+                          ? { name: entry.clientRouteInfo.punto_a.name || '', lat: entry.clientRouteInfo.punto_a.lat, lon: entry.clientRouteInfo.punto_a.lon! }
+                          : undefined
+                      }
+                      initialPointB={
+                        entry.clientRouteInfo?.punto_b?.lat != null
+                          ? { name: entry.clientRouteInfo.punto_b.name || '', lat: entry.clientRouteInfo.punto_b.lat, lon: entry.clientRouteInfo.punto_b.lon! }
+                          : undefined
                       }
                     />
                   </div>
@@ -1174,35 +1189,37 @@ export function ServiceFormFields({
                     </div>
                   </div>
 
-                  {/* Cantidad + Unidad + Precio Unit. */}
-                  <RoutePricingRow
-                    cantidad={entry.cantidad}
-                    unidad={entry.unidad}
-                    unitPrice={entry.unit_price}
-                    onCantidadChange={(v) =>
-                      setPubRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, cantidad: v } : r
+                  {/* Cantidad + Unidad + Precio Unit. (hidden in client view) */}
+                  {!hideRoutePricing && (
+                    <RoutePricingRow
+                      cantidad={entry.cantidad}
+                      unidad={entry.unidad}
+                      unitPrice={entry.unit_price}
+                      onCantidadChange={(v) =>
+                        setPubRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, cantidad: v } : r
+                          )
                         )
-                      )
-                    }
-                    onUnidadChange={(v) =>
-                      setPubRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, unidad: v } : r
+                      }
+                      onUnidadChange={(v) =>
+                        setPubRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, unidad: v } : r
+                          )
                         )
-                      )
-                    }
-                    onUnitPriceChange={(v) =>
-                      setPubRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, unit_price: v } : r
+                      }
+                      onUnitPriceChange={(v) =>
+                        setPubRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, unit_price: v } : r
+                          )
                         )
-                      )
-                    }
-                    disabled={disabled}
-                    formatCurrency={formatCurrency}
-                  />
+                      }
+                      disabled={disabled}
+                      formatCurrency={formatCurrency}
+                    />
+                  )}
 
                   {entry.ruta && (
                     <div className="rounded-lg overflow-hidden border border-cmyk-cyan/30">
@@ -1412,35 +1429,37 @@ export function ServiceFormFields({
                     </div>
                   </div>
 
-                  {/* Cantidad + Unidad + Precio Unit. */}
-                  <RoutePricingRow
-                    cantidad={entry.cantidad}
-                    unidad={entry.unidad}
-                    unitPrice={entry.unit_price}
-                    onCantidadChange={(v) =>
-                      setPerifoneoRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, cantidad: v } : r
+                  {/* Cantidad + Unidad + Precio Unit. (hidden in client view) */}
+                  {!hideRoutePricing && (
+                    <RoutePricingRow
+                      cantidad={entry.cantidad}
+                      unidad={entry.unidad}
+                      unitPrice={entry.unit_price}
+                      onCantidadChange={(v) =>
+                        setPerifoneoRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, cantidad: v } : r
+                          )
                         )
-                      )
-                    }
-                    onUnidadChange={(v) =>
-                      setPerifoneoRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, unidad: v } : r
+                      }
+                      onUnidadChange={(v) =>
+                        setPerifoneoRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, unidad: v } : r
+                          )
                         )
-                      )
-                    }
-                    onUnitPriceChange={(v) =>
-                      setPerifoneoRoutes((prev) =>
-                        prev.map((r) =>
-                          r.id === entry.id ? { ...r, unit_price: v } : r
+                      }
+                      onUnitPriceChange={(v) =>
+                        setPerifoneoRoutes((prev) =>
+                          prev.map((r) =>
+                            r.id === entry.id ? { ...r, unit_price: v } : r
+                          )
                         )
-                      )
-                    }
-                    disabled={disabled}
-                    formatCurrency={formatCurrency}
-                  />
+                      }
+                      disabled={disabled}
+                      formatCurrency={formatCurrency}
+                    />
+                  )}
 
                   {/* Route info from client (reference) */}
                   {entry.clientRouteInfo && (
@@ -1462,6 +1481,16 @@ export function ServiceFormFields({
                             r.id === entry.id ? { ...r, route } : r
                           )
                         )
+                      }
+                      initialPointA={
+                        entry.clientRouteInfo?.punto_a?.lat != null
+                          ? { name: entry.clientRouteInfo.punto_a.name || '', lat: entry.clientRouteInfo.punto_a.lat, lon: entry.clientRouteInfo.punto_a.lon! }
+                          : undefined
+                      }
+                      initialPointB={
+                        entry.clientRouteInfo?.punto_b?.lat != null
+                          ? { name: entry.clientRouteInfo.punto_b.name || '', lat: entry.clientRouteInfo.punto_b.lat, lon: entry.clientRouteInfo.punto_b.lon! }
+                          : undefined
                       }
                     />
                   </div>
