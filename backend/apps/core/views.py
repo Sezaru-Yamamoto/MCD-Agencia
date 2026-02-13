@@ -15,6 +15,32 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 
+def is_internal_user(user) -> bool:
+    """Check if user is an internal team member (admin or sales).
+
+    Uses role name as the primary authority and auto-fixes is_staff
+    if it's out of sync, so the rest of Django (permissions, admin)
+    stays consistent.
+
+    Usage:
+        from apps.core.views import is_internal_user
+
+        if is_internal_user(request.user):
+            ...
+    """
+    role = getattr(user, 'role', None)
+    if role and role.name in ('admin', 'sales'):
+        # Auto-heal: ensure is_staff is True
+        if not user.is_staff:
+            user.is_staff = True
+            try:
+                user.save(update_fields=['is_staff', 'updated_at'])
+            except Exception:
+                user.save(update_fields=['is_staff'])
+        return True
+    return user.is_staff
+
+
 def _get_git_commit():
     """Get current git commit hash (short)."""
     try:

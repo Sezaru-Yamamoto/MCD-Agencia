@@ -24,6 +24,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
+from apps.core.views import is_internal_user
 from .models import Payment, PaymentWebhookLog, Refund
 from .serializers import (
     PaymentSerializer,
@@ -60,7 +61,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Return payments based on user role."""
-        if self.request.user.is_staff:
+        if is_internal_user(self.request.user):
             return Payment.objects.all().select_related('order', 'quote', 'user')
         return Payment.objects.filter(user=self.request.user)
 

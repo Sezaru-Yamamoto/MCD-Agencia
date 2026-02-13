@@ -24,6 +24,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.audit.models import AuditLog
 from apps.catalog.models import ProductVariant
 from apps.core.pagination import StandardPagination
+from apps.core.views import is_internal_user
 from apps.inventory.models import InventoryMovement
 from .models import Cart, CartItem, Address, Order, OrderLine, OrderStatusHistory
 from .serializers import (
@@ -286,7 +287,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Return orders based on user role."""
-        if self.request.user.is_staff:
+        if is_internal_user(self.request.user):
             return Order.objects.all().prefetch_related('lines', 'status_history')
         return Order.objects.filter(
             user=self.request.user, is_deleted=False
@@ -452,7 +453,7 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
     def check_permissions(self, request):
         """Only admin and sales staff can access."""
         super().check_permissions(request)
-        if not request.user.is_staff:
+        if not is_internal_user(request.user):
             self.permission_denied(request)
 
     def get_serializer_class(self):

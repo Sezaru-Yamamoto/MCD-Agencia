@@ -24,6 +24,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
+from apps.core.views import is_internal_user as _is_internal_user
 from apps.notifications.models import Notification
 from .models import QuoteRequest, Quote, QuoteLine, QuoteAttachment, QuoteChangeRequest
 from .tasks import send_quote_email_sync, notify_admin_new_quote_request, send_quote_accepted_notification, send_order_confirmation_email
@@ -136,7 +137,8 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
         """Return requests based on user role and visibility rules.
 
         Visibility rules:
-            - Staff (admin + sales): sees ALL requests.
+            - Admin: sees ALL requests.
+            - Sales: sees requests assigned to them + high urgency requests.
             - Regular customer: only their own requests (by email).
         """
         user = self.request.user
@@ -144,7 +146,14 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             'catalog_item', 'assigned_to'
         ).prefetch_related('attachments')
 
-        if user.is_staff:
+        if _is_internal_user(user):
+            # Sales reps: only assigned to them + high urgency
+            if hasattr(user, 'role') and user.role and user.role.name == 'sales':
+                return base_qs.filter(
+                    models.Q(assigned_to=user) |
+                    models.Q(urgency=QuoteRequest.URGENCY_HIGH)
+                )
+            # Admins: see everything
             return base_qs
 
         # Regular customer sees their own requests
@@ -155,14 +164,14 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
-        if self.request.user.is_staff:
+        if _is_internal_user(self.request.user):
             return QuoteRequestAdminSerializer
         return QuoteRequestSerializer
 
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
         """Get sales rep dashboard data."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         user = request.user
@@ -244,7 +253,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
         """Assign quote request to sales rep (admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote_request = self.get_object()
@@ -300,7 +309,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, pk=None):
         """Delete quote request (admin only, non-quoted requests only)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         # Only admins can delete
@@ -341,7 +350,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def mark_in_review(self, request, pk=None):
         """Mark request as in review (admin/sales)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote_request = self.get_object()
@@ -361,7 +370,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def unmark_in_review(self, request, pk=None):
         """Revert request from in_review back to assigned/pending."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote_request = self.get_object()
@@ -391,7 +400,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         """Cancel a quote request (admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote_request = self.get_object()
@@ -440,11 +449,25 @@ class QuoteViewSet(viewsets.ModelViewSet):
     search_fields = ['quote_number', 'quote_request__customer_name', 'quote_request__customer_email', 'quote_request__customer_company']
 
     def get_queryset(self):
-        """Return quotes based on user role."""
-        if self.request.user.is_staff:
-            return Quote.objects.all().select_related(
+        """Return quotes based on user role.
+
+        Visibility rules:
+            - Admin: sees ALL quotes.
+            - Sales: sees only quotes they created.
+            - Customer: sees quotes sent to them.
+        """
+        user = self.request.user
+        if _is_internal_user(user):
+            base_qs = Quote.objects.all().select_related(
                 'quote_request', 'created_by'
             ).prefetch_related('lines')
+            # Sales reps: only quotes they created
+            if hasattr(user, 'role') and user.role and user.role.name == 'sales':
+                return base_qs.filter(
+                    models.Q(created_by=user) |
+                    models.Q(quote_request__assigned_to=user)
+                )
+            return base_qs
         return Quote.objects.filter(
             quote_request__customer_email=self.request.user.email,
             is_deleted=False,
@@ -461,7 +484,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         """Return appropriate serializer."""
         if self.action == 'create':
             return QuoteCreateSerializer
-        if self.request.user.is_staff:
+        if _is_internal_user(self.request.user):
             return QuoteAdminSerializer
         return QuoteSerializer
 
@@ -471,7 +494,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         Sales reps can only create quotes for requests assigned to them,
         unless the request has urgency='high'. Admins can create for any request.
         """
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         # Check assignment restriction for sales users (non-admin)
@@ -508,7 +531,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, pk=None):
         """Delete quote (admin only, drafts only)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -539,7 +562,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         Handles writable nested 'lines' — the frontend sends the full set of
         line items and we replace them atomically.
         """
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -613,7 +636,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def send(self, request, pk=None):
         """Send quote to customer (admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -683,7 +706,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         quote = self.get_object()
 
         # Security: Verify the authenticated user's email matches the quote's customer email
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             if request.user.email.lower() != quote.customer_email.lower():
                 return Response(
                     {'error': _('You are not authorized to accept this quote. Please login with the correct account.')},
@@ -778,7 +801,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         """
         quote = self.get_object()
 
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(
                 {'error': _('Only staff can convert quotes to orders.')},
                 status=status.HTTP_403_FORBIDDEN
@@ -913,7 +936,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         quote = self.get_object()
 
         # Security: Verify the authenticated user's email matches the quote's customer email
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             if request.user.email.lower() != quote.customer_email.lower():
                 return Response(
                     {'error': _('You are not authorized to reject this quote. Please login with the correct account.')},
@@ -965,7 +988,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
         """Duplicate a quote (admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         original = self.get_object()
@@ -1078,7 +1101,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], url_path='internal-notes')
     def update_internal_notes(self, request, pk=None):
         """Update internal notes for a quote (admin/sales) regardless of status."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -1090,7 +1113,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='regenerate-pdf')
     def regenerate_pdf(self, request, pk=None):
         """Regenerate quote PDF (admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -1104,7 +1127,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='upload-attachment')
     def upload_attachment(self, request, pk=None):
         """Upload a file attachment to a quote (seller/admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -1136,7 +1159,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['delete'], url_path='delete-attachment/(?P<attachment_id>[^/.]+)')
     def delete_attachment(self, request, pk=None, attachment_id=None):
         """Delete a file attachment from a quote (seller/admin)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         quote = self.get_object()
@@ -1154,7 +1177,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='export-excel')
     def export_excel(self, request):
         """Export filtered quotes to Excel."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         import openpyxl
@@ -1689,7 +1712,7 @@ class QuoteChangeRequestViewSet(viewsets.ReadOnlyModelViewSet):
             'quote', 'quote__created_by', 'reviewed_by'
         ).order_by('-created_at')
 
-        if user.is_staff:
+        if _is_internal_user(user):
             # Admin sees all change requests
             if hasattr(user, 'role') and user.role and user.role.name == 'admin':
                 return base_qs
@@ -1703,7 +1726,7 @@ class QuoteChangeRequestViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
         """Review a change request (approve or reject)."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         change_request = self.get_object()
@@ -1806,7 +1829,7 @@ Agencia MCD
     @action(detail=False, methods=['get'])
     def pending(self, request):
         """Get all pending change requests."""
-        if not request.user.is_staff:
+        if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         pending = self.get_queryset().filter(status=QuoteChangeRequest.STATUS_PENDING)

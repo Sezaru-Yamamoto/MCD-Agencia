@@ -107,7 +107,10 @@ class Notification(models.Model):
         """Create a notification for ALL staff users (admin + sales)."""
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        staff_users = User.objects.filter(is_staff=True, is_active=True)
+        staff_users = User.objects.filter(
+            is_active=True,
+            role__name__in=['admin', 'sales'],
+        )
         notifications = []
         for user in staff_users:
             notifications.append(cls(
@@ -128,7 +131,7 @@ class Notification(models.Model):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         sales_users = User.objects.filter(
-            is_staff=True, is_active=True, role__name='sales'
+            is_active=True, role__name='sales'
         )
         notifications = []
         for user in sales_users:
@@ -161,7 +164,7 @@ class Notification(models.Model):
         # Always include admins
         admin_ids = set(
             User.objects.filter(
-                is_staff=True, is_active=True, role__name='admin',
+                is_active=True, role__name='admin',
             ).values_list('id', flat=True)
         )
         recipients.update(admin_ids)
@@ -190,7 +193,7 @@ class Notification(models.Model):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         admins = User.objects.filter(
-            is_staff=True, is_active=True,
+            is_active=True,
             role__name='admin',
         )
         notifications = []
@@ -224,7 +227,7 @@ class Notification(models.Model):
         # Always include admins
         admin_ids = set(
             User.objects.filter(
-                is_staff=True, is_active=True,
+                is_active=True,
                 role__name='admin',
             ).values_list('id', flat=True)
         )
