@@ -189,6 +189,7 @@ export interface CreateQuoteData {
     unit: string;
     unit_price: string | number;
     position?: number;
+    service_details?: Record<string, unknown>;
   }>;
 }
 

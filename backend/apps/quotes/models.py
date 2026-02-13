@@ -898,6 +898,14 @@ class QuoteLine(TimeStampedModel):
         help_text=_('Line total.')
     )
 
+    # Service-specific structured details (JSON)
+    service_details = models.JSONField(
+        _('service details'),
+        null=True,
+        blank=True,
+        help_text=_('Structured service-specific fields (type, dimensions, routes, etc.).')
+    )
+
     # Ordering
     position = models.PositiveIntegerField(
         _('position'),

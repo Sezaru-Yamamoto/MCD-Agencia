@@ -211,7 +211,8 @@ class QuoteLineSerializer(serializers.ModelSerializer):
         model = QuoteLine
         fields = [
             'id', 'concept', 'concept_en', 'description', 'description_en',
-            'quantity', 'unit', 'unit_price', 'line_total', 'position'
+            'quantity', 'unit', 'unit_price', 'line_total', 'position',
+            'service_details'
         ]
         read_only_fields = ['id', 'line_total']
 
@@ -388,6 +389,7 @@ class QuoteCreateSerializer(serializers.Serializer):
                 unit_price=unit_price,
                 line_total=line_total,
                 position=line_data.get('position', position),
+                service_details=line_data.get('service_details'),
             )
             subtotal += line_total
 

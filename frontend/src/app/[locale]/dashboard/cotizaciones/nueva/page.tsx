@@ -19,7 +19,8 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
-import { ServiceDetailsDisplay, subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
+import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
+import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -44,6 +45,8 @@ interface QuoteLineItem {
   unit: string;
   unit_price: number;
   catalogItem?: CatalogItem;
+  serviceDetails?: ServiceDetailsData;
+  showServiceForm?: boolean;
 }
 
 export default function NewQuotePage() {
@@ -102,6 +105,7 @@ export default function NewQuotePage() {
       let conceptText = '';
       let descriptionText = request.description || '';
       let quantityValue = request.quantity || 1;
+      let prefillServiceDetails: ServiceDetailsData | undefined;
 
       if (request.service_type) {
         // Get service label
@@ -125,6 +129,11 @@ export default function NewQuotePage() {
           if (details.cantidad && typeof details.cantidad === 'number') {
             quantityValue = details.cantidad;
           }
+
+          // Build service details for the line item form
+          prefillServiceDetails = serviceDetailsFromRequest(request.service_type, details);
+        } else {
+          prefillServiceDetails = { service_type: request.service_type as ServiceId };
         }
 
         // Leave description empty — seller fills in technical/commercial specs
@@ -144,8 +153,10 @@ export default function NewQuotePage() {
           concept: conceptText,
           description: descriptionText,
           quantity: quantityValue,
-          unit: 'pza',
+          unit: prefillServiceDetails ? 'servicio' : 'pza',
           unit_price: 0,
+          serviceDetails: prefillServiceDetails,
+          showServiceForm: !!prefillServiceDetails,
         }]);
       }
     } catch (error) {
@@ -311,6 +322,7 @@ export default function NewQuotePage() {
           unit: item.unit,
           unit_price: item.unit_price,
           position: index + 1,
+          service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
         })),
       };
 
@@ -410,19 +422,6 @@ export default function NewQuotePage() {
                 })()}
               </div>
             </div>
-
-            {/* Structured service details — same as the quote request detail view */}
-            {quoteRequest.service_type && quoteRequest.service_details && (
-              <div className="mt-3 pt-3 border-t border-neutral-700/50">
-                <p className="text-neutral-400 text-xs font-medium uppercase tracking-wider mb-3">
-                  Detalles del servicio — {SERVICE_LABELS[quoteRequest.service_type as ServiceId] || quoteRequest.service_type}
-                </p>
-                <ServiceDetailsDisplay
-                  serviceType={quoteRequest.service_type}
-                  serviceDetails={quoteRequest.service_details as Record<string, unknown>}
-                />
-              </div>
-            )}
           </Card>
         )}
 
@@ -639,6 +638,11 @@ export default function NewQuotePage() {
                                     key={`${serviceId}-${sub.id}`}
                                     onClick={() => {
                                       const conceptName = `${serviceLabel} - ${sub.label}`;
+                                      const details: ServiceDetailsData = { service_type: serviceId as ServiceId };
+                                      // If service has subtypes (publicidad-movil), set the subtipo
+                                      if (serviceId === 'publicidad-movil') {
+                                        details.subtipo = sub.id;
+                                      }
                                       setItems(prev => [...prev, {
                                         id: `item-${Date.now()}`,
                                         concept: conceptName,
@@ -646,6 +650,8 @@ export default function NewQuotePage() {
                                         quantity: 1,
                                         unit: 'servicio',
                                         unit_price: 0,
+                                        serviceDetails: details,
+                                        showServiceForm: true,
                                       }]);
                                       setServiceSearchQuery('');
                                       setShowServiceDropdown(false);
@@ -749,6 +755,36 @@ export default function NewQuotePage() {
                               </button>
                             </div>
                           </div>
+
+                          {/* Service Form Toggle & Fields */}
+                          {item.serviceDetails && (
+                            <div className="pt-3 border-t border-neutral-700/50">
+                              <button
+                                type="button"
+                                onClick={() => updateItem(item.id, 'showServiceForm', !item.showServiceForm)}
+                                className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
+                              >
+                                <WrenchScrewdriverIcon className="h-4 w-4" />
+                                <span>{item.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
+                                <svg className={`h-3 w-3 transition-transform ${item.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                              {item.showServiceForm && (
+                                <ServiceFormFields
+                                  value={item.serviceDetails}
+                                  onChange={(details) => updateItem(item.id, 'serviceDetails', details)}
+                                  showRoutePrices={true}
+                                  onTotalPriceChange={(total) => {
+                                    // Optionally auto-set unit_price from routes total
+                                    if (total > 0) {
+                                      updateItem(item.id, 'unit_price', total);
+                                    }
+                                  }}
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
