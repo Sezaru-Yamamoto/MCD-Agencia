@@ -404,13 +404,20 @@ export function QuoteForm() {
         email: data.email,
       },
       fecha_requerida: data.fechaRequerida || (() => {
-        // For publibuses: auto-calculate from earliest route fecha_inicio
-        if (data.servicio === 'publicidad-movil' && data.pub_subtipo === 'publibuses' && pubRoutes.length > 0) {
-          const dates = pubRoutes
-            .map(r => r.fechaInicio)
-            .filter(d => !!d)
-            .sort();
-          return dates.length > 0 ? dates[0] : null;
+        // For publicidad-movil subtypes: auto-calculate from earliest route fecha_inicio
+        if (data.servicio === 'publicidad-movil') {
+          let allDates: string[] = [];
+          if (data.pub_subtipo === 'publibuses' && pubRoutes.length > 0) {
+            allDates = pubRoutes.map(r => r.fechaInicio).filter(d => !!d);
+          } else if (data.pub_subtipo === 'vallas-moviles' && vallasRoutes.length > 0) {
+            allDates = vallasRoutes.map(r => r.fechaInicio).filter(d => !!d);
+          } else if (data.pub_subtipo === 'perifoneo' && perifoneoRoutes.length > 0) {
+            allDates = perifoneoRoutes.map(r => r.fechaInicio).filter(d => !!d);
+          }
+          if (allDates.length > 0) {
+            allDates.sort();
+            return allDates[0]; // earliest date
+          }
         }
         return null;
       })(),
@@ -722,14 +729,14 @@ export function QuoteForm() {
                 {errors.email && <p className="error-message">{errors.email.message}</p>}
               </div>
 
-              {/* Hide fecha requerida for publibuses — they use per-route fecha inicio + meses */}
-              {!(servicioValue === 'publicidad-movil' && pubSubtipo === 'publibuses') && (
+              {/* Hide fecha requerida for publicidad-movil subtypes with routes — they use per-route fecha inicio */}
+              {!(servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '')) && (
                 <div>
                   <label htmlFor="fechaRequerida" className="label-field">
                     Fecha estimada requerida <span className="text-cmyk-magenta">*</span>
                   </label>
                   <input
-                    {...register('fechaRequerida', { required: servicioValue === 'publicidad-movil' && pubSubtipo === 'publibuses' ? false : 'La fecha es requerida' })}
+                    {...register('fechaRequerida', { required: servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '') ? false : 'La fecha es requerida' })}
                     type="date"
                     id="fechaRequerida"
                     className="input-field"

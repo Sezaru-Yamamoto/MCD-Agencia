@@ -10,6 +10,9 @@ import {
   MagnifyingGlassIcon,
   InformationCircleIcon,
   ExclamationTriangleIcon,
+  PencilSquareIcon,
+  CheckIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -25,7 +28,7 @@ import {
   CreateQuoteData,
 } from '@/lib/api/quotes';
 import { getProducts, ProductListItem } from '@/lib/api/catalog';
-import { SERVICE_LABELS, type ServiceId } from '@/lib/service-ids';
+import { SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceId, type LandingServiceId } from '@/lib/service-ids';
 
 // Alias for better readability
 type CatalogItem = ProductListItem;
@@ -71,6 +74,10 @@ export default function NewQuotePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [customerEditable, setCustomerEditable] = useState(false);
+  const [searchTab, setSearchTab] = useState<'products' | 'services'>('products');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -120,16 +127,15 @@ export default function NewQuotePage() {
           }
         }
 
-        // Only use client comments as description (not the structured details)
-        descriptionText = request.description || '';
-        if (request.required_date) {
-          descriptionText += descriptionText
-            ? `\nFecha requerida: ${request.required_date}`
-            : `Fecha requerida: ${request.required_date}`;
-        }
+        // Leave description empty — seller fills in technical/commercial specs
+        // Client comments & required_date are shown in the info banner above
+        descriptionText = '';
       } else if (request.catalog_item) {
         conceptText = request.catalog_item.name;
       }
+
+      // When prefilling from request, lock customer fields
+      setCustomerEditable(false);
 
       // Pre-fill items if we have a concept
       if (conceptText) {
@@ -406,7 +412,23 @@ export default function NewQuotePage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Customer Info */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Información del Cliente</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">Información del Cliente</h2>
+                {quoteRequest && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomerEditable(!customerEditable)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      customerEditable
+                        ? 'text-cmyk-cyan bg-cmyk-cyan/10 hover:bg-cmyk-cyan/20'
+                        : 'text-neutral-400 hover:text-white hover:bg-neutral-700'
+                    }`}
+                    title={customerEditable ? 'Bloquear campos' : 'Editar datos del cliente'}
+                  >
+                    {customerEditable ? <CheckIcon className="h-5 w-5" /> : <PencilSquareIcon className="h-5 w-5" />}
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-neutral-400 text-sm mb-2">
@@ -416,8 +438,13 @@ export default function NewQuotePage() {
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
+                    disabled={quoteRequest ? !customerEditable : false}
                     placeholder="Nombre del cliente"
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                    className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
+                      quoteRequest && !customerEditable
+                        ? 'bg-neutral-800/50 border-neutral-700/50 cursor-not-allowed'
+                        : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
+                    }`}
                   />
                 </div>
                 <div>
@@ -428,8 +455,13 @@ export default function NewQuotePage() {
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
+                    disabled={quoteRequest ? !customerEditable : false}
                     placeholder="email@ejemplo.com"
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                    className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
+                      quoteRequest && !customerEditable
+                        ? 'bg-neutral-800/50 border-neutral-700/50 cursor-not-allowed'
+                        : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
+                    }`}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -438,8 +470,13 @@ export default function NewQuotePage() {
                     type="text"
                     value={customerCompany}
                     onChange={(e) => setCustomerCompany(e.target.value)}
+                    disabled={quoteRequest ? !customerEditable : false}
                     placeholder="Nombre de la empresa (opcional)"
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                    className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
+                      quoteRequest && !customerEditable
+                        ? 'bg-neutral-800/50 border-neutral-700/50 cursor-not-allowed'
+                        : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
+                    }`}
                   />
                 </div>
               </div>
@@ -459,42 +496,153 @@ export default function NewQuotePage() {
                 </Button>
               </div>
 
-              {/* Product Search */}
-              <div className="relative mb-4">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
-                  <input
-                    type="text"
-                    placeholder="Buscar producto del catálogo..."
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      setShowProductDropdown(true);
-                    }}
-                    onFocus={() => setShowProductDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
-                    className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                  />
+              {/* Search Tabs */}
+              <div className="mb-4">
+                <div className="flex gap-1 mb-3 bg-neutral-800/50 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSearchTab('products')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      searchTab === 'products'
+                        ? 'bg-neutral-700 text-white'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <MagnifyingGlassIcon className="h-4 w-4" />
+                    Productos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSearchTab('services')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      searchTab === 'services'
+                        ? 'bg-neutral-700 text-white'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <WrenchScrewdriverIcon className="h-4 w-4" />
+                    Servicios
+                  </button>
                 </div>
 
-                {showProductDropdown && productSearch && (
-                  <div className="absolute z-10 w-full mt-2 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl max-h-60 overflow-auto">
-                    {filteredProducts.length > 0 ? (
-                      filteredProducts.slice(0, 10).map(item => (
-                        <button
-                          key={item.id}
-                          onClick={() => addCatalogItem(item)}
-                          className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex justify-between items-center"
-                        >
-                          <div>
-                            <p className="text-white">{item.name}</p>
-                            <p className="text-neutral-400 text-sm">{item.category?.name || item.type}</p>
-                          </div>
-                          <span className="text-cmyk-cyan">{formatCurrency(parseFloat(item.base_price || '0'))}</span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="p-4 text-center text-neutral-400">No se encontraron productos</p>
+                {/* Product Search */}
+                {searchTab === 'products' && (
+                  <div className="relative">
+                    <div className="relative">
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
+                      <input
+                        type="text"
+                        placeholder="Buscar producto del catálogo..."
+                        value={productSearch}
+                        onChange={(e) => {
+                          setProductSearch(e.target.value);
+                          setShowProductDropdown(true);
+                        }}
+                        onFocus={() => setShowProductDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
+                        className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                      />
+                    </div>
+
+                    {showProductDropdown && productSearch && (
+                      <div className="absolute z-10 w-full mt-2 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl max-h-60 overflow-auto">
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.slice(0, 10).map(item => (
+                            <button
+                              key={item.id}
+                              onClick={() => addCatalogItem(item)}
+                              className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex justify-between items-center"
+                            >
+                              <div>
+                                <p className="text-white">{item.name}</p>
+                                <p className="text-neutral-400 text-sm">{item.category?.name || item.type}</p>
+                              </div>
+                              <span className="text-cmyk-cyan">{formatCurrency(parseFloat(item.base_price || '0'))}</span>
+                            </button>
+                          ))
+                        ) : (
+                          <p className="p-4 text-center text-neutral-400">No se encontraron productos</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Service Search */}
+                {searchTab === 'services' && (
+                  <div className="relative">
+                    <div className="relative">
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
+                      <input
+                        type="text"
+                        placeholder="Buscar servicio..."
+                        value={serviceSearchQuery}
+                        onChange={(e) => {
+                          setServiceSearchQuery(e.target.value);
+                          setShowServiceDropdown(true);
+                        }}
+                        onFocus={() => setShowServiceDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowServiceDropdown(false), 200)}
+                        className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                      />
+                    </div>
+
+                    {showServiceDropdown && (
+                      <div className="absolute z-10 w-full mt-2 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl max-h-72 overflow-auto">
+                        {(() => {
+                          const query = serviceSearchQuery.toLowerCase();
+                          const entries = Object.entries(SERVICE_SUBCATEGORIES) as [LandingServiceId, typeof SERVICE_SUBCATEGORIES[LandingServiceId]][];
+                          let hasResults = false;
+
+                          const content = entries.map(([serviceId, subcategories]) => {
+                            const serviceLabel = SERVICE_LABELS[serviceId] || serviceId;
+                            // Filter subcategories that match the search
+                            const matchingSubs = subcategories.filter(sub =>
+                              !query ||
+                              serviceLabel.toLowerCase().includes(query) ||
+                              sub.label.toLowerCase().includes(query) ||
+                              `${serviceLabel} ${sub.label}`.toLowerCase().includes(query)
+                            );
+
+                            if (matchingSubs.length === 0) return null;
+                            hasResults = true;
+
+                            return (
+                              <div key={serviceId}>
+                                <div className="px-4 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider bg-neutral-800/80 sticky top-0">
+                                  {serviceLabel}
+                                </div>
+                                {matchingSubs.map(sub => (
+                                  <button
+                                    key={`${serviceId}-${sub.id}`}
+                                    onClick={() => {
+                                      const conceptName = `${serviceLabel} - ${sub.label}`;
+                                      setItems(prev => [...prev, {
+                                        id: `item-${Date.now()}`,
+                                        concept: conceptName,
+                                        description: '',
+                                        quantity: 1,
+                                        unit: 'servicio',
+                                        unit_price: 0,
+                                      }]);
+                                      setServiceSearchQuery('');
+                                      setShowServiceDropdown(false);
+                                    }}
+                                    className="w-full px-4 py-2.5 pl-8 text-left hover:bg-neutral-700 transition-colors"
+                                  >
+                                    <p className="text-white text-sm">{sub.label}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          });
+
+                          if (!hasResults) {
+                            return <p className="p-4 text-center text-neutral-400">No se encontraron servicios</p>;
+                          }
+                          return content;
+                        })()}
+                      </div>
                     )}
                   </div>
                 )}
@@ -587,7 +735,7 @@ export default function NewQuotePage() {
               ) : (
                 <div className="text-center py-8 text-neutral-400 border border-dashed border-neutral-700 rounded-lg">
                   <p>No hay conceptos agregados</p>
-                  <p className="text-sm mt-1">Busca productos del catálogo o agrega conceptos personalizados</p>
+                  <p className="text-sm mt-1">Busca productos o servicios del catálogo, o agrega conceptos personalizados</p>
                 </div>
               )}
             </Card>
