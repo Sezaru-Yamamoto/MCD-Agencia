@@ -1070,7 +1070,28 @@ export default function NewQuotePage() {
       isLoading={isSubmitting}
       customerName={customerName}
       customerEmail={customerEmail}
-      lines={items}
+      lines={items.map((item) => {
+        const isRoute = item.serviceDetails && isRouteBasedService(
+          item.serviceDetails.service_type,
+          item.serviceDetails.subtipo as string | undefined
+        );
+        let concept = item.concept;
+        if (item.serviceDetails && item.serviceDetails.service_type) {
+          const svcLabel = SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type;
+          const subLabel = item.serviceDetails.subtipo
+            ? subtipoLabels[item.serviceDetails.subtipo as string] || (item.serviceDetails.subtipo as string)
+            : '';
+          concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
+        }
+        const routeTotal = isRoute ? computeRoutesTotal(item.serviceDetails!) : 0;
+        return {
+          concept,
+          quantity: isRoute ? 1 : item.quantity,
+          unit: isRoute ? 'servicio' : item.unit,
+          unit_price: isRoute ? routeTotal : item.unit_price,
+          line_total: isRoute ? routeTotal : item.quantity * item.unit_price,
+        };
+      })}
       subtotal={subtotal}
       taxAmount={taxAmount}
       total={total}
