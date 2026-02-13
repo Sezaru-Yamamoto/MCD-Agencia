@@ -457,11 +457,12 @@ export default function NewQuotePage() {
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    disabled={quoteRequest ? !customerEditable : false}
+                    readOnly={quoteRequest ? !customerEditable : false}
+                    tabIndex={quoteRequest && !customerEditable ? -1 : undefined}
                     placeholder="Nombre del cliente"
                     className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
                       quoteRequest && !customerEditable
-                        ? 'bg-neutral-800/50 border-neutral-700/50 cursor-not-allowed'
+                        ? 'bg-neutral-800/50 border-neutral-700/50'
                         : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
                     }`}
                   />
@@ -474,11 +475,12 @@ export default function NewQuotePage() {
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    disabled={quoteRequest ? !customerEditable : false}
+                    readOnly={quoteRequest ? !customerEditable : false}
+                    tabIndex={quoteRequest && !customerEditable ? -1 : undefined}
                     placeholder="email@ejemplo.com"
                     className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
                       quoteRequest && !customerEditable
-                        ? 'bg-neutral-800/50 border-neutral-700/50 cursor-not-allowed'
+                        ? 'bg-neutral-800/50 border-neutral-700/50'
                         : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
                     }`}
                   />
@@ -489,11 +491,12 @@ export default function NewQuotePage() {
                     type="text"
                     value={customerCompany}
                     onChange={(e) => setCustomerCompany(e.target.value)}
-                    disabled={quoteRequest ? !customerEditable : false}
+                    readOnly={quoteRequest ? !customerEditable : false}
+                    tabIndex={quoteRequest && !customerEditable ? -1 : undefined}
                     placeholder="Nombre de la empresa (opcional)"
                     className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
                       quoteRequest && !customerEditable
-                        ? 'bg-neutral-800/50 border-neutral-700/50 cursor-not-allowed'
+                        ? 'bg-neutral-800/50 border-neutral-700/50'
                         : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
                     }`}
                   />
