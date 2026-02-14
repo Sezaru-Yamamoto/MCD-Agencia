@@ -151,4 +151,7 @@ print(f'Set is_staff=False for {customer_updated} customer users')
 print('is_staff sync completed.')
 "
 
+echo "=== Re-applying service_details from approved change requests ==="
+python manage.py reapply_change_request_details --apply
+
 echo "=== Build completed successfully ==="
