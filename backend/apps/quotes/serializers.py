@@ -265,12 +265,13 @@ class QuoteSerializer(serializers.ModelSerializer):
             'delivery_time_text', 'estimated_delivery_date',
             'delivery_method', 'pickup_branch', 'delivery_address',
             'payment_methods', 'payment_conditions', 'included_services',
-            'customer_notes', 'view_count'
+            'customer_notes', 'view_count',
+            'token', 'pdf_file',
         ]
         read_only_fields = [
             'id', 'quote_number', 'status', 'version', 'subtotal',
             'tax_amount', 'total', 'sent_at', 'viewed_at', 'accepted_at',
-            'created_at', 'view_count'
+            'created_at', 'view_count', 'token', 'pdf_file'
         ]
 
 
