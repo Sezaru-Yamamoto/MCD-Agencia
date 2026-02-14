@@ -747,7 +747,13 @@ export default function QuoteDetailPage() {
                           </div>
                           <div className="flex-1 -mt-0.5">
                             <p className={`text-xs font-medium ${responseActionColors[response.action] || 'text-neutral-400'}`}>
-                              {responseActionLabels[response.action] || response.action_display}
+                              {quote.token ? (
+                                <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">
+                                  {responseActionLabels[response.action] || response.action_display}
+                                </Link>
+                              ) : (
+                                responseActionLabels[response.action] || response.action_display
+                              )}
                               {response.action === 'send' && response.comment && (
                                 <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
                                   {response.comment}
@@ -775,7 +781,11 @@ export default function QuoteDetailPage() {
                         <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                       </div>
                       <div className="flex-1 -mt-0.5">
-                        <p className="text-cmyk-cyan text-xs font-medium">Cotización enviada</p>
+                        <p className="text-cmyk-cyan text-xs font-medium">
+                          {quote.token ? (
+                            <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización enviada</Link>
+                          ) : 'Cotización enviada'}
+                        </p>
                         <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
                       </div>
                     </div>
@@ -787,7 +797,11 @@ export default function QuoteDetailPage() {
                       <DocumentTextIcon className="h-3 w-3 text-cmyk-cyan" />
                     </div>
                     <div className="flex-1 -mt-0.5">
-                      <p className="text-cmyk-cyan text-xs font-medium">Cotización creada</p>
+                      <p className="text-cmyk-cyan text-xs font-medium">
+                        {quote.token ? (
+                          <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización creada</Link>
+                        ) : 'Cotización creada'}
+                      </p>
                       <p className="text-neutral-500 text-xs">
                         {quote.created_by_name && `${quote.created_by_name} · `}{formatDate(quote.created_at)}
                       </p>

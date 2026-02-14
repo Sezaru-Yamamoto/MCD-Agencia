@@ -880,7 +880,13 @@ export default function CustomerQuoteDetailPage() {
                         </div>
                         <div className="flex-1 -mt-0.5">
                           <p className={`text-xs font-medium ${actionColors[response.action] || 'text-neutral-400'}`}>
-                            {actionLabels[response.action] || response.action_display}
+                            {quote.token ? (
+                              <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">
+                                {actionLabels[response.action] || response.action_display}
+                              </Link>
+                            ) : (
+                              actionLabels[response.action] || response.action_display
+                            )}
                             {response.action === 'send' && response.comment && (
                               <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
                                 {response.comment}
@@ -905,7 +911,11 @@ export default function CustomerQuoteDetailPage() {
                         <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                       </div>
                       <div className="flex-1 -mt-0.5">
-                        <p className="text-cmyk-cyan text-xs font-medium">Cotización enviada</p>
+                        <p className="text-cmyk-cyan text-xs font-medium">
+                          {quote.token ? (
+                            <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización enviada</Link>
+                          ) : 'Cotización enviada'}
+                        </p>
                         <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
                       </div>
                     </div>
@@ -917,7 +927,11 @@ export default function CustomerQuoteDetailPage() {
                       <DocumentTextIcon className="h-3 w-3 text-cmyk-cyan" />
                     </div>
                     <div className="flex-1 -mt-0.5">
-                      <p className="text-cmyk-cyan text-xs font-medium">Cotización creada</p>
+                      <p className="text-cmyk-cyan text-xs font-medium">
+                        {quote.token ? (
+                          <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización creada</Link>
+                        ) : 'Cotización creada'}
+                      </p>
                       <p className="text-neutral-500 text-xs">{formatDate(quote.created_at)}</p>
                     </div>
                   </div>
@@ -936,13 +950,15 @@ export default function CustomerQuoteDetailPage() {
                           <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
-                          <p className="text-neutral-400 text-xs font-medium">Solicitud de cotización</p>
+                          <p className="text-neutral-400 text-xs font-medium">
+                            <Link href={`/${locale}/#cotizar`} className="hover:underline hover:text-neutral-300 transition-colors">Solicitud de cotización</Link>
+                          </p>
                           <p className="text-neutral-500 text-xs">
                             {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
                           </p>
                           {quote.quote_request.request_number && (
                             <p className="text-neutral-500 text-xs mt-0.5">
-                              #{quote.quote_request.request_number}
+                              <Link href={`/${locale}/#cotizar`} className="hover:underline hover:text-cmyk-cyan transition-colors">#{quote.quote_request.request_number}</Link>
                             </p>
                           )}
                         </div>
