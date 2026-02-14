@@ -28,7 +28,7 @@ from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
 from apps.core.views import is_internal_user as _is_internal_user
 from apps.notifications.models import Notification
-from .models import QuoteRequest, Quote, QuoteLine, QuoteAttachment, QuoteChangeRequest
+from .models import QuoteRequest, Quote, QuoteLine, QuoteAttachment, QuoteChangeRequest, QuoteResponse
 from .tasks import send_quote_email_sync, notify_admin_new_quote_request, send_quote_accepted_notification, send_order_confirmation_email
 from .serializers import (
     QuoteRequestSerializer,
@@ -679,6 +679,17 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 quote.valid_until = serializer.validated_data['valid_until']
 
             quote.save(update_fields=['status', 'sent_at', 'valid_until', 'updated_at'])
+
+            # Track this send in QuoteResponse so every send appears in the
+            # timeline history — especially important when a quote is re-sent
+            # after a change request cycle (v1 send, v2 send, etc.).
+            version_label = f'v{quote.version}' if quote.version > 1 else ''
+            QuoteResponse.objects.create(
+                quote=quote,
+                action=QuoteResponse.ACTION_SEND,
+                comment=version_label,
+                responded_by=request.user,
+            )
 
             # Update quote request status
             if quote.quote_request:

@@ -1039,6 +1039,7 @@ class QuoteResponse(TimeStampedModel):
     ACTION_CHANGE_REQUEST = 'change_request'
     ACTION_APPROVAL = 'approval'
     ACTION_REJECTION = 'rejection'
+    ACTION_SEND = 'send'
 
     ACTION_CHOICES = [
         (ACTION_VIEW, _('Viewed')),
@@ -1046,6 +1047,7 @@ class QuoteResponse(TimeStampedModel):
         (ACTION_CHANGE_REQUEST, _('Change Request')),
         (ACTION_APPROVAL, _('Approved')),
         (ACTION_REJECTION, _('Rejected')),
+        (ACTION_SEND, _('Sent')),
     ]
 
     id = models.UUIDField(

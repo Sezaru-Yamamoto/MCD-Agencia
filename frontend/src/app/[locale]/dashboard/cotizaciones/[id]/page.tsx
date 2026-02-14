@@ -97,6 +97,7 @@ const responseActionLabels: Record<string, string> = {
   reject: 'Rechazada',
   change_request: 'Solicitud de cambio',
   comment: 'Comentario',
+  send: 'Cotización enviada',
 };
 
 const responseActionColors: Record<string, string> = {
@@ -105,6 +106,7 @@ const responseActionColors: Record<string, string> = {
   reject: 'text-red-400',
   change_request: 'text-orange-400',
   comment: 'text-blue-400',
+  send: 'text-cmyk-cyan',
 };
 
 export default function QuoteDetailPage() {
@@ -693,7 +695,7 @@ export default function QuoteDetailPage() {
                     </Link>
                   ))}
 
-                  {/* Quote responses (accept, reject, view, comment) */}
+                  {/* Quote responses (accept, reject, view, comment, send) */}
                   {responses.map((response) => (
                     <div key={response.id} className="relative flex items-start gap-3">
                       <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
@@ -701,22 +703,29 @@ export default function QuoteDetailPage() {
                         response.action === 'reject' ? 'bg-red-500/20 border-red-500/40' :
                         response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
                         response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
+                        response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
                         'bg-blue-500/20 border-blue-500/40'
                       }`}>
                         {response.action === 'accept' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
                         {response.action === 'reject' && <XCircleIcon className="h-3 w-3 text-red-400" />}
                         {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
                         {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
+                        {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
                         {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
                       </div>
                       <div className="flex-1 -mt-0.5">
                         <p className={`text-xs font-medium ${responseActionColors[response.action] || 'text-neutral-400'}`}>
                           {responseActionLabels[response.action] || response.action_display}
+                          {response.action === 'send' && response.comment && (
+                            <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
+                              {response.comment}
+                            </span>
+                          )}
                         </p>
                         <p className="text-neutral-500 text-xs">
                           {response.responded_by_name || response.guest_name || 'Cliente'} · {new Date(response.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
-                        {response.comment && (
+                        {response.action !== 'send' && response.comment && (
                           <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
                             &ldquo;{response.comment}&rdquo;
                           </p>
@@ -725,8 +734,8 @@ export default function QuoteDetailPage() {
                     </div>
                   ))}
 
-                  {/* Sent */}
-                  {quote.sent_at && (
+                  {/* Sent (fallback for quotes sent before tracking was added) */}
+                  {quote.sent_at && !responses.some(r => r.action === 'send') && (
                     <div className="relative flex items-start gap-3">
                       <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
                         <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
