@@ -21,6 +21,7 @@ import {
   ChatBubbleLeftIcon,
   UserIcon,
   DocumentTextIcon,
+  PaperClipIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -945,6 +946,52 @@ export default function QuoteDetailPage() {
                 </button>
               )}
             </Card>
+
+            {/* Attachments */}
+            {quote.attachments && quote.attachments.length > 0 && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                  Archivos Adjuntos ({quote.attachments.length})
+                </h2>
+                <div className="space-y-2">
+                  {quote.attachments.map((att) => {
+                    const isImage = att.file_type?.startsWith('image/');
+                    return (
+                      <div key={att.id} className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
+                        {isImage ? (
+                          <a href={att.file} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                            <img
+                              src={att.file}
+                              alt={att.filename}
+                              className="w-16 h-16 object-cover rounded border border-neutral-600 hover:border-cmyk-cyan transition-colors"
+                            />
+                          </a>
+                        ) : (
+                          <div className="w-10 h-10 flex items-center justify-center bg-neutral-700 rounded flex-shrink-0">
+                            <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <a
+                            href={att.file}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-cmyk-cyan hover:underline truncate block"
+                          >
+                            {att.filename}
+                          </a>
+                          <p className="text-xs text-neutral-500">
+                            {att.file_size > 0 && `${(att.file_size / 1024).toFixed(0)} KB`}
+                            {att.file_type && ` · ${att.file_type}`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
 
 
           </div>

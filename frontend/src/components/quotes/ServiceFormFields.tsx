@@ -2121,9 +2121,9 @@ export function serviceDetailsFromRequest(
           horarioInicio: (r.horario_inicio as string) || '',
           horarioFin: (r.horario_fin as string) || '',
           route: null,
-          cantidad: 1,
-          unidad: 'servicio',
-          unit_price: 0,
+          cantidad: (r.cantidad as number) || 1,
+          unidad: (r.unidad as string) || 'servicio',
+          unit_price: (r.precio_unitario as number) || 0,
           clientRouteInfo: rutaObj
             ? {
                 punto_a: rutaObj.punto_a as { name?: string; lat?: number; lon?: number } | null,
@@ -2139,9 +2139,9 @@ export function serviceDetailsFromRequest(
         id: `er-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
         ruta: (r.ruta_preestablecida as string) || '',
         fechaInicio: (r.fecha_inicio as string) || '',
-        cantidad: 1,
-        unidad: 'servicio',
-        unit_price: 0,
+        cantidad: (r.cantidad as number) || 1,
+        unidad: (r.unidad as string) || 'servicio',
+        unit_price: (r.precio_unitario as number) || 0,
       }));
     } else if (subtipo === 'perifoneo') {
       base._perifoneoRoutes = rutas.map((r) => {
@@ -2153,9 +2153,9 @@ export function serviceDetailsFromRequest(
           horarioInicio: (r.horario_inicio as string) || '',
           horarioFin: (r.horario_fin as string) || '',
           route: null,
-          cantidad: 1,
-          unidad: 'servicio',
-          unit_price: 0,
+          cantidad: (r.cantidad as number) || 1,
+          unidad: (r.unidad as string) || 'servicio',
+          unit_price: (r.precio_unitario as number) || 0,
           clientRouteInfo: rutaObj
             ? {
                 punto_a: rutaObj.punto_a as { name?: string; lat?: number; lon?: number } | null,
