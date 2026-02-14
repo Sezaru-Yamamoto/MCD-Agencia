@@ -19,6 +19,10 @@ import {
   CNC_LASER_TIPOS,
   DISENO_GRAFICO_TIPOS,
   type ServiceId,
+  DELIVERY_METHOD_LABELS,
+  DELIVERY_METHOD_ICONS,
+  type DeliveryMethod,
+  getDeliveryMethodsForService,
 } from '@/lib/service-ids';
 import dynamic from 'next/dynamic';
 
@@ -214,6 +218,7 @@ export function QuoteForm() {
   const [perifoneoRoutes, setPerifoneoRoutes] = useState<ConfigurableRouteEntry[]>([createConfigurableRoute()]);
   const [pubRoutes, setPubRoutes] = useState<EstablishedRouteEntry[]>([createEstablishedRoute()]);
   const [selectionFeedback, setSelectionFeedback] = useState<{ service: string; subtype: string } | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | ''>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -322,6 +327,7 @@ export function QuoteForm() {
     setVallasRoutes([createConfigurableRoute()]);
     setPerifoneoRoutes([createConfigurableRoute()]);
     setPubRoutes([createEstablishedRoute()]);
+    setDeliveryMethod('');
   }, [servicioValue]);
 
   const onSubmit = async (data: QuoteFormData) => {
@@ -374,6 +380,7 @@ export function QuoteForm() {
       });
       reset();
       setSelectedFiles([]);
+      setDeliveryMethod('');
       setVallasRoutes([createConfigurableRoute()]);
       setPerifoneoRoutes([createConfigurableRoute()]);
       setPubRoutes([createEstablishedRoute()]);
@@ -422,6 +429,7 @@ export function QuoteForm() {
         return null;
       })(),
       servicio: data.servicio,
+      metodo_entrega: deliveryMethod || null,
       detalles: {} as Record<string, unknown>,
       archivos: selectedFiles.map(f => ({ nombre: f.name, tamano: f.size })),
       comentarios: data.comentarios || null,
@@ -1689,6 +1697,53 @@ export function QuoteForm() {
               )}
             </div>
           )}
+
+          {/* SECTION: Delivery Method Preference */}
+          {servicioValue && (() => {
+            // Determine current subtype for the selected service
+            let currentSubtype: string | undefined;
+            if (servicioValue === 'espectaculares') currentSubtype = espTipo || undefined;
+            else if (servicioValue === 'publicidad-movil') currentSubtype = pubSubtipo || undefined;
+            else if (servicioValue === 'fabricacion-anuncios') currentSubtype = fabTipoAnuncio || undefined;
+            else if (servicioValue === 'senalizacion') currentSubtype = senTipo || undefined;
+            else if (servicioValue === 'corte-grabado-cnc-laser') currentSubtype = cncTipo || undefined;
+            else if (servicioValue === 'rotulacion-vehicular') currentSubtype = rotTipoRotulacion || undefined;
+            else if (servicioValue === 'diseno-grafico') currentSubtype = disTipo || undefined;
+            else if (servicioValue === 'impresion-offset-serigrafia') currentSubtype = offProducto || undefined;
+
+            const methods = getDeliveryMethodsForService(servicioValue, currentSubtype);
+            // Don't show if only 'not_applicable'
+            if (methods.length === 1 && methods[0] === 'not_applicable') return null;
+
+            return (
+              <div className="space-y-3">
+                <label className="label-field flex items-center gap-2">
+                  <svg className="w-5 h-5 text-cmyk-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Preferencia de entrega (opcional)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {methods.filter(m => m !== 'not_applicable').map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setDeliveryMethod(prev => prev === method ? '' : method)}
+                      disabled={formStatus === 'submitting'}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                        deliveryMethod === method
+                          ? 'border-cmyk-magenta bg-cmyk-magenta/10 text-white'
+                          : 'border-gray-600 bg-neutral-800 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      <span>{DELIVERY_METHOD_ICONS[method]}</span>
+                      <span>{DELIVERY_METHOD_LABELS[method].es}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* SECTION: Files and Comments */}
           <div className="space-y-6">
