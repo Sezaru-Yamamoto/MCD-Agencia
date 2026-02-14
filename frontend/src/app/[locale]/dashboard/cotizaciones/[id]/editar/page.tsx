@@ -135,9 +135,10 @@ export default function EditQuotePage() {
 
       // Compute available delivery methods from quote request or service type
       if (quote.quote_request) {
-        const serviceType = (quote.quote_request as Record<string, unknown>)?.service_type as string | undefined;
+        const qr = quote.quote_request as unknown as Record<string, unknown>;
+        const serviceType = qr?.service_type as string | undefined;
         if (serviceType) {
-          const subtypeId = ((quote.quote_request as Record<string, unknown>)?.service_details as Record<string, unknown>)?.subtipo as string | undefined;
+          const subtypeId = (qr?.service_details as Record<string, unknown>)?.subtipo as string | undefined;
           setAvailableDeliveryMethods(getDeliveryMethodsForService(serviceType, subtypeId));
         } else {
           setAvailableDeliveryMethods(['installation', 'pickup', 'shipping', 'digital', 'not_applicable']);
