@@ -631,6 +631,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
                         unit_price=unit_price,
                         line_total=line_total,
                         position=line.get('position', position),
+                        service_details=line.get('service_details'),
                     )
                     subtotal += line_total
 
