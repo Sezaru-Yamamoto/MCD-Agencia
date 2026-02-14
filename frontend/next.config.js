@@ -75,12 +75,18 @@ const nextConfig = {
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/:path*`,
-      },
-    ];
+    return {
+      // afterFiles rewrites are checked after pages/public files and API route
+      // handlers but before fallback rewrites. This ensures that Next.js API
+      // routes (e.g. /api/postal-code/[cp]) are served by the local handler
+      // while everything else under /api is proxied to the Django backend.
+      afterFiles: [
+        {
+          source: '/api/:path*',
+          destination: `${apiUrl}/:path*`,
+        },
+      ],
+    };
   },
 
   // ==========================================================================
