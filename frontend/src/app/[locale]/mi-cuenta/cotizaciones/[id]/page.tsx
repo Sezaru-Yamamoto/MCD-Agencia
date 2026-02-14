@@ -22,7 +22,6 @@ import {
   PaperClipIcon,
   PaperAirplaneIcon,
   EyeIcon,
-  PencilSquareIcon,
   PencilIcon,
 } from '@heroicons/react/24/outline';
 
@@ -767,8 +766,14 @@ export default function CustomerQuoteDetailPage() {
           </Card>
 
           {/* Timeline / Historial */}
-          {(responses.length > 0 || changeRequests.length > 0 || quote.version > 1) && (() => {
-            // Build unified timeline: merge responses + change requests, sorted newest first
+          {(responses.length > 0 || changeRequests.length > 0 || quote.sent_at) && (() => {
+            // Build unified timeline following the real business flow:
+            // 1. Solicitud de cotización (customer request) — bottom
+            // 2. Cotización creada y enviada (send response = creation + delivery combined)
+            // 3. Solicitud de cambio (change requests from client)
+            // 4. Cotización creada y enviada v2 (2nd send = new version)
+            // 5. Other events: view, approval, rejection, comment — interleaved chronologically
+
             type TimelineEvent = 
               | { type: 'response'; date: string; data: QuoteResponseType }
               | { type: 'change_request'; date: string; data: QuoteChangeRequest };
@@ -778,15 +783,22 @@ export default function CustomerQuoteDetailPage() {
               ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
             ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+            // Count send responses chronologically to assign version numbers
+            const sendResponses = responses.filter(r => r.action === 'send').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            const sendVersionMap = new Map<string, number>();
+            sendResponses.forEach((r, i) => sendVersionMap.set(r.id, i + 1));
+            const hasSendResponses = sendResponses.length > 0;
+
             const actionLabels: Record<string, string> = {
               view: 'Cotización vista', approval: 'Cotización aceptada', rejection: 'Cotización rechazada',
-              change_request: 'Cambio solicitado', comment: 'Comentario', send: 'Cotización enviada',
+              change_request: 'Cambio solicitado', comment: 'Comentario',
             };
             const actionColors: Record<string, string> = {
               view: 'text-purple-400', approval: 'text-green-400', rejection: 'text-red-400',
               change_request: 'text-orange-400', comment: 'text-blue-400', send: 'text-cmyk-cyan',
             };
             const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const quoteLink = quote.token ? `/${locale}/cotizacion/${quote.token}` : null;
 
             return (
             <Card className="p-6">
@@ -798,18 +810,6 @@ export default function CustomerQuoteDetailPage() {
                 {/* Timeline line */}
                 <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700"></div>
                 <div className="space-y-4">
-                  {/* Version badge */}
-                  {quote.version > 1 && (
-                    <div className="relative flex items-start gap-3">
-                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
-                        <span className="text-purple-400 text-[10px] font-bold leading-none">v{quote.version}</span>
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className="text-purple-400 text-xs font-medium">Versión actual: v{quote.version}</p>
-                        <p className="text-neutral-500 text-xs">Modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}</p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Unified chronological events */}
                   {events.map((event) => {
@@ -832,7 +832,7 @@ export default function CustomerQuoteDetailPage() {
                             <p className={`text-xs font-medium ${
                               cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
                             }`}>
-                              Solicitud de cambio — {cr.status === 'pending' ? 'pendiente' : cr.status === 'approved' ? 'aprobada' : 'rechazada'}
+                              Solicitud de cambio — {cr.status === 'pending' ? 'en revisión' : cr.status === 'approved' ? 'aprobada' : 'rechazada'}
                               {cr.changes_summary && (
                                 <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
                                   {[
@@ -861,40 +861,63 @@ export default function CustomerQuoteDetailPage() {
 
                     // Response event
                     const response = event.data as QuoteResponseType;
+
+                    // For 'send' responses: show as "Cotización creada y enviada [vN]"
+                    if (response.action === 'send') {
+                      const version = sendVersionMap.get(response.id) || 1;
+                      const versionLabel = version > 1 ? ` v${version}` : '';
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                            <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-cmyk-cyan text-xs font-medium">
+                              {quoteLink ? (
+                                <Link href={quoteLink} className="hover:underline">
+                                  Cotización creada y enviada{versionLabel}
+                                </Link>
+                              ) : (
+                                <>Cotización creada y enviada{versionLabel}</>
+                              )}
+                              {version > 1 && (
+                                <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
+                                  v{version}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // For rejection: show the reason
                     return (
                       <div key={`r-${response.id}`} className="relative flex items-start gap-3">
                         <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
                           response.action === 'approval' ? 'bg-green-500/20 border-green-500/40' :
                           response.action === 'rejection' ? 'bg-red-500/20 border-red-500/40' :
-                          response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
                           response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
-                          response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
                           'bg-blue-500/20 border-blue-500/40'
                         }`}>
                           {response.action === 'approval' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
                           {response.action === 'rejection' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                          {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
                           {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
-                          {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
                           {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
                         </div>
                         <div className="flex-1 -mt-0.5">
                           <p className={`text-xs font-medium ${actionColors[response.action] || 'text-neutral-400'}`}>
-                            {quote.token ? (
-                              <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">
+                            {quoteLink ? (
+                              <Link href={quoteLink} className="hover:underline">
                                 {actionLabels[response.action] || response.action_display}
                               </Link>
                             ) : (
                               actionLabels[response.action] || response.action_display
                             )}
-                            {response.action === 'send' && response.comment && (
-                              <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
-                                {response.comment}
-                              </span>
-                            )}
                           </p>
                           <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
-                          {response.action !== 'send' && response.comment && (
+                          {response.comment && (
                             <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
                               &ldquo;{response.comment}&rdquo;
                             </p>
@@ -904,39 +927,24 @@ export default function CustomerQuoteDetailPage() {
                     );
                   })}
 
-                  {/* Sent fallback (for quotes sent before tracking) */}
-                  {quote.sent_at && !responses.some(r => r.action === 'send') && (
+                  {/* Sent fallback — only for quotes sent before response tracking existed */}
+                  {quote.sent_at && !hasSendResponses && (
                     <div className="relative flex items-start gap-3">
                       <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
                         <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                       </div>
                       <div className="flex-1 -mt-0.5">
                         <p className="text-cmyk-cyan text-xs font-medium">
-                          {quote.token ? (
-                            <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización enviada</Link>
-                          ) : 'Cotización enviada'}
+                          {quoteLink ? (
+                            <Link href={quoteLink} className="hover:underline">Cotización creada y enviada</Link>
+                          ) : 'Cotización creada y enviada'}
                         </p>
                         <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Quote created */}
-                  <div className="relative flex items-start gap-3">
-                    <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
-                      <DocumentTextIcon className="h-3 w-3 text-cmyk-cyan" />
-                    </div>
-                    <div className="flex-1 -mt-0.5">
-                      <p className="text-cmyk-cyan text-xs font-medium">
-                        {quote.token ? (
-                          <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización creada</Link>
-                        ) : 'Cotización creada'}
-                      </p>
-                      <p className="text-neutral-500 text-xs">{formatDate(quote.created_at)}</p>
-                    </div>
-                  </div>
-
-                  {/* Request created */}
+                  {/* Request created — the original customer request */}
                   {quote.quote_request && (
                     <>
                       <div className="relative flex items-center gap-3 py-1">
@@ -951,14 +959,14 @@ export default function CustomerQuoteDetailPage() {
                         </div>
                         <div className="flex-1 -mt-0.5">
                           <p className="text-neutral-400 text-xs font-medium">
-                            <Link href={`/${locale}/#cotizar`} className="hover:underline hover:text-neutral-300 transition-colors">Solicitud de cotización</Link>
+                            Solicitud de cotización
                           </p>
                           <p className="text-neutral-500 text-xs">
                             {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
                           </p>
                           {quote.quote_request.request_number && (
-                            <p className="text-neutral-500 text-xs mt-0.5">
-                              <Link href={`/${locale}/#cotizar`} className="hover:underline hover:text-cmyk-cyan transition-colors">#{quote.quote_request.request_number}</Link>
+                            <p className="text-cmyk-cyan text-xs mt-0.5">
+                              #{quote.quote_request.request_number}
                             </p>
                           )}
                         </div>

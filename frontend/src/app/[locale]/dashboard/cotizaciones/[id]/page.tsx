@@ -16,11 +16,10 @@ import {
   ClockIcon,
   EyeIcon,
   ShoppingCartIcon,
-  PencilSquareIcon,
   ArrowPathIcon,
   ChatBubbleLeftIcon,
   UserIcon,
-  DocumentTextIcon,
+  PencilSquareIcon,
   PaperClipIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -647,19 +646,6 @@ export default function QuoteDetailPage() {
                 <div className="space-y-4">
                   {/* --- Unified chronological timeline (newest first) --- */}
 
-                  {/* Version badge */}
-                  {quote.version > 1 && (
-                    <div className="relative flex items-start gap-3">
-                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
-                        <span className="text-purple-400 text-[10px] font-bold leading-none">v{quote.version}</span>
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className="text-purple-400 text-xs font-medium">Versión actual: v{quote.version}</p>
-                        <p className="text-neutral-500 text-xs">Modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}</p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Merged events sorted by date */}
                   {(() => {
                     type TimelineEvent =
@@ -671,7 +657,13 @@ export default function QuoteDetailPage() {
                       ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
                     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+                    // Count send responses chronologically to assign version numbers
+                    const sendResponses = responses.filter(r => r.action === 'send').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    const sendVersionMap = new Map<string, number>();
+                    sendResponses.forEach((r, i) => sendVersionMap.set(r.id, i + 1));
+
                     const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const quoteLink = quote.token ? `/${locale}/cotizacion/${quote.token}` : null;
 
                     return events.map((event) => {
                       if (event.type === 'change_request') {
@@ -697,7 +689,7 @@ export default function QuoteDetailPage() {
                               <p className={`text-xs font-medium ${
                                 cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
                               }`}>
-                                Solicitud de cambio — {changeRequestStatusLabels[cr.status].toLowerCase()}
+                                Solicitud de cambio — {cr.status === 'pending' ? 'en revisión' : changeRequestStatusLabels[cr.status].toLowerCase()}
                                 {cr.changes_summary && (
                                   <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
                                     {[
@@ -728,42 +720,66 @@ export default function QuoteDetailPage() {
 
                       // Response event
                       const response = event.data as QuoteResponse;
+
+                      // For 'send' responses: show as "Cotización creada y enviada [vN]"
+                      if (response.action === 'send') {
+                        const version = sendVersionMap.get(response.id) || 1;
+                        const versionLabel = version > 1 ? ` v${version}` : '';
+                        return (
+                          <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                            <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                              <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
+                            </div>
+                            <div className="flex-1 -mt-0.5">
+                              <p className="text-cmyk-cyan text-xs font-medium">
+                                {quoteLink ? (
+                                  <Link href={quoteLink} className="hover:underline">
+                                    Cotización creada y enviada{versionLabel}
+                                  </Link>
+                                ) : (
+                                  <>Cotización creada y enviada{versionLabel}</>
+                                )}
+                                {version > 1 && (
+                                  <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
+                                    v{version}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-neutral-500 text-xs">
+                                {response.responded_by_name || 'Vendedor'} · {fmtDate(response.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-3">
                           <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
                             response.action === 'approval' ? 'bg-green-500/20 border-green-500/40' :
                             response.action === 'rejection' ? 'bg-red-500/20 border-red-500/40' :
-                            response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
                             response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
-                            response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
                             'bg-blue-500/20 border-blue-500/40'
                           }`}>
                             {response.action === 'approval' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
                             {response.action === 'rejection' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                            {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
                             {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
-                            {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
                             {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
                           </div>
                           <div className="flex-1 -mt-0.5">
                             <p className={`text-xs font-medium ${responseActionColors[response.action] || 'text-neutral-400'}`}>
-                              {quote.token ? (
-                                <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">
+                              {quoteLink ? (
+                                <Link href={quoteLink} className="hover:underline">
                                   {responseActionLabels[response.action] || response.action_display}
                                 </Link>
                               ) : (
                                 responseActionLabels[response.action] || response.action_display
                               )}
-                              {response.action === 'send' && response.comment && (
-                                <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
-                                  {response.comment}
-                                </span>
-                              )}
                             </p>
                             <p className="text-neutral-500 text-xs">
                               {response.responded_by_name || response.guest_name || 'Cliente'} · {fmtDate(response.created_at)}
                             </p>
-                            {response.action !== 'send' && response.comment && (
+                            {response.comment && (
                               <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
                                 &ldquo;{response.comment}&rdquo;
                               </p>
@@ -774,7 +790,7 @@ export default function QuoteDetailPage() {
                     });
                   })()}
 
-                  {/* Sent (fallback for quotes sent before tracking was added) */}
+                  {/* Sent fallback — only for quotes sent before response tracking existed */}
                   {quote.sent_at && !responses.some(r => r.action === 'send') && (
                     <div className="relative flex items-start gap-3">
                       <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
@@ -783,30 +799,15 @@ export default function QuoteDetailPage() {
                       <div className="flex-1 -mt-0.5">
                         <p className="text-cmyk-cyan text-xs font-medium">
                           {quote.token ? (
-                            <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización enviada</Link>
-                          ) : 'Cotización enviada'}
+                            <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización creada y enviada</Link>
+                          ) : 'Cotización creada y enviada'}
                         </p>
-                        <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
+                        <p className="text-neutral-500 text-xs">
+                          {quote.created_by_name && `${quote.created_by_name} · `}{formatDate(quote.sent_at)}
+                        </p>
                       </div>
                     </div>
                   )}
-
-                  {/* Quote created */}
-                  <div className="relative flex items-start gap-3">
-                    <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
-                      <DocumentTextIcon className="h-3 w-3 text-cmyk-cyan" />
-                    </div>
-                    <div className="flex-1 -mt-0.5">
-                      <p className="text-cmyk-cyan text-xs font-medium">
-                        {quote.token ? (
-                          <Link href={`/${locale}/cotizacion/${quote.token}`} className="hover:underline">Cotización creada</Link>
-                        ) : 'Cotización creada'}
-                      </p>
-                      <p className="text-neutral-500 text-xs">
-                        {quote.created_by_name && `${quote.created_by_name} · `}{formatDate(quote.created_at)}
-                      </p>
-                    </div>
-                  </div>
 
                   {/* --- Quote Request events (if linked) --- */}
                   {quote.quote_request && (

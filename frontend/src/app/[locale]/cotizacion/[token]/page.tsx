@@ -23,9 +23,7 @@ import {
   PaperClipIcon,
   PaperAirplaneIcon,
   EyeIcon,
-  PencilSquareIcon,
   PencilIcon,
-  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -847,8 +845,8 @@ export default function QuoteViewPage() {
             </Card>
 
             {/* Timeline / Historial */}
-            {(responses.length > 0 || changeRequests.length > 0 || quote.version > 1) && (() => {
-              // Build unified timeline: merge responses + change requests, sorted newest first
+            {(responses.length > 0 || changeRequests.length > 0 || quote.sent_at) && (() => {
+              // Build unified timeline following the real business flow
               type TimelineEvent = 
                 | { type: 'response'; date: string; data: QuoteResponseType }
                 | { type: 'change_request'; date: string; data: QuoteChangeRequest };
@@ -858,9 +856,15 @@ export default function QuoteViewPage() {
                 ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
               ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+              // Count send responses chronologically to assign version numbers
+              const sendResponses = responses.filter(r => r.action === 'send').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+              const sendVersionMap = new Map<string, number>();
+              sendResponses.forEach((r, i) => sendVersionMap.set(r.id, i + 1));
+              const hasSendResponses = sendResponses.length > 0;
+
               const actionLabels: Record<string, string> = {
                 view: 'Cotización vista', approval: 'Cotización aceptada', rejection: 'Cotización rechazada',
-                change_request: 'Cambio solicitado', comment: 'Comentario', send: 'Cotización enviada',
+                change_request: 'Cambio solicitado', comment: 'Comentario',
               };
               const actionColors: Record<string, string> = {
                 view: 'text-purple-400', approval: 'text-green-400', rejection: 'text-red-400',
@@ -878,18 +882,6 @@ export default function QuoteViewPage() {
                   {/* Timeline line */}
                   <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700"></div>
                   <div className="space-y-4">
-                    {/* Version badge */}
-                    {quote.version > 1 && (
-                      <div className="relative flex items-start gap-3">
-                        <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
-                          <span className="text-purple-400 text-[10px] font-bold leading-none">v{quote.version}</span>
-                        </div>
-                        <div className="flex-1 -mt-0.5">
-                          <p className="text-purple-400 text-xs font-medium">Versión actual: v{quote.version}</p>
-                          <p className="text-neutral-500 text-xs">Modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}</p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Unified chronological events */}
                     {events.map((event) => {
@@ -912,7 +904,7 @@ export default function QuoteViewPage() {
                               <p className={`text-xs font-medium ${
                                 cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
                               }`}>
-                                Solicitud de cambio — {cr.status === 'pending' ? 'pendiente' : cr.status === 'approved' ? 'aprobada' : 'rechazada'}
+                                Solicitud de cambio — {cr.status === 'pending' ? 'en revisión' : cr.status === 'approved' ? 'aprobada' : 'rechazada'}
                                 {cr.changes_summary && (
                                   <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
                                     {[
@@ -941,21 +933,44 @@ export default function QuoteViewPage() {
 
                       // Response event
                       const response = event.data as QuoteResponseType;
+
+                      // For 'send' responses: show as "Cotización creada y enviada [vN]"
+                      if (response.action === 'send') {
+                        const version = sendVersionMap.get(response.id) || 1;
+                        const versionLabel = version > 1 ? ` v${version}` : '';
+                        return (
+                          <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                            <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                              <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
+                            </div>
+                            <div className="flex-1 -mt-0.5">
+                              <p className="text-cmyk-cyan text-xs font-medium">
+                                <a href="#top" className="hover:underline">
+                                  Cotización creada y enviada{versionLabel}
+                                </a>
+                                {version > 1 && (
+                                  <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
+                                    v{version}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-3">
                           <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
                             response.action === 'approval' ? 'bg-green-500/20 border-green-500/40' :
                             response.action === 'rejection' ? 'bg-red-500/20 border-red-500/40' :
-                            response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
                             response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
-                            response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
                             'bg-blue-500/20 border-blue-500/40'
                           }`}>
                             {response.action === 'approval' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
                             {response.action === 'rejection' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                            {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
                             {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
-                            {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
                             {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
                           </div>
                           <div className="flex-1 -mt-0.5">
@@ -963,14 +978,9 @@ export default function QuoteViewPage() {
                               <a href="#top" className="hover:underline">
                                 {actionLabels[response.action] || response.action_display}
                               </a>
-                              {response.action === 'send' && response.comment && (
-                                <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
-                                  {response.comment}
-                                </span>
-                              )}
                             </p>
                             <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
-                            {response.action !== 'send' && response.comment && (
+                            {response.comment && (
                               <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
                                 &ldquo;{response.comment}&rdquo;
                               </p>
@@ -980,35 +990,22 @@ export default function QuoteViewPage() {
                       );
                     })}
 
-                    {/* Sent fallback (for quotes sent before tracking) */}
-                    {quote.sent_at && !responses.some(r => r.action === 'send') && (
+                    {/* Sent fallback — only for quotes sent before response tracking existed */}
+                    {quote.sent_at && !hasSendResponses && (
                       <div className="relative flex items-start gap-3">
                         <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
                           <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                         </div>
                         <div className="flex-1 -mt-0.5">
                           <p className="text-cmyk-cyan text-xs font-medium">
-                            <a href="#top" className="hover:underline">Cotización enviada</a>
+                            <a href="#top" className="hover:underline">Cotización creada y enviada</a>
                           </p>
                           <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
                         </div>
                       </div>
                     )}
 
-                    {/* Quote created */}
-                    <div className="relative flex items-start gap-3">
-                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
-                        <DocumentTextIcon className="h-3 w-3 text-cmyk-cyan" />
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className="text-cmyk-cyan text-xs font-medium">
-                          <a href="#top" className="hover:underline">Cotización creada</a>
-                        </p>
-                        <p className="text-neutral-500 text-xs">{formatDate(quote.created_at)}</p>
-                      </div>
-                    </div>
-
-                    {/* Request created */}
+                    {/* Request created — the original customer request */}
                     {quote.quote_request && (
                       <>
                         <div className="relative flex items-center gap-3 py-1">
@@ -1023,14 +1020,14 @@ export default function QuoteViewPage() {
                           </div>
                           <div className="flex-1 -mt-0.5">
                             <p className="text-neutral-400 text-xs font-medium">
-                              <Link href={`/${locale}/#cotizar`} className="hover:underline hover:text-neutral-300 transition-colors">Solicitud de cotización</Link>
+                              Solicitud de cotización
                             </p>
                             <p className="text-neutral-500 text-xs">
                               {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
                             </p>
                             {quote.quote_request.request_number && (
-                              <p className="text-neutral-500 text-xs mt-0.5">
-                                <Link href={`/${locale}/#cotizar`} className="hover:underline hover:text-cmyk-cyan transition-colors">#{quote.quote_request.request_number}</Link>
+                              <p className="text-cmyk-cyan text-xs mt-0.5">
+                                #{quote.quote_request.request_number}
                               </p>
                             )}
                           </div>
