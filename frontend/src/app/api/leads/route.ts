@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Transform landing page payload to quote request format
-    const quoteRequestData = {
+    const quoteRequestData: Record<string, unknown> = {
       customer_name: payload.contacto.nombre,
       customer_email: payload.contacto.email,
       customer_phone: payload.contacto.telefono,
@@ -37,6 +37,19 @@ export async function POST(request: NextRequest) {
       material: payload.detalles?.material,
       includes_installation: payload.detalles?.instalacion_incluida,
     };
+
+    // Map delivery method fields
+    if (payload.metodo_entrega) {
+      quoteRequestData.delivery_method = payload.metodo_entrega;
+    }
+    if (payload.entrega) {
+      if (payload.entrega.direccion) {
+        quoteRequestData.delivery_address = payload.entrega.direccion;
+      }
+      if (payload.entrega.sucursal) {
+        quoteRequestData.pickup_branch = payload.entrega.sucursal;
+      }
+    }
 
     // Create FormData for backend
     const backendFormData = new FormData();

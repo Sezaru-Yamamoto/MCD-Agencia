@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -22,6 +22,7 @@ import {
 
 import { submitQuoteRequest } from '@/lib/api/quotes';
 import { getProducts } from '@/lib/api/catalog';
+import { getBranches, type Branch } from '@/lib/api/content';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { Button, Input, Textarea, Select, Card, Breadcrumb } from '@/components/ui';
 import { DELIVERY_METHODS, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
@@ -64,6 +65,17 @@ export default function QuotePage() {
   const [requestNumber, setRequestNumber] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | ''>('');
+  const [deliveryError, setDeliveryError] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '',
+  });
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [branches, setBranches] = useState<Branch[]>([]);
+
+  // Fetch branches for pickup
+  useEffect(() => {
+    getBranches().then(setBranches).catch(() => {});
+  }, []);
 
   const { data: productsData } = useQuery({
     queryKey: ['products-for-quote'],
@@ -112,6 +124,24 @@ export default function QuotePage() {
   };
 
   const onSubmit = async (data: QuoteFormData) => {
+    // Validate delivery method
+    if (!deliveryMethod) {
+      setDeliveryError('Selecciona un método de entrega');
+      toast.error('Selecciona un método de entrega');
+      return;
+    }
+    if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !deliveryAddress.calle) {
+      setDeliveryError('Ingresa la dirección de entrega');
+      toast.error('Ingresa la dirección de entrega');
+      return;
+    }
+    if (deliveryMethod === 'pickup' && !selectedBranch) {
+      setDeliveryError('Selecciona una sucursal');
+      toast.error('Selecciona una sucursal para recoger');
+      return;
+    }
+    setDeliveryError('');
+
     setIsLoading(true);
     try {
       const result = await submitQuoteRequest({
@@ -126,6 +156,8 @@ export default function QuotePage() {
         includes_installation: data.installation_required,
         description: data.description,
         delivery_method: deliveryMethod || undefined,
+        delivery_address: (deliveryMethod === 'installation' || deliveryMethod === 'shipping') ? deliveryAddress : undefined,
+        pickup_branch: deliveryMethod === 'pickup' ? selectedBranch : undefined,
         attachments: files,
       });
       setRequestNumber(result.request_number);
@@ -291,29 +323,163 @@ export default function QuotePage() {
               </div>
             </div>
 
-            {/* Delivery Method Preference */}
+            {/* Delivery Method */}
             <div>
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                 <TruckIcon className="h-5 w-5 text-cyan-400" />
-                Preferencia de entrega (opcional)
+                Método de entrega <span className="text-red-500">*</span>
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <p className="text-sm text-neutral-400 mb-4">Selecciona cómo deseas recibir tu producto o servicio</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {DELIVERY_METHODS.filter(m => m !== 'not_applicable').map((method) => (
                   <button
                     key={method}
                     type="button"
-                    onClick={() => setDeliveryMethod(prev => prev === method ? '' : method)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    onClick={() => {
+                      setDeliveryMethod(prev => prev === method ? '' : method);
+                      setDeliveryError('');
+                      if (method !== deliveryMethod) {
+                        setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+                        setSelectedBranch('');
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-sm font-medium transition-all ${
                       deliveryMethod === method
-                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                        : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-600'
+                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/50'
+                        : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500'
                     }`}
                   >
-                    <span>{DELIVERY_METHOD_ICONS[method]}</span>
+                    <span className="text-lg">{DELIVERY_METHOD_ICONS[method]}</span>
                     <span>{DELIVERY_METHOD_LABELS[method].es}</span>
                   </button>
                 ))}
               </div>
+              {deliveryError && <p className="text-red-500 text-sm mt-2">{deliveryError}</p>}
+
+              {/* Installation / Shipping address */}
+              {(deliveryMethod === 'installation' || deliveryMethod === 'shipping') && (
+                <div className="mt-4 space-y-3 p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
+                  <p className="text-sm text-cyan-400 font-medium">
+                    {deliveryMethod === 'installation' ? '📍 Dirección de instalación' : '📦 Dirección de envío'}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      label="Calle"
+                      placeholder="Av. Costera Miguel Alemán"
+                      required
+                      value={deliveryAddress.calle}
+                      onChange={e => setDeliveryAddress(p => ({ ...p, calle: e.target.value }))}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="No. Exterior"
+                        placeholder="123"
+                        required
+                        value={deliveryAddress.numero_exterior}
+                        onChange={e => setDeliveryAddress(p => ({ ...p, numero_exterior: e.target.value }))}
+                      />
+                      <Input
+                        label="No. Interior"
+                        placeholder="4B"
+                        value={deliveryAddress.numero_interior}
+                        onChange={e => setDeliveryAddress(p => ({ ...p, numero_interior: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      label="Colonia"
+                      placeholder="Centro"
+                      required
+                      value={deliveryAddress.colonia}
+                      onChange={e => setDeliveryAddress(p => ({ ...p, colonia: e.target.value }))}
+                    />
+                    <Input
+                      label="Código Postal"
+                      placeholder="39300"
+                      required
+                      value={deliveryAddress.codigo_postal}
+                      onChange={e => setDeliveryAddress(p => ({ ...p, codigo_postal: e.target.value.replace(/\D/g, '') }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      label="Ciudad"
+                      placeholder="Acapulco"
+                      required
+                      value={deliveryAddress.ciudad}
+                      onChange={e => setDeliveryAddress(p => ({ ...p, ciudad: e.target.value }))}
+                    />
+                    <Input
+                      label="Estado"
+                      placeholder="Guerrero"
+                      required
+                      value={deliveryAddress.estado}
+                      onChange={e => setDeliveryAddress(p => ({ ...p, estado: e.target.value }))}
+                    />
+                  </div>
+                  <Input
+                    label="Referencia (opcional)"
+                    placeholder="Entre calles, color de fachada, etc."
+                    value={deliveryAddress.referencia}
+                    onChange={e => setDeliveryAddress(p => ({ ...p, referencia: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {/* Pickup — branch selection */}
+              {deliveryMethod === 'pickup' && (
+                <div className="mt-4 space-y-3 p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
+                  <p className="text-sm text-cyan-400 font-medium">🏬 Selecciona la sucursal donde recogerás tu pedido</p>
+                  {branches.length === 0 ? (
+                    <p className="text-sm text-neutral-400">Cargando sucursales...</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {branches.map((branch) => (
+                        <button
+                          key={branch.id}
+                          type="button"
+                          onClick={() => { setSelectedBranch(branch.id); setDeliveryError(''); }}
+                          className={`text-left p-4 rounded-lg border transition-all ${
+                            selectedBranch === branch.id
+                              ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50'
+                              : 'border-neutral-700 bg-neutral-800 hover:border-neutral-500'
+                          }`}
+                        >
+                          <p className="font-semibold text-white text-sm">{branch.name}</p>
+                          <p className="text-xs text-neutral-400 mt-1">{branch.full_address}</p>
+                          <p className="text-xs text-neutral-400 mt-1">📞 {branch.phone}</p>
+                          <p className="text-xs text-neutral-400">🕐 {branch.hours}</p>
+                          {branch.google_maps_url && (
+                            <a
+                              href={branch.google_maps_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-xs text-cyan-400 hover:underline mt-1 inline-block"
+                            >
+                              Ver en Google Maps →
+                            </a>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Digital — confirmation note */}
+              {deliveryMethod === 'digital' && (
+                <div className="mt-4 flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <span className="text-lg">💻</span>
+                  <div>
+                    <p className="text-sm text-green-400 font-medium">Entrega digital</p>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Los archivos finales se enviarán al correo electrónico que proporcionaste en los datos de contacto.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Attachments */}

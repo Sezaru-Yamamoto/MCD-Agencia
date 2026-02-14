@@ -43,6 +43,7 @@ const RouteSelector = dynamic(
 );
 import { useRecaptcha } from '@/hooks';
 import { SuccessModal } from '@/components/ui';
+import { getBranches, type Branch } from '@/lib/api/content';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -219,7 +220,18 @@ export function QuoteForm() {
   const [pubRoutes, setPubRoutes] = useState<EstablishedRouteEntry[]>([createEstablishedRoute()]);
   const [selectionFeedback, setSelectionFeedback] = useState<{ service: string; subtype: string } | null>(null);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | ''>('');
+  const [deliveryError, setDeliveryError] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '',
+  });
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [branches, setBranches] = useState<Branch[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch branches for pickup option
+  useEffect(() => {
+    getBranches().then(setBranches).catch(() => {});
+  }, []);
 
   const {
     register,
@@ -328,6 +340,9 @@ export function QuoteForm() {
     setPerifoneoRoutes([createConfigurableRoute()]);
     setPubRoutes([createEstablishedRoute()]);
     setDeliveryMethod('');
+    setDeliveryError('');
+    setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+    setSelectedBranch('');
   }, [servicioValue]);
 
   const onSubmit = async (data: QuoteFormData) => {
@@ -341,6 +356,29 @@ export function QuoteForm() {
         setErrorMessage('La fecha debe ser igual o posterior a hoy');
         return;
       }
+
+      // Validate delivery method
+      const availMethods = data.servicio ? getDeliveryMethodsForService(data.servicio) : [];
+      const onlyNA = availMethods.length === 1 && availMethods[0] === 'not_applicable';
+      if (!onlyNA && !deliveryMethod) {
+        setDeliveryError('Selecciona un método de entrega');
+        setFormStatus('error');
+        setErrorMessage('Selecciona un método de entrega');
+        return;
+      }
+      if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !deliveryAddress.calle) {
+        setDeliveryError('Ingresa la dirección de entrega');
+        setFormStatus('error');
+        setErrorMessage('Ingresa la dirección de entrega');
+        return;
+      }
+      if (deliveryMethod === 'pickup' && !selectedBranch) {
+        setDeliveryError('Selecciona una sucursal');
+        setFormStatus('error');
+        setErrorMessage('Selecciona una sucursal para recoger');
+        return;
+      }
+      setDeliveryError('');
 
       // Execute reCAPTCHA verification
       let recaptchaToken: string | null = null;
@@ -381,6 +419,9 @@ export function QuoteForm() {
       reset();
       setSelectedFiles([]);
       setDeliveryMethod('');
+      setDeliveryError('');
+      setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+      setSelectedBranch('');
       setVallasRoutes([createConfigurableRoute()]);
       setPerifoneoRoutes([createConfigurableRoute()]);
       setPubRoutes([createEstablishedRoute()]);
@@ -430,6 +471,17 @@ export function QuoteForm() {
       })(),
       servicio: data.servicio,
       metodo_entrega: deliveryMethod || null,
+      entrega: deliveryMethod === 'installation' || deliveryMethod === 'shipping' ? {
+        metodo: deliveryMethod,
+        direccion: deliveryAddress,
+      } : deliveryMethod === 'pickup' ? {
+        metodo: 'pickup',
+        sucursal: selectedBranch,
+        sucursal_nombre: branches.find(b => b.id === selectedBranch)?.name || '',
+      } : deliveryMethod === 'digital' ? {
+        metodo: 'digital',
+        email: data.email,
+      } : null,
       detalles: {} as Record<string, unknown>,
       archivos: selectedFiles.map(f => ({ nombre: f.name, tamano: f.size })),
       comentarios: data.comentarios || null,
@@ -1698,9 +1750,8 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* SECTION: Delivery Method Preference */}
+          {/* SECTION: Delivery Method */}
           {servicioValue && (() => {
-            // Determine current subtype for the selected service
             let currentSubtype: string | undefined;
             if (servicioValue === 'espectaculares') currentSubtype = espTipo || undefined;
             else if (servicioValue === 'publicidad-movil') currentSubtype = pubSubtipo || undefined;
@@ -1712,35 +1763,191 @@ export function QuoteForm() {
             else if (servicioValue === 'impresion-offset-serigrafia') currentSubtype = offProducto || undefined;
 
             const methods = getDeliveryMethodsForService(servicioValue, currentSubtype);
-            // Don't show if only 'not_applicable'
             if (methods.length === 1 && methods[0] === 'not_applicable') return null;
 
             return (
-              <div className="space-y-3">
-                <label className="label-field flex items-center gap-2">
+              <div className="space-y-4 border border-cmyk-cyan/20 rounded-xl p-4 sm:p-6 bg-neutral-900/50">
+                <label className="label-field flex items-center gap-2 !mb-0">
                   <svg className="w-5 h-5 text-cmyk-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
-                  Preferencia de entrega (opcional)
+                  Método de entrega <span className="text-cmyk-magenta">*</span>
                 </label>
+                <p className="text-xs text-gray-400 -mt-2">Selecciona cómo deseas recibir tu producto o servicio</p>
+
+                {/* Method buttons */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {methods.filter(m => m !== 'not_applicable').map((method) => (
                     <button
                       key={method}
                       type="button"
-                      onClick={() => setDeliveryMethod(prev => prev === method ? '' : method)}
+                      onClick={() => {
+                        setDeliveryMethod(prev => prev === method ? '' : method);
+                        setDeliveryError('');
+                        if (method !== deliveryMethod) {
+                          setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+                          setSelectedBranch('');
+                        }
+                      }}
                       disabled={formStatus === 'submitting'}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                      className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-sm font-medium transition-all ${
                         deliveryMethod === method
-                          ? 'border-cmyk-magenta bg-cmyk-magenta/10 text-white'
-                          : 'border-gray-600 bg-neutral-800 text-gray-300 hover:border-gray-500'
+                          ? 'border-cmyk-magenta bg-cmyk-magenta/15 text-white ring-1 ring-cmyk-magenta/50'
+                          : 'border-gray-600 bg-neutral-800 text-gray-300 hover:border-gray-400 hover:bg-neutral-700'
                       }`}
                     >
-                      <span>{DELIVERY_METHOD_ICONS[method]}</span>
+                      <span className="text-lg">{DELIVERY_METHOD_ICONS[method]}</span>
                       <span>{DELIVERY_METHOD_LABELS[method].es}</span>
                     </button>
                   ))}
                 </div>
+                {deliveryError && <p className="error-message">{deliveryError}</p>}
+
+                {/* SUB-FORM: Installation / Shipping address */}
+                {(deliveryMethod === 'installation' || deliveryMethod === 'shipping') && (
+                  <div className="space-y-3 pt-2 border-t border-gray-700">
+                    <p className="text-sm text-cmyk-cyan font-medium">
+                      {deliveryMethod === 'installation'
+                        ? '📍 Dirección donde se realizará la instalación'
+                        : '📦 Dirección de envío'}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="label-field">Calle <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className="input-field" placeholder="Av. Costera Miguel Alemán"
+                          value={deliveryAddress.calle}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, calle: e.target.value }))}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="label-field">No. Exterior <span className="text-cmyk-magenta">*</span></label>
+                          <input
+                            type="text" className="input-field" placeholder="123"
+                            value={deliveryAddress.numero_exterior}
+                            onChange={e => setDeliveryAddress(p => ({ ...p, numero_exterior: e.target.value }))}
+                            disabled={formStatus === 'submitting'}
+                          />
+                        </div>
+                        <div>
+                          <label className="label-field">No. Interior</label>
+                          <input
+                            type="text" className="input-field" placeholder="4B"
+                            value={deliveryAddress.numero_interior}
+                            onChange={e => setDeliveryAddress(p => ({ ...p, numero_interior: e.target.value }))}
+                            disabled={formStatus === 'submitting'}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="label-field">Colonia <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className="input-field" placeholder="Centro"
+                          value={deliveryAddress.colonia}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, colonia: e.target.value }))}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                      <div>
+                        <label className="label-field">Código Postal <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className="input-field" placeholder="39300" maxLength={5}
+                          value={deliveryAddress.codigo_postal}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, codigo_postal: e.target.value.replace(/\D/g, '') }))}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="label-field">Ciudad <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className="input-field" placeholder="Acapulco"
+                          value={deliveryAddress.ciudad}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, ciudad: e.target.value }))}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                      <div>
+                        <label className="label-field">Estado <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className="input-field" placeholder="Guerrero"
+                          value={deliveryAddress.estado}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, estado: e.target.value }))}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label-field">Referencia</label>
+                      <input
+                        type="text" className="input-field" placeholder="Entre calles, color de fachada, etc."
+                        value={deliveryAddress.referencia}
+                        onChange={e => setDeliveryAddress(p => ({ ...p, referencia: e.target.value }))}
+                        disabled={formStatus === 'submitting'}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-FORM: Pickup — branch selection */}
+                {deliveryMethod === 'pickup' && (
+                  <div className="space-y-3 pt-2 border-t border-gray-700">
+                    <p className="text-sm text-cmyk-cyan font-medium">🏬 Selecciona la sucursal donde recogerás tu pedido</p>
+                    {branches.length === 0 ? (
+                      <p className="text-sm text-gray-400">Cargando sucursales...</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {branches.map((branch) => (
+                          <button
+                            key={branch.id}
+                            type="button"
+                            onClick={() => { setSelectedBranch(branch.id); setDeliveryError(''); }}
+                            disabled={formStatus === 'submitting'}
+                            className={`text-left p-4 rounded-lg border transition-all ${
+                              selectedBranch === branch.id
+                                ? 'border-cmyk-magenta bg-cmyk-magenta/10 ring-1 ring-cmyk-magenta/50'
+                                : 'border-gray-600 bg-neutral-800 hover:border-gray-400'
+                            }`}
+                          >
+                            <p className="font-semibold text-white text-sm">{branch.name}</p>
+                            <p className="text-xs text-gray-400 mt-1">{branch.full_address}</p>
+                            <p className="text-xs text-gray-400 mt-1">📞 {branch.phone}</p>
+                            <p className="text-xs text-gray-400">🕐 {branch.hours}</p>
+                            {branch.google_maps_url && (
+                              <a
+                                href={branch.google_maps_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="text-xs text-cmyk-cyan hover:underline mt-1 inline-block"
+                              >
+                                Ver en Google Maps →
+                              </a>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SUB-FORM: Digital — confirmation */}
+                {deliveryMethod === 'digital' && (
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                    <span className="text-lg">💻</span>
+                    <div>
+                      <p className="text-sm text-emerald-400 font-medium">Entrega digital</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Los archivos finales se enviarán al correo electrónico que proporcionaste en los datos de contacto.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
