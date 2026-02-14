@@ -142,7 +142,7 @@ export interface Quote {
 export interface QuoteResponse {
   id: string;
   quote: string;
-  action: 'view' | 'accept' | 'reject' | 'change_request' | 'comment' | 'send';
+  action: 'view' | 'approval' | 'rejection' | 'change_request' | 'comment' | 'send';
   action_display: string;
   comment?: string;
   responded_by?: string;

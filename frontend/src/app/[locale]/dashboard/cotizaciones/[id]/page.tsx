@@ -94,8 +94,8 @@ const changeRequestStatusLabels: Record<ChangeRequestStatus, string> = {
 
 const responseActionLabels: Record<string, string> = {
   view: 'Vista',
-  accept: 'Aceptada',
-  reject: 'Rechazada',
+  approval: 'Cotización aceptada',
+  rejection: 'Cotización rechazada',
   change_request: 'Solicitud de cambio',
   comment: 'Comentario',
   send: 'Cotización enviada',
@@ -103,8 +103,8 @@ const responseActionLabels: Record<string, string> = {
 
 const responseActionColors: Record<string, string> = {
   view: 'text-purple-400',
-  accept: 'text-green-400',
-  reject: 'text-red-400',
+  approval: 'text-green-400',
+  rejection: 'text-red-400',
   change_request: 'text-orange-400',
   comment: 'text-blue-400',
   send: 'text-cmyk-cyan',
@@ -645,7 +645,7 @@ export default function QuoteDetailPage() {
                 <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700"></div>
 
                 <div className="space-y-4">
-                  {/* --- Future / current status events (newest first) --- */}
+                  {/* --- Unified chronological timeline (newest first) --- */}
 
                   {/* Version badge */}
                   {quote.version > 1 && (
@@ -654,86 +654,119 @@ export default function QuoteDetailPage() {
                         <span className="text-purple-400 text-[10px] font-bold leading-none">v{quote.version}</span>
                       </div>
                       <div className="flex-1 -mt-0.5">
-                        <p className="text-purple-400 text-xs font-medium">Versión {quote.version}</p>
+                        <p className="text-purple-400 text-xs font-medium">Versión actual: v{quote.version}</p>
                         <p className="text-neutral-500 text-xs">Modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Change Requests */}
-                  {changeRequests.map((cr) => (
-                    <Link
-                      key={cr.id}
-                      href={`/${locale}/dashboard/cotizaciones/${quoteId}/cambios/${cr.id}`}
-                      className="relative flex items-start gap-3 group"
-                    >
-                      <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                        cr.status === 'pending'
-                          ? 'bg-orange-500/20 border-orange-500/40'
-                          : cr.status === 'approved'
-                          ? 'bg-green-500/20 border-green-500/40'
-                          : 'bg-red-500/20 border-red-500/40'
-                      }`}>
-                        {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
-                        {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
-                        {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className={`text-xs font-medium ${
-                          cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          Cambio {changeRequestStatusLabels[cr.status].toLowerCase()}
-                        </p>
-                        <p className="text-neutral-500 text-xs">
-                          {new Date(cr.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                        {cr.customer_comments && (
-                          <p className="text-neutral-500 text-xs mt-0.5 line-clamp-1 group-hover:text-neutral-300 transition-colors">
-                            &ldquo;{cr.customer_comments}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
+                  {/* Merged events sorted by date */}
+                  {(() => {
+                    type TimelineEvent =
+                      | { type: 'response'; date: string; data: QuoteResponse }
+                      | { type: 'change_request'; date: string; data: QuoteChangeRequest };
 
-                  {/* Quote responses (accept, reject, view, comment, send) */}
-                  {responses.map((response) => (
-                    <div key={response.id} className="relative flex items-start gap-3">
-                      <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                        response.action === 'accept' ? 'bg-green-500/20 border-green-500/40' :
-                        response.action === 'reject' ? 'bg-red-500/20 border-red-500/40' :
-                        response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
-                        response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
-                        response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
-                        'bg-blue-500/20 border-blue-500/40'
-                      }`}>
-                        {response.action === 'accept' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
-                        {response.action === 'reject' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                        {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
-                        {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
-                        {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
-                        {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className={`text-xs font-medium ${responseActionColors[response.action] || 'text-neutral-400'}`}>
-                          {responseActionLabels[response.action] || response.action_display}
-                          {response.action === 'send' && response.comment && (
-                            <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
-                              {response.comment}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-neutral-500 text-xs">
-                          {response.responded_by_name || response.guest_name || 'Cliente'} · {new Date(response.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                        {response.action !== 'send' && response.comment && (
-                          <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
-                            &ldquo;{response.comment}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    const events: TimelineEvent[] = [
+                      ...responses.map(r => ({ type: 'response' as const, date: r.created_at, data: r })),
+                      ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
+                    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                    const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                    return events.map((event) => {
+                      if (event.type === 'change_request') {
+                        const cr = event.data;
+                        return (
+                          <Link
+                            key={`cr-${cr.id}`}
+                            href={`/${locale}/dashboard/cotizaciones/${quoteId}/cambios/${cr.id}`}
+                            className="relative flex items-start gap-3 group"
+                          >
+                            <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                              cr.status === 'pending'
+                                ? 'bg-orange-500/20 border-orange-500/40'
+                                : cr.status === 'approved'
+                                ? 'bg-green-500/20 border-green-500/40'
+                                : 'bg-red-500/20 border-red-500/40'
+                            }`}>
+                              {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
+                              {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                              {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                            </div>
+                            <div className="flex-1 -mt-0.5">
+                              <p className={`text-xs font-medium ${
+                                cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                Solicitud de cambio — {changeRequestStatusLabels[cr.status].toLowerCase()}
+                                {cr.changes_summary && (
+                                  <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
+                                    {[
+                                      cr.changes_summary.added > 0 && `+${cr.changes_summary.added}`,
+                                      cr.changes_summary.modified > 0 && `~${cr.changes_summary.modified}`,
+                                      cr.changes_summary.deleted > 0 && `-${cr.changes_summary.deleted}`,
+                                    ].filter(Boolean).join(' ')}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-neutral-500 text-xs">
+                                {cr.customer_name} · {fmtDate(cr.created_at)}
+                              </p>
+                              {cr.customer_comments && (
+                                <p className="text-neutral-500 text-xs mt-0.5 line-clamp-1 group-hover:text-neutral-300 transition-colors">
+                                  &ldquo;{cr.customer_comments}&rdquo;
+                                </p>
+                              )}
+                              {cr.status !== 'pending' && cr.review_notes && (
+                                <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-1">
+                                  Respuesta: &ldquo;{cr.review_notes}&rdquo;
+                                </p>
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      }
+
+                      // Response event
+                      const response = event.data as QuoteResponse;
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                          <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                            response.action === 'approval' ? 'bg-green-500/20 border-green-500/40' :
+                            response.action === 'rejection' ? 'bg-red-500/20 border-red-500/40' :
+                            response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
+                            response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
+                            response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
+                            'bg-blue-500/20 border-blue-500/40'
+                          }`}>
+                            {response.action === 'approval' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                            {response.action === 'rejection' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                            {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
+                            {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
+                            {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
+                            {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className={`text-xs font-medium ${responseActionColors[response.action] || 'text-neutral-400'}`}>
+                              {responseActionLabels[response.action] || response.action_display}
+                              {response.action === 'send' && response.comment && (
+                                <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
+                                  {response.comment}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-neutral-500 text-xs">
+                              {response.responded_by_name || response.guest_name || 'Cliente'} · {fmtDate(response.created_at)}
+                            </p>
+                            {response.action !== 'send' && response.comment && (
+                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
+                                &ldquo;{response.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
 
                   {/* Sent (fallback for quotes sent before tracking was added) */}
                   {quote.sent_at && !responses.some(r => r.action === 'send') && (

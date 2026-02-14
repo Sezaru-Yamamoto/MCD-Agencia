@@ -767,7 +767,28 @@ export default function CustomerQuoteDetailPage() {
           </Card>
 
           {/* Timeline / Historial */}
-          {(responses.length > 0 || changeRequests.length > 0 || quote.version > 1) && (
+          {(responses.length > 0 || changeRequests.length > 0 || quote.version > 1) && (() => {
+            // Build unified timeline: merge responses + change requests, sorted newest first
+            type TimelineEvent = 
+              | { type: 'response'; date: string; data: QuoteResponseType }
+              | { type: 'change_request'; date: string; data: QuoteChangeRequest };
+
+            const events: TimelineEvent[] = [
+              ...responses.map(r => ({ type: 'response' as const, date: r.created_at, data: r })),
+              ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
+            ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            const actionLabels: Record<string, string> = {
+              view: 'Cotización vista', approval: 'Cotización aceptada', rejection: 'Cotización rechazada',
+              change_request: 'Cambio solicitado', comment: 'Comentario', send: 'Cotización enviada',
+            };
+            const actionColors: Record<string, string> = {
+              view: 'text-purple-400', approval: 'text-green-400', rejection: 'text-red-400',
+              change_request: 'text-orange-400', comment: 'text-blue-400', send: 'text-cmyk-cyan',
+            };
+            const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            return (
             <Card className="p-6">
               <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
                 <ClockIcon className="h-5 w-5 text-cmyk-cyan" />
@@ -784,66 +805,74 @@ export default function CustomerQuoteDetailPage() {
                         <span className="text-purple-400 text-[10px] font-bold leading-none">v{quote.version}</span>
                       </div>
                       <div className="flex-1 -mt-0.5">
-                        <p className="text-purple-400 text-xs font-medium">Versión {quote.version}</p>
+                        <p className="text-purple-400 text-xs font-medium">Versión actual: v{quote.version}</p>
                         <p className="text-neutral-500 text-xs">Modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Change Requests */}
-                  {changeRequests.map((cr) => (
-                    <div key={cr.id} className="relative flex items-start gap-3">
-                      <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                        cr.status === 'pending'
-                          ? 'bg-orange-500/20 border-orange-500/40'
-                          : cr.status === 'approved'
-                          ? 'bg-green-500/20 border-green-500/40'
-                          : 'bg-red-500/20 border-red-500/40'
-                      }`}>
-                        {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
-                        {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
-                        {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className={`text-xs font-medium ${
-                          cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          Cambio {cr.status === 'pending' ? 'pendiente' : cr.status === 'approved' ? 'aprobado' : 'rechazado'}
-                        </p>
-                        <p className="text-neutral-500 text-xs">
-                          {new Date(cr.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                        {cr.customer_comments && (
-                          <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2">
-                            &ldquo;{cr.customer_comments}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  {/* Unified chronological events */}
+                  {events.map((event) => {
+                    if (event.type === 'change_request') {
+                      const cr = event.data;
+                      return (
+                        <div key={`cr-${cr.id}`} className="relative flex items-start gap-3">
+                          <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                            cr.status === 'pending'
+                              ? 'bg-orange-500/20 border-orange-500/40'
+                              : cr.status === 'approved'
+                              ? 'bg-green-500/20 border-green-500/40'
+                              : 'bg-red-500/20 border-red-500/40'
+                          }`}>
+                            {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
+                            {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                            {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className={`text-xs font-medium ${
+                              cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              Solicitud de cambio — {cr.status === 'pending' ? 'pendiente' : cr.status === 'approved' ? 'aprobada' : 'rechazada'}
+                              {cr.changes_summary && (
+                                <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
+                                  {[
+                                    cr.changes_summary.added > 0 && `+${cr.changes_summary.added}`,
+                                    cr.changes_summary.modified > 0 && `~${cr.changes_summary.modified}`,
+                                    cr.changes_summary.deleted > 0 && `-${cr.changes_summary.deleted}`,
+                                  ].filter(Boolean).join(' ')}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-neutral-500 text-xs">{fmtDate(cr.created_at)}</p>
+                            {cr.customer_comments && (
+                              <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2">
+                                &ldquo;{cr.customer_comments}&rdquo;
+                              </p>
+                            )}
+                            {cr.status !== 'pending' && cr.review_notes && (
+                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
+                                Respuesta: &ldquo;{cr.review_notes}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
 
-                  {/* Quote responses */}
-                  {responses.map((response) => {
-                    const actionLabels: Record<string, string> = {
-                      view: 'Vista', accept: 'Aceptada', reject: 'Rechazada',
-                      change_request: 'Solicitud de cambio', comment: 'Comentario', send: 'Cotización enviada',
-                    };
-                    const actionColors: Record<string, string> = {
-                      view: 'text-purple-400', accept: 'text-green-400', reject: 'text-red-400',
-                      change_request: 'text-orange-400', comment: 'text-blue-400', send: 'text-cmyk-cyan',
-                    };
+                    // Response event
+                    const response = event.data as QuoteResponseType;
                     return (
-                      <div key={response.id} className="relative flex items-start gap-3">
+                      <div key={`r-${response.id}`} className="relative flex items-start gap-3">
                         <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                          response.action === 'accept' ? 'bg-green-500/20 border-green-500/40' :
-                          response.action === 'reject' ? 'bg-red-500/20 border-red-500/40' :
+                          response.action === 'approval' ? 'bg-green-500/20 border-green-500/40' :
+                          response.action === 'rejection' ? 'bg-red-500/20 border-red-500/40' :
                           response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
                           response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
                           response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
                           'bg-blue-500/20 border-blue-500/40'
                         }`}>
-                          {response.action === 'accept' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
-                          {response.action === 'reject' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                          {response.action === 'approval' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                          {response.action === 'rejection' && <XCircleIcon className="h-3 w-3 text-red-400" />}
                           {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
                           {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
                           {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
@@ -858,9 +887,7 @@ export default function CustomerQuoteDetailPage() {
                               </span>
                             )}
                           </p>
-                          <p className="text-neutral-500 text-xs">
-                            {new Date(response.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                          <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
                           {response.action !== 'send' && response.comment && (
                             <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
                               &ldquo;{response.comment}&rdquo;
@@ -871,7 +898,7 @@ export default function CustomerQuoteDetailPage() {
                     );
                   })}
 
-                  {/* Sent fallback */}
+                  {/* Sent fallback (for quotes sent before tracking) */}
                   {quote.sent_at && !responses.some(r => r.action === 'send') && (
                     <div className="relative flex items-start gap-3">
                       <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
@@ -909,10 +936,15 @@ export default function CustomerQuoteDetailPage() {
                           <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
-                          <p className="text-neutral-400 text-xs font-medium">Solicitud creada</p>
+                          <p className="text-neutral-400 text-xs font-medium">Solicitud de cotización</p>
                           <p className="text-neutral-500 text-xs">
                             {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
                           </p>
+                          {quote.quote_request.request_number && (
+                            <p className="text-neutral-500 text-xs mt-0.5">
+                              #{quote.quote_request.request_number}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </>
@@ -920,7 +952,8 @@ export default function CustomerQuoteDetailPage() {
                 </div>
               </div>
             </Card>
-          )}
+            );
+          })()}
 
           {/* Contact */}
           <Card className="p-6 bg-cmyk-cyan/5 border-cmyk-cyan/20">
