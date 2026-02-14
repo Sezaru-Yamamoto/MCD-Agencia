@@ -122,7 +122,7 @@ export default function NewQuotePage() {
 
           if (subtype && typeof subtype === 'string') {
             const subtypeLabel = subtipoLabels[subtype] || subtype;
-            conceptText = `${serviceLabel} - ${subtypeLabel}`;
+            conceptText = `${serviceLabel} — ${subtypeLabel}`;
           }
 
           // Use quantity from details if available
@@ -217,8 +217,8 @@ export default function NewQuotePage() {
 
   // Add product from catalog
   const addCatalogItem = (item: CatalogItem) => {
-    setItems([...items, {
-      id: `item-${Date.now()}`,
+    setItems(prev => [...prev, {
+      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       concept: item.name,
       description: item.short_description || '',
       quantity: 1,
@@ -233,8 +233,8 @@ export default function NewQuotePage() {
 
   // Add custom line item
   const addCustomItem = () => {
-    setItems([...items, {
-      id: `item-${Date.now()}`,
+    setItems(prev => [...prev, {
+      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       concept: '',
       description: '',
       quantity: 1,
@@ -245,12 +245,12 @@ export default function NewQuotePage() {
 
   // Remove item from quote
   const removeItem = (itemId: string) => {
-    setItems(items.filter(item => item.id !== itemId));
+    setItems(prev => prev.filter(item => item.id !== itemId));
   };
 
   // Update item field
   const updateItem = (itemId: string, field: keyof QuoteLineItem, value: unknown) => {
-    setItems(items.map(item =>
+    setItems(prev => prev.map(item =>
       item.id === itemId ? { ...item, [field]: value } : item
     ));
   };
@@ -613,7 +613,7 @@ export default function NewQuotePage() {
                           filteredProducts.slice(0, 10).map(item => (
                             <button
                               key={item.id}
-                              onClick={() => addCatalogItem(item)}
+                              onMouseDown={(e) => { e.preventDefault(); addCatalogItem(item); }}
                               className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex justify-between items-center"
                             >
                               <div>
@@ -678,15 +678,12 @@ export default function NewQuotePage() {
                                 {matchingSubs.map(sub => (
                                   <button
                                     key={`${serviceId}-${sub.id}`}
-                                    onClick={() => {
-                                      const conceptName = `${serviceLabel} - ${sub.label}`;
-                                      const details: ServiceDetailsData = { service_type: serviceId as ServiceId };
-                                      // If service has subtypes (publicidad-movil), set the subtipo
-                                      if (serviceId === 'publicidad-movil') {
-                                        details.subtipo = sub.id;
-                                      }
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      const conceptName = `${serviceLabel} — ${sub.label}`;
+                                      const details: ServiceDetailsData = { service_type: serviceId as ServiceId, subtipo: sub.id };
                                       setItems(prev => [...prev, {
-                                        id: `item-${Date.now()}`,
+                                        id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                                         concept: conceptName,
                                         description: '',
                                         quantity: 1,

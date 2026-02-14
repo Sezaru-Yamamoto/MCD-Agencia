@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   MapPinIcon,
@@ -484,8 +484,16 @@ export function ServiceFormFields({
       currency: 'MXN',
     }).format(n);
 
+  /* ── Skip sync on initial mount ────────────────────────────── */
+  const isInitialMount = useRef(true);
+
   /* ── Sync route state → parent ─────────────────────────────── */
   useEffect(() => {
+    // Skip initial mount — the route state was just initialized from props
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     const subtipo = value.subtipo as string | undefined;
     if (serviceType !== 'publicidad-movil') return;
 
