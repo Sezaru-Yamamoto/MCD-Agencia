@@ -103,6 +103,8 @@ export default function QuoteChangeEditor({
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [showNewItemForm, setShowNewItemForm] = useState(false);
   const [newItemForm, setNewItemForm] = useState<NewItemForm>(INITIAL_NEW_ITEM);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<SubmitChangeRequestData | null>(null);
   // Per-element attachments are stored in EditingLine.attachments and NewItemForm.attachments
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track which element's file input is active
@@ -114,8 +116,10 @@ export default function QuoteChangeEditor({
       (line) => line.isModified || line.isDeleted
     );
     const hasNewLines = newLines.length > 0;
-    return hasModifiedLines || hasNewLines;
-  }, [editingLines, newLines]);
+    // Also consider an unsaved new item form with a service type selected
+    const hasUnsavedNewItem = showNewItemForm && !!newItemForm.serviceType;
+    return hasModifiedLines || hasNewLines || hasUnsavedNewItem;
+  }, [editingLines, newLines, showNewItemForm, newItemForm.serviceType]);
 
   // Calculate remaining lines (not deleted)
   const remainingLinesCount = useMemo(() => {
@@ -467,12 +471,52 @@ export default function QuoteChangeEditor({
       }
     });
 
-    await onSubmit({
+    // Show confirmation dialog instead of submitting directly
+    setPendingSubmitData({
       proposed_lines: proposedLines,
       customer_comments: customerComments.trim() || undefined,
       attachments: allAttachments.length > 0 ? allAttachments : undefined,
     });
+    setShowConfirmDialog(true);
   };
+  const handleConfirmSubmit = async () => {
+    if (!pendingSubmitData) return;
+    setShowConfirmDialog(false);
+    await onSubmit(pendingSubmitData);
+    setPendingSubmitData(null);
+  };
+
+  /** Cancel the confirmation dialog */
+  const handleCancelConfirm = () => {
+    setShowConfirmDialog(false);
+    setPendingSubmitData(null);
+  };
+
+  /** Build summary data for the confirmation dialog from pendingSubmitData */
+  const confirmSummary = useMemo(() => {
+    if (!pendingSubmitData) return null;
+    const pl = pendingSubmitData.proposed_lines;
+    const added = pl.filter(l => l.action === 'add');
+    const modified = pl.filter(l => l.action === 'modify');
+    const deleted = pl.filter(l => l.action === 'delete');
+    // For deleted, resolve concept from original lines
+    const deletedWithConcept = deleted.map(d => {
+      const orig = lines.find(l => l.id === d.id);
+      return { ...d, concept: orig?.concept || 'Elemento' };
+    });
+    // For modified, resolve concept from original lines
+    const modifiedWithConcept = modified.map(m => {
+      const orig = lines.find(l => l.id === m.id);
+      return { ...m, concept: orig?.concept || 'Elemento' };
+    });
+    return {
+      added,
+      modified: modifiedWithConcept,
+      deleted: deletedWithConcept,
+      totalAttachments: pendingSubmitData.attachments?.length || 0,
+      hasComments: !!pendingSubmitData.customer_comments,
+    };
+  }, [pendingSubmitData, lines]);
 
   /** Inline image upload UI — reused per element */
   const renderImageUpload = (
@@ -1100,6 +1144,121 @@ export default function QuoteChangeEditor({
           Enviar solicitud de cambios
         </Button>
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && confirmSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="p-5 border-b border-neutral-700">
+              <h3 className="text-lg font-semibold text-white">Confirmar envío de cambios</h3>
+              <p className="text-sm text-neutral-400 mt-1">
+                Revisa el resumen antes de enviar tu solicitud al vendedor.
+              </p>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Added items */}
+              {confirmSummary.added.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-xs font-medium">
+                      +{confirmSummary.added.length} nuevo(s)
+                    </span>
+                  </div>
+                  <ul className="space-y-1 ml-1">
+                    {confirmSummary.added.map((item, i) => (
+                      <li key={i} className="text-sm text-neutral-300 flex items-start gap-2">
+                        <PlusIcon className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
+                        <span>
+                          <span className="text-white font-medium">{item.concept}</span>
+                          {item.quantity && (
+                            <span className="text-neutral-500 ml-1">
+                              — {item.quantity} {item.unit || 'pz'}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Modified items */}
+              {confirmSummary.modified.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs font-medium">
+                      {confirmSummary.modified.length} modificado(s)
+                    </span>
+                  </div>
+                  <ul className="space-y-1 ml-1">
+                    {confirmSummary.modified.map((item, i) => (
+                      <li key={i} className="text-sm text-neutral-300 flex items-start gap-2">
+                        <PencilIcon className="h-4 w-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-white font-medium">{item.concept}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Deleted items */}
+              {confirmSummary.deleted.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs font-medium">
+                      −{confirmSummary.deleted.length} eliminado(s)
+                    </span>
+                  </div>
+                  <ul className="space-y-1 ml-1">
+                    {confirmSummary.deleted.map((item, i) => (
+                      <li key={i} className="text-sm text-neutral-300 flex items-start gap-2">
+                        <TrashIcon className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-white font-medium line-through">{item.concept}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Attachments & comments info */}
+              {(confirmSummary.totalAttachments > 0 || confirmSummary.hasComments) && (
+                <div className="pt-3 border-t border-neutral-700/50 space-y-1">
+                  {confirmSummary.totalAttachments > 0 && (
+                    <p className="text-xs text-neutral-400 flex items-center gap-1.5">
+                      <PhotoIcon className="h-3.5 w-3.5" />
+                      {confirmSummary.totalAttachments} imagen(es) adjunta(s)
+                    </p>
+                  )}
+                  {confirmSummary.hasComments && (
+                    <p className="text-xs text-neutral-400 flex items-center gap-1.5">
+                      <InformationCircleIcon className="h-3.5 w-3.5" />
+                      Incluye comentarios adicionales
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-neutral-700 flex gap-3">
+              <Button
+                onClick={handleCancelConfirm}
+                variant="outline"
+                className="flex-1"
+              >
+                Revisar de nuevo
+              </Button>
+              <Button
+                onClick={handleConfirmSubmit}
+                isLoading={isSubmitting}
+                className="flex-1"
+              >
+                Confirmar y enviar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
