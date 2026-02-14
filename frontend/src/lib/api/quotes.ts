@@ -82,6 +82,9 @@ export interface QuoteRequest {
   assigned_to_name?: string;
   assignment_method?: AssignmentMethod;
   assigned_at?: string;
+  delivery_method?: string;
+  delivery_address?: Record<string, string>;
+  pickup_branch?: string;
   attachments: QuoteAttachment[];
   created_at: string;
   updated_at: string;
@@ -120,6 +123,9 @@ export interface Quote {
   customer_notes?: string;
   internal_notes?: string;
   view_count: number;
+  delivery_method?: string;
+  delivery_address?: Record<string, string>;
+  pickup_branch?: string;
   lines: QuoteLine[];
   attachments: QuoteAttachment[];
   created_by?: string;
@@ -161,6 +167,9 @@ export interface CreateQuoteRequestData {
   service_type?: string;
   service_details?: Record<string, unknown>;
   required_date?: string;
+  delivery_method?: string;
+  delivery_address?: Record<string, string>;
+  pickup_branch?: string;
   attachments?: File[];
 }
 
@@ -178,6 +187,9 @@ export interface CreateQuoteData {
   language?: 'es' | 'en';
   delivery_time_text?: string;
   estimated_delivery_date?: string;
+  delivery_method?: string;
+  pickup_branch_id?: string;
+  delivery_address?: Record<string, string>;
   payment_methods?: string[];
   payment_conditions?: string;
   included_services?: string[];
@@ -303,7 +315,12 @@ export async function submitQuoteRequest(data: CreateQuoteRequestData): Promise<
         formData.append('attachments', file);
       });
     } else if (value !== undefined && value !== null) {
-      formData.append(key, String(value));
+      // JSON-stringify objects/arrays so the backend receives valid JSON
+      if (typeof value === 'object') {
+        formData.append(key, JSON.stringify(value));
+      } else {
+        formData.append(key, String(value));
+      }
     }
   });
 

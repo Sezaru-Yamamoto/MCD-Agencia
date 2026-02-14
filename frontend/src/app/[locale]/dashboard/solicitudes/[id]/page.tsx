@@ -22,7 +22,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { SERVICE_LABELS, type ServiceId } from '@/lib/service-ids';
+import { SERVICE_LABELS, type ServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import { Card, Button, LoadingPage } from '@/components/ui';
 import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
 import {
@@ -375,6 +375,28 @@ export default function QuoteRequestDetailPage() {
                 <div className="p-4 bg-neutral-800/50 rounded-lg">
                   <p className="text-neutral-500 text-xs mb-2">Comentarios adicionales</p>
                   <p className="text-white whitespace-pre-wrap">{request.description}</p>
+                </div>
+              )}
+
+              {/* Delivery Method */}
+              {request.delivery_method && (
+                <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg">
+                  <p className="text-neutral-500 text-xs mb-2">Método de entrega preferido</p>
+                  <p className="text-white flex items-center gap-2">
+                    <span>{DELIVERY_METHOD_ICONS[request.delivery_method as DeliveryMethod]}</span>
+                    {DELIVERY_METHOD_LABELS[request.delivery_method as DeliveryMethod]?.es || request.delivery_method}
+                  </p>
+                  {request.pickup_branch && typeof request.pickup_branch === 'object' && (
+                    <p className="text-neutral-300 text-sm mt-1">
+                      Sucursal: {(request.pickup_branch as Record<string, string>).name}
+                    </p>
+                  )}
+                  {request.delivery_address && typeof request.delivery_address === 'object' && Object.keys(request.delivery_address).length > 0 && (
+                    <p className="text-neutral-300 text-sm mt-1">
+                      {request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
+                      {[request.delivery_address.street, request.delivery_address.neighborhood, request.delivery_address.city, request.delivery_address.state, request.delivery_address.postal_code].filter(Boolean).join(', ')}
+                    </p>
+                  )}
                 </div>
               )}
 

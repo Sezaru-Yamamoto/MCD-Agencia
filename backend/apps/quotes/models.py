@@ -278,6 +278,42 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         help_text=_('When the request was assigned.')
     )
 
+    # Delivery method
+    DELIVERY_INSTALLATION = 'installation'
+    DELIVERY_PICKUP = 'pickup'
+    DELIVERY_SHIPPING = 'shipping'
+    DELIVERY_DIGITAL = 'digital'
+    DELIVERY_NOT_APPLICABLE = 'not_applicable'
+    DELIVERY_METHOD_CHOICES = [
+        (DELIVERY_INSTALLATION, _('Installation on-site')),
+        (DELIVERY_PICKUP, _('Pickup at branch')),
+        (DELIVERY_SHIPPING, _('Shipping')),
+        (DELIVERY_DIGITAL, _('Digital delivery')),
+        (DELIVERY_NOT_APPLICABLE, _('Not applicable')),
+    ]
+    delivery_method = models.CharField(
+        _('delivery method'),
+        max_length=20,
+        choices=DELIVERY_METHOD_CHOICES,
+        blank=True,
+        help_text=_('Preferred delivery method.')
+    )
+    delivery_address = models.JSONField(
+        _('delivery address'),
+        default=dict,
+        blank=True,
+        help_text=_('Delivery/installation address details.')
+    )
+    pickup_branch = models.ForeignKey(
+        'content.Branch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quote_requests',
+        verbose_name=_('pickup branch'),
+        help_text=_('Branch for pickup (if delivery method is pickup).')
+    )
+
     class Meta:
         verbose_name = _('quote request')
         verbose_name_plural = _('quote requests')
@@ -674,6 +710,28 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         null=True,
         blank=True,
         help_text=_('Estimated delivery date.')
+    )
+    delivery_method = models.CharField(
+        _('delivery method'),
+        max_length=20,
+        choices=QuoteRequest.DELIVERY_METHOD_CHOICES,
+        blank=True,
+        help_text=_('Selected delivery method.')
+    )
+    pickup_branch = models.ForeignKey(
+        'content.Branch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quotes',
+        verbose_name=_('pickup branch'),
+        help_text=_('Branch for pickup delivery.')
+    )
+    delivery_address = models.JSONField(
+        _('delivery address'),
+        default=dict,
+        blank=True,
+        help_text=_('Shipping or installation address.')
     )
 
     # Payment methods and conditions

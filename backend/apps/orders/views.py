@@ -474,10 +474,16 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
 
         new_status = serializer.validated_data['status']
         notes = serializer.validated_data.get('notes', '')
+        scheduled_date = serializer.validated_data.get('scheduled_date')
 
         with transaction.atomic():
             old_status = order.status
             order.transition_to(new_status, changed_by=request.user, notes=notes)
+
+            # Update scheduled_date if provided
+            if scheduled_date is not None:
+                order.scheduled_date = scheduled_date
+                order.save(update_fields=['scheduled_date'])
 
             # If transitioning to completed, create inventory movements
             if new_status == Order.STATUS_COMPLETED:

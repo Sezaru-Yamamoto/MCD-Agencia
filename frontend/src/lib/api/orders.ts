@@ -91,6 +91,10 @@ export interface Order {
   notes?: string;
   tracking_number?: string;
   tracking_url?: string;
+  delivery_method?: string;
+  pickup_branch?: string;
+  delivery_address?: Record<string, string>;
+  scheduled_date?: string;
   lines: OrderLine[];
   status_history: OrderStatusHistory[];
   created_at: string;

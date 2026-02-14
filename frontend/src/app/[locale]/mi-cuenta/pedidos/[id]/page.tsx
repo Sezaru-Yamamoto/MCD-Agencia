@@ -15,6 +15,7 @@ import {
 import { getOrderById } from '@/lib/api/orders';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, formatDateTime, cn } from '@/lib/utils';
+import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
 const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
   draft: ClockIcon,
@@ -192,6 +193,39 @@ export default function OrderDetailPage() {
               </div>
             )}
           </Card>
+
+          {/* Delivery Method */}
+          {order.delivery_method && (
+            <Card>
+              <h3 className="text-lg font-semibold text-white mb-4">Método de Entrega</h3>
+              <p className="text-white flex items-center gap-2">
+                <span>{DELIVERY_METHOD_ICONS[order.delivery_method as DeliveryMethod]}</span>
+                {DELIVERY_METHOD_LABELS[order.delivery_method as DeliveryMethod]?.es || order.delivery_method}
+              </p>
+              {order.pickup_branch && typeof order.pickup_branch === 'object' && (
+                <div className="mt-3">
+                  <p className="text-sm text-neutral-400">Sucursal de recolección</p>
+                  <p className="text-white">{(order.pickup_branch as Record<string, string>).name}</p>
+                </div>
+              )}
+              {order.delivery_address && Object.keys(order.delivery_address).length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm text-neutral-400">
+                    {order.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                  </p>
+                  <p className="text-white text-sm">
+                    {[order.delivery_address.street, order.delivery_address.neighborhood, order.delivery_address.city, order.delivery_address.state, order.delivery_address.postal_code].filter(Boolean).join(', ')}
+                  </p>
+                </div>
+              )}
+              {order.scheduled_date && (
+                <div className="mt-3">
+                  <p className="text-sm text-neutral-400">Fecha programada</p>
+                  <p className="text-white">{formatDate(order.scheduled_date)}</p>
+                </div>
+              )}
+            </Card>
+          )}
 
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Dirección de envío</h3>

@@ -15,6 +15,7 @@ import {
 import { getQuoteById, downloadQuotePdfByToken, Quote } from '@/lib/api/quotes';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, cn } from '@/lib/utils';
+import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import { useState } from 'react';
 
 export default function CustomerQuoteDetailPage() {
@@ -173,6 +174,31 @@ export default function CustomerQuoteDetailPage() {
                 <div>
                   <p className="text-neutral-500 text-sm">Tiempo de entrega</p>
                   <p className="text-white">{quote.delivery_time_text}</p>
+                </div>
+              )}
+              {quote.delivery_method && (
+                <div>
+                  <p className="text-neutral-500 text-sm">Método de entrega</p>
+                  <p className="text-white flex items-center gap-2">
+                    <span>{DELIVERY_METHOD_ICONS[quote.delivery_method as DeliveryMethod]}</span>
+                    {DELIVERY_METHOD_LABELS[quote.delivery_method as DeliveryMethod]?.es || quote.delivery_method}
+                  </p>
+                </div>
+              )}
+              {quote.pickup_branch && typeof quote.pickup_branch === 'object' && (
+                <div>
+                  <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
+                  <p className="text-white">{(quote.pickup_branch as Record<string, string>).name}</p>
+                </div>
+              )}
+              {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
+                <div>
+                  <p className="text-neutral-500 text-sm">
+                    {quote.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                  </p>
+                  <p className="text-white text-sm">
+                    {[quote.delivery_address.street, quote.delivery_address.neighborhood, quote.delivery_address.city, quote.delivery_address.state, quote.delivery_address.postal_code].filter(Boolean).join(', ')}
+                  </p>
                 </div>
               )}
               {quote.estimated_delivery_date && (

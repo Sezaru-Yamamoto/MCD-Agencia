@@ -45,6 +45,7 @@ import {
   ChangeRequestStatus,
 } from '@/lib/api/quotes';
 import { convertQuoteToOrder } from '@/lib/api/orders';
+import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
 const statusColors: Record<QuoteStatus, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500',
@@ -873,10 +874,35 @@ export default function QuoteDetailPage() {
             </Card>
 
             {/* Delivery */}
-            {(quote.delivery_time_text || quote.estimated_delivery_date) && (
+            {(quote.delivery_time_text || quote.estimated_delivery_date || quote.delivery_method) && (
               <Card className="p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">Entrega</h2>
                 <div className="space-y-4">
+                  {quote.delivery_method && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">Método de entrega</p>
+                      <p className="text-white flex items-center gap-2">
+                        <span>{DELIVERY_METHOD_ICONS[quote.delivery_method as DeliveryMethod]}</span>
+                        {DELIVERY_METHOD_LABELS[quote.delivery_method as DeliveryMethod]?.es || quote.delivery_method}
+                      </p>
+                    </div>
+                  )}
+                  {quote.pickup_branch && typeof quote.pickup_branch === 'object' && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
+                      <p className="text-white">{(quote.pickup_branch as Record<string, string>).name}</p>
+                    </div>
+                  )}
+                  {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">
+                        {quote.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                      </p>
+                      <p className="text-white text-sm">
+                        {[quote.delivery_address.street, quote.delivery_address.neighborhood, quote.delivery_address.city, quote.delivery_address.state, quote.delivery_address.postal_code].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+                  )}
                   {quote.delivery_time_text && (
                     <div>
                       <p className="text-neutral-500 text-sm">Tiempo de entrega</p>

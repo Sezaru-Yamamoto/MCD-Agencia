@@ -910,6 +910,10 @@ class QuoteViewSet(viewsets.ModelViewSet):
                     'Converted from quote %(quote_number)s'
                 ) % {'quote_number': quote.quote_number},
                 quote=quote,
+                # Delivery info inherited from quote
+                delivery_method=quote.delivery_method,
+                pickup_branch=quote.pickup_branch,
+                delivery_address=quote.delivery_address,
             )
 
             # Create order lines from quote lines

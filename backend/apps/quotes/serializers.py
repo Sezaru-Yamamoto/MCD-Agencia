@@ -77,12 +77,33 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
             'customer_company', 'catalog_item_id', 'quantity',
             'dimensions', 'material', 'includes_installation',
             'description', 'preferred_language', 'attachments',
-            'service_type', 'service_details', 'required_date'
+            'service_type', 'service_details', 'required_date',
+            'delivery_method', 'delivery_address', 'pickup_branch'
         ]
 
     def validate_customer_email(self, value):
         """Normalize email."""
         return value.lower().strip()
+
+    def validate_delivery_address(self, value):
+        """Accept both pre-parsed dict and JSON string (from FormData)."""
+        if isinstance(value, str):
+            import json
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError(_('Invalid JSON for delivery address.'))
+        return value
+
+    def validate_service_details(self, value):
+        """Accept both pre-parsed dict and JSON string (from FormData)."""
+        if isinstance(value, str):
+            import json
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError(_('Invalid JSON for service details.'))
+        return value
 
     def validate_catalog_item_id(self, value):
         """Validate catalog item exists."""
@@ -182,7 +203,8 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
             'assigned_to_name', 'attachments', 'created_at', 'updated_at',
             'service_type', 'service_details', 'is_guest', 'required_date',
             'urgency', 'urgency_display', 'days_until_required',
-            'assignment_method', 'assigned_at'
+            'assignment_method', 'assigned_at',
+            'delivery_method', 'delivery_address', 'pickup_branch'
         ]
         read_only_fields = ['id', 'request_number', 'created_at', 'updated_at', 'urgency', 'assigned_at']
 
@@ -241,6 +263,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             'lines', 'attachments',
             'sent_at', 'viewed_at', 'accepted_at', 'created_at',
             'delivery_time_text', 'estimated_delivery_date',
+            'delivery_method', 'pickup_branch', 'delivery_address',
             'payment_methods', 'payment_conditions', 'included_services',
             'customer_notes', 'view_count'
         ]
@@ -294,6 +317,9 @@ class QuoteCreateSerializer(serializers.Serializer):
     # Additional fields
     delivery_time_text = serializers.CharField(max_length=100, required=False, allow_blank=True)
     estimated_delivery_date = serializers.DateField(required=False, allow_null=True)
+    delivery_method = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    pickup_branch_id = serializers.UUIDField(required=False, allow_null=True)
+    delivery_address = serializers.JSONField(required=False, default=dict)
     payment_methods = serializers.ListField(
         child=serializers.CharField(), required=False, default=list
     )
@@ -365,11 +391,23 @@ class QuoteCreateSerializer(serializers.Serializer):
             language=validated_data.get('language', 'es'),
             delivery_time_text=validated_data.get('delivery_time_text', ''),
             estimated_delivery_date=validated_data.get('estimated_delivery_date'),
+            delivery_method=validated_data.get('delivery_method', ''),
+            delivery_address=validated_data.get('delivery_address', {}),
             payment_methods=validated_data.get('payment_methods', []),
             payment_conditions=validated_data.get('payment_conditions', ''),
             included_services=validated_data.get('included_services', []),
             status=Quote.STATUS_DRAFT,
         )
+
+        # Link pickup branch if provided
+        pickup_branch_id = validated_data.get('pickup_branch_id')
+        if pickup_branch_id:
+            from apps.content.models import Branch
+            try:
+                quote.pickup_branch = Branch.objects.get(id=pickup_branch_id, is_active=True)
+                quote.save(update_fields=['pickup_branch'])
+            except Branch.DoesNotExist:
+                pass
 
         # Create line items
         subtotal = Decimal('0.00')

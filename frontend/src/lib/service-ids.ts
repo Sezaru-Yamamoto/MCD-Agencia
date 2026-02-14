@@ -287,6 +287,80 @@ export type FAQKey = typeof FAQ_KEYS[number];
 export const LOCATION_IDS = ['acapulco', 'tecoanapa'] as const;
 export type LocationId = typeof LOCATION_IDS[number];
 
+// ===========================================
+// Delivery Methods Configuration
+// ===========================================
+export const DELIVERY_METHODS = [
+  'installation',
+  'pickup',
+  'shipping',
+  'digital',
+  'not_applicable',
+] as const;
+
+export type DeliveryMethod = typeof DELIVERY_METHODS[number];
+
+export const DELIVERY_METHOD_LABELS: Record<DeliveryMethod, { es: string; en: string }> = {
+  installation: { es: 'Instalación en sitio', en: 'On-site installation' },
+  pickup: { es: 'Recoger en sucursal', en: 'Pickup at branch' },
+  shipping: { es: 'Envío / Paquetería', en: 'Shipping' },
+  digital: { es: 'Entrega digital', en: 'Digital delivery' },
+  not_applicable: { es: 'No aplica', en: 'Not applicable' },
+};
+
+export const DELIVERY_METHOD_ICONS: Record<DeliveryMethod, string> = {
+  installation: '🔧',
+  pickup: '🏬',
+  shipping: '📦',
+  digital: '💻',
+  not_applicable: '➖',
+};
+
+/**
+ * Available delivery methods per service/subtype.
+ * Key format: "service" or "service:subtype" for overrides.
+ * The first method in the array is the default.
+ */
+export const DELIVERY_METHODS_BY_SERVICE: Record<string, DeliveryMethod[]> = {
+  // Espectaculares — always installed on-site
+  'espectaculares': ['installation'],
+  // Fabricación de anuncios — install or pickup or ship
+  'fabricacion-anuncios': ['installation', 'pickup', 'shipping'],
+  // Publicidad móvil — not applicable (service is the delivery)
+  'publicidad-movil': ['not_applicable'],
+  // Impresión gran formato — pickup or shipping
+  'impresion-gran-formato': ['pickup', 'shipping'],
+  // Señalización — install or pickup or ship
+  'senalizacion': ['installation', 'pickup', 'shipping'],
+  // Rotulación vehicular — both pickup AND installation on-site
+  'rotulacion-vehicular': ['installation', 'pickup'],
+  // Corte/Grabado CNC/Láser — pickup or shipping
+  'corte-grabado-cnc-laser': ['pickup', 'shipping'],
+  // Diseño gráfico — digital delivery
+  'diseno-grafico': ['digital'],
+  // Impresión offset/serigrafía — pickup or shipping
+  'impresion-offset-serigrafia': ['pickup', 'shipping'],
+  // Otros — all methods available
+  'otros': ['installation', 'pickup', 'shipping', 'digital', 'not_applicable'],
+};
+
+/**
+ * Get available delivery methods for a service (and optional subtype).
+ * Falls back to service-level config, then to all methods.
+ */
+export function getDeliveryMethodsForService(
+  serviceId: string,
+  subtypeId?: string
+): DeliveryMethod[] {
+  if (subtypeId) {
+    const key = `${serviceId}:${subtypeId}`;
+    if (DELIVERY_METHODS_BY_SERVICE[key]) {
+      return DELIVERY_METHODS_BY_SERVICE[key];
+    }
+  }
+  return DELIVERY_METHODS_BY_SERVICE[serviceId] || DELIVERY_METHODS;
+}
+
 export const LOCATION_DATA: Record<LocationId, {
   phone: string;
   phoneDisplay: string;

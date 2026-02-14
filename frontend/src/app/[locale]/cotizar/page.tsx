@@ -17,12 +17,14 @@ import {
   PaperClipIcon,
   XMarkIcon,
   CheckCircleIcon,
+  TruckIcon,
 } from '@heroicons/react/24/outline';
 
 import { submitQuoteRequest } from '@/lib/api/quotes';
 import { getProducts } from '@/lib/api/catalog';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { Button, Input, Textarea, Select, Card, Breadcrumb } from '@/components/ui';
+import { DELIVERY_METHODS, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
 const quoteSchema = z.object({
   name: z.string().min(2, 'Nombre requerido'),
@@ -61,6 +63,7 @@ export default function QuotePage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [requestNumber, setRequestNumber] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | ''>('');
 
   const { data: productsData } = useQuery({
     queryKey: ['products-for-quote'],
@@ -122,6 +125,7 @@ export default function QuotePage() {
         material: data.material,
         includes_installation: data.installation_required,
         description: data.description,
+        delivery_method: deliveryMethod || undefined,
         attachments: files,
       });
       setRequestNumber(result.request_number);
@@ -284,6 +288,31 @@ export default function QuotePage() {
                   required
                   {...register('description')}
                 />
+              </div>
+            </div>
+
+            {/* Delivery Method Preference */}
+            <div>
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <TruckIcon className="h-5 w-5 text-cyan-400" />
+                Preferencia de entrega (opcional)
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {DELIVERY_METHODS.filter(m => m !== 'not_applicable').map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setDeliveryMethod(prev => prev === method ? '' : method)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                      deliveryMethod === method
+                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                        : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-600'
+                    }`}
+                  >
+                    <span>{DELIVERY_METHOD_ICONS[method]}</span>
+                    <span>{DELIVERY_METHOD_LABELS[method].es}</span>
+                  </button>
+                ))}
               </div>
             </div>
 

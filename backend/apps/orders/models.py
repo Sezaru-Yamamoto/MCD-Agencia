@@ -504,6 +504,48 @@ class Order(TimeStampedModel, SoftDeleteModel):
         help_text=_('Shipment tracking URL.')
     )
 
+    # Delivery method
+    DELIVERY_INSTALLATION = 'installation'
+    DELIVERY_PICKUP = 'pickup'
+    DELIVERY_SHIPPING = 'shipping'
+    DELIVERY_DIGITAL = 'digital'
+    DELIVERY_NOT_APPLICABLE = 'not_applicable'
+    DELIVERY_METHOD_CHOICES = [
+        (DELIVERY_INSTALLATION, _('Installation on-site')),
+        (DELIVERY_PICKUP, _('Pickup at branch')),
+        (DELIVERY_SHIPPING, _('Shipping')),
+        (DELIVERY_DIGITAL, _('Digital delivery')),
+        (DELIVERY_NOT_APPLICABLE, _('Not applicable')),
+    ]
+    delivery_method = models.CharField(
+        _('delivery method'),
+        max_length=20,
+        choices=DELIVERY_METHOD_CHOICES,
+        blank=True,
+        help_text=_('Delivery method for this order.')
+    )
+    pickup_branch = models.ForeignKey(
+        'content.Branch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('pickup branch'),
+        help_text=_('Branch for pickup.')
+    )
+    delivery_address = models.JSONField(
+        _('delivery address'),
+        default=dict,
+        blank=True,
+        help_text=_('Delivery or installation address.')
+    )
+    scheduled_date = models.DateTimeField(
+        _('scheduled date'),
+        null=True,
+        blank=True,
+        help_text=_('Scheduled date/time for installation or delivery.')
+    )
+
     # Dates
     paid_at = models.DateTimeField(
         _('paid at'),

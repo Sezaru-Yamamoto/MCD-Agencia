@@ -200,6 +200,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'amount_paid', 'balance_due', 'is_fully_paid',
             'currency', 'payment_method', 'notes',
             'tracking_number', 'tracking_url',
+            'delivery_method', 'pickup_branch', 'delivery_address',
+            'scheduled_date',
             'lines', 'status_history',
             'created_at', 'paid_at', 'completed_at'
         ]
@@ -311,6 +313,7 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
 
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES, required=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+    scheduled_date = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate_status(self, value):
         """Validate status transition is allowed."""

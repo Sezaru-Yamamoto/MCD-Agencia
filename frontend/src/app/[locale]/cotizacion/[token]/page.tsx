@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage } from '@/components/ui';
 import SignaturePad from '@/components/ui/SignaturePad';
 import QuoteChangeEditor from '@/components/quotes/QuoteChangeEditor';
+import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import {
   viewQuoteByToken,
   acceptQuote,
@@ -424,10 +425,35 @@ export default function QuoteViewPage() {
             )}
 
             {/* Additional Info */}
-            {(quote.delivery_time_text || quote.payment_conditions || quote.included_services) && (
+            {(quote.delivery_time_text || quote.payment_conditions || quote.included_services || quote.delivery_method) && (
               <Card className="p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">Información Adicional</h2>
                 <div className="space-y-4">
+                  {quote.delivery_method && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">Método de Entrega</p>
+                      <p className="text-white flex items-center gap-2">
+                        <span>{DELIVERY_METHOD_ICONS[quote.delivery_method as DeliveryMethod]}</span>
+                        {DELIVERY_METHOD_LABELS[quote.delivery_method as DeliveryMethod]?.es || quote.delivery_method}
+                      </p>
+                    </div>
+                  )}
+                  {quote.pickup_branch && typeof quote.pickup_branch === 'object' && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
+                      <p className="text-white">{(quote.pickup_branch as Record<string, string>).name}</p>
+                    </div>
+                  )}
+                  {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">
+                        {quote.delivery_method === 'installation' ? 'Dirección de Instalación' : 'Dirección de Envío'}
+                      </p>
+                      <p className="text-white text-sm">
+                        {[quote.delivery_address.street, quote.delivery_address.neighborhood, quote.delivery_address.city, quote.delivery_address.state, quote.delivery_address.postal_code].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+                  )}
                   {quote.delivery_time_text && (
                     <div>
                       <p className="text-neutral-500 text-sm">Tiempo de Entrega</p>

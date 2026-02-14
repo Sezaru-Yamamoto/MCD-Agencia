@@ -18,6 +18,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage } from '@/components/ui';
 import { getStaffOrderById, updateOrderStatus, Order } from '@/lib/api/orders';
+import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500',
@@ -388,6 +389,43 @@ export default function StaffOrderDetailPage() {
               )}
             </div>
           </Card>
+
+          {/* Delivery Method */}
+          {order.delivery_method && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Método de Entrega</h2>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-white flex items-center gap-2">
+                    <span>{DELIVERY_METHOD_ICONS[order.delivery_method as DeliveryMethod]}</span>
+                    {DELIVERY_METHOD_LABELS[order.delivery_method as DeliveryMethod]?.es || order.delivery_method}
+                  </p>
+                </div>
+                {order.pickup_branch && typeof order.pickup_branch === 'object' && (
+                  <div>
+                    <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
+                    <p className="text-white">{(order.pickup_branch as Record<string, string>).name}</p>
+                  </div>
+                )}
+                {order.delivery_address && Object.keys(order.delivery_address).length > 0 && (
+                  <div>
+                    <p className="text-neutral-500 text-sm">
+                      {order.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                    </p>
+                    <p className="text-white text-sm">
+                      {[order.delivery_address.street, order.delivery_address.neighborhood, order.delivery_address.city, order.delivery_address.state, order.delivery_address.postal_code].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                )}
+                {order.scheduled_date && (
+                  <div>
+                    <p className="text-neutral-500 text-sm">Fecha programada</p>
+                    <p className="text-white">{formatDate(order.scheduled_date)}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Shipping */}
           {order.shipping_address && (
