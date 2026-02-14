@@ -427,7 +427,7 @@ export function RouteSelector({ onChange, initialPointA, initialPointB }: RouteS
   const hasRoute = pointA && pointB && routeData;
 
   return (
-    <div className="space-y-3 max-w-full overflow-hidden">
+    <div className="space-y-3 max-w-full overflow-hidden relative" style={{ isolation: 'isolate' }}>
       {/* Botón para abrir */}
       <button
         type="button"
