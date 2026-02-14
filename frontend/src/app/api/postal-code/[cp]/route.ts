@@ -65,9 +65,9 @@ function deriveMunicipio(cp: string, places: ZippopotamPlace[]): string {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ cp: string }> }
+  { params }: { params: { cp: string } }
 ) {
-  const { cp } = await params;
+  const { cp } = params;
 
   // Validate: must be exactly 5 digits
   if (!/^\d{5}$/.test(cp)) {
