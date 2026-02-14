@@ -126,8 +126,14 @@ export default function LoginPage() {
                 try {
                   await resendVerification(emailValue);
                   toast.success('Correo de verificación reenviado. Revisa tu bandeja.');
-                } catch {
-                  toast.error('No se pudo reenviar el correo. Intenta más tarde.');
+                } catch (err: unknown) {
+                  const apiErr = err as { message?: string; data?: { detail?: string } };
+                  const detail = apiErr?.data?.detail || apiErr?.message || '';
+                  toast.error(
+                    detail
+                      ? `No se pudo reenviar el correo: ${detail}`
+                      : 'No se pudo reenviar el correo. Intenta más tarde.'
+                  );
                 } finally {
                   setResendingEmail(false);
                 }

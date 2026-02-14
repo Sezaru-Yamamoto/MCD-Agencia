@@ -53,6 +53,12 @@ def send_verification_email(self, user_id: str):
         lang = user.preferred_language or 'es'
         verification_url = f"{frontend_url}/{lang}/verificar-email?token={token}"
 
+        logger.info(
+            f"[VERIFICATION EMAIL] backend={settings.EMAIL_BACKEND}, "
+            f"from={settings.DEFAULT_FROM_EMAIL}, to={user.email}, "
+            f"frontend_url={frontend_url}, url={verification_url[:80]}..."
+        )
+
         # Prepare email content
         context = {
             'user': user,

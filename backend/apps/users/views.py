@@ -10,6 +10,8 @@ This module provides ViewSets and views for user operations:
     - OAuth authentication (Google)
 """
 
+import logging
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -37,6 +39,8 @@ from .serializers import (
     FiscalDataSerializer,
     UserAdminSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -88,14 +92,17 @@ class UserRegistrationView(APIView):
 
         # ---- Outside the transaction: side-effects that must NOT roll back ----
 
-        # Send verification email asynchronously
+        # Send verification email (runs synchronously with ALWAYS_EAGER)
+        email_sent = False
+        email_error = None
         try:
-            send_verification_email.delay(str(user.id))
+            result = send_verification_email(str(user.id))
+            email_sent = bool(result)
         except Exception as exc:
-            import logging, traceback
-            logging.getLogger(__name__).error(
-                f"Failed to send verification email to {user.email}: "
-                f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+            email_error = f"{type(exc).__name__}: {exc}"
+            logger.error(
+                f"Failed to send verification email to {user.email}: {email_error}",
+                exc_info=True,
             )
 
         # In-app notification to admins: new user registered
@@ -115,7 +122,11 @@ class UserRegistrationView(APIView):
         return Response(
             {
                 'message': _('Registration successful. Please verify your email.'),
-                'user': UserSerializer(user).data
+                'user': UserSerializer(user).data,
+                'email_sent': email_sent,
+                **(
+                    {'email_error': email_error} if email_error else {}
+                ),
             },
             status=status.HTTP_201_CREATED
         )
@@ -180,20 +191,39 @@ class ResendVerificationView(APIView):
 
         try:
             user = User.objects.get(email=email, is_email_verified=False)
-            try:
-                send_verification_email.delay(str(user.id))
-            except Exception as exc:
-                import logging, traceback
-                logging.getLogger(__name__).error(
-                    f"Failed to send verification email to {email}: "
-                    f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
-                )
         except User.DoesNotExist:
-            pass  # Don't reveal whether email exists
+            # Don't reveal whether email exists — return success either way
+            return Response(
+                {'message': _('If the email exists and is not verified, a new link has been sent.')}
+            )
 
-        return Response(
-            {'message': _('If the email exists and is not verified, a new link has been sent.')}
-        )
+        # Call the task directly (runs synchronously with ALWAYS_EAGER)
+        # so we can catch and report the real error to the user.
+        try:
+            result = send_verification_email(str(user.id))
+            if result:
+                return Response(
+                    {'message': _('If the email exists and is not verified, a new link has been sent.')}
+                )
+            else:
+                logger.error(f"send_verification_email returned False for {email}")
+                return Response(
+                    {'error': _('Could not send verification email. Please try again later.')},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        except Exception as exc:
+            logger.error(
+                f"Failed to send verification email to {email}: "
+                f"{type(exc).__name__}: {exc}",
+                exc_info=True,
+            )
+            return Response(
+                {
+                    'error': _('Could not send verification email. Please try again later.'),
+                    'detail': f'{type(exc).__name__}: {exc}',
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class UserProfileView(APIView):

@@ -123,3 +123,53 @@ class HealthCheckView(APIView):
         status_code = status.HTTP_200_OK if is_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
 
         return Response(response_data, status=status_code)
+
+
+class EmailDiagnosticView(APIView):
+    """
+    Diagnostic endpoint to check email configuration.
+
+    GET /health/email/
+    Returns the active email backend, from-address, and frontend URL
+    so we can quickly verify what's configured on production.
+    Does NOT reveal API keys.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        import os
+
+        backend = getattr(settings, 'EMAIL_BACKEND', 'NOT SET')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'NOT SET')
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'NOT SET')
+
+        # Check which API key is actually configured (just presence, not value)
+        api_keys = {
+            'BREVO_API_KEY': bool(os.getenv('BREVO_API_KEY')),
+            'RESEND_API_KEY': bool(os.getenv('RESEND_API_KEY')),
+            'SENDGRID_API_KEY': bool(os.getenv('SENDGRID_API_KEY')),
+            'EMAIL_HOST_USER': bool(os.getenv('EMAIL_HOST_USER')),
+        }
+
+        # Quick send test (dry run)
+        can_send = False
+        send_error = None
+        try:
+            from django.core.mail import get_connection
+            conn = get_connection(fail_silently=False)
+            conn.open()
+            conn.close()
+            can_send = True
+        except Exception as e:
+            send_error = f'{type(e).__name__}: {e}'
+
+        return Response({
+            'email_backend': backend,
+            'default_from_email': from_email,
+            'frontend_url': frontend_url,
+            'api_keys_configured': api_keys,
+            'can_open_connection': can_send,
+            'connection_error': send_error,
+        })
