@@ -21,6 +21,11 @@ import {
   ShieldCheckIcon,
   PlusCircleIcon,
   PaperClipIcon,
+  PaperAirplaneIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  PencilIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +41,11 @@ import {
   downloadQuotePdfByToken,
   rejectQuoteByToken,
   requestQuoteChanges,
+  getQuoteResponsesByToken,
+  getQuoteChangeRequests,
   Quote,
+  QuoteResponse as QuoteResponseType,
+  QuoteChangeRequest,
   SubmitChangeRequestData,
 } from '@/lib/api/quotes';
 
@@ -61,6 +70,8 @@ export default function QuoteViewPage() {
   const [showChangeEditor, setShowChangeEditor] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [signatureName, setSignatureName] = useState('');
+  const [responses, setResponses] = useState<QuoteResponseType[]>([]);
+  const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
 
   // Check if user can perform authenticated actions (accept/reject)
   const canPerformAuthActions = isAuthenticated && user?.email === quote?.customer_email;
@@ -76,6 +87,13 @@ export default function QuoteViewPage() {
       try {
         const data = await viewQuoteByToken(token);
         setQuote(data);
+        // Fetch timeline data in parallel
+        const [responsesData, crData] = await Promise.all([
+          getQuoteResponsesByToken(token).catch(() => []),
+          getQuoteChangeRequests(token).catch(() => ({ change_requests: [] })),
+        ]);
+        setResponses(responsesData);
+        setChangeRequests(crData.change_requests || []);
       } catch (err) {
         console.error('Error fetching quote:', err);
         setError('No se pudo cargar la cotización. El enlace puede ser inválido o haber expirado.');
@@ -827,6 +845,162 @@ export default function QuoteViewPage() {
                 )}
               </div>
             </Card>
+
+            {/* Timeline / Historial */}
+            {(responses.length > 0 || changeRequests.length > 0 || quote.version > 1) && (
+              <Card className="p-6">
+                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                  <ClockIcon className="h-5 w-5 text-cmyk-cyan" />
+                  Historial
+                </h3>
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700"></div>
+                  <div className="space-y-4">
+                    {/* Version badge */}
+                    {quote.version > 1 && (
+                      <div className="relative flex items-start gap-3">
+                        <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
+                          <span className="text-purple-400 text-[10px] font-bold leading-none">v{quote.version}</span>
+                        </div>
+                        <div className="flex-1 -mt-0.5">
+                          <p className="text-purple-400 text-xs font-medium">Versión {quote.version}</p>
+                          <p className="text-neutral-500 text-xs">Modificada {quote.version - 1} {quote.version - 1 === 1 ? 'vez' : 'veces'}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Change Requests */}
+                    {changeRequests.map((cr) => (
+                      <div key={cr.id} className="relative flex items-start gap-3">
+                        <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                          cr.status === 'pending'
+                            ? 'bg-orange-500/20 border-orange-500/40'
+                            : cr.status === 'approved'
+                            ? 'bg-green-500/20 border-green-500/40'
+                            : 'bg-red-500/20 border-red-500/40'
+                        }`}>
+                          {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
+                          {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                          {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                        </div>
+                        <div className="flex-1 -mt-0.5">
+                          <p className={`text-xs font-medium ${
+                            cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            Cambio {cr.status === 'pending' ? 'pendiente' : cr.status === 'approved' ? 'aprobado' : 'rechazado'}
+                          </p>
+                          <p className="text-neutral-500 text-xs">
+                            {new Date(cr.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          {cr.customer_comments && (
+                            <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2">
+                              &ldquo;{cr.customer_comments}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Quote responses */}
+                    {responses.map((response) => {
+                      const actionLabels: Record<string, string> = {
+                        view: 'Vista', accept: 'Aceptada', reject: 'Rechazada',
+                        change_request: 'Solicitud de cambio', comment: 'Comentario', send: 'Cotización enviada',
+                      };
+                      const actionColors: Record<string, string> = {
+                        view: 'text-purple-400', accept: 'text-green-400', reject: 'text-red-400',
+                        change_request: 'text-orange-400', comment: 'text-blue-400', send: 'text-cmyk-cyan',
+                      };
+                      return (
+                        <div key={response.id} className="relative flex items-start gap-3">
+                          <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                            response.action === 'accept' ? 'bg-green-500/20 border-green-500/40' :
+                            response.action === 'reject' ? 'bg-red-500/20 border-red-500/40' :
+                            response.action === 'change_request' ? 'bg-orange-500/20 border-orange-500/40' :
+                            response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
+                            response.action === 'send' ? 'bg-cmyk-cyan/20 border-cmyk-cyan/40' :
+                            'bg-blue-500/20 border-blue-500/40'
+                          }`}>
+                            {response.action === 'accept' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
+                            {response.action === 'reject' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                            {response.action === 'change_request' && <PencilSquareIcon className="h-3 w-3 text-orange-400" />}
+                            {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
+                            {response.action === 'send' && <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />}
+                            {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className={`text-xs font-medium ${actionColors[response.action] || 'text-neutral-400'}`}>
+                              {actionLabels[response.action] || response.action_display}
+                              {response.action === 'send' && response.comment && (
+                                <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
+                                  {response.comment}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-neutral-500 text-xs">
+                              {new Date(response.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            {response.action !== 'send' && response.comment && (
+                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
+                                &ldquo;{response.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Sent fallback */}
+                    {quote.sent_at && !responses.some(r => r.action === 'send') && (
+                      <div className="relative flex items-start gap-3">
+                        <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                          <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
+                        </div>
+                        <div className="flex-1 -mt-0.5">
+                          <p className="text-cmyk-cyan text-xs font-medium">Cotización enviada</p>
+                          <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quote created */}
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                        <DocumentTextIcon className="h-3 w-3 text-cmyk-cyan" />
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <p className="text-cmyk-cyan text-xs font-medium">Cotización creada</p>
+                        <p className="text-neutral-500 text-xs">{formatDate(quote.created_at)}</p>
+                      </div>
+                    </div>
+
+                    {/* Request created */}
+                    {quote.quote_request && (
+                      <>
+                        <div className="relative flex items-center gap-3 py-1">
+                          <div className="relative z-10 w-5 flex justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-neutral-600"></div>
+                          </div>
+                          <div className="flex-1 border-t border-dashed border-neutral-700"></div>
+                        </div>
+                        <div className="relative flex items-start gap-3">
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-neutral-700 rounded-full border border-neutral-600">
+                            <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-neutral-400 text-xs font-medium">Solicitud creada</p>
+                            <p className="text-neutral-500 text-xs">
+                              {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Contact */}
             <Card className="p-6 bg-cmyk-cyan/5 border-cmyk-cyan/20">

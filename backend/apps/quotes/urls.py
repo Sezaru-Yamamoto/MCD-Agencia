@@ -15,6 +15,7 @@ from .views import (
     QuoteRequestViewSet,
     QuoteViewSet,
     QuotePublicView,
+    QuotePublicResponsesView,
     QuoteChangeRequestView,
     QuotePublicPdfView,
     QuotePublicRejectView,
@@ -35,6 +36,7 @@ urlpatterns = [
     path('view/<uuid:token>/', QuotePublicView.as_view(), name='view_public'),
     path('view/<uuid:token>/pdf/', QuotePublicPdfView.as_view(), name='pdf_public'),
     path('view/<uuid:token>/reject/', QuotePublicRejectView.as_view(), name='reject_public'),
+    path('view/<uuid:token>/responses/', QuotePublicResponsesView.as_view(), name='responses_public'),
     path('view/<uuid:token>/change-request/', QuoteChangeRequestView.as_view(), name='change_request'),
 
     # Cron endpoint for external scheduler

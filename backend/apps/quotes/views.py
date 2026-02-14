@@ -44,6 +44,7 @@ from .serializers import (
     QuoteChangeRequestCreateSerializer,
     QuoteChangeRequestSerializer,
     QuoteChangeRequestReviewSerializer,
+    QuoteResponseSerializer,
 )
 
 
@@ -763,6 +764,14 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         return Response(data, status=status.HTTP_200_OK if email_sent else status.HTTP_502_BAD_GATEWAY)
 
+    @action(detail=True, methods=['get'])
+    def responses(self, request, pk=None):
+        """Get timeline responses for a quote."""
+        quote = self.get_object()
+        qs = QuoteResponse.objects.filter(quote=quote).select_related('responded_by').order_by('-created_at')
+        serializer = QuoteResponseSerializer(qs, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         """Accept a quote (customer)."""
@@ -1364,6 +1373,39 @@ class QuotePublicView(APIView):
             )
 
         return Response(QuoteSerializer(quote).data)
+
+
+class QuotePublicResponsesView(APIView):
+    """
+    Public endpoint to get quote responses (timeline events) via secure token.
+
+    GET /api/v1/quotes/view/{token}/responses/
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, token):
+        """Get timeline responses for a quote by token."""
+        try:
+            quote = Quote.objects.get(
+                token=token,
+                status__in=[
+                    Quote.STATUS_SENT,
+                    Quote.STATUS_VIEWED,
+                    Quote.STATUS_ACCEPTED,
+                    Quote.STATUS_REJECTED,
+                    Quote.STATUS_CHANGES_REQUESTED,
+                ]
+            )
+        except Quote.DoesNotExist:
+            return Response(
+                {'error': _('Quote not found.')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        qs = QuoteResponse.objects.filter(quote=quote).select_related('responded_by').order_by('-created_at')
+        serializer = QuoteResponseSerializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class QuoteChangeRequestView(APIView):

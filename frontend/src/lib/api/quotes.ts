@@ -451,6 +451,22 @@ export async function requestQuoteChanges(
 }
 
 /**
+ * Get quote responses/timeline events (public - no auth required).
+ */
+export async function getQuoteResponsesByToken(token: string): Promise<QuoteResponse[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const response = await fetch(`${apiUrl}/quotes/view/${token}/responses/`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return response.json();
+}
+
+/**
  * Get existing change requests for a quote (public - no auth required).
  */
 export async function getQuoteChangeRequests(
