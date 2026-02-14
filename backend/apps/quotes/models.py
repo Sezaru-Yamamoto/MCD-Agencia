@@ -1440,7 +1440,32 @@ class QuoteChangeRequest(TimeStampedModel):
                         line.unit_price = Decimal(str(line_data['unit_price']))
                     # Apply service_details if provided (routes, dimensions, etc.)
                     if 'service_details' in line_data and line_data['service_details']:
-                        line.service_details = line_data['service_details']
+                        new_sd = line_data['service_details']
+                        old_sd = line.service_details or {}
+
+                        # Preserve seller route prices: if client sends
+                        # rutas[].precio_unitario == 0 but the existing
+                        # service_details already has prices, keep them.
+                        new_rutas = new_sd.get('rutas') if isinstance(new_sd, dict) else None
+                        old_rutas = old_sd.get('rutas') if isinstance(old_sd, dict) else None
+                        if new_rutas and old_rutas and len(new_rutas) > 0:
+                            for idx, new_r in enumerate(new_rutas):
+                                if isinstance(new_r, dict):
+                                    new_price = new_r.get('precio_unitario', 0)
+                                    # If client didn't send a real price, keep seller's
+                                    if (new_price is None or new_price == 0) and idx < len(old_rutas):
+                                        old_r = old_rutas[idx]
+                                        if isinstance(old_r, dict):
+                                            old_price = old_r.get('precio_unitario', 0)
+                                            if old_price and old_price > 0:
+                                                new_r['precio_unitario'] = old_price
+                                            # Also preserve cantidad if client sent 0
+                                            new_qty = new_r.get('cantidad', 0)
+                                            old_qty = old_r.get('cantidad', 0)
+                                            if (new_qty is None or new_qty == 0) and old_qty and old_qty > 0:
+                                                new_r['cantidad'] = old_qty
+
+                        line.service_details = new_sd
                     line.save()  # save() recalculates line_total
                 except QuoteLine.DoesNotExist:
                     pass

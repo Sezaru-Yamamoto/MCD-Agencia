@@ -154,4 +154,7 @@ print('is_staff sync completed.')
 echo "=== Re-applying service_details from approved change requests ==="
 python manage.py reapply_change_request_details --apply
 
+echo "=== Fixing corrupted route prices in service_details ==="
+python manage.py fix_route_prices --apply
+
 echo "=== Build completed successfully ==="

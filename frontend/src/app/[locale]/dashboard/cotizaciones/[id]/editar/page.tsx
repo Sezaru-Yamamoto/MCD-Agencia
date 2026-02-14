@@ -144,7 +144,65 @@ export default function EditQuotePage() {
               const subLabel = subtipo ? (subtipoLabels[subtipo] || subtipo) : '';
               const conceptText = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
 
-              // For route-based items, the routes are already inside prefillDetails
+              // For route-based items, patch route prices from expanded QuoteLines
+              // because service_details.rutas[].precio_unitario may have been
+              // corrupted to 0 by a client change request.
+              if (isRouteBasedDetails(prefillDetails)) {
+                // Collect expanded lines (the route lines that follow this parent)
+                const expandedLines: typeof quote.lines = [];
+                for (let j = i + 1; j < quote.lines.length; j++) {
+                  const nextLine = quote.lines[j];
+                  if (!nextLine.service_details) {
+                    expandedLines.push(nextLine);
+                    processedLineIds.add(nextLine.id);
+                  } else {
+                    break;
+                  }
+                }
+
+                // Patch each internal route's unit_price from the corresponding expanded line
+                const routeArrayKey = prefillDetails._vallasRoutes
+                  ? '_vallasRoutes'
+                  : prefillDetails._pubRoutes
+                    ? '_pubRoutes'
+                    : prefillDetails._perifoneoRoutes
+                      ? '_perifoneoRoutes'
+                      : null;
+
+                if (routeArrayKey) {
+                  const routes = prefillDetails[routeArrayKey] as Array<{ unit_price?: number; cantidad?: number }>;
+                  if (routes && expandedLines.length > 0) {
+                    for (let r = 0; r < routes.length && r < expandedLines.length; r++) {
+                      const expandedPrice = Number(expandedLines[r].unit_price);
+                      // Use expanded line's price if route price is 0 or missing
+                      if ((!routes[r].unit_price || routes[r].unit_price === 0) && expandedPrice > 0) {
+                        routes[r].unit_price = expandedPrice;
+                      }
+                      // Also patch cantidad from expanded line
+                      const expandedQty = Number(expandedLines[r].quantity);
+                      if ((!routes[r].cantidad || routes[r].cantidad === 0) && expandedQty > 0) {
+                        routes[r].cantidad = expandedQty;
+                      }
+                    }
+                  }
+                }
+
+                // Also patch the API-facing rutas[] array to keep them in sync
+                const rutas = prefillDetails.rutas as Array<{ precio_unitario?: number; cantidad?: number }> | undefined;
+                if (rutas && expandedLines.length > 0) {
+                  for (let r = 0; r < rutas.length && r < expandedLines.length; r++) {
+                    const expandedPrice = Number(expandedLines[r].unit_price);
+                    if ((!rutas[r].precio_unitario || rutas[r].precio_unitario === 0) && expandedPrice > 0) {
+                      rutas[r].precio_unitario = expandedPrice;
+                    }
+                    const expandedQty = Number(expandedLines[r].quantity);
+                    if ((!rutas[r].cantidad || rutas[r].cantidad === 0) && expandedQty > 0) {
+                      rutas[r].cantidad = expandedQty;
+                    }
+                  }
+                }
+              }
+
               loadedItems.push({
                 id: line.id || `item-${i}`,
                 concept: conceptText,
@@ -157,18 +215,6 @@ export default function EditQuotePage() {
                 serviceDetails: prefillDetails,
                 showServiceForm: true,
               });
-
-              // Mark subsequent route lines (without service_details) as processed
-              if (isRouteBasedDetails(prefillDetails)) {
-                for (let j = i + 1; j < quote.lines.length; j++) {
-                  const nextLine = quote.lines[j];
-                  if (!nextLine.service_details) {
-                    processedLineIds.add(nextLine.id);
-                  } else {
-                    break;
-                  }
-                }
-              }
               continue;
             }
           }
