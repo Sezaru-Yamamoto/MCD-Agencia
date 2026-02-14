@@ -1331,8 +1331,10 @@ class QuotePublicView(APIView):
         """View quote via secure token."""
         try:
             quote = Quote.objects.select_related(
-                'quote_request'
-            ).prefetch_related('lines', 'attachments').get(
+                'quote_request', 'quote_request__catalog_item'
+            ).prefetch_related(
+                'lines', 'attachments', 'quote_request__attachments'
+            ).get(
                 token=token,
                 status__in=[
                     Quote.STATUS_SENT,

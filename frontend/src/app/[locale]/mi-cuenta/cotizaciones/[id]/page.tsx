@@ -11,7 +11,6 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  EyeIcon,
   DocumentArrowDownIcon,
   ChatBubbleLeftRightIcon,
   BuildingOfficeIcon,
@@ -701,15 +700,6 @@ export default function CustomerQuoteDetailPage() {
                 >
                   {isDownloadingPdf ? 'Descargando...' : 'Descargar PDF'}
                 </Button>
-              )}
-
-              {/* View full quote via token */}
-              {quote.token && (
-                <Link href={`/${locale}/cotizacion/${quote.token}`} className="block">
-                  <Button variant="outline" className="w-full" leftIcon={<EyeIcon className="h-4 w-4" />}>
-                    Ver cotización completa
-                  </Button>
-                </Link>
               )}
 
               {/* Accept / Reject / Request Changes */}
