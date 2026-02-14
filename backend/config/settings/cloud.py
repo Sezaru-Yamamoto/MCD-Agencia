@@ -209,8 +209,17 @@ else:
 # =============================================================================
 
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
-CORS_ALLOWED_ORIGINS = [o for o in CORS_ALLOWED_ORIGINS if o]
+
+# Hardcoded production origins (always allowed)
+_DEFAULT_ORIGINS = [
+    'https://agenciamcd.mx',
+    'https://www.agenciamcd.mx',
+    'https://mcd-agencia.vercel.app',
+]
+# Extra origins from env var (comma-separated)
+_env_origins = [o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+CORS_ALLOWED_ORIGINS = list(set(_DEFAULT_ORIGINS + _env_origins))
+CORS_ALLOW_CREDENTIALS = True
 
 
 # =============================================================================
