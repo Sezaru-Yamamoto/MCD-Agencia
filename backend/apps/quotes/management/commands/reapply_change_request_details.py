@@ -74,6 +74,29 @@ class Command(BaseCommand):
                     if line.service_details == sd:
                         continue
 
+                    # IMPORTANT: Preserve existing route prices.
+                    # The client's proposed_lines have precio_unitario=0
+                    # because the client editor didn't set prices.
+                    # We must keep the seller's original prices.
+                    if isinstance(sd, dict):
+                        new_rutas = sd.get('rutas')
+                        old_sd = line.service_details or {}
+                        old_rutas = old_sd.get('rutas') if isinstance(old_sd, dict) else None
+                        if new_rutas and isinstance(new_rutas, list) and old_rutas and isinstance(old_rutas, list):
+                            for idx, new_r in enumerate(new_rutas):
+                                if isinstance(new_r, dict):
+                                    new_price = new_r.get('precio_unitario', 0)
+                                    if (new_price is None or new_price == 0) and idx < len(old_rutas):
+                                        old_r = old_rutas[idx]
+                                        if isinstance(old_r, dict):
+                                            old_price = old_r.get('precio_unitario', 0)
+                                            if old_price and old_price > 0:
+                                                new_r['precio_unitario'] = old_price
+                                            old_qty = old_r.get('cantidad', 0)
+                                            new_qty = new_r.get('cantidad', 0)
+                                            if (new_qty is None or new_qty == 0) and old_qty and old_qty > 0:
+                                                new_r['cantidad'] = old_qty
+
                     self.stdout.write(
                         f'  {cr_label}: Line {line_id} '
                         f'({line.concept}) — updating service_details'

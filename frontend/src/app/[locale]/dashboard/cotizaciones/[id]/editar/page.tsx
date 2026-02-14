@@ -148,19 +148,20 @@ export default function EditQuotePage() {
               // because service_details.rutas[].precio_unitario may have been
               // corrupted to 0 by a client change request.
               if (isRouteBasedDetails(prefillDetails)) {
-                // Collect expanded lines (the route lines that follow this parent)
-                const expandedLines: typeof quote.lines = [];
+                // The parent line (index i) IS Ruta 1.
+                // Subsequent lines without service_details are Ruta 2, 3, etc.
+                const allRouteLines: typeof quote.lines = [line]; // parent = Ruta 1
                 for (let j = i + 1; j < quote.lines.length; j++) {
                   const nextLine = quote.lines[j];
                   if (!nextLine.service_details) {
-                    expandedLines.push(nextLine);
+                    allRouteLines.push(nextLine);
                     processedLineIds.add(nextLine.id);
                   } else {
                     break;
                   }
                 }
 
-                // Patch each internal route's unit_price from the corresponding expanded line
+                // Patch each internal route's unit_price from the corresponding line
                 const routeArrayKey = prefillDetails._vallasRoutes
                   ? '_vallasRoutes'
                   : prefillDetails._pubRoutes
@@ -171,17 +172,17 @@ export default function EditQuotePage() {
 
                 if (routeArrayKey) {
                   const routes = prefillDetails[routeArrayKey] as Array<{ unit_price?: number; cantidad?: number }>;
-                  if (routes && expandedLines.length > 0) {
-                    for (let r = 0; r < routes.length && r < expandedLines.length; r++) {
-                      const expandedPrice = Number(expandedLines[r].unit_price);
-                      // Use expanded line's price if route price is 0 or missing
-                      if ((!routes[r].unit_price || routes[r].unit_price === 0) && expandedPrice > 0) {
-                        routes[r].unit_price = expandedPrice;
+                  if (routes && allRouteLines.length > 0) {
+                    for (let r = 0; r < routes.length && r < allRouteLines.length; r++) {
+                      const linePrice = Number(allRouteLines[r].unit_price);
+                      // Use line's price if route price is 0 or missing
+                      if ((!routes[r].unit_price || routes[r].unit_price === 0) && linePrice > 0) {
+                        routes[r].unit_price = linePrice;
                       }
-                      // Also patch cantidad from expanded line
-                      const expandedQty = Number(expandedLines[r].quantity);
-                      if ((!routes[r].cantidad || routes[r].cantidad === 0) && expandedQty > 0) {
-                        routes[r].cantidad = expandedQty;
+                      // Also patch cantidad from line
+                      const lineQty = Number(allRouteLines[r].quantity);
+                      if ((!routes[r].cantidad || routes[r].cantidad === 0) && lineQty > 0) {
+                        routes[r].cantidad = lineQty;
                       }
                     }
                   }
@@ -189,15 +190,15 @@ export default function EditQuotePage() {
 
                 // Also patch the API-facing rutas[] array to keep them in sync
                 const rutas = prefillDetails.rutas as Array<{ precio_unitario?: number; cantidad?: number }> | undefined;
-                if (rutas && expandedLines.length > 0) {
-                  for (let r = 0; r < rutas.length && r < expandedLines.length; r++) {
-                    const expandedPrice = Number(expandedLines[r].unit_price);
-                    if ((!rutas[r].precio_unitario || rutas[r].precio_unitario === 0) && expandedPrice > 0) {
-                      rutas[r].precio_unitario = expandedPrice;
+                if (rutas && allRouteLines.length > 0) {
+                  for (let r = 0; r < rutas.length && r < allRouteLines.length; r++) {
+                    const linePrice = Number(allRouteLines[r].unit_price);
+                    if ((!rutas[r].precio_unitario || rutas[r].precio_unitario === 0) && linePrice > 0) {
+                      rutas[r].precio_unitario = linePrice;
                     }
-                    const expandedQty = Number(expandedLines[r].quantity);
-                    if ((!rutas[r].cantidad || rutas[r].cantidad === 0) && expandedQty > 0) {
-                      rutas[r].cantidad = expandedQty;
+                    const lineQty = Number(allRouteLines[r].quantity);
+                    if ((!rutas[r].cantidad || rutas[r].cantidad === 0) && lineQty > 0) {
+                      rutas[r].cantidad = lineQty;
                     }
                   }
                 }
