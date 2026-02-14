@@ -25,6 +25,7 @@ import {
   getAdminQuoteRequestById,
   createQuote,
   sendQuote,
+  Quote,
   QuoteRequest,
   CreateQuoteData,
 } from '@/lib/api/quotes';
@@ -81,7 +82,7 @@ export default function NewQuotePage() {
   const [searchTab, setSearchTab] = useState<'products' | 'services'>('products');
   const [serviceSearchQuery, setServiceSearchQuery] = useState('');
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
+  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error'; redirectTo?: string }>({ open: false, title: '', message: '', variant: 'success' });
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -371,10 +372,20 @@ export default function NewQuotePage() {
       const quote = await createQuote(quoteData);
 
       if (sendImmediately) {
-        await sendQuote(quote.id, { send_email: true });
-        setModal({ open: true, title: 'Cotización enviada', message: `Se creó y envió la cotización al cliente (${customerEmail}).`, variant: 'success' });
+        const sent = await sendQuote(quote.id, { send_email: true }) as Quote & { email_sent?: boolean; email_error?: string };
+        if (sent.email_sent === false) {
+          setModal({
+            open: true,
+            title: 'Cotización creada, pero el correo no se envió',
+            message: `La cotización se creó y marcó como enviada, pero no se pudo enviar el correo a ${customerEmail}. Puedes reenviar el correo desde el detalle de la cotización.\n\nError: ${sent.email_error || 'Error desconocido'}`,
+            variant: 'error',
+            redirectTo: `/${locale}/dashboard/cotizaciones/${quote.id}`,
+          });
+        } else {
+          setModal({ open: true, title: 'Cotización enviada', message: `Se creó y envió la cotización al cliente (${customerEmail}).`, variant: 'success', redirectTo: `/${locale}/dashboard/cotizaciones/${quote.id}` });
+        }
       } else {
-        setModal({ open: true, title: 'Borrador guardado', message: 'La cotización se guardó como borrador.', variant: 'success' });
+        setModal({ open: true, title: 'Borrador guardado', message: 'La cotización se guardó como borrador.', variant: 'success', redirectTo: `/${locale}/dashboard/cotizaciones/${quote.id}` });
       }
     } catch (error) {
       console.error('Error creating quote:', error);
@@ -1100,8 +1111,9 @@ export default function NewQuotePage() {
       isOpen={modal.open}
       onClose={() => {
         setModal((m) => ({ ...m, open: false }));
-        if (modal.variant === 'success') {
-          router.push(`/${locale}/dashboard/cotizaciones`);
+        const dest = modal.redirectTo || (modal.variant === 'success' ? `/${locale}/dashboard/cotizaciones` : undefined);
+        if (dest) {
+          router.push(dest);
         }
       }}
       title={modal.title}

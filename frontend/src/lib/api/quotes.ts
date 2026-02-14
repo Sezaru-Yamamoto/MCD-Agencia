@@ -654,6 +654,13 @@ export async function sendQuote(id: string, options?: {
 }
 
 /**
+ * Resend the quote email to the customer.
+ */
+export async function resendQuoteEmail(id: string): Promise<{ email_sent: boolean; email_error?: string }> {
+  return apiClient.post<{ email_sent: boolean; email_error?: string }>(`/quotes/${id}/resend-email/`);
+}
+
+/**
  * Duplicate a quote.
  */
 export async function duplicateQuote(id: string): Promise<Quote> {

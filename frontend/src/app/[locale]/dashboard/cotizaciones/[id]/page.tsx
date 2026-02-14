@@ -30,6 +30,7 @@ import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal
 import {
   getAdminQuoteById,
   sendQuote,
+  resendQuoteEmail,
   deleteQuote,
   duplicateQuote,
   downloadQuotePdf,
@@ -174,10 +175,37 @@ export default function QuoteDetailPage() {
     try {
       const updated = await sendQuote(quote.id) as Quote & { email_sent?: boolean; email_error?: string };
       setQuote(updated);
-      setModal({ open: true, title: 'Cotización enviada', message: `La cotización se envió al cliente (${quote.customer_email}).`, variant: 'success' });
+      if (updated.email_sent === false) {
+        setModal({
+          open: true,
+          title: 'Cotización guardada, pero el correo no se envió',
+          message: `La cotización se marcó como enviada, pero no se pudo enviar el correo a ${quote.customer_email}. Puedes reintentar el envío del correo.\n\nError: ${updated.email_error || 'Error desconocido'}`,
+          variant: 'error',
+        });
+      } else {
+        setModal({ open: true, title: 'Cotización enviada', message: `La cotización se envió al cliente (${quote.customer_email}).`, variant: 'success' });
+      }
     } catch (error) {
       console.error('Error sending quote:', error);
       setModal({ open: true, title: 'Error', message: 'No se pudo enviar la cotización.', variant: 'error' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!quote) return;
+    setIsSending(true);
+    try {
+      const result = await resendQuoteEmail(quote.id);
+      if (result.email_sent) {
+        toast.success(`Correo reenviado a ${quote.customer_email}`);
+      } else {
+        toast.error(`No se pudo reenviar: ${result.email_error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error resending email:', error);
+      toast.error('Error al reenviar el correo');
     } finally {
       setIsSending(false);
     }
@@ -379,6 +407,16 @@ export default function QuoteDetailPage() {
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {isConverting ? 'Convirtiendo...' : 'Convertir a Pedido'}
+              </Button>
+            )}
+            {['sent', 'viewed', 'changes_requested'].includes(quote.status) && (
+              <Button
+                variant="outline"
+                onClick={handleResendEmail}
+                disabled={isSending}
+                leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+              >
+                {isSending ? 'Reenviando...' : 'Reenviar correo'}
               </Button>
             )}
             <Button

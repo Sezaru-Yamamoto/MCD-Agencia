@@ -81,7 +81,7 @@ export default function EditQuotePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
-  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error' }>({ open: false, title: '', message: '', variant: 'success' });
+  const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error'; redirectTo?: string }>({ open: false, title: '', message: '', variant: 'success' });
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -390,8 +390,18 @@ export default function EditQuotePage() {
       const quote = await updateQuote(quoteId, quoteData);
 
       if (sendImmediately) {
-        await sendQuote(quote.id, { send_email: true });
-        setModal({ open: true, title: 'Cotización actualizada y enviada', message: `La cotización se actualizó y envió al cliente (${customerEmail}).`, variant: 'success' });
+        const sent = await sendQuote(quote.id, { send_email: true }) as Quote & { email_sent?: boolean; email_error?: string };
+        if (sent.email_sent === false) {
+          setModal({
+            open: true,
+            title: 'Cotización actualizada, pero el correo no se envió',
+            message: `La cotización se actualizó y marcó como enviada, pero no se pudo enviar el correo a ${customerEmail}. Puedes reenviar el correo desde el detalle de la cotización.\n\nError: ${sent.email_error || 'Error desconocido'}`,
+            variant: 'error',
+            redirectTo: `/${locale}/dashboard/cotizaciones/${quoteId}`,
+          });
+        } else {
+          setModal({ open: true, title: 'Cotización actualizada y enviada', message: `La cotización se actualizó y envió al cliente (${customerEmail}).`, variant: 'success' });
+        }
       } else {
         setModal({ open: true, title: 'Cotización actualizada', message: 'Los cambios se guardaron correctamente.', variant: 'success' });
       }
@@ -1010,8 +1020,9 @@ export default function EditQuotePage() {
       isOpen={modal.open}
       onClose={() => {
         setModal((m) => ({ ...m, open: false }));
-        if (modal.variant === 'success') {
-          router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
+        const dest = modal.redirectTo || (modal.variant === 'success' ? `/${locale}/dashboard/cotizaciones/${quoteId}` : undefined);
+        if (dest) {
+          router.push(dest);
         }
       }}
       title={modal.title}

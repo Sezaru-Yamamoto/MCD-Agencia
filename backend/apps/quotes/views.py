@@ -22,6 +22,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
+logger = logging.getLogger(__name__)
+
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
 from apps.core.views import is_internal_user as _is_internal_user
@@ -701,21 +703,53 @@ class QuoteViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.warning(f"PDF regeneration failed for {quote.quote_number}: {e}")
 
-        # Send email notification to customer in background thread
-        # (don't block the HTTP response — email can take several seconds)
-        def _send_email():
-            try:
-                send_quote_email_sync(str(quote.id))
-                logging.getLogger(__name__).info(f"Quote email sent for {quote.quote_number}")
-            except Exception as e:
-                logging.getLogger(__name__).error(f"Quote email failed for {quote.quote_number}: {e}")
-
-        threading.Thread(target=_send_email, daemon=True).start()
+        # Send email synchronously so we know if it actually succeeded
+        email_sent = False
+        email_error = ''
+        try:
+            send_quote_email_sync(str(quote.id))
+            email_sent = True
+            logger.info(f"Quote email sent for {quote.quote_number}")
+        except Exception as e:
+            email_error = str(e)
+            logger.error(f"Quote email failed for {quote.quote_number}: {e}")
 
         response_data = QuoteAdminSerializer(quote).data
-        response_data['email_sent'] = True  # Queued for sending
+        response_data['email_sent'] = email_sent
+        if email_error:
+            response_data['email_error'] = email_error
 
         return Response(response_data)
+
+    @action(detail=True, methods=['post'], url_path='resend-email')
+    def resend_email(self, request, pk=None):
+        """Resend the quote email to the customer."""
+        if not _is_internal_user(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote = self.get_object()
+
+        if quote.status not in [Quote.STATUS_SENT, Quote.STATUS_VIEWED, Quote.STATUS_CHANGES_REQUESTED]:
+            return Response(
+                {'error': _('Quote must be sent to resend email.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email_sent = False
+        email_error = ''
+        try:
+            send_quote_email_sync(str(quote.id))
+            email_sent = True
+            logger.info(f"Quote email resent for {quote.quote_number}")
+        except Exception as e:
+            email_error = str(e)
+            logger.error(f"Quote email resend failed for {quote.quote_number}: {e}")
+
+        data = {'email_sent': email_sent}
+        if email_error:
+            data['email_error'] = email_error
+
+        return Response(data, status=status.HTTP_200_OK if email_sent else status.HTTP_502_BAD_GATEWAY)
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
