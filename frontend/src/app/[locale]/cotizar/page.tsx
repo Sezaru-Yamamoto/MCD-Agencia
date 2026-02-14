@@ -71,11 +71,23 @@ export default function QuotePage() {
   });
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
+  const [branchesError, setBranchesError] = useState(false);
 
   // Fetch branches for pickup
-  useEffect(() => {
-    getBranches().then(setBranches).catch(() => {});
-  }, []);
+  const fetchBranches = async () => {
+    setBranchesLoading(true);
+    setBranchesError(false);
+    try {
+      const data = await getBranches();
+      setBranches(data);
+    } catch {
+      setBranchesError(true);
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
+  useEffect(() => { fetchBranches(); }, []);
 
   const { data: productsData } = useQuery({
     queryKey: ['products-for-quote'],
@@ -330,7 +342,7 @@ export default function QuotePage() {
                 Método de entrega <span className="text-red-500">*</span>
               </h2>
               <p className="text-sm text-neutral-400 mb-4">Selecciona cómo deseas recibir tu producto o servicio</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-2">
                 {DELIVERY_METHODS.filter(m => m !== 'not_applicable').map((method) => (
                   <button
                     key={method}
@@ -343,14 +355,14 @@ export default function QuotePage() {
                         setSelectedBranch('');
                       }
                     }}
-                    className={`flex items-center gap-2 px-3 py-3 rounded-lg border text-sm font-medium transition-all ${
+                    className={`flex items-center justify-center sm:justify-start gap-2 px-3 py-3 rounded-lg border text-sm font-medium transition-all ${
                       deliveryMethod === method
-                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/50'
+                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 ring-2 ring-cyan-500/50'
                         : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500'
                     }`}
                   >
                     <span className="text-lg">{DELIVERY_METHOD_ICONS[method]}</span>
-                    <span>{DELIVERY_METHOD_LABELS[method].es}</span>
+                    <span className="text-sm">{DELIVERY_METHOD_LABELS[method].es}</span>
                   </button>
                 ))}
               </div>
@@ -358,7 +370,7 @@ export default function QuotePage() {
 
               {/* Installation / Shipping address */}
               {(deliveryMethod === 'installation' || deliveryMethod === 'shipping') && (
-                <div className="mt-4 space-y-3 p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
+                <div className="mt-4 space-y-3 p-3 sm:p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
                   <p className="text-sm text-cyan-400 font-medium">
                     {deliveryMethod === 'installation' ? '📍 Dirección de instalación' : '📦 Dirección de envío'}
                   </p>
@@ -429,38 +441,64 @@ export default function QuotePage() {
 
               {/* Pickup — branch selection */}
               {deliveryMethod === 'pickup' && (
-                <div className="mt-4 space-y-3 p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
+                <div className="mt-4 space-y-3 p-3 sm:p-4 rounded-lg border border-neutral-700 bg-neutral-900/50">
                   <p className="text-sm text-cyan-400 font-medium">🏬 Selecciona la sucursal donde recogerás tu pedido</p>
-                  {branches.length === 0 ? (
-                    <p className="text-sm text-neutral-400">Cargando sucursales...</p>
+                  {branchesLoading ? (
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-neutral-800/60">
+                      <svg className="animate-spin h-5 w-5 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span className="text-sm text-neutral-400">Cargando sucursales...</span>
+                    </div>
+                  ) : branchesError ? (
+                    <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-center">
+                      <p className="text-sm text-red-400 mb-2">No se pudieron cargar las sucursales</p>
+                      <button
+                        type="button"
+                        onClick={fetchBranches}
+                        className="text-xs text-cyan-400 hover:underline font-medium"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : branches.length === 0 ? (
+                    <p className="text-sm text-neutral-400 p-4 text-center">No hay sucursales disponibles actualmente.</p>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       {branches.map((branch) => (
                         <button
                           key={branch.id}
                           type="button"
                           onClick={() => { setSelectedBranch(branch.id); setDeliveryError(''); }}
-                          className={`text-left p-4 rounded-lg border transition-all ${
+                          className={`text-left p-3 sm:p-4 rounded-lg border transition-all ${
                             selectedBranch === branch.id
-                              ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50'
+                              ? 'border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/50'
                               : 'border-neutral-700 bg-neutral-800 hover:border-neutral-500'
                           }`}
                         >
-                          <p className="font-semibold text-white text-sm">{branch.name}</p>
-                          <p className="text-xs text-neutral-400 mt-1">{branch.full_address}</p>
-                          <p className="text-xs text-neutral-400 mt-1">📞 {branch.phone}</p>
-                          <p className="text-xs text-neutral-400">🕐 {branch.hours}</p>
-                          {branch.google_maps_url && (
-                            <a
-                              href={branch.google_maps_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              className="text-xs text-cyan-400 hover:underline mt-1 inline-block"
-                            >
-                              Ver en Google Maps →
-                            </a>
-                          )}
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl mt-0.5 hidden sm:block">{selectedBranch === branch.id ? '✅' : '🏬'}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-white text-sm sm:text-base">{branch.name}</p>
+                              <p className="text-xs sm:text-sm text-neutral-400 mt-1 break-words">{branch.full_address}</p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                                <p className="text-xs text-neutral-400">📞 {branch.phone}</p>
+                                <p className="text-xs text-neutral-400">🕐 {branch.hours}</p>
+                              </div>
+                              {branch.google_maps_url && (
+                                <a
+                                  href={branch.google_maps_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-xs text-cyan-400 hover:underline mt-2 inline-flex items-center gap-1"
+                                >
+                                  📍 Ver en Google Maps →
+                                </a>
+                              )}
+                            </div>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -470,11 +508,11 @@ export default function QuotePage() {
 
               {/* Digital — confirmation note */}
               {deliveryMethod === 'digital' && (
-                <div className="mt-4 flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                  <span className="text-lg">💻</span>
+                <div className="mt-4 flex items-start gap-3 p-3 sm:p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <span className="text-lg sm:text-xl">💻</span>
                   <div>
                     <p className="text-sm text-green-400 font-medium">Entrega digital</p>
-                    <p className="text-xs text-neutral-400 mt-1">
+                    <p className="text-xs sm:text-sm text-neutral-400 mt-1">
                       Los archivos finales se enviarán al correo electrónico que proporcionaste en los datos de contacto.
                     </p>
                   </div>
