@@ -24,6 +24,7 @@ import { submitQuoteRequest } from '@/lib/api/quotes';
 import { getProducts } from '@/lib/api/catalog';
 import { getBranches, type Branch } from '@/lib/api/content';
 import { useLegalModal } from '@/contexts/LegalModalContext';
+import { usePostalCode } from '@/hooks/usePostalCode';
 import { Button, Input, Textarea, Select, Card, Breadcrumb } from '@/components/ui';
 import { DELIVERY_METHODS, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
@@ -73,6 +74,8 @@ export default function QuotePage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [branchesError, setBranchesError] = useState(false);
+  const postalCode = usePostalCode();
+  const [coloniaManual, setColoniaManual] = useState(false);
 
   // Fetch branches for pickup
   const fetchBranches = async () => {
@@ -353,6 +356,8 @@ export default function QuotePage() {
                       if (method !== deliveryMethod) {
                         setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
                         setSelectedBranch('');
+                        postalCode.reset();
+                        setColoniaManual(false);
                       }
                     }}
                     className={`flex items-center justify-center sm:justify-start gap-2 px-3 py-3 rounded-lg border text-sm font-medium transition-all ${
@@ -374,13 +379,125 @@ export default function QuotePage() {
                   <p className="text-sm text-cyan-400 font-medium">
                     {deliveryMethod === 'installation' ? '📍 Dirección de instalación' : '📦 Dirección de envío'}
                   </p>
+
+                  {/* Row 1: Código Postal + Estado + Municipio */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">Código Postal <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Input
+                          placeholder="39300"
+                          required
+                          value={deliveryAddress.codigo_postal}
+                          onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                            const cp = e.target.value.replace(/\D/g, '').slice(0, 5);
+                            setDeliveryAddress(p => ({ ...p, codigo_postal: cp }));
+                            if (cp.length === 5) {
+                              const result = await postalCode.lookup(cp);
+                              if (result) {
+                                setDeliveryAddress(p => ({
+                                  ...p,
+                                  estado: result.estado,
+                                  ciudad: result.municipio,
+                                  colonia: result.colonias.length > 0 ? result.colonias[0] : '',
+                                }));
+                                setColoniaManual(false);
+                              }
+                            } else {
+                              postalCode.reset();
+                            }
+                          }}
+                        />
+                        {postalCode.loading && (
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                            <svg className="animate-spin h-4 w-4 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {postalCode.error && (
+                        <p className="text-xs text-red-400 mt-1">{postalCode.error}</p>
+                      )}
+                      {postalCode.data && (
+                        <p className="text-xs text-green-400 mt-1">✓ CP encontrado — {postalCode.data.colonias.length} colonia{postalCode.data.colonias.length !== 1 ? 's' : ''}</p>
+                      )}
+                    </div>
+                    <Input
+                      label="Estado"
+                      placeholder="Guerrero"
+                      required
+                      value={deliveryAddress.estado}
+                      readOnly={!!postalCode.data}
+                      className={postalCode.data ? 'opacity-70' : ''}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, estado: e.target.value }))}
+                    />
+                    <Input
+                      label="Municipio / Ciudad"
+                      placeholder="Acapulco de Juárez"
+                      required
+                      value={deliveryAddress.ciudad}
+                      readOnly={!!postalCode.data?.municipio}
+                      className={postalCode.data?.municipio ? 'opacity-70' : ''}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, ciudad: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* Row 2: Colonia (dropdown from CP or manual) */}
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1">Colonia <span className="text-red-500">*</span></label>
+                    {postalCode.data && postalCode.data.colonias.length > 0 && !coloniaManual ? (
+                      <div className="space-y-1">
+                        <select
+                          className="w-full rounded-lg border border-neutral-700 bg-neutral-800 text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500"
+                          value={deliveryAddress.colonia}
+                          onChange={e => {
+                            if (e.target.value === '__otra__') {
+                              setColoniaManual(true);
+                              setDeliveryAddress(p => ({ ...p, colonia: '' }));
+                            } else {
+                              setDeliveryAddress(p => ({ ...p, colonia: e.target.value }));
+                            }
+                          }}
+                        >
+                          {postalCode.data.colonias.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                          <option value="__otra__">— Otra (escribir manualmente) —</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Centro"
+                          value={deliveryAddress.colonia}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, colonia: e.target.value }))}
+                        />
+                        {coloniaManual && postalCode.data && (
+                          <button
+                            type="button"
+                            className="text-xs text-cyan-400 hover:underline"
+                            onClick={() => {
+                              setColoniaManual(false);
+                              setDeliveryAddress(p => ({ ...p, colonia: postalCode.data!.colonias[0] || '' }));
+                            }}
+                          >
+                            ← Volver a seleccionar de la lista
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 3: Calle + Números */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input
                       label="Calle"
                       placeholder="Av. Costera Miguel Alemán"
                       required
                       value={deliveryAddress.calle}
-                      onChange={e => setDeliveryAddress(p => ({ ...p, calle: e.target.value }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, calle: e.target.value }))}
                     />
                     <div className="grid grid-cols-2 gap-3">
                       <Input
@@ -388,53 +505,23 @@ export default function QuotePage() {
                         placeholder="123"
                         required
                         value={deliveryAddress.numero_exterior}
-                        onChange={e => setDeliveryAddress(p => ({ ...p, numero_exterior: e.target.value }))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, numero_exterior: e.target.value }))}
                       />
                       <Input
                         label="No. Interior"
                         placeholder="4B"
                         value={deliveryAddress.numero_interior}
-                        onChange={e => setDeliveryAddress(p => ({ ...p, numero_interior: e.target.value }))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, numero_interior: e.target.value }))}
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input
-                      label="Colonia"
-                      placeholder="Centro"
-                      required
-                      value={deliveryAddress.colonia}
-                      onChange={e => setDeliveryAddress(p => ({ ...p, colonia: e.target.value }))}
-                    />
-                    <Input
-                      label="Código Postal"
-                      placeholder="39300"
-                      required
-                      value={deliveryAddress.codigo_postal}
-                      onChange={e => setDeliveryAddress(p => ({ ...p, codigo_postal: e.target.value.replace(/\D/g, '') }))}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input
-                      label="Ciudad"
-                      placeholder="Acapulco"
-                      required
-                      value={deliveryAddress.ciudad}
-                      onChange={e => setDeliveryAddress(p => ({ ...p, ciudad: e.target.value }))}
-                    />
-                    <Input
-                      label="Estado"
-                      placeholder="Guerrero"
-                      required
-                      value={deliveryAddress.estado}
-                      onChange={e => setDeliveryAddress(p => ({ ...p, estado: e.target.value }))}
-                    />
-                  </div>
+
+                  {/* Row 4: Referencia */}
                   <Input
                     label="Referencia (opcional)"
                     placeholder="Entre calles, color de fachada, etc."
                     value={deliveryAddress.referencia}
-                    onChange={e => setDeliveryAddress(p => ({ ...p, referencia: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, referencia: e.target.value }))}
                   />
                 </div>
               )}

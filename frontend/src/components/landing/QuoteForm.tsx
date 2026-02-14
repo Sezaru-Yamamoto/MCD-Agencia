@@ -42,6 +42,7 @@ const RouteSelector = dynamic(
   }
 );
 import { useRecaptcha } from '@/hooks';
+import { usePostalCode } from '@/hooks/usePostalCode';
 import { SuccessModal } from '@/components/ui';
 import { getBranches, type Branch } from '@/lib/api/content';
 
@@ -228,6 +229,8 @@ export function QuoteForm() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [branchesError, setBranchesError] = useState(false);
+  const postalCode = usePostalCode();
+  const [coloniaManual, setColoniaManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch branches for pickup option
@@ -355,6 +358,8 @@ export function QuoteForm() {
     setDeliveryError('');
     setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
     setSelectedBranch('');
+    postalCode.reset();
+    setColoniaManual(false);
   }, [servicioValue]);
 
   const onSubmit = async (data: QuoteFormData) => {
@@ -434,6 +439,8 @@ export function QuoteForm() {
       setDeliveryError('');
       setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
       setSelectedBranch('');
+      postalCode.reset();
+      setColoniaManual(false);
       setVallasRoutes([createConfigurableRoute()]);
       setPerifoneoRoutes([createConfigurableRoute()]);
       setPubRoutes([createEstablishedRoute()]);
@@ -1799,6 +1806,8 @@ export function QuoteForm() {
                         if (method !== deliveryMethod) {
                           setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
                           setSelectedBranch('');
+                          postalCode.reset();
+                          setColoniaManual(false);
                         }
                       }}
                       disabled={formStatus === 'submitting'}
@@ -1823,6 +1832,122 @@ export function QuoteForm() {
                         ? '📍 Dirección donde se realizará la instalación'
                         : '📦 Dirección de envío'}
                     </p>
+
+                    {/* Row 1: Código Postal (triggers autofill) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="label-field">Código Postal <span className="text-cmyk-magenta">*</span></label>
+                        <div className="relative">
+                          <input
+                            type="text" className="input-field" placeholder="39300" maxLength={5}
+                            value={deliveryAddress.codigo_postal}
+                            onChange={async e => {
+                              const cp = e.target.value.replace(/\D/g, '');
+                              setDeliveryAddress(p => ({ ...p, codigo_postal: cp }));
+                              if (cp.length === 5) {
+                                const result = await postalCode.lookup(cp);
+                                if (result) {
+                                  setDeliveryAddress(p => ({
+                                    ...p,
+                                    estado: result.estado,
+                                    ciudad: result.municipio,
+                                    colonia: result.colonias.length > 0 ? result.colonias[0] : '',
+                                  }));
+                                  setColoniaManual(false);
+                                }
+                              } else {
+                                postalCode.reset();
+                              }
+                            }}
+                            disabled={formStatus === 'submitting'}
+                          />
+                          {postalCode.loading && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                              <svg className="animate-spin h-4 w-4 text-cmyk-cyan" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        {postalCode.error && (
+                          <p className="text-xs text-red-400 mt-1">{postalCode.error}</p>
+                        )}
+                        {postalCode.data && (
+                          <p className="text-xs text-green-400 mt-1">✓ CP encontrado — {postalCode.data.colonias.length} colonia{postalCode.data.colonias.length !== 1 ? 's' : ''}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="label-field">Estado <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className={`input-field ${postalCode.data ? 'bg-neutral-700/50 text-gray-300' : ''}`} placeholder="Guerrero"
+                          value={deliveryAddress.estado}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, estado: e.target.value }))}
+                          readOnly={!!postalCode.data}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                      <div>
+                        <label className="label-field">Municipio / Ciudad <span className="text-cmyk-magenta">*</span></label>
+                        <input
+                          type="text" className={`input-field ${postalCode.data?.municipio ? 'bg-neutral-700/50 text-gray-300' : ''}`} placeholder="Acapulco de Juárez"
+                          value={deliveryAddress.ciudad}
+                          onChange={e => setDeliveryAddress(p => ({ ...p, ciudad: e.target.value }))}
+                          readOnly={!!postalCode.data?.municipio}
+                          disabled={formStatus === 'submitting'}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 2: Colonia (dropdown from CP or manual) */}
+                    <div>
+                      <label className="label-field">Colonia <span className="text-cmyk-magenta">*</span></label>
+                      {postalCode.data && postalCode.data.colonias.length > 0 && !coloniaManual ? (
+                        <div className="space-y-1">
+                          <select
+                            className="input-field"
+                            value={deliveryAddress.colonia}
+                            onChange={e => {
+                              if (e.target.value === '__otra__') {
+                                setColoniaManual(true);
+                                setDeliveryAddress(p => ({ ...p, colonia: '' }));
+                              } else {
+                                setDeliveryAddress(p => ({ ...p, colonia: e.target.value }));
+                              }
+                            }}
+                            disabled={formStatus === 'submitting'}
+                          >
+                            {postalCode.data.colonias.map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                            <option value="__otra__">— Otra (escribir manualmente) —</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <input
+                            type="text" className="input-field" placeholder="Centro"
+                            value={deliveryAddress.colonia}
+                            onChange={e => setDeliveryAddress(p => ({ ...p, colonia: e.target.value }))}
+                            disabled={formStatus === 'submitting'}
+                          />
+                          {coloniaManual && postalCode.data && (
+                            <button
+                              type="button"
+                              className="text-xs text-cmyk-cyan hover:underline"
+                              onClick={() => {
+                                setColoniaManual(false);
+                                setDeliveryAddress(p => ({ ...p, colonia: postalCode.data!.colonias[0] || '' }));
+                              }}
+                            >
+                              ← Volver a seleccionar de la lista
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Row 3: Calle + Números */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="label-field">Calle <span className="text-cmyk-magenta">*</span></label>
@@ -1854,46 +1979,8 @@ export function QuoteForm() {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="label-field">Colonia <span className="text-cmyk-magenta">*</span></label>
-                        <input
-                          type="text" className="input-field" placeholder="Centro"
-                          value={deliveryAddress.colonia}
-                          onChange={e => setDeliveryAddress(p => ({ ...p, colonia: e.target.value }))}
-                          disabled={formStatus === 'submitting'}
-                        />
-                      </div>
-                      <div>
-                        <label className="label-field">Código Postal <span className="text-cmyk-magenta">*</span></label>
-                        <input
-                          type="text" className="input-field" placeholder="39300" maxLength={5}
-                          value={deliveryAddress.codigo_postal}
-                          onChange={e => setDeliveryAddress(p => ({ ...p, codigo_postal: e.target.value.replace(/\D/g, '') }))}
-                          disabled={formStatus === 'submitting'}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="label-field">Ciudad <span className="text-cmyk-magenta">*</span></label>
-                        <input
-                          type="text" className="input-field" placeholder="Acapulco"
-                          value={deliveryAddress.ciudad}
-                          onChange={e => setDeliveryAddress(p => ({ ...p, ciudad: e.target.value }))}
-                          disabled={formStatus === 'submitting'}
-                        />
-                      </div>
-                      <div>
-                        <label className="label-field">Estado <span className="text-cmyk-magenta">*</span></label>
-                        <input
-                          type="text" className="input-field" placeholder="Guerrero"
-                          value={deliveryAddress.estado}
-                          onChange={e => setDeliveryAddress(p => ({ ...p, estado: e.target.value }))}
-                          disabled={formStatus === 'submitting'}
-                        />
-                      </div>
-                    </div>
+
+                    {/* Row 4: Referencia */}
                     <div>
                       <label className="label-field">Referencia</label>
                       <input
