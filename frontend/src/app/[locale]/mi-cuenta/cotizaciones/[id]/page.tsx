@@ -20,6 +20,7 @@ import {
   CalendarDaysIcon,
   CurrencyDollarIcon,
   PlusCircleIcon,
+  PaperClipIcon,
 } from '@heroicons/react/24/outline';
 
 import {
@@ -33,9 +34,10 @@ import {
 } from '@/lib/api/quotes';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, cn } from '@/lib/utils';
-import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
+import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod, SERVICE_LABELS, type ServiceId } from '@/lib/service-ids';
 import SignaturePad from '@/components/ui/SignaturePad';
 import QuoteChangeEditor from '@/components/quotes/QuoteChangeEditor';
+import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
 
 export default function CustomerQuoteDetailPage() {
   const params = useParams();
@@ -272,6 +274,210 @@ export default function CustomerQuoteDetailPage() {
               )}
             </div>
           </Card>
+
+          {/* Service Details (from linked quote request) */}
+          {quote.quote_request && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Detalles del Servicio</h3>
+
+              {quote.quote_request.catalog_item && (
+                <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
+                  {quote.quote_request.catalog_item.image && (
+                    <img
+                      src={quote.quote_request.catalog_item.image}
+                      alt={quote.quote_request.catalog_item.name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  )}
+                  <div>
+                    <p className="text-neutral-500 text-xs">Producto/Servicio</p>
+                    <p className="text-white font-medium">{quote.quote_request.catalog_item.name}</p>
+                  </div>
+                </div>
+              )}
+
+              {quote.quote_request.service_type && (
+                <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+                  <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
+                  <p className="text-cmyk-cyan font-semibold text-lg">
+                    {SERVICE_LABELS[quote.quote_request.service_type as ServiceId] || quote.quote_request.service_type}
+                  </p>
+                </div>
+              )}
+
+              {/* Service-specific details */}
+              {quote.quote_request.service_details && Object.keys(quote.quote_request.service_details).length > 0 && (
+                <div className="mb-4">
+                  <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
+                  <ServiceDetailsDisplay
+                    serviceType={quote.quote_request.service_type}
+                    serviceDetails={quote.quote_request.service_details as Record<string, unknown>}
+                  />
+                </div>
+              )}
+
+              {/* Generic fields - only show if no service_details */}
+              {(!quote.quote_request.service_details || Object.keys(quote.quote_request.service_details).length === 0) && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  {quote.quote_request.quantity && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Cantidad</p>
+                      <p className="text-white font-medium">{quote.quote_request.quantity}</p>
+                    </div>
+                  )}
+                  {quote.quote_request.dimensions && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Dimensiones</p>
+                      <p className="text-white">{quote.quote_request.dimensions}</p>
+                    </div>
+                  )}
+                  {quote.quote_request.material && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Material</p>
+                      <p className="text-white">{quote.quote_request.material}</p>
+                    </div>
+                  )}
+                  <div className="p-3 bg-neutral-800/50 rounded-lg">
+                    <p className="text-neutral-500 text-xs">Instalación</p>
+                    <p className="text-white">{quote.quote_request.includes_installation ? 'Sí' : 'No'}</p>
+                  </div>
+                </div>
+              )}
+
+              {quote.quote_request.description && (
+                <div className="p-4 bg-neutral-800/50 rounded-lg">
+                  <p className="text-neutral-500 text-xs mb-2">Comentarios de la solicitud</p>
+                  <p className="text-white whitespace-pre-wrap">{quote.quote_request.description}</p>
+                </div>
+              )}
+
+              {/* Required date from request */}
+              {(() => {
+                let displayDate = quote.quote_request?.required_date;
+                const details = quote.quote_request?.service_details as Record<string, unknown> | undefined;
+                if (details && Array.isArray(details.rutas)) {
+                  const routeDates = (details.rutas as Array<Record<string, unknown>>)
+                    .map(r => r.fecha_inicio as string)
+                    .filter(d => !!d)
+                    .sort();
+                  if (routeDates.length > 0) {
+                    const earliest = routeDates[0];
+                    if (!displayDate || earliest < displayDate) {
+                      displayDate = earliest;
+                    }
+                  }
+                }
+                if (!displayDate) return null;
+                return (
+                  <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
+                    <CalendarDaysIcon className="h-5 w-5 text-neutral-400" />
+                    <div>
+                      <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                      <p className="text-white">
+                        {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+          )}
+
+          {/* Request Attachments */}
+          {quote.quote_request?.attachments && quote.quote_request.attachments.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
+                Archivos de la Solicitud ({quote.quote_request.attachments.length})
+              </h3>
+              <div className="space-y-2">
+                {quote.quote_request.attachments.map((attachment) => {
+                  const isImage = attachment.file_type?.startsWith('image/');
+                  return (
+                    <div key={attachment.id} className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
+                      {isImage ? (
+                        <a href={attachment.file} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                          <img
+                            src={attachment.file}
+                            alt={attachment.filename}
+                            className="w-16 h-16 object-cover rounded border border-neutral-600 hover:border-cmyk-cyan transition-colors"
+                          />
+                        </a>
+                      ) : (
+                        <div className="w-10 h-10 flex items-center justify-center bg-neutral-700 rounded flex-shrink-0">
+                          <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <a
+                          href={attachment.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-cmyk-cyan hover:underline truncate block"
+                        >
+                          {attachment.filename}
+                        </a>
+                        <p className="text-xs text-neutral-500">
+                          {attachment.file_size > 0 && `${(attachment.file_size / 1024).toFixed(0)} KB`}
+                          {attachment.file_type && ` · ${attachment.file_type}`}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Quote Attachments */}
+          {quote.attachments && quote.attachments.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                Archivos Adjuntos ({quote.attachments.length})
+              </h3>
+              <div className="space-y-2">
+                {quote.attachments.map((att) => {
+                  const isImage = att.file_type?.startsWith('image/');
+                  return (
+                    <div key={att.id} className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
+                      {isImage ? (
+                        <a href={att.file} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                          <img
+                            src={att.file}
+                            alt={att.filename}
+                            className="w-16 h-16 object-cover rounded border border-neutral-600 hover:border-cmyk-cyan transition-colors"
+                          />
+                        </a>
+                      ) : (
+                        <div className="w-10 h-10 flex items-center justify-center bg-neutral-700 rounded flex-shrink-0">
+                          <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <a
+                          href={att.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-cmyk-cyan hover:underline truncate block"
+                        >
+                          {att.filename}
+                        </a>
+                        <p className="text-xs text-neutral-500">
+                          {att.file_size > 0 && `${(att.file_size / 1024).toFixed(0)} KB`}
+                          {att.file_type && ` · ${att.file_type}`}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
 
           {/* Line Items */}
           <Card className="p-6">

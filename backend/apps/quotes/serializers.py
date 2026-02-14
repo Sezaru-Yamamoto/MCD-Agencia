@@ -244,6 +244,7 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     lines = QuoteLineSerializer(many=True, read_only=True)
     attachments = QuoteAttachmentSerializer(many=True, read_only=True)
+    quote_request = QuoteRequestSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
     is_valid = serializers.BooleanField(read_only=True)
@@ -260,7 +261,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             'subtotal', 'tax_rate', 'tax_amount', 'total', 'currency',
             'payment_mode', 'deposit_percentage', 'deposit_amount',
             'terms', 'terms_en', 'language',
-            'lines', 'attachments',
+            'lines', 'attachments', 'quote_request',
             'sent_at', 'viewed_at', 'accepted_at', 'created_at',
             'delivery_time_text', 'estimated_delivery_date',
             'delivery_method', 'pickup_branch', 'delivery_address',
@@ -278,14 +279,13 @@ class QuoteSerializer(serializers.ModelSerializer):
 class QuoteAdminSerializer(QuoteSerializer):
     """Serializer for admin quote management."""
 
-    quote_request = QuoteRequestSerializer(read_only=True)
     quote_request_id = serializers.UUIDField(write_only=True, required=False)
     created_by_name = serializers.SerializerMethodField()
 
     class Meta(QuoteSerializer.Meta):
         fields = QuoteSerializer.Meta.fields + [
-            'quote_request', 'quote_request_id', 'customer', 'created_by',
-            'created_by_name', 'internal_notes', 'token', 'pdf_file', 'pdf_file_en'
+            'quote_request_id', 'customer', 'created_by',
+            'created_by_name', 'internal_notes', 'pdf_file_en'
         ]
 
     def get_created_by_name(self, obj):
