@@ -275,99 +275,118 @@ export default function CustomerQuoteDetailPage() {
             </div>
           </Card>
 
-          {/* Service Details (from linked quote request) */}
-          {quote.quote_request && (
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Detalles del Servicio</h3>
+          {/* Service Details (from quote lines or linked quote request) */}
+          {(() => {
+            // Build the effective service details from line-level data (most up-to-date)
+            // When a change request is approved, line.service_details gets updated,
+            // but quote_request.service_details remains the original submission.
+            const lineWithDetails = quote.lines?.find(
+              (l) => l.service_details && Object.keys(l.service_details).length > 0
+            );
+            const effectiveServiceDetails = lineWithDetails?.service_details as Record<string, unknown> | undefined
+              ?? (quote.quote_request?.service_details as Record<string, unknown> | undefined);
+            const effectiveServiceType = (effectiveServiceDetails?.service_type as string)
+              || quote.quote_request?.service_type
+              || undefined;
 
-              {quote.quote_request.catalog_item && (
-                <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
-                  {quote.quote_request.catalog_item.image && (
-                    <img
-                      src={quote.quote_request.catalog_item.image}
-                      alt={quote.quote_request.catalog_item.name}
-                      className="w-16 h-16 object-cover rounded-lg"
+            const hasDetails = effectiveServiceDetails && Object.keys(effectiveServiceDetails).length > 0;
+            const hasRequest = !!quote.quote_request;
+            const hasGenericFields = hasRequest && !hasDetails;
+
+            if (!hasDetails && !hasRequest) return null;
+
+            return (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Detalles del Servicio</h3>
+
+                {quote.quote_request?.catalog_item && (
+                  <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
+                    {quote.quote_request.catalog_item.image && (
+                      <img
+                        src={quote.quote_request.catalog_item.image}
+                        alt={quote.quote_request.catalog_item.name}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                    )}
+                    <div>
+                      <p className="text-neutral-500 text-xs">Producto/Servicio</p>
+                      <p className="text-white font-medium">{quote.quote_request.catalog_item.name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {effectiveServiceType && (
+                  <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+                    <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
+                    <p className="text-cmyk-cyan font-semibold text-lg">
+                      {SERVICE_LABELS[effectiveServiceType as ServiceId] || effectiveServiceType}
+                    </p>
+                  </div>
+                )}
+
+                {/* Service-specific details (from lines if updated, otherwise from request) */}
+                {hasDetails && (
+                  <div className="mb-4">
+                    <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
+                    <ServiceDetailsDisplay
+                      serviceType={effectiveServiceType}
+                      serviceDetails={effectiveServiceDetails}
                     />
-                  )}
-                  <div>
-                    <p className="text-neutral-500 text-xs">Producto/Servicio</p>
-                    <p className="text-white font-medium">{quote.quote_request.catalog_item.name}</p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {quote.quote_request.service_type && (
-                <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
-                  <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
-                  <p className="text-cmyk-cyan font-semibold text-lg">
-                    {SERVICE_LABELS[quote.quote_request.service_type as ServiceId] || quote.quote_request.service_type}
-                  </p>
-                </div>
-              )}
-
-              {/* Service-specific details */}
-              {quote.quote_request.service_details && Object.keys(quote.quote_request.service_details).length > 0 && (
-                <div className="mb-4">
-                  <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
-                  <ServiceDetailsDisplay
-                    serviceType={quote.quote_request.service_type}
-                    serviceDetails={quote.quote_request.service_details as Record<string, unknown>}
-                  />
-                </div>
-              )}
-
-              {/* Generic fields - only show if no service_details */}
-              {(!quote.quote_request.service_details || Object.keys(quote.quote_request.service_details).length === 0) && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  {quote.quote_request.quantity && (
+                {/* Generic fields - only show if no service_details */}
+                {hasGenericFields && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    {quote.quote_request!.quantity && (
+                      <div className="p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Cantidad</p>
+                        <p className="text-white font-medium">{quote.quote_request!.quantity}</p>
+                      </div>
+                    )}
+                    {quote.quote_request!.dimensions && (
+                      <div className="p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Dimensiones</p>
+                        <p className="text-white">{quote.quote_request!.dimensions}</p>
+                      </div>
+                    )}
+                    {quote.quote_request!.material && (
+                      <div className="p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Material</p>
+                        <p className="text-white">{quote.quote_request!.material}</p>
+                      </div>
+                    )}
                     <div className="p-3 bg-neutral-800/50 rounded-lg">
-                      <p className="text-neutral-500 text-xs">Cantidad</p>
-                      <p className="text-white font-medium">{quote.quote_request.quantity}</p>
+                      <p className="text-neutral-500 text-xs">Instalación</p>
+                      <p className="text-white">{quote.quote_request!.includes_installation ? 'Sí' : 'No'}</p>
                     </div>
-                  )}
-                  {quote.quote_request.dimensions && (
-                    <div className="p-3 bg-neutral-800/50 rounded-lg">
-                      <p className="text-neutral-500 text-xs">Dimensiones</p>
-                      <p className="text-white">{quote.quote_request.dimensions}</p>
-                    </div>
-                  )}
-                  {quote.quote_request.material && (
-                    <div className="p-3 bg-neutral-800/50 rounded-lg">
-                      <p className="text-neutral-500 text-xs">Material</p>
-                      <p className="text-white">{quote.quote_request.material}</p>
-                    </div>
-                  )}
-                  <div className="p-3 bg-neutral-800/50 rounded-lg">
-                    <p className="text-neutral-500 text-xs">Instalación</p>
-                    <p className="text-white">{quote.quote_request.includes_installation ? 'Sí' : 'No'}</p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {quote.quote_request.description && (
-                <div className="p-4 bg-neutral-800/50 rounded-lg">
-                  <p className="text-neutral-500 text-xs mb-2">Comentarios de la solicitud</p>
-                  <p className="text-white whitespace-pre-wrap">{quote.quote_request.description}</p>
-                </div>
-              )}
+                {quote.quote_request?.description && (
+                  <div className="p-4 bg-neutral-800/50 rounded-lg">
+                    <p className="text-neutral-500 text-xs mb-2">Comentarios de la solicitud</p>
+                    <p className="text-white whitespace-pre-wrap">{quote.quote_request.description}</p>
+                  </div>
+                )}
 
-              {/* Required date from request */}
-              {(() => {
-                let displayDate = quote.quote_request?.required_date;
-                const details = quote.quote_request?.service_details as Record<string, unknown> | undefined;
-                if (details && Array.isArray(details.rutas)) {
-                  const routeDates = (details.rutas as Array<Record<string, unknown>>)
-                    .map(r => r.fecha_inicio as string)
-                    .filter(d => !!d)
-                    .sort();
-                  if (routeDates.length > 0) {
-                    const earliest = routeDates[0];
-                    if (!displayDate || earliest < displayDate) {
-                      displayDate = earliest;
+                {/* Required date - computed from effective service details routes */}
+                {(() => {
+                  let displayDate = quote.quote_request?.required_date;
+                  const details = effectiveServiceDetails;
+                  if (details && Array.isArray(details.rutas)) {
+                    const routeDates = (details.rutas as Array<Record<string, unknown>>)
+                      .map(r => r.fecha_inicio as string)
+                      .filter(d => !!d)
+                      .sort();
+                    if (routeDates.length > 0) {
+                      const earliest = routeDates[0];
+                      if (!displayDate || earliest < displayDate) {
+                        displayDate = earliest;
+                      }
                     }
                   }
-                }
-                if (!displayDate) return null;
+                  if (!displayDate) return null;
                 return (
                   <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
                     <CalendarDaysIcon className="h-5 w-5 text-neutral-400" />
@@ -384,8 +403,9 @@ export default function CustomerQuoteDetailPage() {
                   </div>
                 );
               })()}
-            </Card>
-          )}
+              </Card>
+            );
+          })()}
 
           {/* Request Attachments */}
           {quote.quote_request?.attachments && quote.quote_request.attachments.length > 0 && (
