@@ -1438,6 +1438,9 @@ class QuoteChangeRequest(TimeStampedModel):
                         line.unit = line_data['unit']
                     if line_data.get('unit_price') is not None:
                         line.unit_price = Decimal(str(line_data['unit_price']))
+                    # Apply service_details if provided (routes, dimensions, etc.)
+                    if 'service_details' in line_data and line_data['service_details']:
+                        line.service_details = line_data['service_details']
                     line.save()  # save() recalculates line_total
                 except QuoteLine.DoesNotExist:
                     pass
@@ -1457,7 +1460,11 @@ class QuoteChangeRequest(TimeStampedModel):
                     unit_price=up,
                     line_total=qty * up,
                     position=max_pos + 1,
+                    service_details=line_data.get('service_details'),
                 )
+
+        # Link change request attachments to the quote
+        self.attachments.filter(quote__isnull=True).update(quote=quote)
 
         # Recalculate totals
         quote.calculate_totals()
