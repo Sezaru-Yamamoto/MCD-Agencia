@@ -76,11 +76,15 @@ const nextConfig = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
     return {
-      // afterFiles rewrites are checked after pages/public files and API route
-      // handlers but before fallback rewrites. This ensures that Next.js API
-      // routes (e.g. /api/postal-code/[cp]) are served by the local handler
-      // while everything else under /api is proxied to the Django backend.
-      afterFiles: [
+      // Use fallback rewrites so they are checked AFTER dynamic routes.
+      // Order: headers → redirects → beforeFiles → static files →
+      //        afterFiles → dynamic routes → fallback
+      // This ensures local Next.js API route handlers (e.g. /api/postal-code,
+      // /api/geocode, /api/routing, /api/leads) are matched first as dynamic
+      // routes, and only unmatched /api/* requests are proxied to Django.
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
         {
           source: '/api/:path*',
           destination: `${apiUrl}/:path*`,
