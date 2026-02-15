@@ -292,15 +292,15 @@ export default function CustomerSentRequestPage() {
                   <span>{DELIVERY_METHOD_ICONS[request.delivery_method as DeliveryMethod]}</span>
                   {DELIVERY_METHOD_LABELS[request.delivery_method as DeliveryMethod]?.es || request.delivery_method}
                 </p>
-                {request.pickup_branch && typeof request.pickup_branch === 'object' && (
+                {request.pickup_branch_detail && (
                   <p className="text-neutral-300 text-sm mt-1">
-                    Sucursal: {(request.pickup_branch as unknown as Record<string, string>).name}
+                    Sucursal: {request.pickup_branch_detail.name} — {request.pickup_branch_detail.city}, {request.pickup_branch_detail.state}
                   </p>
                 )}
                 {request.delivery_address && typeof request.delivery_address === 'object' && Object.keys(request.delivery_address).length > 0 && (
                   <p className="text-neutral-300 text-sm mt-1">
                     {request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
-                    {[request.delivery_address.street, request.delivery_address.neighborhood, request.delivery_address.city, request.delivery_address.state, request.delivery_address.postal_code].filter(Boolean).join(', ')}
+                    {[request.delivery_address.street || request.delivery_address.calle, request.delivery_address.exterior_number || request.delivery_address.numero_exterior, request.delivery_address.neighborhood || request.delivery_address.colonia, request.delivery_address.city || request.delivery_address.ciudad, request.delivery_address.state || request.delivery_address.estado, request.delivery_address.postal_code || request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
                   </p>
                 )}
               </div>

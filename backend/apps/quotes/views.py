@@ -604,11 +604,45 @@ class QuoteViewSet(viewsets.ModelViewSet):
         # Separate lines from the rest of the data
         lines_data = request.data.pop('lines', None) if isinstance(request.data, dict) else None
 
+        # Normalize delivery_address field names (Spanish → English)
+        if isinstance(request.data, dict) and 'delivery_address' in request.data:
+            addr = request.data['delivery_address']
+            if isinstance(addr, dict):
+                field_map = {
+                    'calle': 'street', 'numero_exterior': 'exterior_number',
+                    'numero_interior': 'interior_number', 'colonia': 'neighborhood',
+                    'ciudad': 'city', 'estado': 'state',
+                    'codigo_postal': 'postal_code', 'referencia': 'reference',
+                }
+                normalized = {}
+                for k, v in addr.items():
+                    eng_k = field_map.get(k, k)
+                    if eng_k not in normalized:
+                        normalized[eng_k] = v
+                request.data['delivery_address'] = normalized
+
         with transaction.atomic():
+            # Handle pickup_branch_id → pickup_branch FK
+            pickup_branch_id = None
+            if isinstance(request.data, dict):
+                pickup_branch_id = request.data.pop('pickup_branch_id', None)
+
             # Update scalar fields via the default serializer
             serializer = self.get_serializer(quote, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
+
+            # Link pickup branch if provided
+            if pickup_branch_id is not None:
+                if pickup_branch_id:
+                    from apps.content.models import Branch
+                    try:
+                        quote.pickup_branch = Branch.objects.get(id=pickup_branch_id, is_active=True)
+                    except Branch.DoesNotExist:
+                        quote.pickup_branch = None
+                else:
+                    quote.pickup_branch = None
+                quote.save(update_fields=['pickup_branch'])
 
             # Replace lines if provided
             if lines_data is not None and isinstance(lines_data, list):

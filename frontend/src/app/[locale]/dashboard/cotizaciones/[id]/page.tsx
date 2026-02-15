@@ -1011,10 +1011,10 @@ export default function QuoteDetailPage() {
                       </p>
                     </div>
                   )}
-                  {quote.pickup_branch && typeof quote.pickup_branch === 'object' && (
+                  {quote.pickup_branch_detail && (
                     <div>
                       <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                      <p className="text-white">{(quote.pickup_branch as Record<string, string>).name}</p>
+                      <p className="text-white">{quote.pickup_branch_detail.name} — {quote.pickup_branch_detail.city}, {quote.pickup_branch_detail.state}</p>
                     </div>
                   )}
                   {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
@@ -1023,7 +1023,7 @@ export default function QuoteDetailPage() {
                         {quote.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
                       </p>
                       <p className="text-white text-sm">
-                        {[quote.delivery_address.street, quote.delivery_address.neighborhood, quote.delivery_address.city, quote.delivery_address.state, quote.delivery_address.postal_code].filter(Boolean).join(', ')}
+                        {[quote.delivery_address.street || quote.delivery_address.calle, quote.delivery_address.exterior_number || quote.delivery_address.numero_exterior, quote.delivery_address.neighborhood || quote.delivery_address.colonia, quote.delivery_address.city || quote.delivery_address.ciudad, quote.delivery_address.state || quote.delivery_address.estado, quote.delivery_address.postal_code || quote.delivery_address.codigo_postal].filter(Boolean).join(', ')}
                       </p>
                     </div>
                   )}

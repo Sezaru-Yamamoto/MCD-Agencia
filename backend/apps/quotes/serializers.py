@@ -86,13 +86,39 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
         return value.lower().strip()
 
     def validate_delivery_address(self, value):
-        """Accept both pre-parsed dict and JSON string (from FormData)."""
+        """Accept both pre-parsed dict and JSON string (from FormData).
+
+        Also normalizes Spanish field names to English so all downstream
+        consumers (dashboard display, PDF generation, etc.) use a single
+        consistent schema.
+        """
         if isinstance(value, str):
             import json
             try:
                 value = json.loads(value)
             except json.JSONDecodeError:
                 raise serializers.ValidationError(_('Invalid JSON for delivery address.'))
+
+        if isinstance(value, dict):
+            # Normalize Spanish → English keys (keep English if already present)
+            field_map = {
+                'calle': 'street',
+                'numero_exterior': 'exterior_number',
+                'numero_interior': 'interior_number',
+                'colonia': 'neighborhood',
+                'ciudad': 'city',
+                'estado': 'state',
+                'codigo_postal': 'postal_code',
+                'referencia': 'reference',
+            }
+            normalized = {}
+            for key, val in value.items():
+                eng_key = field_map.get(key, key)
+                # Only map if the English key isn't already set
+                if eng_key not in normalized:
+                    normalized[eng_key] = val
+            value = normalized
+
         return value
 
     def validate_service_details(self, value):
@@ -229,6 +255,10 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
     assigned_to_name = serializers.SerializerMethodField()
     days_until_required = serializers.IntegerField(read_only=True)
     is_guest = serializers.SerializerMethodField()
+    pickup_branch_detail = serializers.SerializerMethodField()
+    delivery_method_display = serializers.CharField(
+        source='get_delivery_method_display', read_only=True
+    )
 
     class Meta:
         model = QuoteRequest
@@ -242,7 +272,8 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
             'service_type', 'service_details', 'is_guest', 'required_date',
             'urgency', 'urgency_display', 'days_until_required',
             'assignment_method', 'assigned_at',
-            'delivery_method', 'delivery_address', 'pickup_branch'
+            'delivery_method', 'delivery_method_display',
+            'delivery_address', 'pickup_branch', 'pickup_branch_detail'
         ]
         read_only_fields = ['id', 'request_number', 'created_at', 'updated_at', 'urgency', 'assigned_at']
 
@@ -267,6 +298,19 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         return not User.objects.filter(email__iexact=obj.customer_email, is_active=True).exists()
+
+    def get_pickup_branch_detail(self, obj):
+        """Return branch name and address for display."""
+        if obj.pickup_branch:
+            branch = obj.pickup_branch
+            return {
+                'id': str(branch.id),
+                'name': branch.name,
+                'city': branch.city,
+                'state': branch.state,
+                'full_address': getattr(branch, 'full_address', ''),
+            }
+        return None
 
 
 class QuoteRequestAdminSerializer(QuoteRequestSerializer):
@@ -305,6 +349,10 @@ class QuoteSerializer(serializers.ModelSerializer):
     deposit_amount = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True
     )
+    pickup_branch_detail = serializers.SerializerMethodField()
+    delivery_method_display = serializers.CharField(
+        source='get_delivery_method_display', read_only=True
+    )
 
     class Meta:
         model = Quote
@@ -318,7 +366,8 @@ class QuoteSerializer(serializers.ModelSerializer):
             'lines', 'attachments', 'quote_request',
             'sent_at', 'viewed_at', 'accepted_at', 'created_at',
             'delivery_time_text', 'estimated_delivery_date',
-            'delivery_method', 'pickup_branch', 'delivery_address',
+            'delivery_method', 'delivery_method_display',
+            'pickup_branch', 'pickup_branch_detail', 'delivery_address',
             'payment_methods', 'payment_conditions', 'included_services',
             'customer_notes', 'view_count',
             'token', 'pdf_file',
@@ -328,6 +377,19 @@ class QuoteSerializer(serializers.ModelSerializer):
             'tax_amount', 'total', 'sent_at', 'viewed_at', 'accepted_at',
             'created_at', 'view_count', 'token', 'pdf_file'
         ]
+
+    def get_pickup_branch_detail(self, obj):
+        """Return branch name and address for display."""
+        if obj.pickup_branch:
+            branch = obj.pickup_branch
+            return {
+                'id': str(branch.id),
+                'name': branch.name,
+                'city': branch.city,
+                'state': branch.state,
+                'full_address': getattr(branch, 'full_address', ''),
+            }
+        return None
 
 
 class QuoteAdminSerializer(QuoteSerializer):
@@ -388,6 +450,27 @@ class QuoteCreateSerializer(serializers.Serializer):
         """Ensure at least one line item."""
         if not value:
             raise serializers.ValidationError(_('At least one line item is required.'))
+        return value
+
+    def validate_delivery_address(self, value):
+        """Normalize Spanish field names to English for consistency."""
+        if isinstance(value, dict):
+            field_map = {
+                'calle': 'street',
+                'numero_exterior': 'exterior_number',
+                'numero_interior': 'interior_number',
+                'colonia': 'neighborhood',
+                'ciudad': 'city',
+                'estado': 'state',
+                'codigo_postal': 'postal_code',
+                'referencia': 'reference',
+            }
+            normalized = {}
+            for key, val in value.items():
+                eng_key = field_map.get(key, key)
+                if eng_key not in normalized:
+                    normalized[eng_key] = val
+            value = normalized
         return value
 
     def validate(self, attrs):

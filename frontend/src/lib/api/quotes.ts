@@ -83,8 +83,16 @@ export interface QuoteRequest {
   assignment_method?: AssignmentMethod;
   assigned_at?: string;
   delivery_method?: string;
+  delivery_method_display?: string;
   delivery_address?: Record<string, string>;
   pickup_branch?: string;
+  pickup_branch_detail?: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+    full_address: string;
+  } | null;
   attachments: QuoteAttachment[];
   created_at: string;
   updated_at: string;
@@ -124,8 +132,16 @@ export interface Quote {
   internal_notes?: string;
   view_count: number;
   delivery_method?: string;
+  delivery_method_display?: string;
   delivery_address?: Record<string, string>;
   pickup_branch?: string;
+  pickup_branch_detail?: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+    full_address: string;
+  } | null;
   lines: QuoteLine[];
   attachments: QuoteAttachment[];
   created_by?: string;
