@@ -52,13 +52,20 @@ const ESTABLISHED_ROUTES: Record<string, string> = {
   'colosio-zocalo': 'Colosio — Zócalo',
 };
 
-const TIME_OPTIONS = Array.from({ length: 25 }, (_, i) => {
-  const h = 7 + Math.floor(i / 2);
-  const m = i % 2 === 0 ? '00' : '30';
-  if (h > 19) return null;
-  const v = `${h.toString().padStart(2, '0')}:${m}`;
-  return { value: v, label: v };
-}).filter(Boolean) as { value: string; label: string }[];
+/** Add N business days (Mon–Fri) to a given date. Returns YYYY-MM-DD. */
+const addBusinessDays = (from: Date, days: number): string => {
+  const result = new Date(from);
+  let added = 0;
+  while (added < days) {
+    result.setDate(result.getDate() + 1);
+    const dow = result.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return result.toISOString().split('T')[0];
+};
+
+/** Minimum start date: 8 business days from today */
+const MIN_ROUTE_START_DATE = addBusinessDays(new Date(), 8);
 
 export default function CompletarSolicitudPage() {
   const params = useParams();
@@ -162,28 +169,81 @@ export default function CompletarSolicitudPage() {
   };
 
   const handleSubmit = async () => {
-    // Validate
+    // ── Validate configurable routes (vallas / perifoneo) ──
     if (needsMapRoute) {
-      const hasValidRoute = configurableRoutes.some(
+      const hasRouteData = configurableRoutes.some(
         r => r.route?.pointA && r.route?.pointB && r.route?.routeData
       );
-      if (!hasValidRoute) {
-        toast.error('Por favor traza al menos una ruta en el mapa.');
+      if (!hasRouteData) {
+        toast.error('Debes trazar al menos una ruta en el mapa.');
         return;
       }
-      const hasSchedule = configurableRoutes.some(
-        r => r.fechaInicio && r.horarioInicio && r.horarioFin
+      // Every route must have a drawn route
+      const missingRoute = configurableRoutes.find(
+        r => !r.route?.pointA || !r.route?.pointB || !r.route?.routeData
       );
-      if (!hasSchedule) {
-        toast.error('Por favor completa la fecha y horario de al menos una ruta.');
+      if (missingRoute) {
+        toast.error('Todas las rutas deben tener la ruta trazada en el mapa.');
+        return;
+      }
+      // Every route must have schedule
+      const missingSchedule = configurableRoutes.find(
+        r => !r.fechaInicio || !r.horarioInicio || !r.horarioFin
+      );
+      if (missingSchedule) {
+        toast.error('Cada ruta debe tener fecha de inicio, horario de inicio y horario de fin.');
+        return;
+      }
+      // Every route must have fecha fin
+      const missingEndDate = configurableRoutes.find(r => !r.fechaFin);
+      if (missingEndDate) {
+        toast.error('Cada ruta debe tener fecha de fin.');
+        return;
+      }
+      // fecha fin >= fecha inicio
+      const invalidDateRange = configurableRoutes.find(
+        r => r.fechaInicio && r.fechaFin && r.fechaFin < r.fechaInicio
+      );
+      if (invalidDateRange) {
+        toast.error('La fecha de fin de cada ruta debe ser igual o posterior a la fecha de inicio.');
+        return;
+      }
+      // Minimum 8 business days
+      const dateTooEarly = configurableRoutes.find(
+        r => r.fechaInicio && r.fechaInicio < MIN_ROUTE_START_DATE
+      );
+      if (dateTooEarly) {
+        toast.error('Las fechas de inicio deben ser al menos 8 días hábiles a partir de hoy.');
+        return;
+      }
+      // Horario within 07:00–19:00
+      const invalidTime = configurableRoutes.find(
+        r => (r.horarioInicio && (r.horarioInicio < '07:00' || r.horarioInicio > '19:00')) ||
+             (r.horarioFin && (r.horarioFin < '07:00' || r.horarioFin > '19:00'))
+      );
+      if (invalidTime) {
+        toast.error('El horario debe estar entre 7:00 y 19:00.');
         return;
       }
     }
 
+    // ── Validate established routes (publibuses) ──
     if (isPublibuses) {
       const hasValidRoute = establishedRoutes.some(r => r.ruta && r.fechaInicio);
       if (!hasValidRoute) {
-        toast.error('Por favor selecciona al menos una ruta y su fecha de inicio.');
+        toast.error('Selecciona al menos una ruta preestablecida con fecha de inicio.');
+        return;
+      }
+      const missingFields = establishedRoutes.find(r => !r.ruta || !r.fechaInicio);
+      if (missingFields) {
+        toast.error('Cada ruta debe tener una ruta seleccionada y una fecha de inicio.');
+        return;
+      }
+      const dateTooEarly = establishedRoutes.find(
+        r => r.fechaInicio && r.fechaInicio < MIN_ROUTE_START_DATE
+      );
+      if (dateTooEarly) {
+        toast.error('Las fechas de inicio deben ser al menos 8 días hábiles a partir de hoy.');
         return;
       }
     }
@@ -326,8 +386,12 @@ export default function CompletarSolicitudPage() {
               <MapPinIcon className="h-5 w-5 text-cmyk-cyan" />
               {isVallas ? 'Rutas para Vallas Móviles' : 'Rutas para Perifoneo'}
             </h2>
-            <p className="text-neutral-400 text-sm mb-6">
+            <p className="text-neutral-400 text-sm mb-2">
               Por favor traza la(s) ruta(s) que deseas en el mapa e indica las fechas y horarios.
+            </p>
+            <p className="text-xs text-amber-400/90 mb-6 flex items-start gap-1">
+              <span className="mt-0.5">⏱️</span>
+              <span>Mínimo 8 días hábiles de anticipación. Los días se cuentan a partir de que el pago se realiza (es decir, se concreta el pedido).</span>
             </p>
 
             <div className="space-y-6">
@@ -370,50 +434,53 @@ export default function CompletarSolicitudPage() {
                   {/* Dates and schedule */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Fecha Inicio *</label>
+                      <label className="block text-sm text-neutral-300 mb-1">Fecha Inicio <span className="text-red-400">*</span></label>
                       <input
                         type="date"
+                        min={MIN_ROUTE_START_DATE}
                         value={entry.fechaInicio}
-                        onChange={(e) => updateConfigurableRoute(entry.id, 'fechaInicio', e.target.value)}
+                        onChange={(e) => {
+                          updateConfigurableRoute(entry.id, 'fechaInicio', e.target.value);
+                          // Auto-adjust fechaFin if it's before the new fechaInicio
+                          if (entry.fechaFin && entry.fechaFin < e.target.value) {
+                            updateConfigurableRoute(entry.id, 'fechaFin', e.target.value);
+                          }
+                        }}
                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white focus:border-cmyk-cyan focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Fecha Fin</label>
+                      <label className="block text-sm text-neutral-300 mb-1">Fecha Fin <span className="text-red-400">*</span></label>
                       <input
                         type="date"
+                        min={entry.fechaInicio || MIN_ROUTE_START_DATE}
                         value={entry.fechaFin}
                         onChange={(e) => updateConfigurableRoute(entry.id, 'fechaFin', e.target.value)}
                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white focus:border-cmyk-cyan focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Horario Inicio *</label>
-                      <select
+                      <label className="block text-sm text-neutral-300 mb-1">Horario Inicio <span className="text-red-400">*</span></label>
+                      <input
+                        type="time"
+                        min="07:00" max="19:00"
                         value={entry.horarioInicio}
                         onChange={(e) => updateConfigurableRoute(entry.id, 'horarioInicio', e.target.value)}
                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white focus:border-cmyk-cyan focus:outline-none"
-                      >
-                        <option value="">Seleccionar</option>
-                        {TIME_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Horario Fin *</label>
-                      <select
+                      <label className="block text-sm text-neutral-300 mb-1">Horario Fin <span className="text-red-400">*</span></label>
+                      <input
+                        type="time"
+                        min="07:00" max="19:00"
                         value={entry.horarioFin}
                         onChange={(e) => updateConfigurableRoute(entry.id, 'horarioFin', e.target.value)}
                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white focus:border-cmyk-cyan focus:outline-none"
-                      >
-                        <option value="">Seleccionar</option>
-                        {TIME_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   </div>
+                  <p className="text-xs text-neutral-500 -mt-2">Horario permitido: 7:00 a 19:00</p>
                 </div>
               ))}
 
@@ -434,8 +501,12 @@ export default function CompletarSolicitudPage() {
               <MapPinIcon className="h-5 w-5 text-cmyk-cyan" />
               Rutas para Publibuses
             </h2>
-            <p className="text-neutral-400 text-sm mb-6">
+            <p className="text-neutral-400 text-sm mb-2">
               Selecciona la(s) ruta(s) preestablecidas que deseas e indica la fecha de inicio.
+            </p>
+            <p className="text-xs text-amber-400/90 mb-6 flex items-start gap-1">
+              <span className="mt-0.5">⏱️</span>
+              <span>Mínimo 8 días hábiles de anticipación. Los días se cuentan a partir de que el pago se realiza (es decir, se concreta el pedido).</span>
             </p>
 
             <div className="space-y-4">
@@ -467,9 +538,10 @@ export default function CompletarSolicitudPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Fecha Inicio *</label>
+                      <label className="block text-sm text-neutral-300 mb-1">Fecha Inicio <span className="text-red-400">*</span></label>
                       <input
                         type="date"
+                        min={MIN_ROUTE_START_DATE}
                         value={entry.fechaInicio}
                         onChange={(e) => updateEstablishedRoute(entry.id, 'fechaInicio', e.target.value)}
                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white focus:border-cmyk-cyan focus:outline-none"

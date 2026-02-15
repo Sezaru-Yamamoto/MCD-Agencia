@@ -188,7 +188,6 @@ interface QuoteFormData {
   // Vallas móviles
   vallas_cantidad?: number;
   vallas_zona?: string;
-  vallas_tiempoCampana?: string;
   vallas_impresionIncluida?: 'si' | 'no';
   // Publibuses
   pub_ciudadZona?: string;
@@ -196,7 +195,6 @@ interface QuoteFormData {
   pub_impresionIncluida?: 'si' | 'no';
   // Perifoneo
   pub_zonaCobertura?: string;
-  pub_duracion?: string;
   pub_archivoGrabacion?: 'si' | 'no';
   pub_requiereGrabacion?: 'si' | 'no';
   pub_descripcionZona?: string;
@@ -759,7 +757,6 @@ export function QuoteForm() {
             subtipo: 'vallas-moviles',
             cantidad: data.vallas_cantidad,
             zona: data.vallas_zona,
-            tiempo_campana: data.vallas_tiempoCampana,
             impresion_incluida: data.vallas_impresionIncluida === 'si',
             rutas: vallasRoutes.map((r, i) => ({
               numero: i + 1,
@@ -793,7 +790,6 @@ export function QuoteForm() {
           basePayload.detalles = {
             subtipo: 'perifoneo',
             zona_cobertura: data.pub_zonaCobertura,
-            duracion: data.pub_duracion,
             archivo_grabacion_proporcionado: data.pub_archivoGrabacion === 'si',
             requiere_grabacion: data.pub_requiereGrabacion === 'si',
             delimitacion_zona: data.pub_descripcionZona || null,
@@ -1264,10 +1260,6 @@ export function QuoteForm() {
                         <input {...register('vallas_zona', { required: pubSubtipo === 'vallas-moviles' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Zona o ciudades donde circularán" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
-                        <label className="label-field">Duración general de campaña <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('vallas_tiempoCampana', { required: pubSubtipo === 'vallas-moviles' ? 'El tiempo es requerido' : false })} type="text" className="input-field" placeholder="ej. 1 mes, 2 semanas" disabled={formStatus === 'submitting'} />
-                      </div>
-                      <div>
                         <label className="label-field">¿Impresión incluida? <span className="text-cmyk-magenta">*</span></label>
                         <div className="flex gap-4 mt-2">
                           <label className="flex items-center gap-2 text-white cursor-pointer">
@@ -1487,10 +1479,6 @@ export function QuoteForm() {
                       <div>
                         <label className="label-field">Zona de cobertura <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('pub_zonaCobertura', { required: pubSubtipo === 'perifoneo' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Colonia, municipio o área" disabled={formStatus === 'submitting'} />
-                      </div>
-                      <div>
-                        <label className="label-field">Duración total <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('pub_duracion', { required: pubSubtipo === 'perifoneo' ? 'La duración es requerida' : false })} type="text" className="input-field" placeholder="ej. 4 horas / 2 días" disabled={formStatus === 'submitting'} />
                       </div>
                       <div>
                         <label className="label-field">¿Archivo de grabación proporcionado? <span className="text-cmyk-magenta">*</span></label>
