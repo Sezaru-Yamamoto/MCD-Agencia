@@ -24,6 +24,7 @@ import {
   PaperAirplaneIcon,
   EyeIcon,
   PencilIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1057,6 +1058,19 @@ export default function QuoteViewPage() {
                             <div className="flex-1 -mt-0.5">
                               <p className="text-yellow-400 text-xs font-medium">Solicitud en revisión</p>
                               <p className="text-neutral-500 text-xs">{formatDate(quote.quote_request.updated_at)}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Request: Assigned */}
+                        {quote.quote_request.assigned_at && (
+                          <div className="relative flex items-start gap-3">
+                            <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-blue-500/60">
+                              <UserIcon className="h-3 w-3 text-blue-400" />
+                            </div>
+                            <div className="flex-1 -mt-0.5">
+                              <p className="text-blue-400 text-xs font-medium">Asignada a {quote.quote_request.assigned_to_name || 'vendedor'}</p>
+                              <p className="text-neutral-500 text-xs">{formatDate(quote.quote_request.assigned_at)}</p>
                             </div>
                           </div>
                         )}
