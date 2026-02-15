@@ -75,7 +75,6 @@ export default function NewQuotePage() {
   const [validDays, setValidDays] = useState(15);
   const [paymentMode, setPaymentMode] = useState<'FULL' | 'DEPOSIT_ALLOWED'>('FULL');
   const [depositPercentage, setDepositPercentage] = useState(50);
-  const [deliveryTimeText, setDeliveryTimeText] = useState('');
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
   const [terms, setTerms] = useState('');
@@ -375,7 +374,6 @@ export default function NewQuotePage() {
         deposit_percentage: paymentMode === 'DEPOSIT_ALLOWED' ? depositPercentage : undefined,
         terms: terms || undefined,
         internal_notes: internalNotes || undefined,
-        delivery_time_text: deliveryTimeText || undefined,
         estimated_delivery_date: estimatedDeliveryDate || undefined,
         payment_conditions: paymentConditions || undefined,
         delivery_method: deliveryMethod || undefined,
@@ -1010,17 +1008,7 @@ export default function NewQuotePage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="block text-neutral-400 text-sm mb-2">Tiempo de Entrega</label>
-                  <input
-                    type="text"
-                    value={deliveryTimeText}
-                    onChange={(e) => setDeliveryTimeText(e.target.value)}
-                    placeholder="Ej: 5 a 7 días hábiles"
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                  />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-neutral-400 text-sm mb-2">Fecha Estimada de Entrega</label>
                   <input

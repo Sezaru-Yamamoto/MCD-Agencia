@@ -598,7 +598,7 @@ export default function CustomerQuoteDetailPage() {
           )}
 
           {/* Additional Info */}
-          {(quote.delivery_time_text || quote.payment_conditions || quote.included_services || quote.delivery_method) && (
+          {(quote.payment_conditions || quote.included_services || quote.delivery_method || quote.estimated_delivery_date) && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Información Adicional</h3>
               <div className="space-y-4">
@@ -625,12 +625,6 @@ export default function CustomerQuoteDetailPage() {
                     <p className="text-white text-sm">
                       {[quote.delivery_address.street || quote.delivery_address.calle, quote.delivery_address.exterior_number || quote.delivery_address.numero_exterior, quote.delivery_address.neighborhood || quote.delivery_address.colonia, quote.delivery_address.city || quote.delivery_address.ciudad, quote.delivery_address.state || quote.delivery_address.estado, quote.delivery_address.postal_code || quote.delivery_address.codigo_postal].filter(Boolean).join(', ')}
                     </p>
-                  </div>
-                )}
-                {quote.delivery_time_text && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Tiempo de Entrega</p>
-                    <p className="text-white">{quote.delivery_time_text}</p>
                   </div>
                 )}
                 {quote.estimated_delivery_date && (
