@@ -820,6 +820,55 @@ export async function getChangeRequestById(id: string): Promise<QuoteChangeReque
 }
 
 /**
+ * Download PDF for the quote version that was active at the time of
+ * a change request. Uses the send response snapshot or generates from
+ * original_snapshot data.
+ */
+export async function downloadChangeRequestPdf(changeRequestId: string): Promise<Blob> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const url = `${apiUrl}/quotes/change-requests/${changeRequestId}/pdf/`;
+
+  let accessToken = localStorage.getItem('accessToken');
+
+  let response = await fetch(url, {
+    method: 'GET',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+
+  // If 401, try to refresh token and retry
+  if (response.status === 401 && accessToken) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        const refreshResp = await fetch(`${apiUrl}/auth/token/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+        if (refreshResp.ok) {
+          const data = await refreshResp.json();
+          localStorage.setItem('accessToken', data.access);
+          accessToken = data.access;
+          response = await fetch(url, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        }
+      } catch {
+        // Refresh failed, will throw below
+      }
+    }
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error((errorData as Record<string, string>).error || 'Error downloading PDF');
+  }
+
+  return response.blob();
+}
+
+/**
  * Review a change request (approve or reject).
  */
 export async function reviewChangeRequest(

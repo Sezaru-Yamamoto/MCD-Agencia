@@ -421,6 +421,284 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         return None
 
 
+def generate_snapshot_pdf(quote, snapshot, language='es'):
+    """
+    Generate a PDF from an original_snapshot dict (used by change requests).
+
+    This reconstructs a PDF that matches what the customer saw at the time
+    of the change request, using the snapshot data instead of the current
+    quote lines.
+
+    Args:
+        quote: Quote model instance (for customer info, dates, etc.)
+        snapshot: dict with keys: quote_number, subtotal, tax_amount, total, lines[]
+        language: 'es' or 'en'
+
+    Returns:
+        bytes: PDF content as bytes
+    """
+    from decimal import Decimal
+
+    is_en = language == 'en'
+    LBL = {
+        'title': 'QUOTATION' if is_en else 'COTIZACIÓN',
+        'client': 'Client' if is_en else 'Cliente',
+        'email': 'Email',
+        'company': 'Company' if is_en else 'Empresa',
+        'date': 'Date' if is_en else 'Fecha',
+        'valid_until': 'Valid until' if is_en else 'Válido hasta',
+        'status': 'Status' if is_en else 'Estado',
+        'detail_title': 'QUOTATION DETAILS' if is_en else 'DETALLE DE LA COTIZACIÓN',
+        'concept': 'Concept' if is_en else 'Concepto',
+        'description': 'Description' if is_en else 'Descripción',
+        'qty': 'Qty.' if is_en else 'Cant.',
+        'unit_price': 'Unit Price' if is_en else 'P. Unitario',
+        'total_col': 'Total',
+        'subtotal': 'Subtotal',
+        'footer_company': 'MCD Agencia | Acapulco, Guerrero, México',
+        'footer_prices': 'Prices in MXN. This document is not a tax receipt.' if is_en else 'Precios en MXN. Este documento no es un comprobante fiscal.',
+        'footer_contact': f'For any questions, contact us: {settings.DEFAULT_FROM_EMAIL}' if is_en else f'Para cualquier duda, contáctenos: {settings.DEFAULT_FROM_EMAIL}',
+        'page': 'Page' if is_en else 'Página',
+    }
+
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import inch
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    import os
+
+    buffer = BytesIO()
+
+    CYAN = HexColor('#0DA3EF')
+    MAGENTA = HexColor('#EC2D8D')
+    BLACK = HexColor('#141414')
+    GRAY = HexColor('#666666')
+    LIGHT_GRAY = HexColor('#F5F5F5')
+    WHITE = colors.white
+
+    page_width, page_height = letter
+    margin_left = 0.75 * inch
+    margin_right = 0.75 * inch
+    margin_top = 0.5 * inch
+    margin_bottom = 1.2 * inch
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=margin_right,
+        leftMargin=margin_left,
+        topMargin=margin_top,
+        bottomMargin=margin_bottom
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name='CompanyName', fontSize=24, fontName='Helvetica-Bold',
+        textColor=BLACK, spaceAfter=6
+    ))
+    styles.add(ParagraphStyle(
+        name='QuoteTitle', fontSize=14, fontName='Helvetica-Bold',
+        textColor=CYAN, spaceAfter=20
+    ))
+    styles.add(ParagraphStyle(
+        name='SectionTitle', fontSize=11, fontName='Helvetica-Bold',
+        textColor=BLACK, spaceBefore=15, spaceAfter=8
+    ))
+    styles.add(ParagraphStyle(
+        name='CustomerInfo', fontSize=10, fontName='Helvetica',
+        textColor=GRAY, leading=14
+    ))
+
+    elements = []
+    width, height = letter
+    content_width = width - 1.5 * inch
+
+    quote_number = snapshot.get('quote_number', quote.quote_number)
+
+    # HEADER
+    possible_logo_paths = [
+        os.path.join(settings.STATIC_ROOT or '', 'images', 'logo_dark.png'),
+        os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_dark.png'),
+        os.path.join(settings.STATIC_ROOT or '', 'images', 'logo.png'),
+        os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png'),
+    ]
+    logo_path = None
+    for path in possible_logo_paths:
+        if os.path.exists(path):
+            logo_path = path
+            break
+    has_logo = logo_path is not None
+
+    if has_logo:
+        try:
+            logo = Image(logo_path, width=120, height=60)
+            header_data = [
+                [logo, '', Paragraph(LBL['title'], styles['QuoteTitle'])],
+                ['', '', Paragraph(f'<b>#{quote_number}</b>', ParagraphStyle(
+                    'QuoteNum', fontSize=12, fontName='Helvetica-Bold',
+                    textColor=BLACK, alignment=TA_RIGHT
+                ))],
+            ]
+        except Exception:
+            has_logo = False
+
+    if not has_logo:
+        header_data = [
+            [Paragraph('<b>MCD AGENCIA</b>', styles['CompanyName']), '',
+             Paragraph(LBL['title'], styles['QuoteTitle'])],
+            [Paragraph('Acapulco, Guerrero', styles['CustomerInfo']), '',
+             Paragraph(f'<b>#{quote_number}</b>', ParagraphStyle(
+                 'QuoteNum', fontSize=12, fontName='Helvetica-Bold',
+                 textColor=BLACK, alignment=TA_RIGHT
+             ))],
+        ]
+
+    header_table = Table(header_data, colWidths=[2 * inch, content_width - 4 * inch, 2 * inch])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+    ]))
+    elements.append(header_table)
+
+    elements.append(Spacer(1, 10))
+    divider_data = [['']]
+    divider = Table(divider_data, colWidths=[content_width])
+    divider.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 3, CYAN)]))
+    elements.append(divider)
+    elements.append(Spacer(1, 15))
+
+    # CUSTOMER INFO
+    date_str = quote.created_at.strftime('%d/%m/%Y') if quote.created_at else ''
+    valid_str = quote.valid_until.strftime('%d/%m/%Y') if quote.valid_until else 'N/A'
+
+    customer_info = f"""<b>{LBL['client']}:</b> {quote.customer_name or 'N/A'}<br/>
+    <b>{LBL['email']}:</b> {quote.customer_email or 'N/A'}<br/>
+    <b>{LBL['company']}:</b> {quote.customer_company or 'N/A'}"""
+
+    quote_info = f"""<b>{LBL['date']}:</b> {date_str}<br/>
+    <b>{LBL['valid_until']}:</b> {valid_str}"""
+
+    info_data = [
+        [Paragraph(customer_info, styles['CustomerInfo']),
+         Paragraph(quote_info, ParagraphStyle(
+             'QuoteInfo', fontSize=10, fontName='Helvetica',
+             textColor=GRAY, leading=14, alignment=TA_RIGHT
+         ))],
+    ]
+    info_table = Table(info_data, colWidths=[content_width / 2, content_width / 2])
+    info_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GRAY),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('BOX', (0, 0), (-1, -1), 1, colors.Color(0.9, 0.9, 0.9)),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 20))
+
+    # LINE ITEMS TABLE
+    elements.append(Paragraph(LBL['detail_title'], styles['SectionTitle']))
+
+    cell_style = ParagraphStyle('TableCell', fontSize=9, fontName='Helvetica', leading=11, textColor=BLACK)
+    cell_style_right = ParagraphStyle('TableCellRight', fontSize=9, fontName='Helvetica', leading=11, textColor=BLACK, alignment=TA_RIGHT)
+    cell_style_center = ParagraphStyle('TableCellCenter', fontSize=9, fontName='Helvetica', leading=11, textColor=BLACK, alignment=TA_CENTER)
+
+    table_data = [
+        [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL['total_col']]
+    ]
+
+    for line in snapshot.get('lines', []):
+        concept = Paragraph(str(line.get('concept', '')), cell_style)
+        description = Paragraph(str(line.get('description', '')), cell_style)
+        qty = Paragraph(str(line.get('quantity', '')), cell_style_center)
+        up = Decimal(str(line.get('unit_price', 0)))
+        lt = Decimal(str(line.get('line_total', 0)))
+        unit_price = Paragraph(f"${up:,.2f}", cell_style_right)
+        total = Paragraph(f"${lt:,.2f}", cell_style_right)
+        table_data.append([concept, description, qty, unit_price, total])
+
+    col_widths = [1.6 * inch, 2.7 * inch, 0.5 * inch, 1.0 * inch, 1.1 * inch]
+    items_table = Table(table_data, colWidths=col_widths)
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), CYAN),
+        ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ('LEFTPADDING', (0, 1), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 1), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.Color(0.8, 0.8, 0.8)),
+        ('BOX', (0, 0), (-1, -1), 1, CYAN),
+    ]))
+    elements.append(items_table)
+    elements.append(Spacer(1, 20))
+
+    # TOTALS
+    subtotal = Decimal(str(snapshot.get('subtotal', 0)))
+    tax_amount = Decimal(str(snapshot.get('tax_amount', 0)))
+    total_amount = Decimal(str(snapshot.get('total', 0)))
+    tax_percent = float(quote.tax_rate) * 100 if quote.tax_rate else 16.0
+
+    totals_data = [
+        ['', 'Subtotal:', f"${subtotal:,.2f}"],
+        ['', f'IVA ({tax_percent:.0f}%):', f"${tax_amount:,.2f}"],
+        ['', 'TOTAL:', f"${total_amount:,.2f}"],
+    ]
+
+    totals_table = Table(totals_data, colWidths=[content_width - 3 * inch, 1.5 * inch, 1.5 * inch])
+    totals_table.setStyle(TableStyle([
+        ('FONTNAME', (1, 0), (1, 1), 'Helvetica'),
+        ('FONTNAME', (1, 2), (1, 2), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, 1), 'Helvetica'),
+        ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
+        ('FONTSIZE', (1, 0), (-1, 1), 10),
+        ('FONTSIZE', (1, 2), (-1, 2), 12),
+        ('TEXTCOLOR', (1, 2), (-1, 2), CYAN),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LINEABOVE', (1, 2), (-1, 2), 1, CYAN),
+    ]))
+    elements.append(KeepTogether([totals_table, Spacer(1, 20)]))
+
+    # FOOTER
+    def draw_footer(canvas_obj, doc_obj):
+        canvas_obj.saveState()
+        footer_y = 0.5 * inch
+        footer_x = margin_left
+        footer_width = page_width - margin_left - margin_right
+        canvas_obj.setStrokeColor(colors.Color(0.8, 0.8, 0.8))
+        canvas_obj.setLineWidth(1)
+        canvas_obj.line(footer_x, footer_y + 35, footer_x + footer_width, footer_y + 35)
+        canvas_obj.setFont('Helvetica-Bold', 8)
+        canvas_obj.setFillColor(GRAY)
+        canvas_obj.drawCentredString(page_width / 2, footer_y + 22, LBL['footer_company'])
+        canvas_obj.setFont('Helvetica', 8)
+        canvas_obj.drawCentredString(page_width / 2, footer_y + 12, LBL['footer_prices'])
+        canvas_obj.drawCentredString(page_width / 2, footer_y + 2, LBL['footer_contact'])
+        canvas_obj.setFont('Helvetica', 7)
+        canvas_obj.setFillColor(colors.Color(0.6, 0.6, 0.6))
+        page_num = canvas_obj.getPageNumber()
+        canvas_obj.drawRightString(page_width - margin_right, footer_y + 2, f'{LBL["page"]} {page_num}')
+        canvas_obj.restoreState()
+
+    doc.build(elements, onFirstPage=draw_footer, onLaterPages=draw_footer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def send_quote_email_sync(quote_id: str) -> bool:
     """
     Synchronous function to send quote email.
