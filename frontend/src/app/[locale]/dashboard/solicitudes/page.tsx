@@ -15,6 +15,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   TrashIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -38,6 +39,7 @@ const statusColors: Record<QuoteRequestStatus, string> = {
   accepted: 'bg-green-500/20 text-green-400',
   rejected: 'bg-red-500/20 text-red-400',
   cancelled: 'bg-neutral-500/20 text-neutral-400',
+  info_requested: 'bg-orange-500/20 text-orange-400',
 };
 
 const statusLabels: Record<QuoteRequestStatus, string> = {
@@ -48,6 +50,7 @@ const statusLabels: Record<QuoteRequestStatus, string> = {
   accepted: 'Aceptada',
   rejected: 'Rechazada',
   cancelled: 'Cancelada',
+  info_requested: 'Info Solicitada',
 };
 
 const statusIcons: Record<QuoteRequestStatus, React.ComponentType<{ className?: string }>> = {
@@ -58,6 +61,7 @@ const statusIcons: Record<QuoteRequestStatus, React.ComponentType<{ className?: 
   accepted: CheckCircleIcon,
   rejected: XCircleIcon,
   cancelled: XCircleIcon,
+  info_requested: InformationCircleIcon,
 };
 
 const urgencyColors: Record<UrgencyLevel, string> = {
@@ -239,6 +243,7 @@ export default function QuoteRequestsListPage() {
                     <option value="pending">Pendiente</option>
                     <option value="assigned">Asignada</option>
                     <option value="in_review">En Revisión</option>
+                    <option value="info_requested">Info Solicitada</option>
                     <option value="cancelled">Cancelada</option>
                   </select>
                 </div>

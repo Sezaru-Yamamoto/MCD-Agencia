@@ -18,6 +18,7 @@ import {
   CheckCircleIcon,
   ArrowPathIcon,
   TrashIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -31,6 +32,7 @@ import {
   unmarkQuoteRequestInReview,
   assignQuoteRequest,
   deleteQuoteRequest,
+  requestQuoteRequestInfo,
   getSalesReps,
   QuoteRequest,
   QuoteRequestStatus,
@@ -46,6 +48,7 @@ const statusColors: Record<QuoteRequestStatus, string> = {
   accepted: 'bg-green-500/20 text-green-400 border-green-500/50',
   rejected: 'bg-red-500/20 text-red-400 border-red-500/50',
   cancelled: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/50',
+  info_requested: 'bg-orange-500/20 text-orange-400 border-orange-500/50',
 };
 
 const statusLabels: Record<QuoteRequestStatus, string> = {
@@ -56,6 +59,7 @@ const statusLabels: Record<QuoteRequestStatus, string> = {
   accepted: 'Aceptada',
   rejected: 'Rechazada',
   cancelled: 'Cancelada',
+  info_requested: 'Info Solicitada',
 };
 
 const urgencyColors: Record<UrgencyLevel, string> = {
@@ -83,6 +87,9 @@ export default function QuoteRequestDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showInfoRequestModal, setShowInfoRequestModal] = useState(false);
+  const [infoRequestMessage, setInfoRequestMessage] = useState('');
+  const [isSendingInfoRequest, setIsSendingInfoRequest] = useState(false);
 
   const requestId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -188,7 +195,25 @@ export default function QuoteRequestDetailPage() {
     }
   };
 
-  const deletableStatuses = ['pending', 'assigned', 'in_review', 'rejected', 'cancelled'];
+  const deletableStatuses = ['pending', 'assigned', 'in_review', 'rejected', 'cancelled', 'info_requested'];
+
+  const handleRequestInfo = async () => {
+    if (!request || !infoRequestMessage.trim()) return;
+
+    setIsSendingInfoRequest(true);
+    try {
+      const updated = await requestQuoteRequestInfo(request.id, infoRequestMessage.trim());
+      setRequest(updated);
+      setShowInfoRequestModal(false);
+      setInfoRequestMessage('');
+      toast.success('Solicitud de información enviada al cliente');
+    } catch (error: unknown) {
+      const err = error as { data?: { error?: string } };
+      toast.error(err?.data?.error || 'Error al enviar la solicitud de información');
+    } finally {
+      setIsSendingInfoRequest(false);
+    }
+  };
 
   if (authLoading || isLoading) {
     return <LoadingPage message="Cargando..." />;
@@ -535,6 +560,32 @@ export default function QuoteRequestDetailPage() {
                   </Button>
                 )}
 
+                {['pending', 'assigned', 'in_review', 'info_requested'].includes(request.status) && (
+                  <Button
+                    onClick={() => setShowInfoRequestModal(true)}
+                    disabled={isUpdating}
+                    variant="outline"
+                    className="w-full !border-orange-500/50 !text-orange-400 hover:!bg-orange-500/10"
+                    leftIcon={<InformationCircleIcon className="h-5 w-5" />}
+                  >
+                    Solicitar Información
+                  </Button>
+                )}
+
+                {request.status === 'info_requested' && (
+                  <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <p className="text-orange-400 text-sm font-medium mb-1 flex items-center gap-1">
+                      <InformationCircleIcon className="h-4 w-4" />
+                      Esperando información del cliente
+                    </p>
+                    {request.info_request_message && (
+                      <p className="text-neutral-400 text-xs mt-1">
+                        Mensaje enviado: &quot;{request.info_request_message}&quot;
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {isAdmin && ['pending', 'assigned', 'in_review'].includes(request.status) && (
                   <Button
                     onClick={() => setShowAssignModal(true)}
@@ -627,6 +678,15 @@ export default function QuoteRequestDetailPage() {
                     <div className="w-2 h-2 mt-2 rounded-full bg-purple-400"></div>
                     <div>
                       <p className="text-white text-sm">Marcada en revisión</p>
+                      <p className="text-neutral-500 text-xs">{formatDate(request.updated_at)}</p>
+                    </div>
+                  </div>
+                )}
+                {request.status === 'info_requested' && (
+                  <div className="flex gap-3">
+                    <div className="w-2 h-2 mt-2 rounded-full bg-orange-400"></div>
+                    <div>
+                      <p className="text-white text-sm">Información solicitada al cliente</p>
                       <p className="text-neutral-500 text-xs">{formatDate(request.updated_at)}</p>
                     </div>
                   </div>
@@ -728,6 +788,56 @@ export default function QuoteRequestDetailPage() {
                   className="!bg-red-600 hover:!bg-red-700 !border-red-600"
                 >
                   Eliminar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Info Request Modal */}
+        {showInfoRequestModal && request && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                  <InformationCircleIcon className="h-5 w-5 text-orange-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Solicitar Información</h3>
+              </div>
+              <p className="text-neutral-400 mb-4 text-sm">
+                Se enviará un correo al cliente ({request.customer_email}) con un enlace
+                para completar la información faltante de su solicitud.
+              </p>
+              <div className="mb-4">
+                <label className="block text-sm text-neutral-300 mb-2">
+                  Mensaje para el cliente *
+                </label>
+                <textarea
+                  value={infoRequestMessage}
+                  onChange={(e) => setInfoRequestMessage(e.target.value)}
+                  placeholder="Ej: Necesitamos que nos indiques la ruta deseada para tu servicio de publicidad móvil..."
+                  rows={4}
+                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:outline-none resize-none text-sm"
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowInfoRequestModal(false);
+                    setInfoRequestMessage('');
+                  }}
+                  disabled={isSendingInfoRequest}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleRequestInfo}
+                  isLoading={isSendingInfoRequest}
+                  disabled={!infoRequestMessage.trim()}
+                  className="!bg-orange-600 hover:!bg-orange-700 !border-orange-600"
+                >
+                  Enviar solicitud
                 </Button>
               </div>
             </div>

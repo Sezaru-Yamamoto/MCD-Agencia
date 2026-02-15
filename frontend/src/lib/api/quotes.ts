@@ -12,7 +12,7 @@ import { apiClient } from './client';
 import { PaginatedResponse } from './catalog';
 
 // Status types
-export type QuoteRequestStatus = 'pending' | 'assigned' | 'in_review' | 'quoted' | 'accepted' | 'rejected' | 'cancelled';
+export type QuoteRequestStatus = 'pending' | 'assigned' | 'in_review' | 'quoted' | 'accepted' | 'rejected' | 'cancelled' | 'info_requested';
 export type QuoteStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'changes_requested' | 'converted';
 export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected';
 export type UrgencyLevel = 'normal' | 'medium' | 'high';
@@ -96,6 +96,8 @@ export interface QuoteRequest {
   attachments: QuoteAttachment[];
   created_at: string;
   updated_at: string;
+  info_request_message?: string;
+  info_request_token?: string;
 }
 
 export interface Quote {
@@ -710,6 +712,27 @@ export async function markQuoteRequestInReview(id: string): Promise<QuoteRequest
  */
 export async function unmarkQuoteRequestInReview(id: string): Promise<QuoteRequest> {
   return apiClient.post<QuoteRequest>(`/quotes/requests/${id}/unmark_in_review/`);
+}
+
+/**
+ * Request additional information from the customer.
+ */
+export async function requestQuoteRequestInfo(id: string, message: string): Promise<QuoteRequest> {
+  return apiClient.post<QuoteRequest>(`/quotes/requests/${id}/request_info/`, { message });
+}
+
+/**
+ * Get quote request info for the public completion page (by token).
+ */
+export async function getQuoteRequestByInfoToken(token: string): Promise<Record<string, unknown>> {
+  return apiClient.get<Record<string, unknown>>(`/quotes/complete-info/${token}/`);
+}
+
+/**
+ * Submit updated service details for a quote request (public, by token).
+ */
+export async function submitQuoteRequestInfo(token: string, serviceDetails: Record<string, unknown>): Promise<{ message: string; status: string }> {
+  return apiClient.post<{ message: string; status: string }>(`/quotes/complete-info/${token}/`, { service_details: serviceDetails });
 }
 
 /**

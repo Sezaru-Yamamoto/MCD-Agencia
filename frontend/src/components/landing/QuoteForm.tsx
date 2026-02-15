@@ -445,6 +445,44 @@ export function QuoteForm() {
       }
       setDeliveryError('');
 
+      // Validate routes for publicidad-movil subtypes
+      if (data.servicio === 'publicidad-movil') {
+        if (data.pub_subtipo === 'vallas-moviles') {
+          const hasRouteData = vallasRoutes.some(r => r.route?.pointA && r.route?.pointB && r.route?.routeData);
+          if (!hasRouteData) {
+            setFormStatus('error');
+            setErrorMessage('Debes trazar al menos una ruta en el mapa para vallas móviles');
+            return;
+          }
+          const missingSchedule = vallasRoutes.find(r => !r.fechaInicio || !r.horarioInicio || !r.horarioFin);
+          if (missingSchedule) {
+            setFormStatus('error');
+            setErrorMessage('Cada ruta de vallas móviles debe tener fecha de inicio, horario de inicio y horario de fin');
+            return;
+          }
+        } else if (data.pub_subtipo === 'publibuses') {
+          const hasRoute = pubRoutes.some(r => r.ruta && r.fechaInicio);
+          if (!hasRoute) {
+            setFormStatus('error');
+            setErrorMessage('Debes seleccionar al menos una ruta preestablecida con fecha de inicio para publibuses');
+            return;
+          }
+        } else if (data.pub_subtipo === 'perifoneo') {
+          const hasRouteData = perifoneoRoutes.some(r => r.route?.pointA && r.route?.pointB && r.route?.routeData);
+          if (!hasRouteData) {
+            setFormStatus('error');
+            setErrorMessage('Debes trazar al menos una ruta en el mapa para perifoneo');
+            return;
+          }
+          const missingSchedule = perifoneoRoutes.find(r => !r.fechaInicio || !r.horarioInicio || !r.horarioFin);
+          if (missingSchedule) {
+            setFormStatus('error');
+            setErrorMessage('Cada ruta de perifoneo debe tener fecha de inicio, horario de inicio y horario de fin');
+            return;
+          }
+        }
+      }
+
       // Execute reCAPTCHA verification
       let recaptchaToken: string | null = null;
       if (recaptchaEnabled) {
@@ -1195,21 +1233,30 @@ export function QuoteForm() {
                                   onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
                               </div>
                               <div>
-                                <label className="label-field text-xs">Horario inicio</label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <label className="label-field text-xs">Horario inicio <span className="text-cmyk-magenta">*</span></label>
+                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
                                   value={entry.horarioInicio}
-                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))}>
+                                  <option value="">Seleccionar</option>
+                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
+                                </select>
                               </div>
                               <div>
-                                <label className="label-field text-xs">Horario fin</label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <label className="label-field text-xs">Horario fin <span className="text-cmyk-magenta">*</span></label>
+                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
                                   value={entry.horarioFin}
-                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))}>
+                                  <option value="">Seleccionar</option>
+                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
+                                </select>
                               </div>
                             </div>
                             <div>
-                              <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa (opcional)</label>
+                              <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa <span className="text-cmyk-magenta">*</span></label>
                               <RouteSelector onChange={(route) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
+                              {!entry.route?.routeData && (
+                                <p className="text-xs text-amber-400 mt-1">⚠️ Debes trazar la ruta en el mapa</p>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1415,21 +1462,30 @@ export function QuoteForm() {
                                   onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
                               </div>
                               <div>
-                                <label className="label-field text-xs">Horario inicio</label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <label className="label-field text-xs">Horario inicio <span className="text-cmyk-magenta">*</span></label>
+                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
                                   value={entry.horarioInicio}
-                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))}>
+                                  <option value="">Seleccionar</option>
+                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
+                                </select>
                               </div>
                               <div>
-                                <label className="label-field text-xs">Horario fin</label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <label className="label-field text-xs">Horario fin <span className="text-cmyk-magenta">*</span></label>
+                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
                                   value={entry.horarioFin}
-                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))}>
+                                  <option value="">Seleccionar</option>
+                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
+                                </select>
                               </div>
                             </div>
                             <div>
-                              <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa (opcional)</label>
+                              <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa <span className="text-cmyk-magenta">*</span></label>
                               <RouteSelector onChange={(route) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
+                              {!entry.route?.routeData && (
+                                <p className="text-xs text-amber-400 mt-1">⚠️ Debes trazar la ruta en el mapa</p>
+                              )}
                             </div>
                           </div>
                         ))}

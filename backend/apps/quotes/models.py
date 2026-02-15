@@ -60,6 +60,7 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
     STATUS_PENDING = 'pending'
     STATUS_ASSIGNED = 'assigned'
     STATUS_IN_REVIEW = 'in_review'
+    STATUS_INFO_REQUESTED = 'info_requested'
     STATUS_QUOTED = 'quoted'
     STATUS_ACCEPTED = 'accepted'
     STATUS_REJECTED = 'rejected'
@@ -71,6 +72,7 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         (STATUS_PENDING, _('Pending Assignment')),
         (STATUS_ASSIGNED, _('Assigned')),
         (STATUS_IN_REVIEW, _('In Review')),
+        (STATUS_INFO_REQUESTED, _('Info Requested')),
         (STATUS_QUOTED, _('Quote Sent')),
         (STATUS_ACCEPTED, _('Accepted')),
         (STATUS_REJECTED, _('Rejected')),
@@ -312,6 +314,20 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         related_name='quote_requests',
         verbose_name=_('pickup branch'),
         help_text=_('Branch for pickup (if delivery method is pickup).')
+    )
+
+    # Info request (vendor asks client for missing information)
+    info_request_message = models.TextField(
+        _('info request message'),
+        blank=True,
+        help_text=_('Message from vendor requesting additional information from the client.')
+    )
+    info_request_token = models.UUIDField(
+        _('info request token'),
+        null=True,
+        blank=True,
+        unique=True,
+        help_text=_('Unique token for the client to respond to info request.')
     )
 
     class Meta:

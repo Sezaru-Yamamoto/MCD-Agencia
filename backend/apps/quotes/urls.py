@@ -21,6 +21,7 @@ from .views import (
     QuotePublicRejectView,
     QuoteChangeRequestViewSet,
     QuoteCronView,
+    QuoteRequestInfoUpdateView,
 )
 
 app_name = 'quotes'
@@ -38,6 +39,7 @@ urlpatterns = [
     path('view/<uuid:token>/reject/', QuotePublicRejectView.as_view(), name='reject_public'),
     path('view/<uuid:token>/responses/', QuotePublicResponsesView.as_view(), name='responses_public'),
     path('view/<uuid:token>/change-request/', QuoteChangeRequestView.as_view(), name='change_request'),
+    path('complete-info/<uuid:token>/', QuoteRequestInfoUpdateView.as_view(), name='complete_info'),
 
     # Cron endpoint for external scheduler
     path('cron/', QuoteCronView.as_view(), name='cron'),

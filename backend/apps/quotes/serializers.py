@@ -320,7 +320,8 @@ class QuoteRequestAdminSerializer(QuoteRequestSerializer):
 
     class Meta(QuoteRequestSerializer.Meta):
         fields = QuoteRequestSerializer.Meta.fields + [
-            'user', 'ip_address', 'user_agent', 'assigned_to_id'
+            'user', 'ip_address', 'user_agent', 'assigned_to_id',
+            'info_request_message', 'info_request_token'
         ]
 
 

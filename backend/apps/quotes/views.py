@@ -29,7 +29,7 @@ from apps.core.pagination import StandardPagination
 from apps.core.views import is_internal_user as _is_internal_user
 from apps.notifications.models import Notification
 from .models import QuoteRequest, Quote, QuoteLine, QuoteAttachment, QuoteChangeRequest, QuoteResponse
-from .tasks import send_quote_email_sync, notify_admin_new_quote_request, send_quote_accepted_notification, send_order_confirmation_email
+from .tasks import send_quote_email_sync, notify_admin_new_quote_request, send_quote_accepted_notification, send_order_confirmation_email, send_info_request_email
 from .serializers import (
     QuoteRequestSerializer,
     QuoteRequestCreateSerializer,
@@ -209,7 +209,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
         # Calculate stats
         pending_requests = requests_qs.filter(
-            status__in=[QuoteRequest.STATUS_PENDING, QuoteRequest.STATUS_ASSIGNED, QuoteRequest.STATUS_IN_REVIEW]
+            status__in=[QuoteRequest.STATUS_PENDING, QuoteRequest.STATUS_ASSIGNED, QuoteRequest.STATUS_IN_REVIEW, QuoteRequest.STATUS_INFO_REQUESTED]
         ).count()
 
         quotes_without_response = quotes_qs.filter(
@@ -412,6 +412,50 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             action=AuditLog.ACTION_STATE_CHANGED,
             actor=request.user,
             after_state={'status': quote_request.status},
+            request=request
+        )
+
+        return Response(QuoteRequestAdminSerializer(quote_request).data)
+
+    @action(detail=True, methods=['post'])
+    def request_info(self, request, pk=None):
+        """Request additional information from the customer."""
+        if not _is_internal_user(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        quote_request = self.get_object()
+        if quote_request.status in [QuoteRequest.STATUS_ACCEPTED, QuoteRequest.STATUS_CANCELLED]:
+            return Response(
+                {'error': _('Cannot request info for this request.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        message = request.data.get('message', '')
+        if not message.strip():
+            return Response(
+                {'error': _('A message for the customer is required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        import uuid
+        quote_request.status = QuoteRequest.STATUS_INFO_REQUESTED
+        quote_request.info_request_message = message.strip()
+        quote_request.info_request_token = uuid.uuid4()
+        quote_request.save(update_fields=[
+            'status', 'info_request_message', 'info_request_token', 'updated_at'
+        ])
+
+        # Send email to customer
+        try:
+            send_info_request_email.delay(str(quote_request.id))
+        except Exception:
+            pass
+
+        AuditLog.log(
+            entity=quote_request,
+            action=AuditLog.ACTION_STATE_CHANGED,
+            actor=request.user,
+            after_state={'status': quote_request.status, 'info_request_message': message},
             request=request
         )
 
@@ -2146,4 +2190,84 @@ class QuoteCronView(APIView):
             'expiring_notifications': expiring_notifs,
             'unattended_notifications': unattended_notifs,
             'timestamp': timezone.now().isoformat(),
+        })
+
+
+class QuoteRequestInfoUpdateView(APIView):
+    """
+    Public endpoint for customers to view and update their quote request
+    when additional information has been requested (via info_request_token).
+
+    GET  /api/v1/quotes/complete-info/<token>/  — view request summary
+    POST /api/v1/quotes/complete-info/<token>/  — update service_details
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, token):
+        """Return limited request info for the customer to see what's needed."""
+        try:
+            quote_request = QuoteRequest.objects.select_related(
+                'catalog_item'
+            ).get(info_request_token=token)
+        except QuoteRequest.DoesNotExist:
+            raise Http404
+
+        return Response({
+            'id': str(quote_request.id),
+            'request_number': quote_request.request_number,
+            'customer_name': quote_request.customer_name,
+            'catalog_item_name': quote_request.catalog_item_name,
+            'service_type': quote_request.service_type,
+            'service_details': quote_request.service_details,
+            'description': quote_request.description,
+            'info_request_message': quote_request.info_request_message,
+            'status': quote_request.status,
+            'created_at': quote_request.created_at.isoformat(),
+        })
+
+    def post(self, request, token):
+        """Update the service_details with the customer's additional info."""
+        try:
+            quote_request = QuoteRequest.objects.get(info_request_token=token)
+        except QuoteRequest.DoesNotExist:
+            raise Http404
+
+        if quote_request.status != QuoteRequest.STATUS_INFO_REQUESTED:
+            return Response(
+                {'error': _('This request is no longer awaiting additional information.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service_details = request.data.get('service_details')
+        if not service_details:
+            return Response(
+                {'error': _('service_details is required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Merge new service_details with existing ones
+        existing = quote_request.service_details or {}
+        if isinstance(service_details, dict):
+            existing.update(service_details)
+        quote_request.service_details = existing
+
+        # Revert status back to assigned or pending
+        if quote_request.assigned_to:
+            quote_request.status = QuoteRequest.STATUS_ASSIGNED
+        else:
+            quote_request.status = QuoteRequest.STATUS_PENDING
+        quote_request.save(update_fields=['service_details', 'status', 'updated_at'])
+
+        # Log the update
+        AuditLog.log(
+            entity=quote_request,
+            action=AuditLog.ACTION_STATE_CHANGED,
+            after_state={'status': quote_request.status, 'source': 'customer_info_update'},
+            request=request,
+            metadata={'token_used': str(token)}
+        )
+
+        return Response({
+            'message': _('Information updated successfully. Thank you!'),
+            'status': quote_request.status,
         })

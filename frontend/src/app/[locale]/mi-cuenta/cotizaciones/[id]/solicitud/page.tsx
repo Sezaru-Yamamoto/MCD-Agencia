@@ -36,6 +36,7 @@ const statusLabels: Record<string, string> = {
   accepted: 'Aceptada',
   rejected: 'Rechazada',
   cancelled: 'Cancelada',
+  info_requested: 'Info Solicitada',
 };
 
 const statusVariants: Record<string, 'warning' | 'info' | 'success' | 'error'> = {

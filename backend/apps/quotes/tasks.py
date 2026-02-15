@@ -966,6 +966,56 @@ def send_quote_reminders():
     default_retry_delay=60,
     autoretry_for=(Exception,),
 )
+def send_info_request_email(self, request_id: str):
+    """
+    Send email to customer requesting additional information for their quote request.
+
+    Args:
+        request_id: UUID of the quote request.
+
+    Returns:
+        bool: True if email was sent successfully.
+    """
+    from apps.quotes.models import QuoteRequest
+
+    try:
+        quote_request = QuoteRequest.objects.get(id=request_id)
+
+        update_url = f"{settings.FRONTEND_URL}/es/completar-solicitud/{quote_request.info_request_token}"
+
+        context = {
+            'request': quote_request,
+            'update_url': update_url,
+            'company_name': 'MCD Agencia',
+            'message': quote_request.info_request_message,
+        }
+
+        html_message = render_to_string('emails/info_request.html', context)
+        plain_message = strip_tags(html_message)
+
+        send_mail(
+            subject=f'Información adicional requerida — Solicitud #{quote_request.request_number}',
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[quote_request.customer_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info(f"Info request email sent for {quote_request.request_number} to {quote_request.customer_email}")
+        return True
+
+    except QuoteRequest.DoesNotExist:
+        logger.error(f"Quote request {request_id} not found")
+        return False
+
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+    autoretry_for=(Exception,),
+)
 def notify_admin_new_quote_request(self, request_id: str):
     """
     Notify sales team about new quote requests.
