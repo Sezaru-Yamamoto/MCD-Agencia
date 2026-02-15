@@ -1152,6 +1152,15 @@ class QuoteResponse(TimeStampedModel):
         help_text=_('Guest email (if not registered).')
     )
 
+    # PDF snapshot (for send actions — preserves the PDF at the time of sending)
+    pdf_file = models.FileField(
+        _('PDF file'),
+        upload_to='quotes/response_pdfs/',
+        blank=True,
+        null=True,
+        help_text=_('Snapshot of the PDF at the time of sending.')
+    )
+
     # Tracking
     ip_address = models.GenericIPAddressField(
         _('IP address'),

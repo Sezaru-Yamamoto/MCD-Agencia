@@ -29,8 +29,11 @@ import {
   reviewChangeRequest,
   getAdminQuoteById,
   downloadQuotePdf,
+  downloadResponsePdf,
+  getQuoteResponses,
   QuoteChangeRequest,
   Quote,
+  QuoteResponse as QuoteResponseType,
 } from '@/lib/api/quotes';
 
 const statusColors: Record<string, string> = {
@@ -53,6 +56,7 @@ export default function ChangeRequestReviewPage() {
 
   const [changeRequest, setChangeRequest] = useState<QuoteChangeRequest | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [responses, setResponses] = useState<QuoteResponseType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -78,12 +82,14 @@ export default function ChangeRequestReviewPage() {
 
       setIsLoading(true);
       try {
-        const [changeData, quoteData] = await Promise.all([
+        const [changeData, quoteData, responsesData] = await Promise.all([
           getChangeRequestById(changeId),
           getAdminQuoteById(quoteId),
+          getQuoteResponses(quoteId),
         ]);
         setChangeRequest(changeData);
         setQuote(quoteData);
+        setResponses(responsesData);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Error al cargar la solicitud');
@@ -139,15 +145,36 @@ export default function ChangeRequestReviewPage() {
 
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
+  // Find the send response that corresponds to this change request's version.
+  // The matching send is the most recent 'send' event created BEFORE this change request.
+  const matchingSendResponse = changeRequest
+    ? responses
+        .filter((r) => r.action === 'send' && new Date(r.created_at) <= new Date(changeRequest.created_at))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+    : null;
+
   const handleDownloadPdf = async () => {
     if (!quote) return;
     setIsDownloadingPdf(true);
     try {
-      const blob = await downloadQuotePdf(quote.id);
+      let blob: Blob;
+      let filename: string;
+
+      if (matchingSendResponse?.pdf_file) {
+        // Download the version-specific PDF snapshot
+        blob = await downloadResponsePdf(quote.id, matchingSendResponse.id);
+        const versionLabel = matchingSendResponse.comment || 'v1';
+        filename = `cotizacion_${quote.quote_number}_${versionLabel}.pdf`;
+      } else {
+        // Fallback: download the current quote PDF
+        blob = await downloadQuotePdf(quote.id);
+        filename = `cotizacion_${quote.quote_number}.pdf`;
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `cotizacion_${quote.quote_number}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -597,7 +624,7 @@ export default function ChangeRequestReviewPage() {
                     Ver cotización actual
                   </Button>
                 </Link>
-                {quote?.pdf_file && (
+                {(matchingSendResponse?.pdf_file || quote?.pdf_file) && (
                   <Button
                     variant="outline"
                     className="w-full justify-start"
@@ -606,7 +633,7 @@ export default function ChangeRequestReviewPage() {
                     isLoading={isDownloadingPdf}
                     leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
                   >
-                    Descargar PDF
+                    Descargar PDF{matchingSendResponse?.comment ? ` (${matchingSendResponse.comment})` : ''}
                   </Button>
                 )}
               </div>

@@ -722,6 +722,22 @@ class QuoteViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.warning(f"PDF regeneration failed for {quote.quote_number}: {e}")
 
+        # Store a snapshot of the PDF in the QuoteResponse so each
+        # version's PDF is preserved even after future regenerations.
+        send_response = QuoteResponse.objects.filter(
+            quote=quote,
+            action=QuoteResponse.ACTION_SEND,
+        ).order_by('-created_at').first()
+        if send_response and quote.pdf_file:
+            try:
+                from django.core.files.base import ContentFile
+                pdf_content = quote.pdf_file.read()
+                quote.pdf_file.seek(0)  # Reset file pointer
+                filename = f"cotizacion_{quote.quote_number}_v{quote.version}.pdf"
+                send_response.pdf_file.save(filename, ContentFile(pdf_content), save=True)
+            except Exception as e:
+                logger.warning(f"Failed to snapshot PDF for response {send_response.id}: {e}")
+
         # Send email synchronously so we know if it actually succeeded
         email_sent = False
         email_error = ''
@@ -1177,6 +1193,47 @@ class QuoteViewSet(viewsets.ModelViewSet):
             logger.error(f'Error reading PDF for quote {quote.quote_number}: {type(e).__name__}: {e}', exc_info=True)
             return Response(
                 {'error': f'Error reading PDF file: {type(e).__name__}: {str(e)[:200]}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'], url_path='responses/(?P<response_id>[^/.]+)/pdf')
+    def response_pdf(self, request, pk=None, response_id=None):
+        """Download PDF snapshot from a specific QuoteResponse (send event)."""
+        quote = self.get_object()
+
+        try:
+            qr = QuoteResponse.objects.get(
+                id=response_id,
+                quote=quote,
+                action=QuoteResponse.ACTION_SEND,
+            )
+        except QuoteResponse.DoesNotExist:
+            return Response(
+                {'error': _('Response not found.')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not qr.pdf_file:
+            return Response(
+                {'error': _('PDF not available for this version.')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            pdf_data = qr.pdf_file.read()
+            version_label = qr.comment or 'v1'
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['Content-Disposition'] = (
+                f'attachment; filename="cotizacion_{quote.quote_number}_{version_label}.pdf"'
+            )
+            return response
+        except Exception as e:
+            logger.error(
+                f'Error reading response PDF for {quote.quote_number}: '
+                f'{type(e).__name__}: {e}', exc_info=True
+            )
+            return Response(
+                {'error': f'Error reading PDF: {str(e)[:200]}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

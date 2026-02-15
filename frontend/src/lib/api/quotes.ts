@@ -149,6 +149,7 @@ export interface QuoteResponse {
   responded_by_name?: string;
   guest_name?: string;
   guest_email?: string;
+  pdf_file?: string;
   created_at: string;
 }
 
@@ -537,6 +538,54 @@ export async function rejectQuoteByToken(token: string, reason: string): Promise
 export async function downloadQuotePdf(id: string): Promise<Blob> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
   const url = `${apiUrl}/quotes/${id}/pdf/`;
+
+  let accessToken = localStorage.getItem('accessToken');
+
+  let response = await fetch(url, {
+    method: 'GET',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+
+  // If 401, try to refresh token and retry
+  if (response.status === 401 && accessToken) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        const refreshResp = await fetch(`${apiUrl}/auth/token/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+        if (refreshResp.ok) {
+          const data = await refreshResp.json();
+          localStorage.setItem('accessToken', data.access);
+          accessToken = data.access;
+          response = await fetch(url, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        }
+      } catch {
+        // Refresh failed, will throw below
+      }
+    }
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error((errorData as Record<string, string>).error || 'Error downloading PDF');
+  }
+
+  return response.blob();
+}
+
+/**
+ * Download PDF snapshot from a specific QuoteResponse (version-specific).
+ * Uses the same token refresh logic as downloadQuotePdf.
+ */
+export async function downloadResponsePdf(quoteId: string, responseId: string): Promise<Blob> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const url = `${apiUrl}/quotes/${quoteId}/responses/${responseId}/pdf/`;
 
   let accessToken = localStorage.getItem('accessToken');
 

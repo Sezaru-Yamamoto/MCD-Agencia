@@ -505,9 +505,9 @@ class QuoteResponseSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'quote', 'action', 'action_display', 'comment',
             'responded_by', 'responded_by_name', 'guest_name', 'guest_email',
-            'ip_address', 'created_at'
+            'ip_address', 'pdf_file', 'created_at'
         ]
-        read_only_fields = ['id', 'ip_address', 'created_at']
+        read_only_fields = ['id', 'ip_address', 'pdf_file', 'created_at']
 
     def get_responded_by_name(self, obj):
         """Get responder name."""
