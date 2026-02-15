@@ -1071,12 +1071,15 @@ export default function CustomerQuoteDetailPage() {
                         </div>
                       )}
 
-                      <div className="relative flex items-start gap-3">
+                      <Link
+                        href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/solicitud`}
+                        className="relative flex items-start gap-3 group cursor-pointer"
+                      >
                         <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-neutral-600">
                           <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
-                          <p className="text-neutral-400 text-xs font-medium">
+                          <p className="text-neutral-400 text-xs font-medium group-hover:underline">
                             Solicitud de cotización
                           </p>
                           <p className="text-neutral-500 text-xs">
@@ -1088,7 +1091,7 @@ export default function CustomerQuoteDetailPage() {
                             </p>
                           )}
                         </div>
-                      </div>
+                      </Link>
                     </>
                   )}
                 </div>
