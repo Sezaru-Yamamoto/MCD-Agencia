@@ -109,6 +109,53 @@ const addMonths = (dateStr: string, months: number): string => {
   return d.toISOString().split('T')[0];
 };
 
+/**
+ * Add N business days (Mon–Fri) to a given date.
+ * Returns a YYYY-MM-DD string.
+ */
+const addBusinessDays = (from: Date, days: number): string => {
+  const result = new Date(from);
+  let added = 0;
+  while (added < days) {
+    result.setDate(result.getDate() + 1);
+    const dow = result.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return result.toISOString().split('T')[0];
+};
+
+/**
+ * Minimum delivery/start date in business days per service type.
+ * Rules:
+ *  - impresion-gran-formato: 1 business day (lonas/viniles < 40m²)
+ *  - impresion-offset-serigrafia: 5 business days
+ *  - everything else: 8 business days
+ */
+const SERVICE_MIN_BUSINESS_DAYS: Record<string, number> = {
+  'impresion-gran-formato': 1,
+  'impresion-offset-serigrafia': 5,
+  // All others default to 8
+};
+
+const getMinBusinessDays = (service: string): number => {
+  return SERVICE_MIN_BUSINESS_DAYS[service] ?? 8;
+};
+
+const getMinDateForService = (service: string): string => {
+  if (!service) return new Date().toISOString().split('T')[0];
+  const days = getMinBusinessDays(service);
+  return addBusinessDays(new Date(), days);
+};
+
+const DELIVERY_TIME_MESSAGES: Record<string, string> = {
+  'impresion-gran-formato': 'Lonas y viniles menores a 40m² pueden entregarse al día siguiente hábil. Los días se cuentan a partir de la concreción del pedido (pago realizado).',
+  'impresion-offset-serigrafia': 'Tiempo de entrega estimado: 5 a 8 días hábiles a partir de la concreción del pedido (pago realizado).',
+  'fabricacion-anuncios': 'Tiempo de entrega estimado: mínimo 8 días hábiles (depende del tamaño del producto). Los días se cuentan a partir de la concreción del pedido (pago realizado).',
+  'espectaculares': 'Tiempo de entrega estimado: mínimo 8 días hábiles (depende del tamaño). Los días se cuentan a partir de la concreción del pedido (pago realizado).',
+  'publicidad-movil': 'La fecha mínima de inicio del servicio es de 8 días hábiles. Los días se cuentan a partir de la concreción del pedido (pago realizado).',
+  '_default': 'Tiempo de entrega estimado: mínimo 8 días hábiles a partir de la concreción del pedido (pago realizado).',
+};
+
 // Form data structure
 interface QuoteFormData {
   // Global fields
@@ -389,6 +436,26 @@ export function QuoteForm() {
   // Get today's date for min date validation
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  // Minimum date for the "fecha requerida" and route start dates — depends on service
+  const minDeliveryDate = useMemo(
+    () => servicioValue ? getMinDateForService(servicioValue) : today,
+    [servicioValue, today]
+  );
+
+  // Minimum date for publicidad-movil route start dates (always 8 business days)
+  const minRouteStartDate = useMemo(
+    () => addBusinessDays(new Date(), 8),
+    []
+  );
+
+  // Info message about delivery times for the selected service
+  const deliveryTimeMsg = useMemo(
+    () => servicioValue
+      ? (DELIVERY_TIME_MESSAGES[servicioValue] || DELIVERY_TIME_MESSAGES['_default'])
+      : '',
+    [servicioValue]
+  );
+
   // Reset service-specific fields when service changes
   useEffect(() => {
     setVallasRoutes([createConfigurableRoute()]);
@@ -413,11 +480,19 @@ export function QuoteForm() {
       setFormStatus('submitting');
       trackEvent(trackingEvents.FORM_START);
 
-      // Validate date is not in the past
-      if (data.fechaRequerida && new Date(data.fechaRequerida) < new Date(today)) {
-        setFormStatus('error');
-        setErrorMessage('La fecha debe ser igual o posterior a hoy');
-        return;
+      // Validate date is not in the past and meets minimum business days
+      if (data.fechaRequerida) {
+        if (new Date(data.fechaRequerida) < new Date(today)) {
+          setFormStatus('error');
+          setErrorMessage('La fecha debe ser igual o posterior a hoy');
+          return;
+        }
+        if (data.fechaRequerida < minDeliveryDate) {
+          const minDays = getMinBusinessDays(data.servicio || '');
+          setFormStatus('error');
+          setErrorMessage(`La fecha mínima de entrega para este servicio es de ${minDays} día${minDays > 1 ? 's' : ''} hábil${minDays > 1 ? 'es' : ''} a partir de hoy. Los días se cuentan a partir de que el pago se realiza.`);
+          return;
+        }
       }
 
       // Validate delivery method
@@ -460,11 +535,35 @@ export function QuoteForm() {
             setErrorMessage('Cada ruta de vallas móviles debe tener fecha de inicio, horario de inicio y horario de fin');
             return;
           }
+          const missingEndDate = vallasRoutes.find(r => !r.fechaFin);
+          if (missingEndDate) {
+            setFormStatus('error');
+            setErrorMessage('Cada ruta de vallas móviles debe tener fecha de fin');
+            return;
+          }
+          const invalidDateRange = vallasRoutes.find(r => r.fechaInicio && r.fechaFin && r.fechaFin < r.fechaInicio);
+          if (invalidDateRange) {
+            setFormStatus('error');
+            setErrorMessage('La fecha de fin de cada ruta debe ser igual o posterior a la fecha de inicio');
+            return;
+          }
+          const dateTooEarly = vallasRoutes.find(r => r.fechaInicio && r.fechaInicio < minRouteStartDate);
+          if (dateTooEarly) {
+            setFormStatus('error');
+            setErrorMessage('Las fechas de inicio de ruta deben ser al menos 8 días hábiles a partir de hoy. Los días se cuentan a partir de que el pago se realiza.');
+            return;
+          }
         } else if (data.pub_subtipo === 'publibuses') {
           const hasRoute = pubRoutes.some(r => r.ruta && r.fechaInicio);
           if (!hasRoute) {
             setFormStatus('error');
             setErrorMessage('Debes seleccionar al menos una ruta preestablecida con fecha de inicio para publibuses');
+            return;
+          }
+          const dateTooEarly = pubRoutes.find(r => r.fechaInicio && r.fechaInicio < minRouteStartDate);
+          if (dateTooEarly) {
+            setFormStatus('error');
+            setErrorMessage('Las fechas de inicio de ruta deben ser al menos 8 días hábiles a partir de hoy. Los días se cuentan a partir de que el pago se realiza.');
             return;
           }
         } else if (data.pub_subtipo === 'perifoneo') {
@@ -478,6 +577,24 @@ export function QuoteForm() {
           if (missingSchedule) {
             setFormStatus('error');
             setErrorMessage('Cada ruta de perifoneo debe tener fecha de inicio, horario de inicio y horario de fin');
+            return;
+          }
+          const missingEndDate = perifoneoRoutes.find(r => !r.fechaFin);
+          if (missingEndDate) {
+            setFormStatus('error');
+            setErrorMessage('Cada ruta de perifoneo debe tener fecha de fin');
+            return;
+          }
+          const invalidDateRange = perifoneoRoutes.find(r => r.fechaInicio && r.fechaFin && r.fechaFin < r.fechaInicio);
+          if (invalidDateRange) {
+            setFormStatus('error');
+            setErrorMessage('La fecha de fin de cada ruta debe ser igual o posterior a la fecha de inicio');
+            return;
+          }
+          const dateTooEarly = perifoneoRoutes.find(r => r.fechaInicio && r.fechaInicio < minRouteStartDate);
+          if (dateTooEarly) {
+            setFormStatus('error');
+            setErrorMessage('Las fechas de inicio de ruta deben ser al menos 8 días hábiles a partir de hoy. Los días se cuentan a partir de que el pago se realiza.');
             return;
           }
         }
@@ -925,10 +1042,16 @@ export function QuoteForm() {
                     type="date"
                     id="fechaRequerida"
                     className="input-field"
-                    min={today}
+                    min={minDeliveryDate}
                     disabled={formStatus === 'submitting'}
                   />
                   {errors.fechaRequerida && <p className="error-message">{errors.fechaRequerida.message}</p>}
+                  {deliveryTimeMsg && servicioValue && (
+                    <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
+                      <span className="mt-0.5">⏱️</span>
+                      <span>{deliveryTimeMsg}</span>
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1207,6 +1330,10 @@ export function QuoteForm() {
                           <span className="text-xs text-gray-500">{vallasRoutes.length} ruta{vallasRoutes.length > 1 ? 's' : ''}</span>
                         </div>
                         <p className="text-xs text-gray-400 -mt-2">Agrega una o más rutas con sus fechas y horarios. Cada ruta puede tener su propio calendario.</p>
+                        <p className="text-xs text-amber-400/90 -mt-1 flex items-start gap-1">
+                          <span className="mt-0.5">⏱️</span>
+                          <span>Mínimo 8 días hábiles de anticipación. Los días se cuentan a partir de que el pago se realiza (es decir, se concreta el pedido).</span>
+                        </p>
 
                         {vallasRoutes.map((entry, idx) => (
                           <div key={entry.id} className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-3 sm:p-4 space-y-3">
@@ -1221,14 +1348,16 @@ export function QuoteForm() {
                             </div>
                             <div className="grid grid-cols-2 gap-2 sm:gap-3">
                               <div>
-                                <label className="label-field text-xs">Fecha inicio</label>
+                                <label className="label-field text-xs">Fecha inicio <span className="text-cmyk-magenta">*</span></label>
                                 <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min={minRouteStartDate}
                                   value={entry.fechaInicio}
-                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value, fechaFin: r.fechaFin && r.fechaFin < e.target.value ? e.target.value : r.fechaFin } : r))} />
                               </div>
                               <div>
-                                <label className="label-field text-xs">Fecha fin</label>
+                                <label className="label-field text-xs">Fecha fin <span className="text-cmyk-magenta">*</span></label>
                                 <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min={entry.fechaInicio || minRouteStartDate}
                                   value={entry.fechaFin}
                                   onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
                               </div>
@@ -1311,6 +1440,10 @@ export function QuoteForm() {
                           <span className="text-xs text-gray-500">{pubRoutes.length} ruta{pubRoutes.length > 1 ? 's' : ''}</span>
                         </div>
                         <p className="text-xs text-gray-400 -mt-2">Selecciona una o más rutas. La fecha fin se calcula automáticamente según los meses de campaña.</p>
+                        <p className="text-xs text-amber-400/90 -mt-1 flex items-start gap-1">
+                          <span className="mt-0.5">⏱️</span>
+                          <span>Mínimo 8 días hábiles de anticipación. Los días se cuentan a partir de que el pago se realiza (es decir, se concreta el pedido).</span>
+                        </p>
 
                         {!pubMesesCampana && (
                           <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">⚠️ Primero selecciona los meses de campaña arriba para habilitar las fechas.</p>
@@ -1339,10 +1472,10 @@ export function QuoteForm() {
                             </div>
                             <div className="grid grid-cols-2 gap-2 sm:gap-3">
                               <div>
-                                <label className="label-field text-xs">Fecha inicio</label>
+                                <label className="label-field text-xs">Fecha inicio <span className="text-cmyk-magenta">*</span></label>
                                 <input type="date" className="input-field text-sm"
                                   disabled={formStatus === 'submitting' || !pubMesesCampana}
-                                  min={today}
+                                  min={minRouteStartDate}
                                   value={entry.fechaInicio}
                                   onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
                               </div>
@@ -1436,6 +1569,10 @@ export function QuoteForm() {
                           <span className="text-xs text-gray-500">{perifoneoRoutes.length} ruta{perifoneoRoutes.length > 1 ? 's' : ''}</span>
                         </div>
                         <p className="text-xs text-gray-400 -mt-2">Agrega una o más rutas con sus fechas y horarios de perifoneo.</p>
+                        <p className="text-xs text-amber-400/90 -mt-1 flex items-start gap-1">
+                          <span className="mt-0.5">⏱️</span>
+                          <span>Mínimo 8 días hábiles de anticipación. Los días se cuentan a partir de que el pago se realiza (es decir, se concreta el pedido).</span>
+                        </p>
 
                         {perifoneoRoutes.map((entry, idx) => (
                           <div key={entry.id} className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-3 sm:p-4 space-y-3">
@@ -1450,14 +1587,16 @@ export function QuoteForm() {
                             </div>
                             <div className="grid grid-cols-2 gap-2 sm:gap-3">
                               <div>
-                                <label className="label-field text-xs">Fecha inicio</label>
+                                <label className="label-field text-xs">Fecha inicio <span className="text-cmyk-magenta">*</span></label>
                                 <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min={minRouteStartDate}
                                   value={entry.fechaInicio}
-                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value } : r))} />
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaInicio: e.target.value, fechaFin: r.fechaFin && r.fechaFin < e.target.value ? e.target.value : r.fechaFin } : r))} />
                               </div>
                               <div>
-                                <label className="label-field text-xs">Fecha fin</label>
+                                <label className="label-field text-xs">Fecha fin <span className="text-cmyk-magenta">*</span></label>
                                 <input type="date" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min={entry.fechaInicio || minRouteStartDate}
                                   value={entry.fechaFin}
                                   onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, fechaFin: e.target.value } : r))} />
                               </div>
