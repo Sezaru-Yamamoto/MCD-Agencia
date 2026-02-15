@@ -58,8 +58,6 @@ export default function CustomerQuoteDetailPage() {
   const [showChangeEditor, setShowChangeEditor] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [signatureName, setSignatureName] = useState('');
-  const [responses, setResponses] = useState<QuoteResponseType[]>([]);
-  const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
 
   // Lock body scroll when change editor modal is open
   useEffect(() => {
@@ -71,7 +69,8 @@ export default function CustomerQuoteDetailPage() {
     return () => { document.body.style.overflow = ''; };
   }, [showChangeEditor]);
 
-  const { data: quote, isLoading, error, refetch } = useQuery({
+  // Fetch quote + timeline data together so everything is cached by React Query
+  const { data: quoteData, isLoading, error, refetch } = useQuery({
     queryKey: ['quote', quoteId],
     queryFn: async () => {
       const data = await getQuoteById(quoteId);
@@ -80,11 +79,17 @@ export default function CustomerQuoteDetailPage() {
         getQuoteResponses(quoteId).catch(() => []),
         data.token ? getQuoteChangeRequests(data.token).catch(() => ({ change_requests: [] })) : Promise.resolve({ change_requests: [] }),
       ]);
-      setResponses(responsesData);
-      setChangeRequests(crData.change_requests || []);
-      return data;
+      return {
+        quote: data,
+        responses: responsesData,
+        changeRequests: crData.change_requests || [],
+      };
     },
   });
+
+  const quote = quoteData?.quote ?? null;
+  const responses = quoteData?.responses ?? [];
+  const changeRequests = quoteData?.changeRequests ?? [];
 
   const handleDownloadPdf = async () => {
     if (!quote?.token || !quote?.quote_number) return;
@@ -808,7 +813,6 @@ export default function CustomerQuoteDetailPage() {
               change_request: 'text-orange-400', comment: 'text-blue-400', send: 'text-cmyk-cyan',
             };
             const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            const quoteLink = quote.token ? `/${locale}/cotizacion/${quote.token}` : null;
 
             return (
             <Card className="p-6">
@@ -883,13 +887,7 @@ export default function CustomerQuoteDetailPage() {
                           </div>
                           <div className="flex-1 -mt-0.5">
                             <p className="text-cmyk-cyan text-xs font-medium">
-                              {quoteLink ? (
-                                <Link href={quoteLink} className="hover:underline">
-                                  Cotización creada y enviada{versionLabel}
-                                </Link>
-                              ) : (
-                                <>Cotización creada y enviada{versionLabel}</>
-                              )}
+                              Cotización creada y enviada{versionLabel}
                               {version > 1 && (
                                 <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
                                   v{version}
@@ -918,13 +916,7 @@ export default function CustomerQuoteDetailPage() {
                         </div>
                         <div className="flex-1 -mt-0.5">
                           <p className={`text-xs font-medium ${actionColors[response.action] || 'text-neutral-400'}`}>
-                            {quoteLink ? (
-                              <Link href={quoteLink} className="hover:underline">
-                                {actionLabels[response.action] || response.action_display}
-                              </Link>
-                            ) : (
-                              actionLabels[response.action] || response.action_display
-                            )}
+                            {actionLabels[response.action] || response.action_display}
                           </p>
                           <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
                           {response.comment && (
@@ -945,9 +937,7 @@ export default function CustomerQuoteDetailPage() {
                       </div>
                       <div className="flex-1 -mt-0.5">
                         <p className="text-cmyk-cyan text-xs font-medium">
-                          {quoteLink ? (
-                            <Link href={quoteLink} className="hover:underline">Cotización creada y enviada</Link>
-                          ) : 'Cotización creada y enviada'}
+                          Cotización creada y enviada
                         </p>
                         <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
                       </div>
