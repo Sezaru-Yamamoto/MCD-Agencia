@@ -43,6 +43,7 @@ const RouteSelector = dynamic(
 );
 import { useRecaptcha } from '@/hooks';
 import { usePostalCode } from '@/hooks/usePostalCode';
+import { useAuth } from '@/contexts/AuthContext';
 import { SuccessModal } from '@/components/ui';
 import { getBranches, type Branch } from '@/lib/api/content';
 
@@ -212,6 +213,7 @@ export function QuoteForm() {
   const t = useTranslations('landing.quoteForm');
   const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
   const { openPrivacy } = useLegalModal();
+  const { user } = useAuth();
   const [formStatus, setFormStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -274,6 +276,22 @@ export function QuoteForm() {
   const cncTipo = watch('cnc_tipo');
   const disTipo = watch('dis_tipo');
   const pubMesesCampana = watch('pub_mesesCampana');
+
+  // Pre-fill form fields from logged-in user profile
+  useEffect(() => {
+    if (user) {
+      setValue('nombre', user.full_name || `${user.first_name} ${user.last_name}`.trim());
+      setValue('email', user.email);
+      if (user.phone) setValue('telefono', user.phone);
+      if (user.company) setValue('empresa', user.company);
+      if (user.default_delivery_address && Object.values(user.default_delivery_address).some(v => v)) {
+        setDeliveryAddress(prev => ({
+          ...prev,
+          ...user.default_delivery_address,
+        }));
+      }
+    }
+  }, [user, setValue]);
 
   // Read URL hash parameters to pre-select service and subtype
   useEffect(() => {

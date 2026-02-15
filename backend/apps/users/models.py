@@ -244,6 +244,19 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel, SoftDeleteModel
         blank=True,
         help_text=_('Contact phone number.')
     )
+    company = models.CharField(
+        _('company'),
+        max_length=255,
+        blank=True,
+        default='',
+        help_text=_('Company or business name.')
+    )
+    default_delivery_address = models.JSONField(
+        _('default delivery address'),
+        default=dict,
+        blank=True,
+        help_text=_('Default delivery address for quote requests.')
+    )
     date_of_birth = models.DateField(
         _('date of birth'),
         null=True,

@@ -18,6 +18,8 @@ export interface User {
   last_name: string;
   full_name: string;
   phone?: string;
+  company?: string;
+  default_delivery_address?: Record<string, string>;
   date_of_birth?: string;
   role?: {
     id: string;

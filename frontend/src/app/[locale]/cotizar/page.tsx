@@ -24,6 +24,7 @@ import { submitQuoteRequest } from '@/lib/api/quotes';
 import { getProducts } from '@/lib/api/catalog';
 import { getBranches, type Branch } from '@/lib/api/content';
 import { useLegalModal } from '@/contexts/LegalModalContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePostalCode } from '@/hooks/usePostalCode';
 import { Button, Input, Textarea, Select, Card, Breadcrumb } from '@/components/ui';
 import { DELIVERY_METHODS, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
@@ -60,6 +61,7 @@ export default function QuotePage() {
   const searchParams = useSearchParams();
   const preselectedProduct = searchParams.get('producto');
   const { openPrivacy } = useLegalModal();
+  const { user } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -118,6 +120,22 @@ export default function QuotePage() {
       installation_required: false,
     },
   });
+
+  // Pre-fill form fields from logged-in user profile
+  useEffect(() => {
+    if (user) {
+      setValue('name', user.full_name || `${user.first_name} ${user.last_name}`.trim());
+      setValue('email', user.email);
+      if (user.phone) setValue('phone', user.phone);
+      if (user.company) setValue('company', user.company);
+      if (user.default_delivery_address && Object.values(user.default_delivery_address).some(v => v)) {
+        setDeliveryAddress(prev => ({
+          ...prev,
+          ...user.default_delivery_address,
+        }));
+      }
+    }
+  }, [user, setValue]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);

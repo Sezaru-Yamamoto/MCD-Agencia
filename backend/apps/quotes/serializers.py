@@ -130,6 +130,22 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data['user'] = request.user
             validated_data['is_guest'] = False
+
+            # Auto-save contact data to user profile for future pre-fill
+            user = request.user
+            update_fields = []
+            if validated_data.get('customer_phone') and not user.phone:
+                user.phone = validated_data['customer_phone']
+                update_fields.append('phone')
+            if validated_data.get('customer_company'):
+                user.company = validated_data['customer_company']
+                update_fields.append('company')
+            delivery_addr = validated_data.get('delivery_address')
+            if delivery_addr and isinstance(delivery_addr, dict) and any(delivery_addr.values()):
+                user.default_delivery_address = delivery_addr
+                update_fields.append('default_delivery_address')
+            if update_fields:
+                user.save(update_fields=update_fields)
         else:
             validated_data['is_guest'] = True
 

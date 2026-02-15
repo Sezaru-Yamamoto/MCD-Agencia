@@ -325,8 +325,18 @@ export async function submitQuoteRequest(data: CreateQuoteRequestData): Promise<
     }
   });
 
+  // Include auth token if user is logged in so backend can link the request
+  const headers: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/quotes/request/`, {
     method: 'POST',
+    headers,
     body: formData,
   });
 
