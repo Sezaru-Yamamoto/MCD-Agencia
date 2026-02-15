@@ -831,19 +831,22 @@ export default function CustomerQuoteDetailPage() {
                 Historial
               </h3>
               <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700"></div>
+                {/* Timeline line — behind icons (z-0) */}
+                <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700 z-0"></div>
                 <div className="space-y-4">
 
                   {/* Unified chronological events */}
                   {eventsList.map((event, idx) => {
+                    // Icon circle base class — solid bg so line doesn't bleed through
+                    const circleBase = 'relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900';
+
                     // --- Change request submitted by client ---
                     if (event.type === 'change_request') {
                       const cr = event.data;
                       const crVersion = changeRequestVersionMap.get(cr.id) || 2;
                       return (
                         <div key={`cr-${cr.id}`} className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-orange-500/20 rounded-full border border-orange-500/40">
+                          <div className={`${circleBase} border-orange-500/60`}>
                             <PencilIcon className="h-3 w-3 text-orange-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
@@ -876,8 +879,8 @@ export default function CustomerQuoteDetailPage() {
                       const isApproved = cr.status === 'approved';
                       return (
                         <div key={`cr-review-${cr.id}`} className="relative flex items-start gap-3">
-                          <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                            isApproved ? 'bg-green-500/20 border-green-500/40' : 'bg-red-500/20 border-red-500/40'
+                          <div className={`${circleBase} ${
+                            isApproved ? 'border-green-500/60' : 'border-red-500/60'
                           }`}>
                             {isApproved ? <CheckCircleIcon className="h-3 w-3 text-green-400" /> : <XCircleIcon className="h-3 w-3 text-red-400" />}
                           </div>
@@ -907,7 +910,7 @@ export default function CustomerQuoteDetailPage() {
                       const versionLabel = version > 1 ? ` v${version}` : '';
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                          <div className={`${circleBase} border-cmyk-cyan/60`}>
                             <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                           </div>
                           <div className="flex-1 -mt-0.5">
@@ -927,11 +930,11 @@ export default function CustomerQuoteDetailPage() {
                       );
                     }
 
-                    // View: "Cotización vista" (client opened the quote)
+                    // View: "Cotización vista"
                     if (response.action === 'view') {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
+                          <div className={`${circleBase} border-purple-500/60`}>
                             <EyeIcon className="h-3 w-3 text-purple-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
@@ -946,7 +949,7 @@ export default function CustomerQuoteDetailPage() {
                     if (response.action === 'approval') {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-green-500/20 rounded-full border border-green-500/40">
+                          <div className={`${circleBase} border-green-500/60`}>
                             <CheckCircleIcon className="h-3 w-3 text-green-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
@@ -966,7 +969,7 @@ export default function CustomerQuoteDetailPage() {
                     if (response.action === 'rejection') {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-red-500/20 rounded-full border border-red-500/40">
+                          <div className={`${circleBase} border-red-500/60`}>
                             <XCircleIcon className="h-3 w-3 text-red-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
@@ -985,7 +988,7 @@ export default function CustomerQuoteDetailPage() {
                     // Comment or other
                     return (
                       <div key={`r-${response.id}-${idx}`} className="relative flex items-start gap-3">
-                        <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-blue-500/20 rounded-full border border-blue-500/40">
+                        <div className={`${circleBase} border-blue-500/60`}>
                           <PencilIcon className="h-3 w-3 text-blue-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
@@ -1006,7 +1009,7 @@ export default function CustomerQuoteDetailPage() {
                   {/* Sent fallback — only for quotes sent before response tracking existed */}
                   {quote.sent_at && !hasSendResponses && (
                     <div className="relative flex items-start gap-3">
-                      <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-cmyk-cyan/20 rounded-full border border-cmyk-cyan/40">
+                      <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-cmyk-cyan/60">
                         <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                       </div>
                       <div className="flex-1 -mt-0.5">
@@ -1027,8 +1030,22 @@ export default function CustomerQuoteDetailPage() {
                         </div>
                         <div className="flex-1 border-t border-dashed border-neutral-700"></div>
                       </div>
+
+                      {/* Request: In review — show if status progressed past pending */}
+                      {quote.quote_request.status !== 'pending' && (
+                        <div className="relative flex items-start gap-3">
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-yellow-500/60">
+                            <ClockIcon className="h-3 w-3 text-yellow-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-yellow-400 text-xs font-medium">Solicitud en revisión</p>
+                            <p className="text-neutral-500 text-xs">{formatDate(quote.quote_request.updated_at)}</p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="relative flex items-start gap-3">
-                        <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-neutral-700 rounded-full border border-neutral-600">
+                        <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-neutral-600">
                           <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
