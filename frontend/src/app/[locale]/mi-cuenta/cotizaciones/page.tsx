@@ -21,13 +21,14 @@ const STATUS_OPTIONS = [
   { value: 'viewed', label: 'Vista' },
   { value: 'accepted', label: 'Aceptada' },
   { value: 'rejected', label: 'Rechazada' },
+  { value: 'changes_requested', label: 'Cambios Solicitados' },
   { value: 'expired', label: 'Expirada' },
 ];
 
 export default function QuotesPage() {
   const [filters, setFilters] = useState({ status: '', page: 1 });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['quotes', filters],
     queryFn: () => getQuotes(filters),
   });
@@ -58,7 +59,16 @@ export default function QuotesPage() {
       </div>
 
       {/* Quotes List */}
-      {quotes.length === 0 ? (
+      {error ? (
+        <Card className="text-center py-12">
+          <XCircleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-white mb-2">Error al cargar cotizaciones</h3>
+          <p className="text-neutral-400 mb-6">
+            No se pudieron cargar tus cotizaciones. Intenta recargar la página.
+          </p>
+          <Button onClick={() => window.location.reload()}>Recargar página</Button>
+        </Card>
+      ) : quotes.length === 0 ? (
         <Card className="text-center py-12">
           <DocumentTextIcon className="h-16 w-16 text-neutral-700 mx-auto mb-4" />
           <h3 className="text-xl font-medium text-white mb-2">No tienes cotizaciones</h3>
@@ -87,6 +97,10 @@ export default function QuotesPage() {
                           ? 'error'
                           : quote.status === 'sent' || quote.status === 'viewed'
                           ? 'info'
+                          : quote.status === 'changes_requested'
+                          ? 'warning'
+                          : quote.status === 'converted'
+                          ? 'success'
                           : 'warning'
                       }
                     >

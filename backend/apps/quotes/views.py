@@ -488,8 +488,12 @@ class QuoteViewSet(viewsets.ModelViewSet):
                     models.Q(quote_request__assigned_to=user)
                 )
             return base_qs
+        # Customer: match by customer FK, Quote.customer_email, or QuoteRequest email
+        email = self.request.user.email
         return Quote.objects.filter(
-            quote_request__customer_email=self.request.user.email,
+            models.Q(customer=user) |
+            models.Q(customer_email__iexact=email) |
+            models.Q(quote_request__customer_email__iexact=email),
             is_deleted=False,
             status__in=[
                 Quote.STATUS_SENT,
@@ -497,8 +501,10 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 Quote.STATUS_ACCEPTED,
                 Quote.STATUS_REJECTED,
                 Quote.STATUS_CHANGES_REQUESTED,
+                Quote.STATUS_EXPIRED,
+                Quote.STATUS_CONVERTED,
             ]
-        ).select_related('quote_request').prefetch_related('lines')
+        ).select_related('quote_request').prefetch_related('lines').distinct()
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
