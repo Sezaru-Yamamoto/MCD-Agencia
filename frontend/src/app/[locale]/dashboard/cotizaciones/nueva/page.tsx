@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
+import PriceInput from '@/components/ui/PriceInput';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
 import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, expandRouteLines } from '@/components/quotes/ServiceFormFields';
@@ -912,12 +913,9 @@ export default function NewQuotePage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <label className="text-neutral-500 text-xs">Precio Unit.:</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
+                                <PriceInput
                                   value={item.unit_price}
-                                  onChange={(e) => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                                  onChange={(val) => updateItem(item.id, 'unit_price', val)}
                                   className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
                                 />
                               </div>

@@ -782,20 +782,33 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Timeline / Historial */}
           {(responses.length > 0 || changeRequests.length > 0 || quote.sent_at) && (() => {
-            // Build unified timeline following the real business flow:
-            // 1. Solicitud de cotización (customer request) — bottom
-            // 2. Cotización creada y enviada (send response = creation + delivery combined)
-            // 3. Solicitud de cambio (change requests from client)
-            // 4. Cotización creada y enviada v2 (2nd send = new version)
-            // 5. Other events: view, approval, rejection, comment — interleaved chronologically
+            // Build a comprehensive business flow timeline:
+            // The timeline shows the complete negotiation history between client and seller.
+            // Events are displayed newest-first (top = most recent).
+            //
+            // Typical flow:
+            //   1. Solicitud de cotización (client request) — origin at bottom
+            //   2. Cotización creada y enviada v1 (seller sends first quote)
+            //   3. Cotización vista (client opens the quote)
+            //   4. Solicitud de cambios (client requests modifications)
+            //   5. Solicitud de cambios — aprobada/rechazada (seller reviews)
+            //   6. Cotización creada y enviada v2 (seller sends updated quote)
+            //   7. ... repeat ...
+            //   8. Cotización aceptada / rechazada (final decision)
 
             type TimelineEvent = 
               | { type: 'response'; date: string; data: QuoteResponseType }
-              | { type: 'change_request'; date: string; data: QuoteChangeRequest };
+              | { type: 'change_request'; date: string; data: QuoteChangeRequest }
+              | { type: 'change_request_reviewed'; date: string; data: QuoteChangeRequest };
 
-            const events: TimelineEvent[] = [
+            // Build events list including separate "reviewed" events for change requests
+            const eventsList: TimelineEvent[] = [
               ...responses.map(r => ({ type: 'response' as const, date: r.created_at, data: r })),
               ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
+              // Add separate reviewed events for approved/rejected change requests
+              ...changeRequests
+                .filter(cr => cr.status !== 'pending' && cr.reviewed_at)
+                .map(cr => ({ type: 'change_request_reviewed' as const, date: cr.reviewed_at!, data: cr })),
             ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             // Count send responses chronologically to assign version numbers
@@ -804,14 +817,11 @@ export default function CustomerQuoteDetailPage() {
             sendResponses.forEach((r, i) => sendVersionMap.set(r.id, i + 1));
             const hasSendResponses = sendResponses.length > 0;
 
-            const actionLabels: Record<string, string> = {
-              view: 'Cotización vista', approval: 'Cotización aceptada', rejection: 'Cotización rechazada',
-              change_request: 'Cambio solicitado', comment: 'Comentario',
-            };
-            const actionColors: Record<string, string> = {
-              view: 'text-purple-400', approval: 'text-green-400', rejection: 'text-red-400',
-              change_request: 'text-orange-400', comment: 'text-blue-400', send: 'text-cmyk-cyan',
-            };
+            // Count change requests chronologically: v2, v3, ... (v1 = original solicitud)
+            const sortedChangeRequests = [...changeRequests].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            const changeRequestVersionMap = new Map<string, number>();
+            sortedChangeRequests.forEach((cr, i) => changeRequestVersionMap.set(cr.id, i + 2)); // starts at v2
+
             const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
             return (
@@ -826,27 +836,19 @@ export default function CustomerQuoteDetailPage() {
                 <div className="space-y-4">
 
                   {/* Unified chronological events */}
-                  {events.map((event) => {
+                  {eventsList.map((event, idx) => {
+                    // --- Change request submitted by client ---
                     if (event.type === 'change_request') {
                       const cr = event.data;
+                      const crVersion = changeRequestVersionMap.get(cr.id) || 2;
                       return (
                         <div key={`cr-${cr.id}`} className="relative flex items-start gap-3">
-                          <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                            cr.status === 'pending'
-                              ? 'bg-orange-500/20 border-orange-500/40'
-                              : cr.status === 'approved'
-                              ? 'bg-green-500/20 border-green-500/40'
-                              : 'bg-red-500/20 border-red-500/40'
-                          }`}>
-                            {cr.status === 'pending' && <ClockIcon className="h-3 w-3 text-orange-400" />}
-                            {cr.status === 'approved' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
-                            {cr.status === 'rejected' && <XCircleIcon className="h-3 w-3 text-red-400" />}
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-orange-500/20 rounded-full border border-orange-500/40">
+                            <PencilIcon className="h-3 w-3 text-orange-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className={`text-xs font-medium ${
-                              cr.status === 'pending' ? 'text-orange-400' : cr.status === 'approved' ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                              Solicitud de cambio — {cr.status === 'pending' ? 'en revisión' : cr.status === 'approved' ? 'aprobada' : 'rechazada'}
+                            <p className="text-orange-400 text-xs font-medium">
+                              Solicitud de cambios v{crVersion}
                               {cr.changes_summary && (
                                 <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
                                   {[
@@ -863,9 +865,32 @@ export default function CustomerQuoteDetailPage() {
                                 &ldquo;{cr.customer_comments}&rdquo;
                               </p>
                             )}
-                            {cr.status !== 'pending' && cr.review_notes && (
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // --- Change request reviewed by seller (approved/rejected) ---
+                    if (event.type === 'change_request_reviewed') {
+                      const cr = event.data;
+                      const isApproved = cr.status === 'approved';
+                      return (
+                        <div key={`cr-review-${cr.id}`} className="relative flex items-start gap-3">
+                          <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
+                            isApproved ? 'bg-green-500/20 border-green-500/40' : 'bg-red-500/20 border-red-500/40'
+                          }`}>
+                            {isApproved ? <CheckCircleIcon className="h-3 w-3 text-green-400" /> : <XCircleIcon className="h-3 w-3 text-red-400" />}
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className={`text-xs font-medium ${isApproved ? 'text-green-400' : 'text-red-400'}`}>
+                              Solicitud de cambios — {isApproved ? 'aprobada' : 'rechazada'}
+                            </p>
+                            <p className="text-neutral-500 text-xs">
+                              {cr.reviewed_by_name || 'Vendedor'} · {fmtDate(cr.reviewed_at!)}
+                            </p>
+                            {cr.review_notes && (
                               <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
-                                Respuesta: &ldquo;{cr.review_notes}&rdquo;
+                                &ldquo;{cr.review_notes}&rdquo;
                               </p>
                             )}
                           </div>
@@ -873,10 +898,10 @@ export default function CustomerQuoteDetailPage() {
                       );
                     }
 
-                    // Response event
+                    // --- Response events ---
                     const response = event.data as QuoteResponseType;
 
-                    // For 'send' responses: show as "Cotización creada y enviada [vN]"
+                    // Send: "Cotización creada y enviada [vN]"
                     if (response.action === 'send') {
                       const version = sendVersionMap.get(response.id) || 1;
                       const versionLabel = version > 1 ? ` v${version}` : '';
@@ -894,29 +919,78 @@ export default function CustomerQuoteDetailPage() {
                                 </span>
                               )}
                             </p>
+                            <p className="text-neutral-500 text-xs">
+                              {response.responded_by_name || 'Vendedor'} · {fmtDate(response.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // View: "Cotización vista" (client opened the quote)
+                    if (response.action === 'view') {
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-purple-500/20 rounded-full border border-purple-500/40">
+                            <EyeIcon className="h-3 w-3 text-purple-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-purple-400 text-xs font-medium">Cotización vista</p>
                             <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
                           </div>
                         </div>
                       );
                     }
 
-                    // For rejection: show the reason
+                    // Approval
+                    if (response.action === 'approval') {
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-green-500/20 rounded-full border border-green-500/40">
+                            <CheckCircleIcon className="h-3 w-3 text-green-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-green-400 text-xs font-medium">Cotización aceptada</p>
+                            <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
+                            {response.comment && (
+                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
+                                &ldquo;{response.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Rejection
+                    if (response.action === 'rejection') {
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-red-500/20 rounded-full border border-red-500/40">
+                            <XCircleIcon className="h-3 w-3 text-red-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-red-400 text-xs font-medium">Cotización rechazada</p>
+                            <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
+                            {response.comment && (
+                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
+                                &ldquo;{response.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Comment or other
                     return (
-                      <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                        <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full border ${
-                          response.action === 'approval' ? 'bg-green-500/20 border-green-500/40' :
-                          response.action === 'rejection' ? 'bg-red-500/20 border-red-500/40' :
-                          response.action === 'view' ? 'bg-purple-500/20 border-purple-500/40' :
-                          'bg-blue-500/20 border-blue-500/40'
-                        }`}>
-                          {response.action === 'approval' && <CheckCircleIcon className="h-3 w-3 text-green-400" />}
-                          {response.action === 'rejection' && <XCircleIcon className="h-3 w-3 text-red-400" />}
-                          {response.action === 'view' && <EyeIcon className="h-3 w-3 text-purple-400" />}
-                          {response.action === 'comment' && <PencilIcon className="h-3 w-3 text-blue-400" />}
+                      <div key={`r-${response.id}-${idx}`} className="relative flex items-start gap-3">
+                        <div className="relative z-10 flex items-center justify-center w-5 h-5 bg-blue-500/20 rounded-full border border-blue-500/40">
+                          <PencilIcon className="h-3 w-3 text-blue-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
-                          <p className={`text-xs font-medium ${actionColors[response.action] || 'text-neutral-400'}`}>
-                            {actionLabels[response.action] || response.action_display}
+                          <p className="text-blue-400 text-xs font-medium">
+                            {response.action_display || 'Comentario'}
                           </p>
                           <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
                           {response.comment && (

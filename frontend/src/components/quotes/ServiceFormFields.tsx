@@ -238,54 +238,82 @@ const RoutePricingRow = ({
   onUnitPriceChange: (v: number) => void;
   disabled?: boolean;
   formatCurrency: (n: number) => string;
-}) => (
-  <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-neutral-700/30">
-    <div className="flex items-center gap-2">
-      <label className="text-neutral-500 text-xs whitespace-nowrap">Cantidad:</label>
-      <input
-        type="number"
-        min="1"
-        value={cantidad}
-        disabled={disabled}
-        onChange={(e) => onCantidadChange(parseInt(e.target.value) || 1)}
-        className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
-      />
+}) => {
+  // Keep a local string so the user can freely type digits, dots, etc.
+  // without React overwriting intermediate states (e.g. "10", "1.50").
+  const [priceStr, setPriceStr] = useState<string>(
+    unitPrice ? String(unitPrice) : ''
+  );
+
+  // Sync from parent when the prop changes externally (e.g. prefill).
+  useEffect(() => {
+    setPriceStr((prev) => {
+      const parsed = parseFloat(prev);
+      if (isNaN(parsed) && unitPrice === 0) return prev; // keep empty
+      if (parsed === unitPrice) return prev; // already in sync
+      return unitPrice ? String(unitPrice) : '';
+    });
+  }, [unitPrice]);
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    // Allow empty, digits, and one decimal point
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setPriceStr(raw);
+      const num = parseFloat(raw);
+      onUnitPriceChange(isNaN(num) ? 0 : num);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-neutral-700/30">
+      <div className="flex items-center gap-2">
+        <label className="text-neutral-500 text-xs whitespace-nowrap">Cantidad:</label>
+        <input
+          type="number"
+          min="1"
+          value={cantidad}
+          disabled={disabled}
+          onChange={(e) => onCantidadChange(parseInt(e.target.value) || 1)}
+          className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-neutral-500 text-xs whitespace-nowrap">Unidad:</label>
+        <select
+          value={unidad}
+          disabled={disabled}
+          onChange={(e) => onUnidadChange(e.target.value)}
+          className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+        >
+          <option value="pza">pza</option>
+          <option value="m2">m²</option>
+          <option value="ml">ml</option>
+          <option value="kg">kg</option>
+          <option value="hr">hr</option>
+          <option value="servicio">servicio</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-neutral-500 text-xs whitespace-nowrap">Precio Unit.:</label>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={priceStr}
+          disabled={disabled}
+          onChange={handlePriceChange}
+          placeholder="0.00"
+          className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+        />
+      </div>
+      <div className="ml-auto">
+        <span className="text-white font-medium text-sm">
+          {formatCurrency(cantidad * unitPrice)}
+        </span>
+      </div>
     </div>
-    <div className="flex items-center gap-2">
-      <label className="text-neutral-500 text-xs whitespace-nowrap">Unidad:</label>
-      <select
-        value={unidad}
-        disabled={disabled}
-        onChange={(e) => onUnidadChange(e.target.value)}
-        className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
-      >
-        <option value="pza">pza</option>
-        <option value="m2">m²</option>
-        <option value="ml">ml</option>
-        <option value="kg">kg</option>
-        <option value="hr">hr</option>
-        <option value="servicio">servicio</option>
-      </select>
-    </div>
-    <div className="flex items-center gap-2">
-      <label className="text-neutral-500 text-xs whitespace-nowrap">Precio Unit.:</label>
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        value={unitPrice || ''}
-        disabled={disabled}
-        onChange={(e) => onUnitPriceChange(parseFloat(e.target.value) || 0)}
-        className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
-      />
-    </div>
-    <div className="ml-auto">
-      <span className="text-white font-medium text-sm">
-        {formatCurrency(cantidad * unitPrice)}
-      </span>
-    </div>
-  </div>
-);
+  );
+};
 
 /* ─── Check if a service type uses route-based pricing ─────── */
 export function isRouteBasedService(
