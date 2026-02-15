@@ -128,12 +128,10 @@ export function RouteMapPreview({ pointA, pointB, height = 200 }: RouteMapPrevie
   }, [pointA.lat, pointA.lon, pointB?.lat, pointB?.lon]);
 
   return (
-    <div className="relative" style={{ isolation: 'isolate' }}>
-      <div
-        ref={containerRef}
-        className="rounded-lg overflow-hidden border border-neutral-700"
-        style={{ height, width: '100%' }}
-      />
-    </div>
+    <div
+      ref={containerRef}
+      className="relative z-0 rounded-lg overflow-hidden border border-neutral-700"
+      style={{ height, width: '100%' }}
+    />
   );
 }

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale } from 'next-intl';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
   DocumentTextIcon,
@@ -60,6 +60,16 @@ export default function CustomerQuoteDetailPage() {
   const [signatureName, setSignatureName] = useState('');
   const [responses, setResponses] = useState<QuoteResponseType[]>([]);
   const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
+
+  // Lock body scroll when change editor modal is open
+  useEffect(() => {
+    if (showChangeEditor) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showChangeEditor]);
 
   const { data: quote, isLoading, error, refetch } = useQuery({
     queryKey: ['quote', quoteId],
@@ -997,7 +1007,7 @@ export default function CustomerQuoteDetailPage() {
 
       {/* Accept/Reject Modal */}
       {responseAction && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4">
           <Card className="w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-white mb-4">
               {responseAction === 'accept' ? 'Aceptar Cotización' : 'Rechazar Cotización'}
@@ -1085,7 +1095,7 @@ export default function CustomerQuoteDetailPage() {
 
       {/* Change Request Editor Modal */}
       {showChangeEditor && quote.token && (
-        <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-[70] p-4 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
           <div className="w-full max-w-2xl my-8">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">

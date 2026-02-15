@@ -202,7 +202,7 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
           )}
           {/* Read-only map preview */}
           {pointA && pointA.lat && pointA.lon && (
-            <div className="mt-2 relative" style={{ isolation: 'isolate', zIndex: 0 }}>
+            <div className="mt-2 relative z-0">
               <RouteMapPreview
                 pointA={pointA}
                 pointB={pointB}
@@ -421,7 +421,7 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
                       const pb = routeObj.punto_b as { name?: string; lat?: number; lon?: number } | undefined;
                       if (pa && pa.lat && pa.lon) {
                         return (
-                          <div className="mt-2 relative" style={{ isolation: 'isolate', zIndex: 0 }}>
+                          <div className="mt-2 relative z-0">
                             <RouteMapPreview
                               pointA={{ name: pa.name || '', lat: pa.lat, lon: pa.lon }}
                               pointB={pb && pb.lat && pb.lon ? { name: pb.name || '', lat: pb.lat, lon: pb.lon } : null}

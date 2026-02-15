@@ -71,6 +71,16 @@ export default function QuoteViewPage() {
   const [responses, setResponses] = useState<QuoteResponseType[]>([]);
   const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
 
+  // Lock body scroll when change editor modal is open
+  useEffect(() => {
+    if (showChangeEditor) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showChangeEditor]);
+
   // Check if user can perform authenticated actions (accept/reject)
   const canPerformAuthActions = isAuthenticated && user?.email === quote?.customer_email;
 
@@ -1144,7 +1154,7 @@ export default function QuoteViewPage() {
 
         {/* Change Request Editor Modal */}
         {showChangeEditor && (
-          <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-[70] p-4 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
             <div className="w-full max-w-2xl my-8">
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -1171,7 +1181,7 @@ export default function QuoteViewPage() {
 
         {/* Authentication Required Modal (only for accept) */}
         {showAuthRequired && quote && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4">
             <Card className="w-full max-w-md p-6">
               <div className="text-center mb-6">
                 <div className="mx-auto w-16 h-16 rounded-full bg-cmyk-cyan/10 flex items-center justify-center mb-4">
