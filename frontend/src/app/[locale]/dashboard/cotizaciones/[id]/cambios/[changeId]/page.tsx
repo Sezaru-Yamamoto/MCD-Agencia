@@ -17,6 +17,7 @@ import {
   PaperClipIcon,
   PhotoIcon,
   ArrowTopRightOnSquareIcon,
+  DocumentArrowDownIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -27,6 +28,7 @@ import {
   getChangeRequestById,
   reviewChangeRequest,
   getAdminQuoteById,
+  downloadQuotePdf,
   QuoteChangeRequest,
   Quote,
 } from '@/lib/api/quotes';
@@ -133,6 +135,29 @@ export default function ChangeRequestReviewPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!quote) return;
+    setIsDownloadingPdf(true);
+    try {
+      const blob = await downloadQuotePdf(quote.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cotizacion_${quote.quote_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Error al descargar el PDF');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const getActionIcon = (action: string) => {
@@ -562,25 +587,27 @@ export default function ChangeRequestReviewPage() {
 
             {/* Quick Actions */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Acciones Rapidas</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Acciones Rápidas</h2>
               <div className="space-y-2">
                 <Link
                   href={`/${locale}/dashboard/cotizaciones/${quoteId}`}
                   className="block"
                 >
                   <Button variant="outline" className="w-full justify-start">
-                    Ver cotizacion actual
+                    Ver cotización actual
                   </Button>
                 </Link>
-                {changeRequest.status === 'approved' && (
-                  <Link
-                    href={`/${locale}/dashboard/cotizaciones/${quoteId}/editar`}
-                    className="block"
+                {quote?.pdf_file && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloadingPdf}
+                    isLoading={isDownloadingPdf}
+                    leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
                   >
-                    <Button className="w-full justify-start">
-                      Editar cotizacion
-                    </Button>
-                  </Link>
+                    Descargar PDF
+                  </Button>
                 )}
               </div>
             </Card>
