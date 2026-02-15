@@ -846,12 +846,16 @@ export default function CustomerQuoteDetailPage() {
                       const cr = event.data;
                       const crVersion = changeRequestVersionMap.get(cr.id) || 2;
                       return (
-                        <div key={`cr-${cr.id}`} className="relative flex items-start gap-3">
+                        <Link
+                          key={`cr-${cr.id}`}
+                          href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/cambios/${cr.id}`}
+                          className="relative flex items-start gap-3 group"
+                        >
                           <div className={`${circleBase} border-orange-500/60`}>
                             <PencilIcon className="h-3 w-3 text-orange-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-orange-400 text-xs font-medium">
+                            <p className="text-orange-400 text-xs font-medium group-hover:underline">
                               Solicitud de cambios v{crVersion}
                               {cr.changes_summary && (
                                 <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
@@ -865,12 +869,12 @@ export default function CustomerQuoteDetailPage() {
                             </p>
                             <p className="text-neutral-500 text-xs">{fmtDate(cr.created_at)}</p>
                             {cr.customer_comments && (
-                              <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2">
+                              <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2 group-hover:text-neutral-300 transition-colors">
                                 &ldquo;{cr.customer_comments}&rdquo;
                               </p>
                             )}
                           </div>
-                        </div>
+                        </Link>
                       );
                     }
 
@@ -926,6 +930,15 @@ export default function CustomerQuoteDetailPage() {
                             <p className="text-neutral-500 text-xs">
                               {response.responded_by_name || 'Vendedor'} · {fmtDate(response.created_at)}
                             </p>
+                            {quote.token && (
+                              <Link
+                                href={`/${locale}/cotizacion/${quote.token}`}
+                                target="_blank"
+                                className="text-cmyk-cyan/70 text-xs hover:underline mt-0.5 inline-block"
+                              >
+                                Ver cotización →
+                              </Link>
+                            )}
                           </div>
                         </div>
                       );
