@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface PriceInputProps {
   value: number;
@@ -18,26 +18,31 @@ interface PriceInputProps {
  */
 export default function PriceInput({ value, onChange, className, placeholder = '0.00', disabled }: PriceInputProps) {
   const [localValue, setLocalValue] = useState<string>(value ? String(value) : '');
+  const onChangeRef = useRef(onChange);
+  const isTypingRef = useRef(false);
 
-  // Sync from parent only when the numeric value actually changes externally
+  // Always keep the latest onChange in a ref so we never call a stale callback
   useEffect(() => {
-    setLocalValue((prev) => {
-      const parsed = parseFloat(prev);
-      // If local state already represents the same number, keep the string as-is
-      if (!isNaN(parsed) && parsed === value) return prev;
-      // If both are 0/empty, keep local as-is to not overwrite user typing
-      if ((isNaN(parsed) || prev === '') && value === 0) return prev;
-      return value ? String(value) : '';
-    });
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Sync from parent only when the numeric value changes externally (not from typing)
+  useEffect(() => {
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      return;
+    }
+    setLocalValue(value ? String(value) : '');
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     // Allow empty, or valid decimal number pattern
     if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      isTypingRef.current = true;
       setLocalValue(raw);
       const num = parseFloat(raw);
-      onChange(isNaN(num) ? 0 : num);
+      onChangeRef.current(isNaN(num) ? 0 : num);
     }
   };
 
@@ -45,12 +50,12 @@ export default function PriceInput({ value, onChange, className, placeholder = '
     // On blur, normalize the display (remove trailing dots, format properly)
     if (localValue === '' || localValue === '.') {
       setLocalValue('');
-      onChange(0);
+      onChangeRef.current(0);
     } else {
       const num = parseFloat(localValue);
       if (!isNaN(num)) {
         setLocalValue(String(num));
-        onChange(num);
+        onChangeRef.current(num);
       }
     }
   };

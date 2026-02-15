@@ -361,12 +361,12 @@ export default function EditQuotePage() {
 
   // Remove item from quote
   const removeItem = (itemId: string) => {
-    setItems(items.filter(item => item.id !== itemId));
+    setItems(prev => prev.filter(item => item.id !== itemId));
   };
 
   // Update item field
   const updateItem = (itemId: string, field: keyof QuoteLineItem, value: unknown) => {
-    setItems(items.map(item =>
+    setItems(prev => prev.map(item =>
       item.id === itemId ? { ...item, [field]: value } : item
     ));
   };
