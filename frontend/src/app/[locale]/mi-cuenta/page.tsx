@@ -31,6 +31,7 @@ import {
 } from '@/lib/api/auth';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent, Badge } from '@/components/ui';
 import { formatDate, getInitials } from '@/lib/utils';
+import { usePostalCode } from '@/hooks/usePostalCode';
 
 const profileSchema = z.object({
   first_name: z.string().min(2, 'Nombre requerido'),
@@ -67,6 +68,8 @@ export default function ProfilePage() {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const postalCode = usePostalCode();
+  const [coloniaManual, setColoniaManual] = useState(false);
 
   const {
     register,
@@ -155,6 +158,11 @@ export default function ProfilePage() {
         referencia: addr.referencia || '',
         is_default: addr.is_default,
       });
+      postalCode.reset();
+      setColoniaManual(false);
+      if (addr.codigo_postal && addr.codigo_postal.length === 5) {
+        postalCode.lookup(addr.codigo_postal);
+      }
     } else {
       setEditingAddressId(null);
       addressForm.reset({
@@ -169,6 +177,8 @@ export default function ProfilePage() {
         referencia: '',
         is_default: addresses.length === 0,
       });
+      postalCode.reset();
+      setColoniaManual(false);
     }
     setShowAddressForm(true);
   };
@@ -415,32 +425,111 @@ export default function ProfilePage() {
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Input
-                  label="Código Postal"
-                  placeholder="39300"
-                  error={addressForm.formState.errors.codigo_postal?.message}
-                  {...addressForm.register('codigo_postal')}
-                />
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">Código Postal <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <Input
+                      placeholder="39300"
+                      value={addressForm.watch('codigo_postal')}
+                      error={addressForm.formState.errors.codigo_postal?.message}
+                      onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                        const cp = e.target.value.replace(/\D/g, '').slice(0, 5);
+                        addressForm.setValue('codigo_postal', cp);
+                        if (cp.length === 5) {
+                          const result = await postalCode.lookup(cp);
+                          if (result) {
+                            addressForm.setValue('estado', result.estado);
+                            addressForm.setValue('ciudad', result.municipio);
+                            addressForm.setValue('colonia', result.colonias.length > 0 ? result.colonias[0] : '');
+                            setColoniaManual(false);
+                          }
+                        } else {
+                          postalCode.reset();
+                        }
+                      }}
+                    />
+                    {postalCode.loading && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <svg className="animate-spin h-4 w-4 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  {postalCode.error && (
+                    <p className="text-xs text-red-400 mt-1">{postalCode.error}</p>
+                  )}
+                  {postalCode.data && (
+                    <p className="text-xs text-green-400 mt-1">✓ CP encontrado — {postalCode.data.colonias.length} colonia{postalCode.data.colonias.length !== 1 ? 's' : ''}</p>
+                  )}
+                </div>
                 <Input
                   label="Estado"
                   placeholder="Guerrero"
+                  value={addressForm.watch('estado')}
+                  readOnly={!!postalCode.data}
+                  className={postalCode.data ? 'opacity-70' : ''}
                   error={addressForm.formState.errors.estado?.message}
-                  {...addressForm.register('estado')}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => addressForm.setValue('estado', e.target.value)}
                 />
                 <Input
                   label="Municipio / Ciudad"
                   placeholder="Acapulco de Juárez"
+                  value={addressForm.watch('ciudad')}
+                  readOnly={!!postalCode.data?.municipio}
+                  className={postalCode.data?.municipio ? 'opacity-70' : ''}
                   error={addressForm.formState.errors.ciudad?.message}
-                  {...addressForm.register('ciudad')}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => addressForm.setValue('ciudad', e.target.value)}
                 />
               </div>
 
-              <Input
-                label="Colonia"
-                placeholder="Centro"
-                error={addressForm.formState.errors.colonia?.message}
-                {...addressForm.register('colonia')}
-              />
+              {/* Colonia: dropdown from CP or manual */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-1">Colonia <span className="text-red-500">*</span></label>
+                {postalCode.data && postalCode.data.colonias.length > 0 && !coloniaManual ? (
+                  <div className="space-y-1">
+                    <select
+                      className="w-full rounded-lg border border-neutral-700 bg-neutral-800 text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500"
+                      value={addressForm.watch('colonia')}
+                      onChange={e => {
+                        if (e.target.value === '__otra__') {
+                          setColoniaManual(true);
+                          addressForm.setValue('colonia', '');
+                        } else {
+                          addressForm.setValue('colonia', e.target.value);
+                        }
+                      }}
+                    >
+                      {postalCode.data.colonias.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__otra__">— Otra (escribir manualmente) —</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Input
+                      placeholder="Centro"
+                      value={addressForm.watch('colonia')}
+                      error={addressForm.formState.errors.colonia?.message}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => addressForm.setValue('colonia', e.target.value)}
+                    />
+                    {coloniaManual && postalCode.data && (
+                      <button
+                        type="button"
+                        className="text-xs text-cyan-400 hover:underline"
+                        onClick={() => {
+                          setColoniaManual(false);
+                          addressForm.setValue('colonia', postalCode.data!.colonias[0] || '');
+                        }}
+                      >
+                        ← Volver a seleccionar de la lista
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
