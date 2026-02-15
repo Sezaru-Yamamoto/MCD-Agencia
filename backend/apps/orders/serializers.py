@@ -189,6 +189,7 @@ class OrderSerializer(serializers.ModelSerializer):
     is_fully_paid = serializers.BooleanField(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     customer = serializers.SerializerMethodField()
+    pickup_branch_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -200,7 +201,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'amount_paid', 'balance_due', 'is_fully_paid',
             'currency', 'payment_method', 'notes',
             'tracking_number', 'tracking_url',
-            'delivery_method', 'pickup_branch', 'delivery_address',
+            'delivery_method', 'pickup_branch', 'pickup_branch_detail',
+            'delivery_address',
             'scheduled_date',
             'lines', 'status_history',
             'created_at', 'paid_at', 'completed_at'
@@ -218,6 +220,19 @@ class OrderSerializer(serializers.ModelSerializer):
                 'id': str(obj.user.id),
                 'email': obj.user.email,
                 'full_name': obj.user.full_name or obj.user.email,
+            }
+        return None
+
+    def get_pickup_branch_detail(self, obj):
+        """Return branch name and address for display."""
+        if obj.pickup_branch:
+            branch = obj.pickup_branch
+            return {
+                'id': str(branch.id),
+                'name': branch.name,
+                'city': branch.city,
+                'state': branch.state,
+                'full_address': getattr(branch, 'full_address', ''),
             }
         return None
 

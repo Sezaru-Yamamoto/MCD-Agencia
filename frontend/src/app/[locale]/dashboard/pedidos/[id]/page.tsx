@@ -401,10 +401,10 @@ export default function StaffOrderDetailPage() {
                     {DELIVERY_METHOD_LABELS[order.delivery_method as DeliveryMethod]?.es || order.delivery_method}
                   </p>
                 </div>
-                {order.pickup_branch && typeof order.pickup_branch === 'object' && (
+                {order.pickup_branch_detail && (
                   <div>
                     <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                    <p className="text-white">{(order.pickup_branch as Record<string, string>).name}</p>
+                    <p className="text-white">{order.pickup_branch_detail.name} — {order.pickup_branch_detail.city}, {order.pickup_branch_detail.state}</p>
                   </div>
                 )}
                 {order.delivery_address && Object.keys(order.delivery_address).length > 0 && (
@@ -413,7 +413,7 @@ export default function StaffOrderDetailPage() {
                       {order.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
                     </p>
                     <p className="text-white text-sm">
-                      {[order.delivery_address.street, order.delivery_address.neighborhood, order.delivery_address.city, order.delivery_address.state, order.delivery_address.postal_code].filter(Boolean).join(', ')}
+                      {[order.delivery_address.street || order.delivery_address.calle, order.delivery_address.exterior_number || order.delivery_address.numero_exterior, order.delivery_address.neighborhood || order.delivery_address.colonia, order.delivery_address.city || order.delivery_address.ciudad, order.delivery_address.state || order.delivery_address.estado, order.delivery_address.postal_code || order.delivery_address.codigo_postal].filter(Boolean).join(', ')}
                     </p>
                   </div>
                 )}

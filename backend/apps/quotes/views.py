@@ -151,7 +151,7 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         base_qs = QuoteRequest.objects.select_related(
-            'catalog_item', 'assigned_to'
+            'catalog_item', 'assigned_to', 'pickup_branch'
         ).prefetch_related('attachments')
 
         if _is_internal_user(user):
@@ -479,7 +479,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if _is_internal_user(user):
             base_qs = Quote.objects.all().select_related(
-                'quote_request', 'created_by'
+                'quote_request', 'created_by', 'pickup_branch'
             ).prefetch_related('lines')
             # Sales reps: only quotes they created
             if hasattr(user, 'role') and user.role and user.role.name == 'sales':
@@ -1437,7 +1437,7 @@ class QuotePublicView(APIView):
         """View quote via secure token."""
         try:
             quote = Quote.objects.select_related(
-                'quote_request', 'quote_request__catalog_item'
+                'quote_request', 'quote_request__catalog_item', 'pickup_branch'
             ).prefetch_related(
                 'lines', 'attachments', 'quote_request__attachments'
             ).get(

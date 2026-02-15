@@ -288,10 +288,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Return orders based on user role."""
         if is_internal_user(self.request.user):
-            return Order.objects.all().prefetch_related('lines', 'status_history')
+            return Order.objects.all().select_related('pickup_branch').prefetch_related('lines', 'status_history')
         return Order.objects.filter(
             user=self.request.user, is_deleted=False
-        ).prefetch_related('lines', 'status_history')
+        ).select_related('pickup_branch').prefetch_related('lines', 'status_history')
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
@@ -441,7 +441,7 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
 
     queryset = Order.objects.all().prefetch_related(
         'lines', 'status_history', 'payments'
-    ).select_related('user')
+    ).select_related('user', 'pickup_branch')
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination

@@ -93,6 +93,13 @@ export interface Order {
   tracking_url?: string;
   delivery_method?: string;
   pickup_branch?: string;
+  pickup_branch_detail?: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+    full_address: string;
+  } | null;
   delivery_address?: Record<string, string>;
   scheduled_date?: string;
   lines: OrderLine[];

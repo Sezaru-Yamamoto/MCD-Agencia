@@ -685,10 +685,10 @@ export default function QuoteViewPage() {
                       </p>
                     </div>
                   )}
-                  {quote.pickup_branch && typeof quote.pickup_branch === 'object' && (
+                  {quote.pickup_branch_detail && (
                     <div>
                       <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                      <p className="text-white">{(quote.pickup_branch as Record<string, string>).name}</p>
+                      <p className="text-white">{quote.pickup_branch_detail.name} — {quote.pickup_branch_detail.city}, {quote.pickup_branch_detail.state}</p>
                     </div>
                   )}
                   {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
@@ -697,7 +697,7 @@ export default function QuoteViewPage() {
                         {quote.delivery_method === 'installation' ? 'Dirección de Instalación' : 'Dirección de Envío'}
                       </p>
                       <p className="text-white text-sm">
-                        {[quote.delivery_address.street, quote.delivery_address.neighborhood, quote.delivery_address.city, quote.delivery_address.state, quote.delivery_address.postal_code].filter(Boolean).join(', ')}
+                        {[quote.delivery_address.street || quote.delivery_address.calle, quote.delivery_address.exterior_number || quote.delivery_address.numero_exterior, quote.delivery_address.neighborhood || quote.delivery_address.colonia, quote.delivery_address.city || quote.delivery_address.ciudad, quote.delivery_address.state || quote.delivery_address.estado, quote.delivery_address.postal_code || quote.delivery_address.codigo_postal].filter(Boolean).join(', ')}
                       </p>
                     </div>
                   )}
@@ -705,6 +705,12 @@ export default function QuoteViewPage() {
                     <div>
                       <p className="text-neutral-500 text-sm">Tiempo de Entrega</p>
                       <p className="text-white">{quote.delivery_time_text}</p>
+                    </div>
+                  )}
+                  {quote.estimated_delivery_date && (
+                    <div>
+                      <p className="text-neutral-500 text-sm">Fecha Estimada de Entrega</p>
+                      <p className="text-white">{new Date(quote.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     </div>
                   )}
                   {quote.payment_conditions && (
