@@ -191,6 +191,7 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
     urgency_display = serializers.CharField(source='get_urgency_display', read_only=True)
     assigned_to_name = serializers.SerializerMethodField()
     days_until_required = serializers.IntegerField(read_only=True)
+    is_guest = serializers.SerializerMethodField()
 
     class Meta:
         model = QuoteRequest
@@ -213,6 +214,22 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
         if obj.assigned_to:
             return obj.assigned_to.full_name
         return None
+
+    def get_is_guest(self, obj):
+        """Dynamically determine if the customer is a guest.
+
+        Instead of relying on the static is_guest field (set at submission time),
+        check if a registered user exists with the customer's email. This handles
+        cases where the customer submitted as a guest but later registered, or
+        was registered but not logged in at submission time.
+        """
+        # If the request already has a linked user, they're not a guest
+        if obj.user_id:
+            return False
+        # Check if a registered user exists with this email
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        return not User.objects.filter(email__iexact=obj.customer_email, is_active=True).exists()
 
 
 class QuoteRequestAdminSerializer(QuoteRequestSerializer):
