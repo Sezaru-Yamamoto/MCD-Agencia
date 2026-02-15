@@ -98,6 +98,7 @@ export interface QuoteRequest {
   updated_at: string;
   info_request_message?: string;
   info_request_token?: string;
+  info_request_fields?: string[];
 }
 
 export interface Quote {
@@ -716,9 +717,18 @@ export async function unmarkQuoteRequestInReview(id: string): Promise<QuoteReque
 
 /**
  * Request additional information from the customer.
+ * @param infoRequestFields Optional list of service_details field keys the vendor flagged.
  */
-export async function requestQuoteRequestInfo(id: string, message: string): Promise<QuoteRequest> {
-  return apiClient.post<QuoteRequest>(`/quotes/requests/${id}/request_info/`, { message });
+export async function requestQuoteRequestInfo(
+  id: string,
+  message: string,
+  infoRequestFields?: string[]
+): Promise<QuoteRequest> {
+  const payload: Record<string, unknown> = { message };
+  if (infoRequestFields && infoRequestFields.length > 0) {
+    payload.info_request_fields = infoRequestFields;
+  }
+  return apiClient.post<QuoteRequest>(`/quotes/requests/${id}/request_info/`, payload);
 }
 
 /**

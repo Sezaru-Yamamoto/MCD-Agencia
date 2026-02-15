@@ -981,13 +981,39 @@ def send_info_request_email(self, request_id: str):
     try:
         quote_request = QuoteRequest.objects.get(id=request_id)
 
-        update_url = f"{settings.FRONTEND_URL}/es/completar-solicitud/{quote_request.info_request_token}"
+        # Use customer's preferred language, fallback to 'es'
+        lang = getattr(quote_request, 'preferred_language', 'es') or 'es'
+        update_url = f"{settings.FRONTEND_URL}/{lang}/completar-solicitud/{quote_request.info_request_token}"
+
+        # Build human-readable labels for flagged fields
+        FIELD_LABELS = {
+            'subtipo': 'Subtipo', 'tipo': 'Tipo', 'tipo_anuncio': 'Tipo de anuncio',
+            'tipo_vehiculo': 'Tipo de vehículo', 'tipo_rotulacion': 'Tipo de rotulación',
+            'tipo_diseno': 'Tipo de diseño', 'tipo_impresion': 'Tipo de impresión',
+            'tipo_servicio': 'Tipo de servicio', 'descripcion': 'Descripción',
+            'medidas': 'Medidas', 'cantidad': 'Cantidad', 'numero_piezas': 'Número de piezas',
+            'ubicacion': 'Ubicación', 'zona': 'Zona de circulación',
+            'ciudad_zona': 'Ciudad / Zona', 'zona_cobertura': 'Zona de cobertura',
+            'tiempo_exhibicion': 'Tiempo de exhibición', 'tiempo_campana': 'Tiempo de campaña',
+            'duracion': 'Duración', 'material': 'Material', 'producto': 'Producto',
+            'uso': 'Uso', 'uso_diseno': 'Uso del diseño',
+            'impresion_incluida': 'Impresión incluida', 'instalacion_incluida': 'Instalación incluida',
+            'iluminacion': 'Iluminación', 'diseno_incluido': 'Diseño incluido',
+            'archivo_listo': 'Archivo listo para imprimir',
+            'archivo_grabacion_proporcionado': 'Archivo de grabación proporcionado',
+            'requiere_grabacion': 'Requiere grabación', 'cambios_incluidos': 'Cambios incluidos',
+            'rutas': 'Rutas de circulación', 'ruta': 'Ruta',
+            'delimitacion_zona': 'Delimitación de zona', 'servicio': 'Servicio',
+        }
+        flagged_fields = quote_request.info_request_fields or []
+        flagged_labels = [FIELD_LABELS.get(f, f) for f in flagged_fields]
 
         context = {
             'request': quote_request,
             'update_url': update_url,
             'company_name': 'MCD Agencia',
             'message': quote_request.info_request_message,
+            'flagged_fields': flagged_labels,
         }
 
         html_message = render_to_string('emails/info_request.html', context)

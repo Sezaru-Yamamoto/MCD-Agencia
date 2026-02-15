@@ -18,6 +18,20 @@
 </div>
 {% endif %}
 
+{% if flagged_fields %}
+<div class="order-summary" style="margin-top: 20px;">
+    <h3 style="margin-top: 0;">📌 Campos que necesitan revisión</h3>
+    <p style="color: #999; font-size: 13px; margin-bottom: 12px;">
+        Nuestro equipo necesita que revises o completes la siguiente información:
+    </p>
+    {% for field in flagged_fields %}
+    <div class="line-item" style="padding: 8px 0;">
+        <span style="color: #e67e22; font-weight: 600;">▸ {{ field }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <div class="order-summary">
     <h3 style="margin-top: 0;">Datos de tu solicitud</h3>
 

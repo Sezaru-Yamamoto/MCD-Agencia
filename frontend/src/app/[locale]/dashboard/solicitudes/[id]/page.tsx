@@ -25,7 +25,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { SERVICE_LABELS, type ServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import { Card, Button, LoadingPage } from '@/components/ui';
-import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
+import { ServiceDetailsDisplay, serviceDetailsLabels, subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
 import {
   getAdminQuoteRequestById,
   markQuoteRequestInReview,
@@ -90,6 +90,7 @@ export default function QuoteRequestDetailPage() {
   const [showInfoRequestModal, setShowInfoRequestModal] = useState(false);
   const [infoRequestMessage, setInfoRequestMessage] = useState('');
   const [isSendingInfoRequest, setIsSendingInfoRequest] = useState(false);
+  const [selectedInfoFields, setSelectedInfoFields] = useState<string[]>([]);
 
   const requestId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -202,10 +203,15 @@ export default function QuoteRequestDetailPage() {
 
     setIsSendingInfoRequest(true);
     try {
-      const updated = await requestQuoteRequestInfo(request.id, infoRequestMessage.trim());
+      const updated = await requestQuoteRequestInfo(
+        request.id,
+        infoRequestMessage.trim(),
+        selectedInfoFields.length > 0 ? selectedInfoFields : undefined
+      );
       setRequest(updated);
       setShowInfoRequestModal(false);
       setInfoRequestMessage('');
+      setSelectedInfoFields([]);
       toast.success('Solicitud de información enviada al cliente');
     } catch (error: unknown) {
       const err = error as { data?: { error?: string } };
@@ -583,6 +589,16 @@ export default function QuoteRequestDetailPage() {
                         Mensaje enviado: &quot;{request.info_request_message}&quot;
                       </p>
                     )}
+                    {request.info_request_fields && request.info_request_fields.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-neutral-500 text-xs">Campos solicitados:</p>
+                        {request.info_request_fields.map((field) => (
+                          <span key={field} className="inline-block text-xs bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded mr-1 mb-1">
+                            {serviceDetailsLabels[field] || field}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -795,54 +811,165 @@ export default function QuoteRequestDetailPage() {
         )}
 
         {/* Info Request Modal */}
-        {showInfoRequestModal && request && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-                  <InformationCircleIcon className="h-5 w-5 text-orange-400" />
+        {showInfoRequestModal && request && (() => {
+          // Build the list of selectable fields from service_details
+          const details = (request.service_details || {}) as Record<string, unknown>;
+          const internalFields = ['tipo_personalizado', 'subtipo_personalizado', 'material_personalizado',
+            'tipo_rotulacion_personalizado', 'producto_personalizado', 'tipo_impresion_personalizado', 'coordenadas'];
+
+          // Format a value for display in the checkbox list
+          const formatFieldValue = (key: string, value: unknown): string => {
+            if (value === null || value === undefined) return '—';
+            if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+            if (typeof value === 'object') {
+              if (Array.isArray(value)) return `${value.length} elemento(s)`;
+              return '(ver detalle)';
+            }
+            // Try to resolve subtype labels
+            if (['subtipo', 'tipo', 'tipo_anuncio', 'tipo_rotulacion', 'material', 'uso',
+              'uso_diseno', 'tipo_impresion', 'servicio', 'producto'].includes(key)) {
+              return subtipoLabels[String(value)] || String(value);
+            }
+            return String(value);
+          };
+
+          // Collect displayable field entries
+          const fieldEntries = Object.entries(details)
+            .filter(([key]) => !internalFields.includes(key))
+            .map(([key, value]) => ({
+              key,
+              label: serviceDetailsLabels[key] || key,
+              displayValue: formatFieldValue(key, value),
+              isRoutes: key === 'rutas',
+            }));
+
+          const toggleField = (key: string) => {
+            setSelectedInfoFields(prev =>
+              prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+            );
+          };
+
+          const toggleAll = () => {
+            if (selectedInfoFields.length === fieldEntries.length) {
+              setSelectedInfoFields([]);
+            } else {
+              setSelectedInfoFields(fieldEntries.map(f => f.key));
+            }
+          };
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] flex flex-col">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <InformationCircleIcon className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Solicitar Información</h3>
+                    <p className="text-neutral-500 text-xs">
+                      {SERVICE_LABELS[request.service_type as ServiceId] || request.service_type}
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-white">Solicitar Información</h3>
-              </div>
-              <p className="text-neutral-400 mb-4 text-sm">
-                Se enviará un correo al cliente ({request.customer_email}) con un enlace
-                para completar la información faltante de su solicitud.
-              </p>
-              <div className="mb-4">
-                <label className="block text-sm text-neutral-300 mb-2">
-                  Mensaje para el cliente *
-                </label>
-                <textarea
-                  value={infoRequestMessage}
-                  onChange={(e) => setInfoRequestMessage(e.target.value)}
-                  placeholder="Ej: Necesitamos que nos indiques la ruta deseada para tu servicio de publicidad móvil..."
-                  rows={4}
-                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:outline-none resize-none text-sm"
-                />
-              </div>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowInfoRequestModal(false);
-                    setInfoRequestMessage('');
-                  }}
-                  disabled={isSendingInfoRequest}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleRequestInfo}
-                  isLoading={isSendingInfoRequest}
-                  disabled={!infoRequestMessage.trim()}
-                  className="!bg-orange-600 hover:!bg-orange-700 !border-orange-600"
-                >
-                  Enviar solicitud
-                </Button>
+
+                <p className="text-neutral-400 mb-4 text-sm">
+                  Se enviará un correo a <span className="text-white font-medium">{request.customer_email}</span> con
+                  un enlace para completar la información. Selecciona los campos que necesitan revisión.
+                </p>
+
+                {/* Selectable fields */}
+                {fieldEntries.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm text-neutral-300 font-medium">
+                        Campos a revisar / completar
+                      </label>
+                      <button
+                        type="button"
+                        onClick={toggleAll}
+                        className="text-xs text-cmyk-cyan hover:underline"
+                      >
+                        {selectedInfoFields.length === fieldEntries.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                      </button>
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                      {fieldEntries.map(({ key, label, displayValue, isRoutes }) => (
+                        <label
+                          key={key}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
+                            selectedInfoFields.includes(key)
+                              ? 'bg-orange-500/15 border border-orange-500/40'
+                              : 'bg-neutral-800/50 border border-transparent hover:bg-neutral-800'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedInfoFields.includes(key)}
+                            onChange={() => toggleField(key)}
+                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-700 text-orange-500 focus:ring-orange-500/50 focus:ring-offset-0 flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-white text-sm">{label}</span>
+                            {!isRoutes && (
+                              <span className="text-neutral-500 text-xs ml-2 truncate">
+                                ({displayValue})
+                              </span>
+                            )}
+                            {isRoutes && (
+                              <span className="text-neutral-500 text-xs ml-2">
+                                ({displayValue})
+                              </span>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedInfoFields.length > 0 && (
+                      <p className="text-orange-400/70 text-xs mt-2">
+                        {selectedInfoFields.length} campo(s) seleccionado(s)
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className="block text-sm text-neutral-300 mb-2">
+                    Mensaje para el cliente *
+                  </label>
+                  <textarea
+                    value={infoRequestMessage}
+                    onChange={(e) => setInfoRequestMessage(e.target.value)}
+                    placeholder="Ej: Necesitamos que nos indiques la ruta deseada para tu servicio de publicidad móvil..."
+                    rows={3}
+                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:outline-none resize-none text-sm"
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowInfoRequestModal(false);
+                      setInfoRequestMessage('');
+                      setSelectedInfoFields([]);
+                    }}
+                    disabled={isSendingInfoRequest}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleRequestInfo}
+                    isLoading={isSendingInfoRequest}
+                    disabled={!infoRequestMessage.trim()}
+                    className="!bg-orange-600 hover:!bg-orange-700 !border-orange-600"
+                  >
+                    Enviar solicitud
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
     </div>
   );
 }

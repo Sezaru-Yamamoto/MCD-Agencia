@@ -329,6 +329,12 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         unique=True,
         help_text=_('Unique token for the client to respond to info request.')
     )
+    info_request_fields = models.JSONField(
+        _('info request fields'),
+        default=list,
+        blank=True,
+        help_text=_('List of service_details field keys the vendor flagged for review.')
+    )
 
     class Meta:
         verbose_name = _('quote request')

@@ -15,6 +15,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { Card, Button, LoadingPage } from '@/components/ui';
+import { serviceDetailsLabels } from '@/components/quotes/ServiceDetailsDisplay';
 import {
   getQuoteRequestByInfoToken,
   submitQuoteRequestInfo,
@@ -358,6 +359,29 @@ export default function CompletarSolicitudPage() {
                   {String(requestData.info_request_message)}
                 </p>
               </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Flagged fields — which fields the vendor needs the customer to review */}
+        {Array.isArray(requestData.info_request_fields) && (requestData.info_request_fields as string[]).length > 0 && (
+          <Card className="p-6 border-amber-500/30 bg-amber-500/5">
+            <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+              <ExclamationTriangleIcon className="h-5 w-5 text-amber-400" />
+              Campos que necesitan revisión
+            </h2>
+            <p className="text-neutral-400 text-sm mb-3">
+              Nuestro equipo necesita que revises o completes la siguiente información:
+            </p>
+            <div className="space-y-1.5">
+              {(requestData.info_request_fields as string[]).map((fieldKey) => (
+                <div key={fieldKey} className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <span className="text-amber-400 font-bold text-xs">▸</span>
+                  <span className="text-white text-sm">
+                    {serviceDetailsLabels[fieldKey] || fieldKey}
+                  </span>
+                </div>
+              ))}
             </div>
           </Card>
         )}

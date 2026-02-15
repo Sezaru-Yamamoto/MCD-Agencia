@@ -438,24 +438,39 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
             )
 
         import uuid
+        # Accept optional list of service_details field keys to flag
+        info_fields = request.data.get('info_request_fields', [])
+        if not isinstance(info_fields, list):
+            info_fields = []
+
         quote_request.status = QuoteRequest.STATUS_INFO_REQUESTED
         quote_request.info_request_message = message.strip()
         quote_request.info_request_token = uuid.uuid4()
+        quote_request.info_request_fields = info_fields
         quote_request.save(update_fields=[
-            'status', 'info_request_message', 'info_request_token', 'updated_at'
+            'status', 'info_request_message', 'info_request_token',
+            'info_request_fields', 'updated_at'
         ])
 
-        # Send email to customer
+        # Send email to customer (with sync fallback)
         try:
             send_info_request_email.delay(str(quote_request.id))
         except Exception:
-            pass
+            # Celery broker unavailable — run synchronously
+            try:
+                send_info_request_email(str(quote_request.id))
+            except Exception:
+                logger.error(f"Failed to send info request email for {quote_request.request_number}")
 
         AuditLog.log(
             entity=quote_request,
             action=AuditLog.ACTION_STATE_CHANGED,
             actor=request.user,
-            after_state={'status': quote_request.status, 'info_request_message': message},
+            after_state={
+                'status': quote_request.status,
+                'info_request_message': message,
+                'info_request_fields': info_fields,
+            },
             request=request
         )
 
@@ -2221,6 +2236,7 @@ class QuoteRequestInfoUpdateView(APIView):
             'service_details': quote_request.service_details,
             'description': quote_request.description,
             'info_request_message': quote_request.info_request_message,
+            'info_request_fields': quote_request.info_request_fields or [],
             'status': quote_request.status,
             'created_at': quote_request.created_at.isoformat(),
         })
