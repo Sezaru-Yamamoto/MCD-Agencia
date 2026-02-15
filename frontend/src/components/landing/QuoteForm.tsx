@@ -14,7 +14,6 @@ import {
   GRAN_FORMATO_MATERIALES,
   ROTULACION_TIPOS,
   OFFSET_PRODUCTOS,
-  IMPRESION_TIPOS,
   SENALIZACION_TIPOS,
   CNC_LASER_TIPOS,
   DISENO_GRAFICO_TIPOS,
@@ -171,11 +170,9 @@ interface QuoteFormData {
   // Espectaculares
   esp_tipo?: 'unipolar' | 'azotea' | 'mural' | 'otro';
   esp_tipoOtro?: string;
-  esp_ubicacion?: string;
   esp_medidas?: string;
   esp_tiempoExhibicion?: string;
   esp_impresionIncluida?: 'si' | 'no';
-  esp_instalacionIncluida?: 'si' | 'no';
 
   // Fabricación de anuncios
   fab_tipoAnuncio?: string;
@@ -183,7 +180,6 @@ interface QuoteFormData {
   fab_medidas?: string;
   fab_uso?: 'interior' | 'exterior';
   fab_iluminacion?: 'si' | 'no';
-  fab_instalacionIncluida?: 'si' | 'no';
 
   // Publicidad móvil
   pub_subtipo?: 'vallas-moviles' | 'publibuses' | 'perifoneo' | 'otro';
@@ -217,7 +213,6 @@ interface QuoteFormData {
   sen_tipoOtro?: string;
   sen_medidas?: string;
   sen_cantidad?: number;
-  sen_instalacionIncluida?: 'si' | 'no';
 
   // Rotulación vehicular
   rot_tipoVehiculo?: string;
@@ -236,6 +231,7 @@ interface QuoteFormData {
   dis_tipo?: 'logotipos' | 'papeleria' | 'redes-sociales' | 'otro';
   dis_tipoOtro?: string;
   dis_numeroPiezas?: number;
+  dis_medidas?: string;
   dis_usoDiseno?: 'impresion' | 'digital' | 'ambos';
   dis_cambiosIncluidos?: 'si' | 'no';
 
@@ -243,8 +239,6 @@ interface QuoteFormData {
   off_producto?: string;
   off_productoOtro?: string;
   off_cantidad?: number;
-  off_tipoImpresion?: string;
-  off_tipoImpresionOtro?: string;
   off_archivoListo?: 'si' | 'no';
 
   // Servicio "Otros"
@@ -340,7 +334,6 @@ export function QuoteForm() {
   const igfMaterial = watch('igf_material');
   const rotTipoRotulacion = watch('rot_tipoRotulacion');
   const offProducto = watch('off_producto');
-  const offTipoImpresion = watch('off_tipoImpresion');
   const senTipo = watch('sen_tipo');
   const cncTipo = watch('cnc_tipo');
   const disTipo = watch('dis_tipo');
@@ -744,11 +737,9 @@ export function QuoteForm() {
         basePayload.detalles = {
           tipo: data.esp_tipo === 'otro' ? data.esp_tipoOtro : data.esp_tipo,
           tipo_personalizado: data.esp_tipo === 'otro',
-          ubicacion: data.esp_ubicacion,
           medidas: data.esp_medidas,
           tiempo_exhibicion: data.esp_tiempoExhibicion,
           impresion_incluida: data.esp_impresionIncluida === 'si',
-          instalacion_incluida: data.esp_instalacionIncluida === 'si',
         };
         break;
 
@@ -759,7 +750,6 @@ export function QuoteForm() {
           medidas: data.fab_medidas,
           uso: data.fab_uso,
           iluminacion: data.fab_iluminacion === 'si',
-          instalacion_incluida: data.fab_instalacionIncluida === 'si',
         };
         break;
 
@@ -847,7 +837,6 @@ export function QuoteForm() {
           tipo_personalizado: data.sen_tipo === 'otro',
           medidas: data.sen_medidas,
           cantidad: data.sen_cantidad,
-          instalacion_incluida: data.sen_instalacionIncluida === 'si',
         };
         break;
 
@@ -875,6 +864,7 @@ export function QuoteForm() {
           tipo: data.dis_tipo === 'otro' ? data.dis_tipoOtro : data.dis_tipo,
           tipo_personalizado: data.dis_tipo === 'otro',
           numero_piezas: data.dis_numeroPiezas,
+          medidas: data.dis_medidas || null,
           uso: data.dis_usoDiseno,
           cambios_incluidos: data.dis_cambiosIncluidos === 'si',
         };
@@ -885,8 +875,6 @@ export function QuoteForm() {
           producto: data.off_producto === 'otro' ? data.off_productoOtro : data.off_producto,
           producto_personalizado: data.off_producto === 'otro',
           cantidad: data.off_cantidad,
-          tipo_impresion: data.off_tipoImpresion === 'otro' ? data.off_tipoImpresionOtro : data.off_tipoImpresion,
-          tipo_impresion_personalizado: data.off_tipoImpresion === 'otro',
           archivo_listo: data.off_archivoListo === 'si',
         };
         break;
@@ -1031,30 +1019,6 @@ export function QuoteForm() {
                 {errors.email && <p className="error-message">{errors.email.message}</p>}
               </div>
 
-              {/* Hide fecha requerida for publicidad-movil subtypes with routes — they use per-route fecha inicio */}
-              {!(servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '')) && (
-                <div>
-                  <label htmlFor="fechaRequerida" className="label-field">
-                    Fecha estimada requerida <span className="text-cmyk-magenta">*</span>
-                  </label>
-                  <input
-                    {...register('fechaRequerida', { required: servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '') ? false : 'La fecha es requerida' })}
-                    type="date"
-                    id="fechaRequerida"
-                    className="input-field"
-                    min={minDeliveryDate}
-                    disabled={formStatus === 'submitting'}
-                  />
-                  {errors.fechaRequerida && <p className="error-message">{errors.fechaRequerida.message}</p>}
-                  {deliveryTimeMsg && servicioValue && (
-                    <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
-                      <span className="mt-0.5">⏱️</span>
-                      <span>{deliveryTimeMsg}</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
               <div>
                 <div className="flex justify-between items-center">
                   <label htmlFor="servicio" className="label-field">
@@ -1085,6 +1049,30 @@ export function QuoteForm() {
                 </select>
                 {errors.servicio && <p className="error-message">{errors.servicio.message}</p>}
               </div>
+
+              {/* Show fecha requerida only after selecting a service; hide for publicidad-movil subtypes with routes */}
+              {servicioValue && !(servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '')) && (
+                <div>
+                  <label htmlFor="fechaRequerida" className="label-field">
+                    Fecha estimada requerida <span className="text-cmyk-magenta">*</span>
+                  </label>
+                  <input
+                    {...register('fechaRequerida', { required: !servicioValue || (servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '')) ? false : 'La fecha es requerida' })}
+                    type="date"
+                    id="fechaRequerida"
+                    className="input-field"
+                    min={minDeliveryDate}
+                    disabled={formStatus === 'submitting'}
+                  />
+                  {errors.fechaRequerida && <p className="error-message">{errors.fechaRequerida.message}</p>}
+                  {deliveryTimeMsg && (
+                    <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
+                      <span className="mt-0.5">⏱️</span>
+                      <span>{deliveryTimeMsg}</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1129,11 +1117,6 @@ export function QuoteForm() {
                     )}
                   </div>
                   <div>
-                    <label className="label-field">Ubicación <span className="text-cmyk-magenta">*</span></label>
-                    <input {...register('esp_ubicacion', { required: 'La ubicación es requerida' })} type="text" className="input-field" placeholder="Dirección o zona del espectacular" disabled={formStatus === 'submitting'} />
-                    {errors.esp_ubicacion && <p className="error-message">{errors.esp_ubicacion.message}</p>}
-                  </div>
-                  <div>
                     <label className="label-field">Medidas (ancho × alto) <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('esp_medidas', { required: 'Las medidas son requeridas' })} type="text" className="input-field" placeholder="ej. 12m × 6m" disabled={formStatus === 'submitting'} />
                     {errors.esp_medidas && <p className="error-message">{errors.esp_medidas.message}</p>}
@@ -1154,18 +1137,6 @@ export function QuoteForm() {
                       </label>
                     </div>
                     {errors.esp_impresionIncluida && <p className="error-message">{errors.esp_impresionIncluida.message}</p>}
-                  </div>
-                  <div>
-                    <label className="label-field">¿Instalación incluida? <span className="text-cmyk-magenta">*</span></label>
-                    <div className="flex gap-4 mt-2">
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('esp_instalacionIncluida', { required: 'Selecciona una opción' })} type="radio" value="si" className="text-cmyk-cyan" /> Sí
-                      </label>
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('esp_instalacionIncluida')} type="radio" value="no" className="text-cmyk-cyan" /> No
-                      </label>
-                    </div>
-                    {errors.esp_instalacionIncluida && <p className="error-message">{errors.esp_instalacionIncluida.message}</p>}
                   </div>
                 </div>
               )}
@@ -1233,18 +1204,6 @@ export function QuoteForm() {
                       </label>
                     </div>
                     {errors.fab_iluminacion && <p className="error-message">{errors.fab_iluminacion.message}</p>}
-                  </div>
-                  <div>
-                    <label className="label-field">¿Instalación incluida? <span className="text-cmyk-magenta">*</span></label>
-                    <div className="flex gap-4 mt-2">
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('fab_instalacionIncluida', { required: 'Selecciona una opción' })} type="radio" value="si" className="text-cmyk-cyan" /> Sí
-                      </label>
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('fab_instalacionIncluida')} type="radio" value="no" className="text-cmyk-cyan" /> No
-                      </label>
-                    </div>
-                    {errors.fab_instalacionIncluida && <p className="error-message">{errors.fab_instalacionIncluida.message}</p>}
                   </div>
                 </div>
               )}
@@ -1363,23 +1322,20 @@ export function QuoteForm() {
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario inicio <span className="text-cmyk-magenta">*</span></label>
-                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min="07:00" max="19:00"
                                   value={entry.horarioInicio}
-                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))}>
-                                  <option value="">Seleccionar</option>
-                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
-                                </select>
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario fin <span className="text-cmyk-magenta">*</span></label>
-                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min="07:00" max="19:00"
                                   value={entry.horarioFin}
-                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))}>
-                                  <option value="">Seleccionar</option>
-                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
-                                </select>
+                                  onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
                               </div>
                             </div>
+                            <p className="text-xs text-gray-500 -mt-1">Horario permitido: 7:00 a 19:00</p>
                             <div>
                               <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa <span className="text-cmyk-magenta">*</span></label>
                               <RouteSelector onChange={(route) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
@@ -1602,23 +1558,20 @@ export function QuoteForm() {
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario inicio <span className="text-cmyk-magenta">*</span></label>
-                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min="07:00" max="19:00"
                                   value={entry.horarioInicio}
-                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))}>
-                                  <option value="">Seleccionar</option>
-                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
-                                </select>
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario fin <span className="text-cmyk-magenta">*</span></label>
-                                <select className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                  min="07:00" max="19:00"
                                   value={entry.horarioFin}
-                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))}>
-                                  <option value="">Seleccionar</option>
-                                  {Array.from({ length: 25 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = i % 2 === 0 ? '00' : '30'; const v = `${h.toString().padStart(2, '0')}:${m}`; return h <= 19 ? <option key={v} value={v}>{v}</option> : null; }).filter(Boolean)}
-                                </select>
+                                  onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
                               </div>
                             </div>
+                            <p className="text-xs text-gray-500 -mt-1">Horario permitido: 7:00 a 19:00</p>
                             <div>
                               <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa <span className="text-cmyk-magenta">*</span></label>
                               <RouteSelector onChange={(route) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
@@ -1750,18 +1703,6 @@ export function QuoteForm() {
                     <label className="label-field">Cantidad <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('sen_cantidad', { required: 'La cantidad es requerida', min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="1" disabled={formStatus === 'submitting'} />
                     {errors.sen_cantidad && <p className="error-message">{errors.sen_cantidad.message}</p>}
-                  </div>
-                  <div>
-                    <label className="label-field">¿Instalación incluida? <span className="text-cmyk-magenta">*</span></label>
-                    <div className="flex gap-4 mt-2">
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('sen_instalacionIncluida', { required: 'Selecciona una opción' })} type="radio" value="si" className="text-cmyk-cyan" /> Sí
-                      </label>
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input {...register('sen_instalacionIncluida')} type="radio" value="no" className="text-cmyk-cyan" /> No
-                      </label>
-                    </div>
-                    {errors.sen_instalacionIncluida && <p className="error-message">{errors.sen_instalacionIncluida.message}</p>}
                   </div>
                 </div>
               )}
@@ -1922,6 +1863,11 @@ export function QuoteForm() {
                     {errors.dis_numeroPiezas && <p className="error-message">{errors.dis_numeroPiezas.message}</p>}
                   </div>
                   <div>
+                    <label className="label-field">Medidas / Dimensiones</label>
+                    <input {...register('dis_medidas')} type="text" className="input-field" placeholder="ej. 1080×1080 px, 21×29.7 cm (A4), 1920×1080 px" disabled={formStatus === 'submitting'} />
+                    <p className="text-xs text-gray-500 mt-1">Indica las dimensiones y unidad: px (píxeles), cm, mm, in (pulgadas). Si no lo sabes, déjalo en blanco.</p>
+                  </div>
+                  <div>
                     <label className="label-field">Uso del diseño <span className="text-cmyk-magenta">*</span></label>
                     <div className="flex flex-wrap gap-4 mt-2">
                       <label className="flex items-center gap-2 text-white cursor-pointer">
@@ -1975,21 +1921,6 @@ export function QuoteForm() {
                     <label className="label-field">Cantidad <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('off_cantidad', { required: 'La cantidad es requerida', min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="100" disabled={formStatus === 'submitting'} />
                     {errors.off_cantidad && <p className="error-message">{errors.off_cantidad.message}</p>}
-                  </div>
-                  <div>
-                    <label className="label-field">Tipo <span className="text-cmyk-magenta">*</span></label>
-                    <select {...register('off_tipoImpresion', { required: 'Selecciona un tipo' })} className="input-field" disabled={formStatus === 'submitting'}>
-                      <option value="">Selecciona tipo</option>
-                      {IMPRESION_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>{tipo === 'tarjetas-presentacion' ? 'Tarjetas de Presentación' : tipo === 'volantes' ? 'Volantes' : 'Otro (especificar)'}</option>
-                      ))}
-                    </select>
-                    {errors.off_tipoImpresion && <p className="error-message">{errors.off_tipoImpresion.message}</p>}
-                    {offTipoImpresion === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('off_tipoImpresionOtro', { required: offTipoImpresion === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de impresión" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
                   </div>
                   <div>
                     <label className="label-field">¿Archivo listo para imprimir? <span className="text-cmyk-magenta">*</span></label>
@@ -2438,6 +2369,12 @@ export function QuoteForm() {
                 </svg>
                 <p className="text-white font-medium text-sm">{t('dragOrClick')}</p>
                 <p className="text-gray-300 text-xs mt-1">PDF, JPG, PNG, AI, CDR, DXF, SVG (max 10MB por archivo)</p>
+                {servicioValue === 'diseno-grafico' && (
+                  <p className="text-xs text-cmyk-cyan mt-2 flex items-start gap-1">
+                    <span className="mt-0.5">💡</span>
+                    <span>Adjunta toda la información visual posible: logotipos, imágenes de referencia, paleta de colores, bocetos, etc. Esto nos ayuda a entender mejor tu visión.</span>
+                  </p>
+                )}
               </div>
 
               {/* File list */}
@@ -2465,16 +2402,28 @@ export function QuoteForm() {
 
             {/* Comments */}
             <div>
-              <label htmlFor="comentarios" className="label-field">{t('comments')}</label>
+              <label htmlFor="comentarios" className="label-field">
+                {t('comments')}
+                {servicioValue === 'diseno-grafico' && <span className="text-cmyk-magenta"> *</span>}
+              </label>
               <textarea
-                {...register('comentarios', { maxLength: { value: 2000, message: 'Máximo 2000 caracteres' } })}
+                {...register('comentarios', {
+                  required: servicioValue === 'diseno-grafico' ? 'Los comentarios son obligatorios para Diseño Gráfico. Describe qué necesitas para tu diseño.' : false,
+                  maxLength: { value: 2000, message: 'Máximo 2000 caracteres' }
+                })}
                 id="comentarios"
                 rows={4}
                 className="input-field resize-none"
-                placeholder={t('commentsPlaceholder')}
+                placeholder={servicioValue === 'diseno-grafico' ? 'Describe detalladamente qué necesitas: concepto, colores, estilo, texto, público objetivo, referencias, etc.' : t('commentsPlaceholder')}
                 disabled={formStatus === 'submitting'}
               />
               {errors.comentarios && <p className="error-message">{errors.comentarios.message}</p>}
+              {servicioValue === 'diseno-grafico' && (
+                <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
+                  <span className="mt-0.5">📝</span>
+                  <span>Es importante que describas lo que necesitas para tu diseño: concepto, estilo deseado, colores, textos, etc.</span>
+                </p>
+              )}
             </div>
 
             {/* Honeypot */}

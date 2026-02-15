@@ -328,14 +328,14 @@ export const DELIVERY_METHODS_BY_SERVICE: Record<string, DeliveryMethod[]> = {
   'fabricacion-anuncios': ['installation', 'pickup', 'shipping'],
   // Publicidad móvil — not applicable (service is the delivery)
   'publicidad-movil': ['not_applicable'],
-  // Impresión gran formato — pickup or shipping
-  'impresion-gran-formato': ['pickup', 'shipping'],
+  // Impresión gran formato — install, pickup or shipping
+  'impresion-gran-formato': ['installation', 'pickup', 'shipping'],
   // Señalización — install or pickup or ship
   'senalizacion': ['installation', 'pickup', 'shipping'],
   // Rotulación vehicular — both pickup AND installation on-site
   'rotulacion-vehicular': ['installation', 'pickup'],
-  // Corte/Grabado CNC/Láser — pickup or shipping
-  'corte-grabado-cnc-laser': ['pickup', 'shipping'],
+  // Corte/Grabado CNC/Láser — install, pickup or shipping
+  'corte-grabado-cnc-laser': ['installation', 'pickup', 'shipping'],
   // Diseño gráfico — digital delivery
   'diseno-grafico': ['digital'],
   // Impresión offset/serigrafía — pickup or shipping
