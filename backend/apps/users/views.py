@@ -27,7 +27,7 @@ from urllib.parse import urlencode
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardResultsSetPagination
-from .models import Role, UserConsent, FiscalData
+from .models import Role, UserConsent, FiscalData, UserAddress
 from .tasks import send_verification_email
 from .serializers import (
     UserRegistrationSerializer,
@@ -38,6 +38,7 @@ from .serializers import (
     UserConsentSerializer,
     FiscalDataSerializer,
     UserAdminSerializer,
+    UserAddressSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -439,6 +440,39 @@ class FiscalDataViewSet(viewsets.ModelViewSet):
         fiscal_data.is_default = True
         fiscal_data.save(update_fields=['is_default', 'updated_at'])
         return Response(FiscalDataSerializer(fiscal_data).data)
+
+
+class UserAddressViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for saved delivery addresses.
+
+    GET /api/v1/users/addresses/
+    POST /api/v1/users/addresses/
+    PUT /api/v1/users/addresses/{id}/
+    DELETE /api/v1/users/addresses/{id}/
+    """
+
+    serializer_class = UserAddressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Return addresses for current user."""
+        return UserAddress.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        """Create address for current user."""
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def set_default(self, request, pk=None):
+        """Set address as default."""
+        address = self.get_object()
+        UserAddress.objects.filter(
+            user=request.user, is_default=True
+        ).update(is_default=False)
+        address.is_default = True
+        address.save(update_fields=['is_default', 'updated_at'])
+        return Response(UserAddressSerializer(address).data)
 
 
 class UserAdminViewSet(viewsets.ModelViewSet):

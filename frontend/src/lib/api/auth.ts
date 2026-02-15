@@ -33,6 +33,21 @@ export interface User {
   created_at: string;
 }
 
+export interface UserAddress {
+  id: string;
+  label: string;
+  calle: string;
+  numero_exterior: string;
+  numero_interior: string;
+  colonia: string;
+  ciudad: string;
+  estado: string;
+  codigo_postal: string;
+  referencia: string;
+  is_default: boolean;
+  created_at: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -150,4 +165,36 @@ export async function verifyEmail(token: string): Promise<{ message: string }> {
  */
 export async function resendVerification(email: string): Promise<{ message: string }> {
   return apiClient.post<{ message: string }>('/auth/resend-verification/', { email });
+}
+
+// =============================================
+// User Addresses
+// =============================================
+
+/**
+ * Get all saved delivery addresses.
+ */
+export async function getUserAddresses(): Promise<UserAddress[]> {
+  return apiClient.get<UserAddress[]>('/users/addresses/');
+}
+
+/**
+ * Create a new delivery address.
+ */
+export async function createUserAddress(data: Omit<UserAddress, 'id' | 'created_at'>): Promise<UserAddress> {
+  return apiClient.post<UserAddress>('/users/addresses/', data);
+}
+
+/**
+ * Update a delivery address.
+ */
+export async function updateUserAddress(id: string, data: Partial<UserAddress>): Promise<UserAddress> {
+  return apiClient.patch<UserAddress>(`/users/addresses/${id}/`, data);
+}
+
+/**
+ * Delete a delivery address.
+ */
+export async function deleteUserAddress(id: string): Promise<void> {
+  return apiClient.delete(`/users/addresses/${id}/`);
 }

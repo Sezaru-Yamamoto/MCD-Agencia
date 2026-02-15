@@ -16,7 +16,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from .models import Role, UserConsent, FiscalData
+from .models import Role, UserConsent, FiscalData, UserAddress
 
 User = get_user_model()
 
@@ -190,6 +190,32 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'avatar',
             'marketing_consent',
         ]
+
+
+class UserAddressSerializer(serializers.ModelSerializer):
+    """
+    Serializer for UserAddress model.
+
+    Handles CRUD for saved delivery addresses.
+    """
+
+    class Meta:
+        model = UserAddress
+        fields = [
+            'id',
+            'label',
+            'calle',
+            'numero_exterior',
+            'numero_interior',
+            'colonia',
+            'ciudad',
+            'estado',
+            'codigo_postal',
+            'referencia',
+            'is_default',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
 
 
 class ChangePasswordSerializer(serializers.Serializer):

@@ -16,6 +16,7 @@ from ..views import (
     RoleViewSet,
     UserConsentViewSet,
     FiscalDataViewSet,
+    UserAddressViewSet,
     UserAdminViewSet,
     SalesRepsView,
 )
@@ -26,6 +27,7 @@ router = DefaultRouter()
 router.register('roles', RoleViewSet, basename='roles')
 router.register('consents', UserConsentViewSet, basename='consents')
 router.register('fiscal-data', FiscalDataViewSet, basename='fiscal-data')
+router.register('addresses', UserAddressViewSet, basename='addresses')
 
 urlpatterns = [
     # Profile

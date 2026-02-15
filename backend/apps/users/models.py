@@ -555,6 +555,74 @@ class UserConsent(TimeStampedModel):
         self.save(update_fields=['revoked_at', 'updated_at'])
 
 
+class UserAddress(TimeStampedModel):
+    """
+    Saved delivery addresses for a user.
+
+    Allows users to store multiple delivery addresses so they
+    can quickly select one when requesting a quote, instead of
+    re-entering the full address each time.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='delivery_addresses',
+        help_text=_('User who owns this address.')
+    )
+    label = models.CharField(
+        _('label'),
+        max_length=100,
+        blank=True,
+        default='',
+        help_text=_('Friendly label, e.g. "Oficina", "Casa".')
+    )
+    calle = models.CharField(_('street'), max_length=255)
+    numero_exterior = models.CharField(_('exterior number'), max_length=50)
+    numero_interior = models.CharField(_('interior number'), max_length=50, blank=True, default='')
+    colonia = models.CharField(_('neighborhood'), max_length=255)
+    ciudad = models.CharField(_('city'), max_length=255)
+    estado = models.CharField(_('state'), max_length=255)
+    codigo_postal = models.CharField(_('postal code'), max_length=10)
+    referencia = models.CharField(_('reference'), max_length=500, blank=True, default='')
+    is_default = models.BooleanField(
+        _('default address'),
+        default=False,
+        help_text=_('Whether this is the default delivery address.')
+    )
+
+    class Meta:
+        verbose_name = _('user address')
+        verbose_name_plural = _('user addresses')
+        ordering = ['-is_default', '-created_at']
+
+    def __str__(self):
+        label_str = f" ({self.label})" if self.label else ""
+        return f"{self.calle} {self.numero_exterior}{label_str}"
+
+    @property
+    def as_dict(self):
+        """Return the address as a dict matching the quote request format."""
+        return {
+            'calle': self.calle,
+            'numero_exterior': self.numero_exterior,
+            'numero_interior': self.numero_interior,
+            'colonia': self.colonia,
+            'ciudad': self.ciudad,
+            'estado': self.estado,
+            'codigo_postal': self.codigo_postal,
+            'referencia': self.referencia,
+        }
+
+    def save(self, *args, **kwargs):
+        """Ensure only one default address per user."""
+        if self.is_default:
+            UserAddress.objects.filter(
+                user=self.user, is_default=True
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+
 class FiscalData(TimeStampedModel):
     """
     Fiscal/tax data for invoicing (CFDI preparation).

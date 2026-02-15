@@ -144,6 +144,27 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
             if delivery_addr and isinstance(delivery_addr, dict) and any(delivery_addr.values()):
                 user.default_delivery_address = delivery_addr
                 update_fields.append('default_delivery_address')
+                # Also save as a UserAddress record if it doesn't already exist
+                from apps.users.models import UserAddress
+                addr_fields = {
+                    'calle': delivery_addr.get('calle', ''),
+                    'numero_exterior': delivery_addr.get('numero_exterior', ''),
+                    'colonia': delivery_addr.get('colonia', ''),
+                    'ciudad': delivery_addr.get('ciudad', ''),
+                    'estado': delivery_addr.get('estado', ''),
+                    'codigo_postal': delivery_addr.get('codigo_postal', ''),
+                }
+                if addr_fields['calle'] and addr_fields['codigo_postal']:
+                    exists = UserAddress.objects.filter(user=user, **addr_fields).exists()
+                    if not exists:
+                        UserAddress.objects.create(
+                            user=user,
+                            label='',
+                            numero_interior=delivery_addr.get('numero_interior', ''),
+                            referencia=delivery_addr.get('referencia', ''),
+                            is_default=not UserAddress.objects.filter(user=user).exists(),
+                            **addr_fields,
+                        )
             if update_fields:
                 user.save(update_fields=update_fields)
         else:

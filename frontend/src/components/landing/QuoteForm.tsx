@@ -44,6 +44,7 @@ const RouteSelector = dynamic(
 import { useRecaptcha } from '@/hooks';
 import { usePostalCode } from '@/hooks/usePostalCode';
 import { useAuth } from '@/contexts/AuthContext';
+import { getUserAddresses, type UserAddress } from '@/lib/api/auth';
 import { SuccessModal } from '@/components/ui';
 import { getBranches, type Branch } from '@/lib/api/content';
 
@@ -235,6 +236,11 @@ export function QuoteForm() {
   const [coloniaManual, setColoniaManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Saved addresses for logged-in users
+  const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [useNewAddress, setUseNewAddress] = useState(false);
+
   // Fetch branches for pickup option
   const fetchBranches = async () => {
     setBranchesLoading(true);
@@ -249,6 +255,22 @@ export function QuoteForm() {
     }
   };
   useEffect(() => { fetchBranches(); }, []);
+
+  // Fetch saved addresses if user is logged in
+  useEffect(() => {
+    if (user) {
+      getUserAddresses()
+        .then((addrs) => {
+          setSavedAddresses(addrs);
+          const def = addrs.find((a) => a.is_default);
+          if (addrs.length > 0) {
+            setSelectedAddressId(def?.id || addrs[0].id);
+            setUseNewAddress(false);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   const {
     register,
@@ -378,6 +400,12 @@ export function QuoteForm() {
     setSelectedBranch('');
     postalCode.reset();
     setColoniaManual(false);
+    // Reset to saved address picker if user has saved addresses
+    if (savedAddresses.length > 0) {
+      setUseNewAddress(false);
+      const def = savedAddresses.find((a) => a.is_default);
+      setSelectedAddressId(def?.id || savedAddresses[0].id);
+    }
   }, [servicioValue]);
 
   const onSubmit = async (data: QuoteFormData) => {
@@ -401,7 +429,9 @@ export function QuoteForm() {
         setErrorMessage('Selecciona un método de entrega');
         return;
       }
-      if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !deliveryAddress.calle) {
+      if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !useNewAddress && selectedAddressId && savedAddresses.length > 0) {
+        // Using a saved address — no further validation needed
+      } else if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !deliveryAddress.calle) {
         setDeliveryError('Ingresa la dirección de entrega');
         setFormStatus('error');
         setErrorMessage('Ingresa la dirección de entrega');
@@ -459,6 +489,11 @@ export function QuoteForm() {
       setSelectedBranch('');
       postalCode.reset();
       setColoniaManual(false);
+      if (savedAddresses.length > 0) {
+        setUseNewAddress(false);
+        const def = savedAddresses.find((a) => a.is_default);
+        setSelectedAddressId(def?.id || savedAddresses[0].id);
+      }
       setVallasRoutes([createConfigurableRoute()]);
       setPerifoneoRoutes([createConfigurableRoute()]);
       setPubRoutes([createEstablishedRoute()]);
@@ -508,10 +543,25 @@ export function QuoteForm() {
       })(),
       servicio: data.servicio,
       metodo_entrega: deliveryMethod || null,
-      entrega: deliveryMethod === 'installation' || deliveryMethod === 'shipping' ? {
-        metodo: deliveryMethod,
-        direccion: deliveryAddress,
-      } : deliveryMethod === 'pickup' ? {
+      entrega: deliveryMethod === 'installation' || deliveryMethod === 'shipping' ? (() => {
+        let addr = deliveryAddress;
+        if (!useNewAddress && selectedAddressId && savedAddresses.length > 0) {
+          const sa = savedAddresses.find((a) => a.id === selectedAddressId);
+          if (sa) {
+            addr = {
+              calle: sa.calle,
+              numero_exterior: sa.numero_exterior,
+              numero_interior: sa.numero_interior || '',
+              colonia: sa.colonia,
+              ciudad: sa.ciudad,
+              estado: sa.estado,
+              codigo_postal: sa.codigo_postal,
+              referencia: sa.referencia || '',
+            };
+          }
+        }
+        return { metodo: deliveryMethod, direccion: addr };
+      })() : deliveryMethod === 'pickup' ? {
         metodo: 'pickup',
         sucursal: selectedBranch,
         sucursal_nombre: branches.find(b => b.id === selectedBranch)?.name || '',
@@ -1826,6 +1876,11 @@ export function QuoteForm() {
                           setSelectedBranch('');
                           postalCode.reset();
                           setColoniaManual(false);
+                          if (savedAddresses.length > 0) {
+                            setUseNewAddress(false);
+                            const def = savedAddresses.find((a) => a.is_default);
+                            setSelectedAddressId(def?.id || savedAddresses[0].id);
+                          }
                         }
                       }}
                       disabled={formStatus === 'submitting'}
@@ -1850,6 +1905,69 @@ export function QuoteForm() {
                         ? '📍 Dirección donde se realizará la instalación'
                         : '📦 Dirección de envío'}
                     </p>
+
+                    {/* Saved addresses picker (logged-in users with addresses) */}
+                    {savedAddresses.length > 0 && !useNewAddress ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          {savedAddresses.map((addr) => (
+                            <button
+                              key={addr.id}
+                              type="button"
+                              onClick={() => { setSelectedAddressId(addr.id); setDeliveryError(''); }}
+                              disabled={formStatus === 'submitting'}
+                              className={`w-full text-left p-3 rounded-lg border transition-all ${
+                                selectedAddressId === addr.id
+                                  ? 'border-cmyk-magenta bg-cmyk-magenta/10 ring-2 ring-cmyk-magenta/50'
+                                  : 'border-gray-600 bg-neutral-800 hover:border-gray-400'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <span className={`text-sm mt-0.5 ${selectedAddressId === addr.id ? 'text-cmyk-cyan' : 'text-gray-500'}`}>📍</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-white">{addr.label || 'Dirección'}</span>
+                                    {addr.is_default && <span className="text-xs text-cmyk-cyan">(Predeterminada)</span>}
+                                  </div>
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    {addr.calle} {addr.numero_exterior}{addr.numero_interior ? ` Int. ${addr.numero_interior}` : ''}, {addr.colonia}, {addr.ciudad}, {addr.estado} C.P. {addr.codigo_postal}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUseNewAddress(true);
+                            setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+                            postalCode.reset();
+                            setColoniaManual(false);
+                          }}
+                          disabled={formStatus === 'submitting'}
+                          className="text-sm text-cmyk-cyan hover:underline font-medium"
+                        >
+                          + Usar otra dirección
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Back to saved addresses link */}
+                        {savedAddresses.length > 0 && useNewAddress && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUseNewAddress(false);
+                              const def = savedAddresses.find((a) => a.is_default);
+                              setSelectedAddressId(def?.id || savedAddresses[0].id);
+                            }}
+                            disabled={formStatus === 'submitting'}
+                            className="text-sm text-cmyk-cyan hover:underline font-medium mb-1"
+                          >
+                            ← Usar una dirección guardada
+                          </button>
+                        )}
 
                     {/* Row 1: Código Postal (triggers autofill) */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2008,6 +2126,8 @@ export function QuoteForm() {
                         disabled={formStatus === 'submitting'}
                       />
                     </div>
+                      </>
+                    )}
                   </div>
                 )}
 

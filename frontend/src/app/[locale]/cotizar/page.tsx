@@ -23,9 +23,11 @@ import {
 import { submitQuoteRequest } from '@/lib/api/quotes';
 import { getProducts } from '@/lib/api/catalog';
 import { getBranches, type Branch } from '@/lib/api/content';
+import { getUserAddresses, type UserAddress } from '@/lib/api/auth';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePostalCode } from '@/hooks/usePostalCode';
+import { MapPinIcon } from '@heroicons/react/24/solid';
 import { Button, Input, Textarea, Select, Card, Breadcrumb } from '@/components/ui';
 import { DELIVERY_METHODS, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
@@ -79,6 +81,11 @@ export default function QuotePage() {
   const postalCode = usePostalCode();
   const [coloniaManual, setColoniaManual] = useState(false);
 
+  // Saved addresses for logged-in users
+  const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [useNewAddress, setUseNewAddress] = useState(false);
+
   // Fetch branches for pickup
   const fetchBranches = async () => {
     setBranchesLoading(true);
@@ -93,6 +100,22 @@ export default function QuotePage() {
     }
   };
   useEffect(() => { fetchBranches(); }, []);
+
+  // Fetch saved addresses if user is logged in
+  useEffect(() => {
+    if (user) {
+      getUserAddresses()
+        .then((addrs) => {
+          setSavedAddresses(addrs);
+          const def = addrs.find((a) => a.is_default);
+          if (addrs.length > 0) {
+            setSelectedAddressId(def?.id || addrs[0].id);
+            setUseNewAddress(false);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   const { data: productsData } = useQuery({
     queryKey: ['products-for-quote'],
@@ -163,7 +186,9 @@ export default function QuotePage() {
       toast.error('Selecciona un método de entrega');
       return;
     }
-    if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !deliveryAddress.calle) {
+    if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !useNewAddress && selectedAddressId && savedAddresses.length > 0) {
+      // Using a saved address — no further validation needed
+    } else if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !deliveryAddress.calle) {
       setDeliveryError('Ingresa la dirección de entrega');
       toast.error('Ingresa la dirección de entrega');
       return;
@@ -177,6 +202,24 @@ export default function QuotePage() {
 
     setIsLoading(true);
     try {
+      // Resolve delivery address — saved or manually entered
+      let resolvedAddress = deliveryAddress;
+      if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !useNewAddress && selectedAddressId && savedAddresses.length > 0) {
+        const addr = savedAddresses.find((a) => a.id === selectedAddressId);
+        if (addr) {
+          resolvedAddress = {
+            calle: addr.calle,
+            numero_exterior: addr.numero_exterior,
+            numero_interior: addr.numero_interior || '',
+            colonia: addr.colonia,
+            ciudad: addr.ciudad,
+            estado: addr.estado,
+            codigo_postal: addr.codigo_postal,
+            referencia: addr.referencia || '',
+          };
+        }
+      }
+
       const result = await submitQuoteRequest({
         customer_name: data.name,
         customer_email: data.email,
@@ -189,7 +232,7 @@ export default function QuotePage() {
         includes_installation: data.installation_required,
         description: data.description,
         delivery_method: deliveryMethod || undefined,
-        delivery_address: (deliveryMethod === 'installation' || deliveryMethod === 'shipping') ? deliveryAddress : undefined,
+        delivery_address: (deliveryMethod === 'installation' || deliveryMethod === 'shipping') ? resolvedAddress : undefined,
         pickup_branch: deliveryMethod === 'pickup' ? selectedBranch : undefined,
         attachments: files,
       });
@@ -376,6 +419,12 @@ export default function QuotePage() {
                         setSelectedBranch('');
                         postalCode.reset();
                         setColoniaManual(false);
+                        // Reset to saved address picker if user has saved addresses
+                        if (savedAddresses.length > 0) {
+                          setUseNewAddress(false);
+                          const def = savedAddresses.find((a) => a.is_default);
+                          setSelectedAddressId(def?.id || savedAddresses[0].id);
+                        }
                       }
                     }}
                     className={`flex items-center justify-center sm:justify-start gap-2 px-3 py-3 rounded-lg border text-sm font-medium transition-all ${
@@ -397,6 +446,66 @@ export default function QuotePage() {
                   <p className="text-sm text-cyan-400 font-medium">
                     {deliveryMethod === 'installation' ? '📍 Dirección de instalación' : '📦 Dirección de envío'}
                   </p>
+
+                  {/* Saved addresses picker (logged-in users with addresses) */}
+                  {savedAddresses.length > 0 && !useNewAddress ? (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        {savedAddresses.map((addr) => (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => { setSelectedAddressId(addr.id); setDeliveryError(''); }}
+                            className={`w-full text-left p-3 rounded-lg border transition-all ${
+                              selectedAddressId === addr.id
+                                ? 'border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/50'
+                                : 'border-neutral-700 bg-neutral-800 hover:border-neutral-500'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <MapPinIcon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${selectedAddressId === addr.id ? 'text-cyan-400' : 'text-neutral-500'}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-white">{addr.label || 'Dirección'}</span>
+                                  {addr.is_default && <span className="text-xs text-cyan-400">(Predeterminada)</span>}
+                                </div>
+                                <p className="text-xs text-neutral-400 mt-0.5">
+                                  {addr.calle} {addr.numero_exterior}{addr.numero_interior ? ` Int. ${addr.numero_interior}` : ''}, {addr.colonia}, {addr.ciudad}, {addr.estado} C.P. {addr.codigo_postal}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUseNewAddress(true);
+                          setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+                          postalCode.reset();
+                          setColoniaManual(false);
+                        }}
+                        className="text-sm text-cyan-400 hover:underline font-medium"
+                      >
+                        + Usar otra dirección
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Back to saved addresses link */}
+                      {savedAddresses.length > 0 && useNewAddress && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUseNewAddress(false);
+                            const def = savedAddresses.find((a) => a.is_default);
+                            setSelectedAddressId(def?.id || savedAddresses[0].id);
+                          }}
+                          className="text-sm text-cyan-400 hover:underline font-medium mb-1"
+                        >
+                          ← Usar una dirección guardada
+                        </button>
+                      )}
 
                   {/* Row 1: Código Postal + Estado + Municipio */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -541,6 +650,8 @@ export default function QuotePage() {
                     value={deliveryAddress.referencia}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryAddress(p => ({ ...p, referencia: e.target.value }))}
                   />
+                    </>
+                  )}
                 </div>
               )}
 
