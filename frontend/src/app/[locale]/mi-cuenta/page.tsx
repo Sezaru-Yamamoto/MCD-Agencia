@@ -107,7 +107,8 @@ export default function ProfilePage() {
     setLoadingAddresses(true);
     try {
       const data = await getUserAddresses();
-      setAddresses(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (data as any).results ?? [];
+      setAddresses(list);
     } catch {
       // silently fail
     } finally {
