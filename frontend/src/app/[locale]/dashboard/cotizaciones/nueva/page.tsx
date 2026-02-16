@@ -1041,7 +1041,7 @@ export default function NewQuotePage() {
                                                 type="date"
                                                 value={route.estimated_date || ''}
                                                 onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
-                                                min={minEstimatedDate}
+                                                min={route.fechaInicio && route.fechaInicio >= today ? route.fechaInicio : today}
                                                 className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
                                               />
                                             </div>

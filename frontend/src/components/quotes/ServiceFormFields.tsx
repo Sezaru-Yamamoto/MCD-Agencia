@@ -2098,6 +2098,7 @@ export function serviceDetailsFromRequest(
           cantidad: (r.cantidad as number) || 1,
           unidad: (r.unidad as string) || 'servicio',
           unit_price: (r.precio_unitario as number) || 0,
+          estimated_date: (r.fecha_inicio as string) || '',
           clientRouteInfo: rutaObj
             ? {
                 punto_a: rutaObj.punto_a as { name?: string; lat?: number; lon?: number } | null,
@@ -2116,6 +2117,7 @@ export function serviceDetailsFromRequest(
         cantidad: (r.cantidad as number) || 1,
         unidad: (r.unidad as string) || 'servicio',
         unit_price: (r.precio_unitario as number) || 0,
+        estimated_date: (r.fecha_inicio as string) || '',
       }));
     } else if (subtipo === 'perifoneo') {
       base._perifoneoRoutes = rutas.map((r) => {
@@ -2130,6 +2132,7 @@ export function serviceDetailsFromRequest(
           cantidad: (r.cantidad as number) || 1,
           unidad: (r.unidad as string) || 'servicio',
           unit_price: (r.precio_unitario as number) || 0,
+          estimated_date: (r.fecha_inicio as string) || '',
           clientRouteInfo: rutaObj
             ? {
                 punto_a: rutaObj.punto_a as { name?: string; lat?: number; lon?: number } | null,
