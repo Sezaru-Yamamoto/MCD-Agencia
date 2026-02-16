@@ -352,25 +352,16 @@ export default function QuoteDetailPage() {
     });
   };
 
-  if (authLoading || isLoading) {
-    return <LoadingPage message="Cargando cotizacion..." />;
-  }
-
-  if (!isAuthenticated || !isSalesOrAdmin || !quote) {
-    return null;
-  }
-
-  const StatusIcon = statusIcons[quote.status];
-
   // ── Identify vendor-added lines (not from the original request) ──
+  // Must be above early returns to respect React Rules of Hooks.
   const vendorAddedLines = useMemo<QuoteLine[]>(() => {
-    if (!quote.quote_request || !quote.lines) return [];
+    if (!quote || !quote.quote_request || !quote.lines) return [];
 
     const requestServices = quote.quote_request.services;
     const hasCatalogItem = !!quote.quote_request.catalog_item;
     const requestServiceType = quote.quote_request.service_type;
 
-    // Helper: group consecutive lines that belong to the same service.
+    // Group consecutive lines that belong to the same service.
     // The first line of a service has service_details; route-expansion lines
     // that follow have no service_details but their concept starts with the
     // same service label prefix (e.g. "Publicidad Móvil / Vallas Móviles — Ruta 2").
@@ -380,38 +371,28 @@ export default function QuoteDetailPage() {
       const sd = line.service_details as Record<string, unknown> | undefined;
       const lineServiceType = sd?.service_type as string | undefined;
       if (lineServiceType) {
-        // Starts a new group
         groups.push({ serviceType: lineServiceType, lines: [line] });
       } else if (groups.length > 0 && groups[groups.length - 1].serviceType) {
-        // Continuation of previous group (route expansion line) —
-        // only if concept matches the group's service label pattern
         const prevGroup = groups[groups.length - 1];
         const prevConcept = prevGroup.lines[0].concept;
         const baseConcept = prevConcept.split(' — Ruta ')[0];
         if (line.concept.startsWith(baseConcept + ' — Ruta')) {
           prevGroup.lines.push(line);
         } else {
-          // Standalone line (catalog item, custom product)
           groups.push({ serviceType: undefined, lines: [line] });
         }
       } else {
-        // Standalone line
         groups.push({ serviceType: undefined, lines: [line] });
       }
     }
 
     if (requestServices && requestServices.length > 0) {
-      // Multi-service request: build a count map of service_type from request
       const requestTypeCounts = new Map<string, number>();
       for (const svc of requestServices) {
-        const t = svc.service_type;
-        requestTypeCounts.set(t, (requestTypeCounts.get(t) || 0) + 1);
+        requestTypeCounts.set(svc.service_type, (requestTypeCounts.get(svc.service_type) || 0) + 1);
       }
-
-      // Consume matching groups; leftovers are vendor-added
       const remainingCounts = new Map(requestTypeCounts);
       const vendorLines: QuoteLine[] = [];
-
       for (const group of groups) {
         if (group.serviceType && remainingCounts.has(group.serviceType) && (remainingCounts.get(group.serviceType)! > 0)) {
           remainingCounts.set(group.serviceType, remainingCounts.get(group.serviceType)! - 1);
@@ -423,7 +404,6 @@ export default function QuoteDetailPage() {
     }
 
     if (requestServiceType) {
-      // Single-service request: groups whose service_type differs or that are extra
       let matched = false;
       const vendorLines: QuoteLine[] = [];
       for (const group of groups) {
@@ -437,12 +417,21 @@ export default function QuoteDetailPage() {
     }
 
     if (hasCatalogItem) {
-      // Catalog item request: all lines after the first are vendor-added
       return quote.lines.slice(1);
     }
 
     return [];
-  }, [quote.lines, quote.quote_request]);
+  }, [quote]);
+
+  if (authLoading || isLoading) {
+    return <LoadingPage message="Cargando cotizacion..." />;
+  }
+
+  if (!isAuthenticated || !isSalesOrAdmin || !quote) {
+    return null;
+  }
+
+  const StatusIcon = statusIcons[quote.status];
 
   return (
     <div className="max-w-6xl">
