@@ -36,8 +36,7 @@ import {
   CreateQuoteData,
 } from '@/lib/api/quotes';
 import { getProducts, ProductListItem } from '@/lib/api/catalog';
-import { SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceId, type LandingServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, getDeliveryMethodsForService, type DeliveryMethod } from '@/lib/service-ids';
-import { getBranches, type Branch } from '@/lib/api/content';
+import { SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceId, type LandingServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
 // Alias for better readability
 type CatalogItem = ProductListItem;
@@ -83,7 +82,6 @@ export default function NewQuotePage() {
   const [validDays, setValidDays] = useState(15);
   // Payment mode is always FULL (deposit removed)
   const paymentMode = 'FULL' as const;
-  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
   const [terms, setTerms] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -96,12 +94,6 @@ export default function NewQuotePage() {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error'; redirectTo?: string }>({ open: false, title: '', message: '', variant: 'success' });
 
-  // Delivery method state
-  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | ''>('');
-  const [pickupBranch, setPickupBranch] = useState<string>('');
-  const [deliveryAddress, setDeliveryAddress] = useState<Record<string, string>>({});
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [availableDeliveryMethods, setAvailableDeliveryMethods] = useState<DeliveryMethod[]>([]);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -231,18 +223,7 @@ export default function NewQuotePage() {
       setCatalogItems(response.results || []);
     } catch (error) {
       console.error('Error loading catalog:', error);
-    }
-  }, []);
-
-  // Load branches for pickup option
-  const loadBranches = useCallback(async () => {
-    try {
-      const data = await getBranches();
-      setBranches(data);
-    } catch (error) {
-      console.error('Error loading branches:', error);
-    }
-  }, []);
+    }  }, []);
 
   useEffect(() => {
     if (!authLoading) {
@@ -258,45 +239,9 @@ export default function NewQuotePage() {
     if (isAuthenticated && isSalesOrAdmin) {
       loadQuoteRequest();
       loadCatalogItems();
-      loadBranches();
     }
-  }, [isAuthenticated, isSalesOrAdmin, loadQuoteRequest, loadCatalogItems, loadBranches]);
+  }, [isAuthenticated, isSalesOrAdmin, loadQuoteRequest, loadCatalogItems]);
 
-  // Compute available delivery methods based on quote request service type(s)
-  useEffect(() => {
-    if (quoteRequest?.services && quoteRequest.services.length > 0) {
-      // Multi-service: union of all delivery methods from all services
-      const allMethods = new Set<DeliveryMethod>();
-      quoteRequest.services.forEach(svc => {
-        const subtypeId = (svc.service_details as Record<string, unknown>)?.subtipo as string | undefined;
-        const methods = getDeliveryMethodsForService(svc.service_type, subtypeId);
-        methods.forEach(m => allMethods.add(m));
-      });
-      setAvailableDeliveryMethods(Array.from(allMethods));
-      // Don't pre-select global delivery method — each service has its own
-    } else if (quoteRequest?.service_type) {
-      const subtypeId = (quoteRequest.service_details as Record<string, unknown>)?.subtipo as string | undefined;
-      const methods = getDeliveryMethodsForService(quoteRequest.service_type, subtypeId);
-      setAvailableDeliveryMethods(methods);
-      // Pre-select delivery method from request, or default to first available
-      if (quoteRequest.delivery_method) {
-        setDeliveryMethod(quoteRequest.delivery_method as DeliveryMethod);
-      } else if (methods.length === 1) {
-        setDeliveryMethod(methods[0]);
-      }
-      // Pre-fill pickup branch from request
-      if (quoteRequest.pickup_branch) {
-        setPickupBranch(quoteRequest.pickup_branch);
-      }
-      // Pre-fill delivery address from request
-      if (quoteRequest.delivery_address && typeof quoteRequest.delivery_address === 'object') {
-        setDeliveryAddress(quoteRequest.delivery_address as Record<string, string>);
-      }
-    } else {
-      // No service context — show all methods
-      setAvailableDeliveryMethods(['installation', 'pickup', 'shipping', 'digital', 'not_applicable']);
-    }
-  }, [quoteRequest]);
 
   if (authLoading || isLoading) {
     return <LoadingPage message="Cargando..." />;
@@ -430,11 +375,7 @@ export default function NewQuotePage() {
         payment_mode: 'FULL',
         terms: terms || undefined,
         internal_notes: internalNotes || undefined,
-        estimated_delivery_date: estimatedDeliveryDate || undefined,
         payment_conditions: paymentConditions || undefined,
-        delivery_method: deliveryMethod || undefined,
-        pickup_branch_id: deliveryMethod === 'pickup' && pickupBranch ? pickupBranch : undefined,
-        delivery_address: (deliveryMethod === 'shipping' || deliveryMethod === 'installation') && Object.keys(deliveryAddress).length > 0 ? deliveryAddress : undefined,
         lines: items.flatMap((item) => {
           // Auto-generate concept from service details if it's a service item
           let concept = item.concept;
@@ -446,11 +387,8 @@ export default function NewQuotePage() {
             concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
           }
 
-          // Per-line delivery info
-          const lineDelivery = item.lineDeliveryMethod || deliveryMethod || undefined;
-          const lineAddress = lineDelivery === 'shipping' || lineDelivery === 'installation'
-            ? deliveryAddress : undefined;
-          const lineBranch = lineDelivery === 'pickup' ? pickupBranch || undefined : undefined;
+          // Per-line delivery info (each service has its own delivery method from the request)
+          const lineDelivery = item.lineDeliveryMethod || undefined;
 
           // Route-based: expand into one line per route
           if (isRouteBasedDetails(item.serviceDetails)) {
@@ -467,8 +405,6 @@ export default function NewQuotePage() {
               service_details: ri === 0 ? (item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined) : undefined,
               shipping_cost: ri === 0 ? (item.shipping_cost || undefined) : undefined,
               delivery_method: ri === 0 ? lineDelivery : undefined,
-              delivery_address: ri === 0 ? lineAddress : undefined,
-              pickup_branch: ri === 0 ? lineBranch : undefined,
               estimated_delivery_date: rl.estimated_date || (ri === 0 && item.lineEstimatedDate ? item.lineEstimatedDate : undefined),
             }));
           }
@@ -485,8 +421,6 @@ export default function NewQuotePage() {
             service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
             shipping_cost: item.shipping_cost || undefined,
             delivery_method: lineDelivery,
-            delivery_address: lineAddress,
-            pickup_branch: lineBranch,
             estimated_delivery_date: item.lineEstimatedDate || undefined,
           }];
         }).map((line, idx) => ({ ...line, position: idx + 1 })),
@@ -1506,134 +1440,16 @@ export default function NewQuotePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-neutral-400 text-sm mb-2">Fecha Estimada de Entrega</label>
-                  <input
-                    type="date"
-                    value={estimatedDeliveryDate}
-                    onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan [color-scheme:dark]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-neutral-400 text-sm mb-2">Condiciones de Pago</label>
-                  <input
-                    type="text"
-                    value={paymentConditions}
-                    onChange={(e) => setPaymentConditions(e.target.value)}
-                    placeholder="Ej: Transferencia, tarjeta"
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                  />
-                </div>
-              </div>
-
-              {/* Delivery Method Section */}
               <div className="mb-4">
-                <label className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
-                  <TruckIcon className="h-4 w-4" />
-                  Método de Entrega
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {availableDeliveryMethods.map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => {
-                        setDeliveryMethod(method);
-                        // Reset conditional fields when switching
-                        if (method !== 'pickup') setPickupBranch('');
-                        if (method !== 'shipping' && method !== 'installation') setDeliveryAddress({});
-                      }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
-                        deliveryMethod === method
-                          ? 'border-cmyk-cyan bg-cmyk-cyan/10 text-cmyk-cyan'
-                          : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-600'
-                      }`}
-                    >
-                      <span>{DELIVERY_METHOD_ICONS[method]}</span>
-                      <span>{DELIVERY_METHOD_LABELS[method].es}</span>
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-neutral-400 text-sm mb-2">Condiciones de Pago</label>
+                <input
+                  type="text"
+                  value={paymentConditions}
+                  onChange={(e) => setPaymentConditions(e.target.value)}
+                  placeholder="Ej: Transferencia, tarjeta"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                />
               </div>
-
-              {/* Pickup Branch selector — shown when delivery method is "pickup" */}
-              {deliveryMethod === 'pickup' && (
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
-                    <MapPinIcon className="h-4 w-4" />
-                    Sucursal de Recolección
-                  </label>
-                  <select
-                    value={pickupBranch}
-                    onChange={(e) => setPickupBranch(e.target.value)}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan"
-                  >
-                    <option value="">Seleccionar sucursal...</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name} — {branch.city}, {branch.state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Delivery Address — shown for shipping or installation */}
-              {(deliveryMethod === 'shipping' || deliveryMethod === 'installation') && (
-                <div className="mb-4 space-y-3">
-                  <label className="flex items-center gap-2 text-neutral-400 text-sm">
-                    <MapPinIcon className="h-4 w-4" />
-                    {deliveryMethod === 'installation' ? 'Dirección de Instalación' : 'Dirección de Envío'}
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={deliveryAddress.street || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, street: e.target.value }))}
-                      placeholder="Calle y número"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.neighborhood || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, neighborhood: e.target.value }))}
-                      placeholder="Colonia"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.city || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, city: e.target.value }))}
-                      placeholder="Ciudad"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.state || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, state: e.target.value }))}
-                      placeholder="Estado"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.postal_code || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, postal_code: e.target.value }))}
-                      placeholder="Código Postal"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.reference || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, reference: e.target.value }))}
-                      placeholder="Referencia (opcional)"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="mb-4">
                 <label className="block text-neutral-400 text-sm mb-2">Términos y Condiciones</label>
