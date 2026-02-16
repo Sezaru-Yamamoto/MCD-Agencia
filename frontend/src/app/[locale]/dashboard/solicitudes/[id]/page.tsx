@@ -511,28 +511,28 @@ export default function QuoteRequestDetailPage() {
                         <p className="text-neutral-300 text-sm mb-3 whitespace-pre-wrap">{svc.description}</p>
                       )}
 
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
                         {svc.delivery_method && (
-                          <div className="p-2 bg-neutral-900/50 rounded">
-                            <p className="text-neutral-500 text-xs">Entrega</p>
-                            <p className="text-white flex items-center gap-1">
+                          <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                            <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                            <p className="text-white font-medium flex items-center gap-1 mt-auto">
                               <span>{DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]}</span>
                               {DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es || svc.delivery_method}
                             </p>
                           </div>
                         )}
                         {svc.pickup_branch_detail && (
-                          <div className="p-2 bg-neutral-900/50 rounded">
-                            <p className="text-neutral-500 text-xs">Sucursal</p>
-                            <p className="text-white">{svc.pickup_branch_detail.name}</p>
+                          <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                            <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                            <p className="text-white font-medium mt-auto">{svc.pickup_branch_detail.name}</p>
                           </div>
                         )}
                         {svc.delivery_address && Object.keys(svc.delivery_address).length > 0 && (
-                          <div className="p-2 bg-neutral-900/50 rounded col-span-2">
-                            <p className="text-neutral-500 text-xs">
-                              {svc.delivery_method === 'installation' ? 'Dir. Instalación' : 'Dir. Envío'}
+                          <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                            <p className="text-neutral-500 text-xs mb-1">
+                              {svc.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
                             </p>
-                            <p className="text-white text-xs">
+                            <p className="text-white font-medium mt-auto">
                               {[svc.delivery_address.street || svc.delivery_address.calle,
                                 svc.delivery_address.exterior_number || svc.delivery_address.numero_exterior,
                                 svc.delivery_address.neighborhood || svc.delivery_address.colonia,
@@ -544,9 +544,9 @@ export default function QuoteRequestDetailPage() {
                           </div>
                         )}
                         {svc.required_date && (
-                          <div className="p-2 bg-neutral-900/50 rounded">
-                            <p className="text-neutral-500 text-xs">Fecha Requerida</p>
-                            <p className="text-white">
+                          <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                            <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                            <p className="text-white font-medium mt-auto">
                               {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
                                 year: 'numeric', month: 'short', day: 'numeric',
                               })}

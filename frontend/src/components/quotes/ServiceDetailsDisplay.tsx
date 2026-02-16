@@ -142,6 +142,20 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
     return null;
   }
 
+  // Context-aware label for the 'tipo' field based on service
+  const tipoLabel = (() => {
+    switch (serviceType) {
+      case 'espectaculares': return 'Tipo de espectacular';
+      case 'fabricacion-anuncios': return 'Tipo de anuncio';
+      case 'senalizacion': return 'Tipo de señalización';
+      case 'rotulacion-vehicular': return 'Tipo de rotulación';
+      case 'corte-grabado-cnc-laser': return 'Tipo de proceso';
+      case 'diseno-grafico': return 'Tipo de diseño';
+      case 'impresion-offset-serigrafia': return 'Tipo de impresión';
+      default: return 'Tipo';
+    }
+  })();
+
   const formatValue = (key: string, value: unknown): string | JSX.Element => {
     if (value === null || value === undefined) return '-';
 
@@ -251,10 +265,18 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
     return indexA - indexB;
   });
 
-  // Fields to hide (internal indicators)
-  const hiddenFields = ['ruta', 'delimitacion_zona', 'coordenadas', 'rutas', 'tipo_personalizado',
-    'subtipo_personalizado', 'material_personalizado', 'tipo_rotulacion_personalizado',
-    'producto_personalizado', 'tipo_impresion_personalizado'];
+  // Fields to hide (internal indicators + fields not filled by client form)
+  const hiddenFields = [
+    'ruta', 'delimitacion_zona', 'coordenadas', 'rutas',
+    'tipo_personalizado', 'subtipo_personalizado', 'material_personalizado',
+    'tipo_rotulacion_personalizado', 'producto_personalizado', 'tipo_impresion_personalizado',
+    'tipo_otro',
+    // These fields are NOT collected by the client quote form
+    'instalacion_incluida',
+    'ubicacion',
+    // For espectaculares, 'subtipo' is a duplicate of 'tipo' — hide it
+    ...(serviceType === 'espectaculares' && serviceDetails.tipo ? ['subtipo'] : []),
+  ];
 
   // Separate route/complex fields from simple fields
   const simpleFields = sortedKeys.filter(key =>
@@ -270,22 +292,24 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
 
   return (
     <div className="space-y-4">
-      {/* Simple fields in grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Simple fields in uniform grid */}
+      <div className="grid grid-cols-2 gap-3">
         {simpleFields.map((key) => {
           const value = serviceDetails[key];
-          if (value === null || value === undefined || key === 'coordenadas') return null;
+          if (value === null || value === undefined || value === '' || key === 'coordenadas') return null;
 
           const formattedValue = formatValue(key, value);
           const icon = getIcon(key);
+          // Use context-aware label for 'tipo'
+          const label = key === 'tipo' ? tipoLabel : (serviceDetailsLabels[key] || key);
 
           return (
-            <div key={key} className="p-3 bg-neutral-800/50 rounded-lg">
+            <div key={key} className="p-3 bg-neutral-800/50 rounded-lg flex flex-col">
               <div className="flex items-center gap-2 mb-1">
                 {icon}
-                <p className="text-neutral-500 text-xs">{serviceDetailsLabels[key] || key}</p>
+                <p className="text-neutral-500 text-xs">{label}</p>
               </div>
-              <p className="text-white font-medium">
+              <p className="text-white font-medium mt-auto">
                 {typeof formattedValue === 'string' ? formattedValue : formattedValue}
               </p>
             </div>
