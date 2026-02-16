@@ -103,6 +103,7 @@ const createEstablishedRoute = (): EstablishedRouteEntry => ({
 
 // Helper: add N months to a date string (YYYY-MM-DD) and return YYYY-MM-DD
 const addMonths = (dateStr: string, months: number): string => {
+
   const d = new Date(dateStr + 'T00:00:00');
   d.setMonth(d.getMonth() + months);
   return d.toISOString().split('T')[0];
@@ -763,6 +764,12 @@ export function QuoteForm() {
             setErrorMessage('Cada ruta de vallas móviles debe tener fecha de inicio, horario de inicio y horario de fin');
             return;
           }
+          const invalidSchedule = vallasRoutes.find(r => (r.horarioInicio && (r.horarioInicio < '07:00' || r.horarioInicio > '19:00')) || (r.horarioFin && (r.horarioFin < '07:00' || r.horarioFin > '19:00')));
+          if (invalidSchedule) {
+            setFormStatus('error');
+            setErrorMessage('El horario de las rutas debe estar entre 7:00 y 19:00');
+            return;
+          }
           const missingEndDate = vallasRoutes.find(r => !r.fechaFin);
           if (missingEndDate) {
             setFormStatus('error');
@@ -805,6 +812,12 @@ export function QuoteForm() {
           if (missingSchedule) {
             setFormStatus('error');
             setErrorMessage('Cada ruta de perifoneo debe tener fecha de inicio, horario de inicio y horario de fin');
+            return;
+          }
+          const invalidSchedule = perifoneoRoutes.find(r => (r.horarioInicio && (r.horarioInicio < '07:00' || r.horarioInicio > '19:00')) || (r.horarioFin && (r.horarioFin < '07:00' || r.horarioFin > '19:00')));
+          if (invalidSchedule) {
+            setFormStatus('error');
+            setErrorMessage('El horario de las rutas debe estar entre 7:00 y 19:00');
             return;
           }
           const missingEndDate = perifoneoRoutes.find(r => !r.fechaFin);
@@ -865,7 +878,9 @@ export function QuoteForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al enviar el formulario');
+        const errorBody = await response.json().catch(() => ({}));
+        console.error('Server response error:', response.status, errorBody);
+        throw new Error(errorBody?.error || errorBody?.detail || 'Error al enviar el formulario');
       }
 
       setFormStatus('success');
@@ -1859,20 +1874,26 @@ export function QuoteForm() {
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario inicio <span className="text-cmyk-magenta">*</span></label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className={`input-field text-sm ${entry.horarioInicio && (entry.horarioInicio < '07:00' || entry.horarioInicio > '19:00') ? 'border-red-500 text-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`} disabled={formStatus === 'submitting'}
                                   min="07:00" max="19:00"
                                   value={entry.horarioInicio}
                                   onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                                {entry.horarioInicio && (entry.horarioInicio < '07:00' || entry.horarioInicio > '19:00') && (
+                                  <p className="text-xs text-red-400 mt-0.5">Fuera del horario permitido</p>
+                                )}
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario fin <span className="text-cmyk-magenta">*</span></label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className={`input-field text-sm ${entry.horarioFin && (entry.horarioFin < '07:00' || entry.horarioFin > '19:00') ? 'border-red-500 text-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`} disabled={formStatus === 'submitting'}
                                   min="07:00" max="19:00"
                                   value={entry.horarioFin}
                                   onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                                {entry.horarioFin && (entry.horarioFin < '07:00' || entry.horarioFin > '19:00') && (
+                                  <p className="text-xs text-red-400 mt-0.5">Fuera del horario permitido</p>
+                                )}
                               </div>
                             </div>
-                            <p className="text-xs text-gray-500 -mt-1">Horario permitido: 7:00 a 19:00</p>
+                            <p className={`text-xs -mt-1 ${vallasRoutes.some(r => (r.horarioInicio && (r.horarioInicio < '07:00' || r.horarioInicio > '19:00')) || (r.horarioFin && (r.horarioFin < '07:00' || r.horarioFin > '19:00'))) ? 'text-red-400 font-semibold' : 'text-gray-500'}`}>Horario permitido: 7:00 a 19:00</p>
                             <div>
                               <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa <span className="text-cmyk-magenta">*</span></label>
                               <RouteSelector onChange={(route) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
@@ -2080,20 +2101,26 @@ export function QuoteForm() {
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario inicio <span className="text-cmyk-magenta">*</span></label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className={`input-field text-sm ${entry.horarioInicio && (entry.horarioInicio < '07:00' || entry.horarioInicio > '19:00') ? 'border-red-500 text-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`} disabled={formStatus === 'submitting'}
                                   min="07:00" max="19:00"
                                   value={entry.horarioInicio}
                                   onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioInicio: e.target.value } : r))} />
+                                {entry.horarioInicio && (entry.horarioInicio < '07:00' || entry.horarioInicio > '19:00') && (
+                                  <p className="text-xs text-red-400 mt-0.5">Fuera del horario permitido</p>
+                                )}
                               </div>
                               <div>
                                 <label className="label-field text-xs">Horario fin <span className="text-cmyk-magenta">*</span></label>
-                                <input type="time" className="input-field text-sm" disabled={formStatus === 'submitting'}
+                                <input type="time" className={`input-field text-sm ${entry.horarioFin && (entry.horarioFin < '07:00' || entry.horarioFin > '19:00') ? 'border-red-500 text-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`} disabled={formStatus === 'submitting'}
                                   min="07:00" max="19:00"
                                   value={entry.horarioFin}
                                   onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, horarioFin: e.target.value } : r))} />
+                                {entry.horarioFin && (entry.horarioFin < '07:00' || entry.horarioFin > '19:00') && (
+                                  <p className="text-xs text-red-400 mt-0.5">Fuera del horario permitido</p>
+                                )}
                               </div>
                             </div>
-                            <p className="text-xs text-gray-500 -mt-1">Horario permitido: 7:00 a 19:00</p>
+                            <p className={`text-xs -mt-1 ${perifoneoRoutes.some(r => (r.horarioInicio && (r.horarioInicio < '07:00' || r.horarioInicio > '19:00')) || (r.horarioFin && (r.horarioFin < '07:00' || r.horarioFin > '19:00'))) ? 'text-red-400 font-semibold' : 'text-gray-500'}`}>Horario permitido: 7:00 a 19:00</p>
                             <div>
                               <label className="label-field text-xs mb-1.5 block">Trazar ruta en mapa <span className="text-cmyk-magenta">*</span></label>
                               <RouteSelector onChange={(route) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
