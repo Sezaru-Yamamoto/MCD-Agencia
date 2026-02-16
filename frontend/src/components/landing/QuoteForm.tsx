@@ -1124,12 +1124,15 @@ export function QuoteForm() {
         />
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="max-w-4xl mx-auto bg-cmyk-black rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 lg:p-12 border border-cmyk-cyan/20">
+        <form onSubmit={handleSubmit(onSubmit)} className="max-w-4xl mx-auto space-y-6">
 
-          {/* SECTION: Contact Data */}
-          <div className="mb-10">
+          {/* ═══════════════ OUTER CONTAINER ═══════════════ */}
+          <div className="bg-cmyk-black rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 lg:p-10 border border-cmyk-cyan/20 space-y-8">
+
+          {/* ──── BOX 1: Datos de contacto ──── */}
+          <div className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 sm:p-6">
             <h3 className="text-2xl font-bold text-white mb-6">{t('contactData')}</h3>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
               <div>
                 <label htmlFor="nombre" className="label-field">
                   {t('name')} <span className="text-cmyk-magenta">*</span>
@@ -1192,7 +1195,54 @@ export function QuoteForm() {
                 />
                 {errors.email && <p className="error-message">{errors.email.message}</p>}
               </div>
+            </div>
+          </div>
 
+          {/* ──── SAVED SERVICES (rendered above active service box) ──── */}
+          {savedServices.length > 0 && (
+            <div className="space-y-3">
+              {savedServices.map((svc, idx) => (
+                <div key={svc.id} className="rounded-xl border border-cmyk-cyan/30 bg-cmyk-cyan/5 p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-xs font-bold">{idx + 1}</span>
+                        <h4 className="text-base font-bold text-white">{svc.serviceLabel}</h4>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 ml-8">
+                        {svc.requiredDate && (
+                          <span>📅 {new Date(svc.requiredDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                        )}
+                        {svc.deliveryMethod && svc.deliveryMethod !== 'not_applicable' && (
+                          <span>📦 {DELIVERY_METHOD_LABELS[svc.deliveryMethod]?.es || svc.deliveryMethod}</span>
+                        )}
+                        {svc.files.length > 0 && <span>📎 {svc.files.length} archivo{svc.files.length > 1 ? 's' : ''}</span>}
+                        {svc.comments && <span>💬 Con comentarios</span>}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeService(svc.id)}
+                      disabled={formStatus === 'submitting'}
+                      className="text-red-400 hover:text-red-300 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                      title="Quitar servicio"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ──── BOX 2: Detalles del servicio (active/current) ──── */}
+          <div className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 sm:p-6 space-y-6">
+            <h3 className="text-2xl font-bold text-white">Detalles del servicio</h3>
+
+            {/* Service selector + Subtype + Fecha requerida — same row on desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
               <div>
                 <div className="flex justify-between items-center">
                   <label htmlFor="servicio" className="label-field">
@@ -1224,11 +1274,248 @@ export function QuoteForm() {
                 {errors.servicio && <p className="error-message">{errors.servicio.message}</p>}
               </div>
 
-              {/* Show fecha requerida only after selecting a service; hide for publicidad-movil subtypes with routes */}
+              {/* Subtype inline — only for services that have a subtype selector as first field */}
+              {servicioValue === 'espectaculares' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Tipo <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('esp_tipo', { required: 'Selecciona un tipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona tipo</option>
+                    {ESPECTACULARES_TIPOS.map(tipo => (
+                      <option key={tipo} value={tipo}>
+                        {tipo === 'unipolar' ? 'Unipolar' : tipo === 'azotea' ? 'Azotea' : tipo === 'mural' ? 'Mural publicitario' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.esp_tipo && <p className="error-message">{errors.esp_tipo.message}</p>}
+                  {espTipo === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('esp_tipoOtro', { required: espTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'fabricacion-anuncios' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Tipo de anuncio <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('fab_tipoAnuncio', { required: 'Selecciona un tipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona tipo</option>
+                    {FABRICACION_ANUNCIOS_TIPOS.map(tipo => (
+                      <option key={tipo} value={tipo}>
+                        {tipo === 'cajas-luz' ? 'Cajas de luz' : tipo === 'letras-3d' ? 'Letras 3D' : tipo === 'anuncios-2d' ? 'Anuncios 2D' : tipo === 'bastidores' ? 'Bastidores' : tipo === 'toldos' ? 'Toldos' : tipo === 'neon' ? 'Neón' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.fab_tipoAnuncio && <p className="error-message">{errors.fab_tipoAnuncio.message}</p>}
+                  {fabTipoAnuncio === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('fab_tipoOtro', { required: fabTipoAnuncio === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'publicidad-movil' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Subtipo <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('pub_subtipo', { required: 'Selecciona un subtipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona subtipo</option>
+                    <option value="vallas-moviles">Vallas móviles</option>
+                    <option value="publibuses">Publibuses</option>
+                    <option value="perifoneo">Perifoneo</option>
+                    <option value="otro">Otro (especificar)</option>
+                  </select>
+                  {errors.pub_subtipo && <p className="error-message">{errors.pub_subtipo.message}</p>}
+                </div>
+              )}
+              {servicioValue === 'impresion-gran-formato' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Material <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('igf_material', { required: 'Selecciona un material' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona material</option>
+                    {GRAN_FORMATO_MATERIALES.map(mat => (
+                      <option key={mat} value={mat}>{mat === 'otro' ? 'Otro (especificar)' : mat.charAt(0).toUpperCase() + mat.slice(1)}</option>
+                    ))}
+                  </select>
+                  {errors.igf_material && <p className="error-message">{errors.igf_material.message}</p>}
+                  {igfMaterial === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('igf_materialOtro', { required: igfMaterial === 'otro' ? 'Especifica el material' : false })} type="text" className="input-field" placeholder="Especifica el material" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'senalizacion' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Tipo <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('sen_tipo', { required: 'Selecciona un tipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona tipo</option>
+                    {SENALIZACION_TIPOS.map(tipo => (
+                      <option key={tipo} value={tipo}>
+                        {tipo === 'interior' ? 'Interior' : tipo === 'exterior' ? 'Exterior' : tipo === 'vial' ? 'Vial' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.sen_tipo && <p className="error-message">{errors.sen_tipo.message}</p>}
+                  {senTipo === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('sen_tipoOtro', { required: senTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'rotulacion-vehicular' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Tipo de rotulación <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('rot_tipoRotulacion', { required: 'Selecciona un tipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona tipo</option>
+                    {ROTULACION_TIPOS.map(tipo => (
+                      <option key={tipo} value={tipo}>
+                        {tipo === 'completa' ? 'Rotulación completa' : tipo === 'parcial' ? 'Rotulación parcial' : tipo === 'vinil-recortado' ? 'Vinil recortado' : tipo === 'impresion-digital' ? 'Impresión digital' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.rot_tipoRotulacion && <p className="error-message">{errors.rot_tipoRotulacion.message}</p>}
+                  {rotTipoRotulacion === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('rot_tipoRotulacionOtro', { required: rotTipoRotulacion === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'corte-grabado-cnc-laser' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Tipo de servicio <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('cnc_tipo', { required: 'Selecciona un tipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona tipo</option>
+                    {CNC_LASER_TIPOS.map(tipo => (
+                      <option key={tipo} value={tipo}>
+                        {tipo === 'router-cnc' ? 'Router CNC' : tipo === 'corte-laser' ? 'Corte Láser' : tipo === 'grabado-laser' ? 'Grabado Láser' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.cnc_tipo && <p className="error-message">{errors.cnc_tipo.message}</p>}
+                  {cncTipo === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('cnc_tipoOtro', { required: cncTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'diseno-grafico' && (
+                <div>
+                  <div className="flex justify-between items-center">
+                    <label className="label-field">Tipo de diseño <span className="text-cmyk-magenta">*</span></label>
+                    {selectionFeedback?.subtype && (
+                      <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
+                    )}
+                  </div>
+                  <select
+                    {...register('dis_tipo', { required: 'Selecciona un tipo' })}
+                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
+                    disabled={formStatus === 'submitting'}
+                  >
+                    <option value="">Selecciona tipo</option>
+                    {DISENO_GRAFICO_TIPOS.map(tipo => (
+                      <option key={tipo} value={tipo}>
+                        {tipo === 'logotipos' ? 'Logotipos' : tipo === 'papeleria' ? 'Papelería' : tipo === 'redes-sociales' ? 'Redes Sociales' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.dis_tipo && <p className="error-message">{errors.dis_tipo.message}</p>}
+                  {disTipo === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('dis_tipoOtro', { required: disTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {servicioValue === 'impresion-offset-serigrafia' && (
+                <div>
+                  <label className="label-field">Producto <span className="text-cmyk-magenta">*</span></label>
+                  <select {...register('off_producto', { required: 'Selecciona un producto' })} className="input-field" disabled={formStatus === 'submitting'}>
+                    <option value="">Selecciona producto</option>
+                    {OFFSET_PRODUCTOS.map(prod => (
+                      <option key={prod} value={prod}>
+                        {prod === 'tarjetas-presentacion' ? 'Tarjetas de presentación' : prod === 'volantes' ? 'Volantes' : 'Otro (especificar)'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.off_producto && <p className="error-message">{errors.off_producto.message}</p>}
+                  {offProducto === 'otro' && (
+                    <div className="mt-2">
+                      <input {...register('off_productoOtro', { required: offProducto === 'otro' ? 'Especifica el producto' : false })} type="text" className="input-field" placeholder="Especifica el producto" disabled={formStatus === 'submitting'} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Fecha requerida — shown inline unless route-based pub-movil */}
               {servicioValue && !(servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '')) && (
                 <div>
                   <label htmlFor="fechaRequerida" className="label-field">
-                    Fecha estimada requerida <span className="text-cmyk-magenta">*</span>
+                    Fecha requerida <span className="text-cmyk-magenta">*</span>
                   </label>
                   <input
                     {...register('fechaRequerida', { required: !servicioValue || (servicioValue === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(pubSubtipo || '')) ? false : 'La fecha es requerida' })}
@@ -1248,48 +1535,16 @@ export function QuoteForm() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* SECTION: Service-Specific Details */}
+
+
+          {/* ──── Service Parameters ──── */}
           {servicioValue && (
-            <div className="mb-10 p-6 bg-neutral-900/50 rounded-xl border border-neutral-700">
-              <h3 className="text-xl font-bold text-white mb-6">Detalles del servicio</h3>
+            <div className="space-y-6">
 
-              {/* ESPECTACULARES */}
+              {/* ESPECTACULARES — remaining params (type already inline) */}
               {servicioValue === 'espectaculares' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Tipo de espectacular <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('esp_tipo', { required: 'Selecciona un tipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona tipo</option>
-                      {ESPECTACULARES_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>
-                          {tipo === 'unipolar' ? 'Unipolar' : tipo === 'azotea' ? 'Azotea' : tipo === 'mural' ? 'Mural publicitario' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.esp_tipo && <p className="error-message">{errors.esp_tipo.message}</p>}
-                    {espTipo === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('esp_tipoOtro', { required: espTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de espectacular" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Medidas (ancho × alto) <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('esp_medidas', { required: 'Las medidas son requeridas' })} type="text" className="input-field" placeholder="ej. 12m × 6m" disabled={formStatus === 'submitting'} />
@@ -1315,41 +1570,9 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* FABRICACIÓN DE ANUNCIOS */}
+              {/* FABRICACIÓN DE ANUNCIOS — remaining params (type already inline) */}
               {servicioValue === 'fabricacion-anuncios' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Tipo de anuncio <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('fab_tipoAnuncio', { required: 'Selecciona un tipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona tipo</option>
-                      {FABRICACION_ANUNCIOS_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>
-                          {tipo === 'cajas-luz' ? 'Cajas de luz' : tipo === 'letras-3d' ? 'Letras 3D' : tipo === 'anuncios-2d' ? 'Anuncios 2D' : tipo === 'bastidores' ? 'Bastidores' : tipo === 'toldos' ? 'Toldos' : tipo === 'neon' ? 'Neón' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.fab_tipoAnuncio && <p className="error-message">{errors.fab_tipoAnuncio.message}</p>}
-                    {fabTipoAnuncio === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('fab_tipoOtro', { required: fabTipoAnuncio === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de anuncio" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Medidas <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('fab_medidas', { required: 'Las medidas son requeridas' })} type="text" className="input-field" placeholder="ancho × alto × profundidad" disabled={formStatus === 'submitting'} />
@@ -1382,39 +1605,12 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* PUBLICIDAD MÓVIL */}
+              {/* PUBLICIDAD MÓVIL — subtypes (subtipo selector already inline) */}
               {servicioValue === 'publicidad-movil' && (
                 <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Subtipo <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('pub_subtipo', { required: 'Selecciona un subtipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona subtipo</option>
-                      <option value="vallas-moviles">Vallas móviles</option>
-                      <option value="publibuses">Publibuses</option>
-                      <option value="perifoneo">Perifoneo</option>
-                      <option value="otro">Otro (especificar)</option>
-                    </select>
-                    {errors.pub_subtipo && <p className="error-message">{errors.pub_subtipo.message}</p>}
-                  </div>
-
                   {/* Otro subtipo fields */}
                   {pubSubtipo === 'otro' && (
-                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                       <div className="md:col-span-2">
                         <label className="label-field">Tipo de publicidad móvil <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('pub_subtipoOtro', { required: pubSubtipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de publicidad móvil" disabled={formStatus === 'submitting'} />
@@ -1428,7 +1624,7 @@ export function QuoteForm() {
 
                   {/* Vallas móviles fields */}
                   {pubSubtipo === 'vallas-moviles' && (
-                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700 overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50 overflow-hidden">
                       <div>
                         <label className="label-field">Cantidad de vallas <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('vallas_cantidad', { required: pubSubtipo === 'vallas-moviles' ? 'La cantidad es requerida' : false, min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="1" disabled={formStatus === 'submitting'} />
@@ -1530,7 +1726,7 @@ export function QuoteForm() {
 
                   {/* Publibuses fields */}
                   {pubSubtipo === 'publibuses' && (
-                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                       <div>
                         <label className="label-field">Ciudad / zona <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('pub_ciudadZona', { required: pubSubtipo === 'publibuses' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Ciudad o zona de campaña" disabled={formStatus === 'submitting'} />
@@ -1653,7 +1849,7 @@ export function QuoteForm() {
 
                   {/* Perifoneo fields */}
                   {pubSubtipo === 'perifoneo' && (
-                    <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-neutral-700 overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50 overflow-hidden">
                       <div>
                         <label className="label-field">Zona de cobertura <span className="text-cmyk-magenta">*</span></label>
                         <input {...register('pub_zonaCobertura', { required: pubSubtipo === 'perifoneo' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Colonia, municipio o área" disabled={formStatus === 'submitting'} />
@@ -1767,39 +1963,9 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* IMPRESIÓN GRAN FORMATO */}
+              {/* IMPRESIÓN GRAN FORMATO — remaining params (material already inline) */}
               {servicioValue === 'impresion-gran-formato' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Material <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('igf_material', { required: 'Selecciona un material' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona material</option>
-                      {GRAN_FORMATO_MATERIALES.map(mat => (
-                        <option key={mat} value={mat}>{mat === 'otro' ? 'Otro (especificar)' : mat.charAt(0).toUpperCase() + mat.slice(1)}</option>
-                      ))}
-                    </select>
-                    {errors.igf_material && <p className="error-message">{errors.igf_material.message}</p>}
-                    {igfMaterial === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('igf_materialOtro', { required: igfMaterial === 'otro' ? 'Especifica el material' : false })} type="text" className="input-field" placeholder="Especifica el material" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Medidas <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('igf_medidas', { required: 'Las medidas son requeridas' })} type="text" className="input-field" placeholder="ancho × alto" disabled={formStatus === 'submitting'} />
@@ -1825,41 +1991,9 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* SEÑALIZACIÓN */}
+              {/* SEÑALIZACIÓN — remaining params (type already inline) */}
               {servicioValue === 'senalizacion' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Tipo de señalización <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('sen_tipo', { required: 'Selecciona un tipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona tipo</option>
-                      {SENALIZACION_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>
-                          {tipo === 'interior' ? 'Interior' : tipo === 'exterior' ? 'Exterior' : tipo === 'vial' ? 'Vial' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.sen_tipo && <p className="error-message">{errors.sen_tipo.message}</p>}
-                    {senTipo === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('sen_tipoOtro', { required: senTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de señalización" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Medidas <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('sen_medidas', { required: 'Las medidas son requeridas' })} type="text" className="input-field" placeholder="ancho × alto" disabled={formStatus === 'submitting'} />
@@ -1873,45 +2007,13 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* ROTULACIÓN VEHICULAR */}
+              {/* ROTULACIÓN VEHICULAR — remaining params (type already inline) */}
               {servicioValue === 'rotulacion-vehicular' && (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Tipo de vehículo <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('rot_tipoVehiculo', { required: 'El tipo de vehículo es requerido' })} type="text" className="input-field" placeholder="ej. Camioneta, Sedán, Autobús" disabled={formStatus === 'submitting'} />
                     {errors.rot_tipoVehiculo && <p className="error-message">{errors.rot_tipoVehiculo.message}</p>}
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Tipo de rotulación <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('rot_tipoRotulacion', { required: 'Selecciona un tipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona tipo</option>
-                      {ROTULACION_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>
-                          {tipo === 'completa' ? 'Rotulación completa' : tipo === 'parcial' ? 'Rotulación parcial' : tipo === 'vinil-recortado' ? 'Vinil recortado' : tipo === 'impresion-digital' ? 'Impresión digital' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.rot_tipoRotulacion && <p className="error-message">{errors.rot_tipoRotulacion.message}</p>}
-                    {rotTipoRotulacion === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('rot_tipoRotulacionOtro', { required: rotTipoRotulacion === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de rotulación" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
                   </div>
                   <div>
                     <label className="label-field">¿Diseño incluido? <span className="text-cmyk-magenta">*</span></label>
@@ -1928,41 +2030,9 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* CORTE Y GRABADO CNC/LÁSER */}
+              {/* CORTE Y GRABADO CNC/LÁSER — remaining params (type already inline) */}
               {servicioValue === 'corte-grabado-cnc-laser' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Tipo de servicio <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('cnc_tipo', { required: 'Selecciona un tipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona tipo</option>
-                      {CNC_LASER_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>
-                          {tipo === 'router-cnc' ? 'Router CNC' : tipo === 'corte-laser' ? 'Corte Láser' : tipo === 'grabado-laser' ? 'Grabado Láser' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.cnc_tipo && <p className="error-message">{errors.cnc_tipo.message}</p>}
-                    {cncTipo === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('cnc_tipoOtro', { required: cncTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de servicio" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Medidas <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('cnc_medidas', { required: 'Las medidas son requeridas' })} type="text" className="input-field" placeholder="ancho × alto × espesor" disabled={formStatus === 'submitting'} />
@@ -1988,41 +2058,9 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* DISEÑO GRÁFICO */}
+              {/* DISEÑO GRÁFICO — remaining params (type already inline) */}
               {servicioValue === 'diseno-grafico' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-center">
-                      <label className="label-field">Tipo de diseño <span className="text-cmyk-magenta">*</span></label>
-                      {selectionFeedback?.subtype && (
-                        <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">
-                          Seleccionado
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      {...register('dis_tipo', { required: 'Selecciona un tipo' })}
-                      className={`input-field transition-all duration-300 ${
-                        selectionFeedback?.subtype
-                          ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                          : ''
-                      }`}
-                      disabled={formStatus === 'submitting'}
-                    >
-                      <option value="">Selecciona tipo</option>
-                      {DISENO_GRAFICO_TIPOS.map(tipo => (
-                        <option key={tipo} value={tipo}>
-                          {tipo === 'logotipos' ? 'Logotipos' : tipo === 'papeleria' ? 'Papelería' : tipo === 'redes-sociales' ? 'Redes Sociales' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.dis_tipo && <p className="error-message">{errors.dis_tipo.message}</p>}
-                    {disTipo === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('dis_tipoOtro', { required: disTipo === 'otro' ? 'Especifica el tipo' : false })} type="text" className="input-field" placeholder="Especifica el tipo de diseño" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Número de piezas <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('dis_numeroPiezas', { required: 'El número es requerido', min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="1" disabled={formStatus === 'submitting'} />
@@ -2063,26 +2101,9 @@ export function QuoteForm() {
                 </div>
               )}
 
-              {/* TARJETAS DE PRESENTACIÓN, VOLANTES Y OTRO */}
+              {/* IMPRESIÓN OFFSET/SERIGRAFÍA — remaining params (product already inline) */}
               {servicioValue === 'impresion-offset-serigrafia' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="label-field">Producto <span className="text-cmyk-magenta">*</span></label>
-                    <select {...register('off_producto', { required: 'Selecciona un producto' })} className="input-field" disabled={formStatus === 'submitting'}>
-                      <option value="">Selecciona producto</option>
-                      {OFFSET_PRODUCTOS.map(prod => (
-                        <option key={prod} value={prod}>
-                          {prod === 'tarjetas-presentacion' ? 'Tarjetas de presentación' : prod === 'volantes' ? 'Volantes' : 'Otro (especificar)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.off_producto && <p className="error-message">{errors.off_producto.message}</p>}
-                    {offProducto === 'otro' && (
-                      <div className="mt-2">
-                        <input {...register('off_productoOtro', { required: offProducto === 'otro' ? 'Especifica el producto' : false })} type="text" className="input-field" placeholder="Especifica el producto" disabled={formStatus === 'submitting'} />
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div>
                     <label className="label-field">Cantidad <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('off_cantidad', { required: 'La cantidad es requerida', min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="100" disabled={formStatus === 'submitting'} />
@@ -2105,7 +2126,7 @@ export function QuoteForm() {
 
               {/* OTRO SERVICIO */}
               {servicioValue === 'otros' && (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
                   <div className="md:col-span-2">
                     <label className="label-field">Tipo de servicio <span className="text-cmyk-magenta">*</span></label>
                     <input {...register('otros_tipoServicio', { required: servicioValue === 'otros' ? 'Especifica el tipo de servicio' : false })} type="text" className="input-field" placeholder="Describe brevemente el tipo de servicio que necesitas" disabled={formStatus === 'submitting'} />
@@ -2129,7 +2150,7 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* SECTION: Delivery Method */}
+          {/* ──── Delivery Method (inside service box) ──── */}
           {servicioValue && (() => {
             let currentSubtype: string | undefined;
             if (servicioValue === 'espectaculares') currentSubtype = espTipo || undefined;
@@ -2145,7 +2166,7 @@ export function QuoteForm() {
             if (methods.length === 1 && methods[0] === 'not_applicable') return null;
 
             return (
-              <div className="space-y-4 border border-cmyk-cyan/20 rounded-xl p-4 sm:p-6 bg-neutral-900/50">
+              <div className="space-y-4 border border-cmyk-cyan/20 rounded-xl p-4 sm:p-6 bg-neutral-900/60">
                 <label className="label-field flex items-center gap-2 !mb-0">
                   <svg className="w-5 h-5 text-cmyk-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -2507,150 +2528,118 @@ export function QuoteForm() {
             );
           })()}
 
-          {/* SECTION: Saved Services Summary + Add Another */}
-          {savedServices.length > 0 && (
-            <div className="space-y-3 border border-cmyk-cyan/30 rounded-xl p-4 sm:p-6 bg-cmyk-cyan/5">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>📋</span>
-                Servicios agregados ({savedServices.length})
-              </h3>
-              <div className="space-y-2">
-                {savedServices.map((svc, idx) => (
-                  <div key={svc.id} className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3 border border-neutral-700/50">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {idx + 1}. {svc.serviceLabel}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {svc.requiredDate && `Fecha: ${new Date(svc.requiredDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}`}
-                        {svc.deliveryMethod && svc.deliveryMethod !== 'not_applicable' && (
-                          <span> · {DELIVERY_METHOD_LABELS[svc.deliveryMethod]?.es || svc.deliveryMethod}</span>
-                        )}
-                        {svc.files.length > 0 && <span> · {svc.files.length} archivo{svc.files.length > 1 ? 's' : ''}</span>}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeService(svc.id)}
-                      disabled={formStatus === 'submitting'}
-                      className="text-red-400 hover:text-red-300 p-1.5 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
-                      title="Quitar servicio"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+          {/* ──── Files & Comments (inside service box) ──── */}
+          {servicioValue && (
+            <div className="space-y-5 pt-4 border-t border-neutral-700/50">
+              {/* File upload */}
+              <div>
+                <label className="label-field">Agregar archivos</label>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+                    isDragging ? 'border-cmyk-magenta bg-cmyk-magenta/10' : 'border-gray-600 hover:border-cmyk-magenta hover:bg-cmyk-magenta/5'
+                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileChange(e.dataTransfer.files); }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleFileChange(e.target.files)}
+                    disabled={formStatus === 'submitting'}
+                    accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg"
+                  />
+                  <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <p className="text-white font-medium text-sm">{t('dragOrClick')}</p>
+                  <p className="text-gray-400 text-xs mt-1">PDF, JPG, PNG, AI, CDR, DXF, SVG (max 10MB por archivo)</p>
+                  {servicioValue === 'diseno-grafico' && (
+                    <p className="text-xs text-cmyk-cyan mt-2 flex items-start gap-1 justify-center">
+                      <span className="mt-0.5">💡</span>
+                      <span>Adjunta toda la información visual posible: logotipos, imágenes de referencia, paleta de colores, bocetos, etc.</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* File list */}
+                {selectedFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <svg className="w-4 h-4 text-cmyk-cyan flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                          </svg>
+                          <span className="text-sm text-white truncate">{file.name}</span>
+                          <span className="text-xs text-gray-400">({(file.size / 1024 / 1024).toFixed(2)}MB)</span>
+                        </div>
+                        <button type="button" onClick={() => removeFile(index)} className="text-red-400 hover:text-red-300 p-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+              </div>
+
+              {/* Comments */}
+              <div>
+                <label htmlFor="comentarios" className="label-field">
+                  {t('comments')}
+                  {servicioValue === 'diseno-grafico' && <span className="text-cmyk-magenta"> *</span>}
+                </label>
+                <textarea
+                  {...register('comentarios', {
+                    required: servicioValue === 'diseno-grafico' ? 'Los comentarios son obligatorios para Diseño Gráfico. Describe qué necesitas para tu diseño.' : false,
+                    maxLength: { value: 2000, message: 'Máximo 2000 caracteres' }
+                  })}
+                  id="comentarios"
+                  rows={3}
+                  className="input-field resize-none"
+                  placeholder={servicioValue === 'diseno-grafico' ? 'Describe detalladamente qué necesitas: concepto, colores, estilo, texto, público objetivo, referencias, etc.' : t('commentsPlaceholder')}
+                  disabled={formStatus === 'submitting'}
+                />
+                {errors.comentarios && <p className="error-message">{errors.comentarios.message}</p>}
+                {servicioValue === 'diseno-grafico' && (
+                  <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
+                    <span className="mt-0.5">📝</span>
+                    <span>Es importante que describas lo que necesitas para tu diseño: concepto, estilo deseado, colores, textos, etc.</span>
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          {/* Add Another Service Button */}
+          </div>{/* end service box */}
+
+          {/* ──── "Add another service" prompt ──── */}
           {servicioValue && (
-            <div className="text-center">
+            <div className="text-center py-2">
+              <p className="text-sm text-gray-400 mb-3">¿Necesitas cotizar otro servicio en esta misma solicitud?</p>
               <button
                 type="button"
                 onClick={handleSubmit((formData) => {
                   captureCurrentService(formData);
                 })}
                 disabled={formStatus === 'submitting'}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan/70 transition-all text-sm font-medium"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan/70 transition-all text-sm font-semibold"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Agregar otro servicio
+                Agregar servicio
               </button>
-              <p className="text-xs text-gray-500 mt-1.5">¿Necesitas cotizar otro servicio en esta misma solicitud?</p>
             </div>
           )}
 
-          {/* SECTION: Files and Comments */}
-          <div className="space-y-6">
-            {/* File upload */}
-            <div>
-              <label className="label-field">Agregar archivos</label>
-              <div
-                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
-                  isDragging ? 'border-cmyk-magenta bg-cmyk-magenta/10' : 'border-gray-300 hover:border-cmyk-magenta hover:bg-cmyk-magenta/5'
-                }`}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileChange(e.dataTransfer.files); }}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFileChange(e.target.files)}
-                  disabled={formStatus === 'submitting'}
-                  accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg"
-                />
-                <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <p className="text-white font-medium text-sm">{t('dragOrClick')}</p>
-                <p className="text-gray-300 text-xs mt-1">PDF, JPG, PNG, AI, CDR, DXF, SVG (max 10MB por archivo)</p>
-                {servicioValue === 'diseno-grafico' && (
-                  <p className="text-xs text-cmyk-cyan mt-2 flex items-start gap-1">
-                    <span className="mt-0.5">💡</span>
-                    <span>Adjunta toda la información visual posible: logotipos, imágenes de referencia, paleta de colores, bocetos, etc. Esto nos ayuda a entender mejor tu visión.</span>
-                  </p>
-                )}
-              </div>
-
-              {/* File list */}
-              {selectedFiles.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <svg className="w-4 h-4 text-cmyk-cyan flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                        </svg>
-                        <span className="text-sm text-white truncate">{file.name}</span>
-                        <span className="text-xs text-gray-400">({(file.size / 1024 / 1024).toFixed(2)}MB)</span>
-                      </div>
-                      <button type="button" onClick={() => removeFile(index)} className="text-red-400 hover:text-red-300 p-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Comments */}
-            <div>
-              <label htmlFor="comentarios" className="label-field">
-                {t('comments')}
-                {servicioValue === 'diseno-grafico' && <span className="text-cmyk-magenta"> *</span>}
-              </label>
-              <textarea
-                {...register('comentarios', {
-                  required: servicioValue === 'diseno-grafico' ? 'Los comentarios son obligatorios para Diseño Gráfico. Describe qué necesitas para tu diseño.' : false,
-                  maxLength: { value: 2000, message: 'Máximo 2000 caracteres' }
-                })}
-                id="comentarios"
-                rows={4}
-                className="input-field resize-none"
-                placeholder={servicioValue === 'diseno-grafico' ? 'Describe detalladamente qué necesitas: concepto, colores, estilo, texto, público objetivo, referencias, etc.' : t('commentsPlaceholder')}
-                disabled={formStatus === 'submitting'}
-              />
-              {errors.comentarios && <p className="error-message">{errors.comentarios.message}</p>}
-              {servicioValue === 'diseno-grafico' && (
-                <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
-                  <span className="mt-0.5">📝</span>
-                  <span>Es importante que describas lo que necesitas para tu diseño: concepto, estilo deseado, colores, textos, etc.</span>
-                </p>
-              )}
-            </div>
-
+          {/* ──── Privacy + Submit (inside outer container) ──── */}
+          <div className="space-y-5 pt-4 border-t border-neutral-700/50">
             {/* Honeypot */}
             <input {...register('website')} type="text" className="hidden" tabIndex={-1} autoComplete="off" />
 
@@ -2686,6 +2675,8 @@ export function QuoteForm() {
               )}
             </button>
           </div>
+
+          </div>{/* end outer container */}
         </form>
       </div>
     </section>
