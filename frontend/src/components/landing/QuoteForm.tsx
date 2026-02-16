@@ -428,14 +428,19 @@ export function QuoteForm() {
           subtype: subtipoLabel,
         });
 
-        // Clear feedback after 1.5 seconds
+        // Clear feedback after 3 seconds
         setTimeout(() => {
           setSelectionFeedback(null);
-        }, 1500);
+        }, 3000);
 
-        // Scroll to form
+        // Scroll to the service selector (inside Box 2, which is lower than the form top)
         setTimeout(() => {
-          document.getElementById('cotizar')?.scrollIntoView({ behavior: 'smooth' });
+          const servicioEl = document.getElementById('servicio');
+          if (servicioEl) {
+            servicioEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            document.getElementById('cotizar')?.scrollIntoView({ behavior: 'smooth' });
+          }
         }, 100);
       }
     };
