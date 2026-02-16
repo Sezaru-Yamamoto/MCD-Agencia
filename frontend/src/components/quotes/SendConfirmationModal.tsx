@@ -21,6 +21,7 @@ interface SendConfirmationModalProps {
   lines: LineItem[];
   subtotal: number | string;
   taxAmount: number | string;
+  shippingTotal?: number | string;
   total: number | string;
 }
 
@@ -39,6 +40,7 @@ export function SendConfirmationModal({
   lines,
   subtotal,
   taxAmount,
+  shippingTotal,
   total,
 }: SendConfirmationModalProps) {
   const hasZeroPrice = lines.some((l) => Number(l.unit_price) <= 0);
@@ -82,7 +84,7 @@ export function SendConfirmationModal({
 
               return (
                 <tr key={i} className={isZero ? 'bg-yellow-500/5' : ''}>
-                  <td className="px-3 py-2 text-white max-w-[200px] truncate">
+                  <td className="px-3 py-2 text-white">
                     {line.concept}
                   </td>
                   <td className="px-3 py-2 text-right text-neutral-300">
@@ -109,6 +111,12 @@ export function SendConfirmationModal({
           <span>IVA (16%)</span>
           <span>{fmt(taxAmount)}</span>
         </div>
+        {Number(shippingTotal || 0) > 0 && (
+          <div className="flex justify-between text-neutral-400">
+            <span>Envío</span>
+            <span>{fmt(shippingTotal!)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-white font-semibold text-base pt-2 border-t border-neutral-700">
           <span>Total</span>
           <span className="text-cmyk-cyan">{fmt(total)}</span>

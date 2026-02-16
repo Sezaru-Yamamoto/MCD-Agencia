@@ -1574,6 +1574,7 @@ export default function NewQuotePage() {
       })}
       subtotal={subtotal}
       taxAmount={taxAmount}
+      shippingTotal={shippingTotal}
       total={total}
     />
 
