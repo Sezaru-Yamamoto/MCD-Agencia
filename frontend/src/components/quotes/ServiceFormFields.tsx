@@ -15,7 +15,6 @@ import {
   GRAN_FORMATO_MATERIALES,
   ROTULACION_TIPOS,
   OFFSET_PRODUCTOS,
-  IMPRESION_TIPOS,
   SENALIZACION_TIPOS,
   CNC_LASER_TIPOS,
   DISENO_GRAFICO_TIPOS,
@@ -809,52 +808,6 @@ export function ServiceFormFields({
         {/* ── Vallas móviles ─────────────────────────────────── */}
         {subtipo === 'vallas-moviles' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-hidden">
-            <div>
-              <label className={labelCls}>Cantidad de vallas</label>
-              <input
-                type="number"
-                min="1"
-                value={(value.cantidad as number) || ''}
-                onChange={(e) =>
-                  set('cantidad', parseInt(e.target.value) || '')
-                }
-                className={inputCls}
-                placeholder="1"
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Zona / ciudades</label>
-              <input
-                value={(value.zona as string) || ''}
-                onChange={(e) => set('zona', e.target.value)}
-                className={inputCls}
-                placeholder="Zona o ciudades"
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Duración de campaña</label>
-              <input
-                value={(value.tiempo_campana as string) || ''}
-                onChange={(e) => set('tiempo_campana', e.target.value)}
-                className={inputCls}
-                placeholder="ej. 1 mes"
-                disabled={disabled}
-              />
-            </div>
-            <RadioGroup
-              label="¿Impresión incluida?"
-              name="vallas_imp"
-              value={value.impresion_incluida as string}
-              options={[
-                { value: 'si', label: 'Sí' },
-                { value: 'no', label: 'No' },
-              ]}
-              onChange={(v) => set('impresion_incluida', v)}
-              disabled={disabled}
-            />
-
             {/* Routes */}
             <div className="md:col-span-2 space-y-3">
               <div className="flex items-center justify-between">
@@ -1083,16 +1036,6 @@ export function ServiceFormFields({
         {subtipo === 'publibuses' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Ciudad / zona</label>
-              <input
-                value={(value.ciudad_zona as string) || ''}
-                onChange={(e) => set('ciudad_zona', e.target.value)}
-                className={inputCls}
-                placeholder="Ciudad o zona"
-                disabled={disabled}
-              />
-            </div>
-            <div>
               <label className={labelCls}>Tiempo de campaña (meses)</label>
               <select
                 value={mesesCampana || ''}
@@ -1110,17 +1053,6 @@ export function ServiceFormFields({
                 ))}
               </select>
             </div>
-            <RadioGroup
-              label="¿Impresión incluida?"
-              name="pub_imp"
-              value={value.impresion_incluida as string}
-              options={[
-                { value: 'si', label: 'Sí' },
-                { value: 'no', label: 'No' },
-              ]}
-              onChange={(v) => set('impresion_incluida', v)}
-              disabled={disabled}
-            />
 
             <div className="md:col-span-2 space-y-3">
               <div className="flex items-center justify-between">
@@ -1307,37 +1239,6 @@ export function ServiceFormFields({
         {/* ── Perifoneo ──────────────────────────────────────── */}
         {subtipo === 'perifoneo' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-hidden">
-            <div>
-              <label className={labelCls}>Zona de cobertura</label>
-              <input
-                value={(value.zona_cobertura as string) || ''}
-                onChange={(e) => set('zona_cobertura', e.target.value)}
-                className={inputCls}
-                placeholder="Colonia, municipio o área"
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Duración total</label>
-              <input
-                value={(value.duracion as string) || ''}
-                onChange={(e) => set('duracion', e.target.value)}
-                className={inputCls}
-                placeholder="ej. 4 horas / 2 días"
-                disabled={disabled}
-              />
-            </div>
-            <RadioGroup
-              label="¿Archivo de grabación proporcionado?"
-              name="peri_arch"
-              value={value.archivo_grabacion as string}
-              options={[
-                { value: 'si', label: 'Sí' },
-                { value: 'no', label: 'No' },
-              ]}
-              onChange={(v) => set('archivo_grabacion', v)}
-              disabled={disabled}
-            />
             <RadioGroup
               label="¿Requiere grabación por proveedor?"
               name="peri_grab"
@@ -1980,35 +1881,6 @@ export function ServiceFormFields({
             placeholder="100"
             disabled={disabled}
           />
-        </div>
-        <div>
-          <label className={labelCls}>Tipo</label>
-          <select
-            value={(value.tipo_impresion as string) || ''}
-            onChange={(e) => set('tipo_impresion', e.target.value)}
-            className={inputCls}
-            disabled={disabled}
-          >
-            <option value="">Selecciona tipo</option>
-            {IMPRESION_TIPOS.map((t) => (
-              <option key={t} value={t}>
-                {t === 'tarjetas-presentacion'
-                  ? 'Tarjetas'
-                  : t === 'volantes'
-                    ? 'Volantes'
-                    : 'Otro'}
-              </option>
-            ))}
-          </select>
-          {value.tipo_impresion === 'otro' && (
-            <input
-              value={(value.tipo_impresion_otro as string) || ''}
-              onChange={(e) => set('tipo_impresion_otro', e.target.value)}
-              className={`${inputCls} mt-1`}
-              placeholder="Especifica el tipo"
-              disabled={disabled}
-            />
-          )}
         </div>
         <RadioGroup
           label="¿Archivo listo para imprimir?"
