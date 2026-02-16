@@ -156,7 +156,10 @@ export default function NewQuotePage() {
             serviceDetails: prefillServiceDetails,
             showServiceForm: !!prefillServiceDetails,
             lineDeliveryMethod: (svc.delivery_method as DeliveryMethod) || '',
-            lineEstimatedDate: '',
+            lineEstimatedDate: (() => {
+              const t = new Date().toISOString().split('T')[0];
+              return svc.required_date && svc.required_date >= t ? svc.required_date : t;
+            })(),
             requestServiceRef: svc,
           };
         });
