@@ -265,6 +265,8 @@ interface SavedServiceEntry {
   vallasRoutes?: ConfigurableRouteEntry[];
   perifoneoRoutes?: ConfigurableRouteEntry[];
   pubRoutes?: EstablishedRouteEntry[];
+  // Raw form values for restoring into form when editing
+  rawFormValues: Partial<QuoteFormData>;
 }
 
 export function QuoteForm() {
@@ -292,6 +294,7 @@ export function QuoteForm() {
   const postalCode = usePostalCode();
   const [coloniaManual, setColoniaManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isRestoringServiceRef = useRef(false);
 
   // Multi-service state
   const [savedServices, setSavedServices] = useState<SavedServiceEntry[]>([]);
@@ -473,8 +476,12 @@ export function QuoteForm() {
     [servicioValue]
   );
 
-  // Reset service-specific fields when service changes
+  // Reset service-specific fields when service changes (skip when restoring a saved service)
   useEffect(() => {
+    if (isRestoringServiceRef.current) {
+      isRestoringServiceRef.current = false;
+      return;
+    }
     setVallasRoutes([createConfigurableRoute()]);
     setPerifoneoRoutes([createConfigurableRoute()]);
     setPubRoutes([createEstablishedRoute()]);
@@ -566,6 +573,16 @@ export function QuoteForm() {
       }
     }
 
+    // Extract only service-related form fields for raw storage
+    const rawFormValues: Partial<QuoteFormData> = { ...data };
+    // Remove contact and privacy fields (they belong to the top-level form, not the service)
+    delete rawFormValues.nombre;
+    delete rawFormValues.empresa;
+    delete rawFormValues.telefono;
+    delete rawFormValues.email;
+    delete rawFormValues.privacidad;
+    delete rawFormValues.website;
+
     const entry: SavedServiceEntry = {
       id: `svc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       serviceType: data.servicio as ServiceId,
@@ -580,6 +597,7 @@ export function QuoteForm() {
       vallasRoutes: data.pub_subtipo === 'vallas-moviles' ? [...vallasRoutes] : undefined,
       perifoneoRoutes: data.pub_subtipo === 'perifoneo' ? [...perifoneoRoutes] : undefined,
       pubRoutes: data.pub_subtipo === 'publibuses' ? [...pubRoutes] : undefined,
+      rawFormValues,
     };
 
     setSavedServices(prev => [...prev, entry]);
@@ -603,6 +621,47 @@ export function QuoteForm() {
 
   const removeService = (serviceId: string) => {
     setSavedServices(prev => prev.filter(s => s.id !== serviceId));
+  };
+
+  // Restore a saved service into the active form (swap: save current → load clicked)
+  const editService = (serviceId: string) => {
+    const svc = savedServices.find(s => s.id === serviceId);
+    if (!svc) return;
+
+    // If there's a current service selected, capture it first
+    if (servicioValue) {
+      const currentData = watch() as QuoteFormData;
+      const captured = captureCurrentService(currentData);
+      if (!captured) return; // Validation failed, don't swap
+    }
+
+    // Remove the clicked service from the saved list
+    setSavedServices(prev => prev.filter(s => s.id !== serviceId));
+
+    // Flag to prevent the useEffect from resetting delivery/routes
+    isRestoringServiceRef.current = true;
+
+    // Restore form fields from rawFormValues
+    const raw = svc.rawFormValues;
+    Object.entries(raw).forEach(([key, value]) => {
+      if (value !== undefined) {
+        setValue(key as keyof QuoteFormData, value as string);
+      }
+    });
+
+    // Restore external state (delivery, files, routes)
+    setDeliveryMethod(svc.deliveryMethod);
+    setDeliveryAddress(svc.deliveryAddress as typeof deliveryAddress);
+    setSelectedBranch(svc.pickupBranch);
+    setSelectedFiles([...svc.files]);
+    if (svc.vallasRoutes) setVallasRoutes([...svc.vallasRoutes]);
+    if (svc.perifoneoRoutes) setPerifoneoRoutes([...svc.perifoneoRoutes]);
+    if (svc.pubRoutes) setPubRoutes([...svc.pubRoutes]);
+
+    // Scroll to Box 2
+    setTimeout(() => {
+      document.getElementById('box-detalles-servicio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const onSubmit = async (data: QuoteFormData) => {
@@ -1203,39 +1262,57 @@ export function QuoteForm() {
             </div>
           </div>
 
-          {/* ──── SAVED SERVICES (rendered above active service box) ──── */}
+          {/* ──── SAVED SERVICES (clickable tabs — click to edit) ──── */}
           {savedServices.length > 0 && (
             <div className="space-y-3">
+              <p className="text-xs text-gray-500 italic">Haz clic en un servicio para editarlo. Se cargará en el formulario de abajo.</p>
               {savedServices.map((svc, idx) => (
-                <div key={svc.id} className="rounded-xl border border-cmyk-cyan/30 bg-cmyk-cyan/5 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-xs font-bold">{idx + 1}</span>
-                        <h4 className="text-base font-bold text-white">{svc.serviceLabel}</h4>
+                <div
+                  key={svc.id}
+                  className="rounded-xl border border-cmyk-cyan/30 bg-cmyk-cyan/5 hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan/50 transition-all cursor-pointer group"
+                  onClick={() => editService(svc.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editService(svc.id); } }}
+                >
+                  <div className="p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-xs font-bold">{idx + 1}</span>
+                          <h4 className="text-base font-bold text-white group-hover:text-cmyk-cyan transition-colors">{svc.serviceLabel}</h4>
+                          <span className="text-xs text-cmyk-cyan/60 group-hover:text-cmyk-cyan transition-colors ml-1">
+                            <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 ml-8">
+                          {svc.requiredDate && (
+                            <span>📅 {new Date(svc.requiredDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          )}
+                          {svc.deliveryMethod && svc.deliveryMethod !== 'not_applicable' && (
+                            <span>📦 {DELIVERY_METHOD_LABELS[svc.deliveryMethod]?.es || svc.deliveryMethod}</span>
+                          )}
+                          {svc.files.length > 0 && <span>📎 {svc.files.length} archivo{svc.files.length > 1 ? 's' : ''}</span>}
+                          {svc.comments && <span>💬 Con comentarios</span>}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 ml-8">
-                        {svc.requiredDate && (
-                          <span>📅 {new Date(svc.requiredDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                        )}
-                        {svc.deliveryMethod && svc.deliveryMethod !== 'not_applicable' && (
-                          <span>📦 {DELIVERY_METHOD_LABELS[svc.deliveryMethod]?.es || svc.deliveryMethod}</span>
-                        )}
-                        {svc.files.length > 0 && <span>📎 {svc.files.length} archivo{svc.files.length > 1 ? 's' : ''}</span>}
-                        {svc.comments && <span>💬 Con comentarios</span>}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="hidden sm:inline-block text-xs text-cmyk-cyan/50 group-hover:text-cmyk-cyan transition-colors mr-1">Editar</span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeService(svc.id); }}
+                          disabled={formStatus === 'submitting'}
+                          className="text-red-400 hover:text-red-300 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                          title="Quitar servicio"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeService(svc.id)}
-                      disabled={formStatus === 'submitting'}
-                      className="text-red-400 hover:text-red-300 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
-                      title="Quitar servicio"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
                   </div>
                 </div>
               ))}
@@ -1243,7 +1320,7 @@ export function QuoteForm() {
           )}
 
           {/* ──── BOX 2: Detalles del servicio (active/current) ──── */}
-          <div className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 sm:p-6 space-y-6">
+          <div id="box-detalles-servicio" className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 sm:p-6 space-y-6">
             <h3 className="text-2xl font-bold text-white">Detalles del servicio</h3>
 
             {/* Service selector + Subtype + Fecha requerida — same row on desktop */}
@@ -2629,9 +2706,17 @@ export function QuoteForm() {
               <p className="text-sm text-gray-400 mb-3">¿Necesitas cotizar otro servicio en esta misma solicitud?</p>
               <button
                 type="button"
-                onClick={handleSubmit((formData) => {
-                  captureCurrentService(formData);
-                })}
+                onClick={() => {
+                  // Validate only service-specific fields (NOT privacy) and capture
+                  const formData = watch() as QuoteFormData;
+                  const ok = captureCurrentService(formData);
+                  if (ok) {
+                    // Scroll to Box 2 so the user sees the new empty service form
+                    setTimeout(() => {
+                      document.getElementById('box-detalles-servicio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }
+                }}
                 disabled={formStatus === 'submitting'}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan/70 transition-all text-sm font-semibold"
               >
