@@ -352,20 +352,11 @@ export default function QuoteDetailPage() {
     });
   };
 
-  // ── Identify vendor-added lines (not from the original request) ──
+  // ── Group quote lines by service ──
   // Must be above early returns to respect React Rules of Hooks.
-  const vendorAddedLines = useMemo<QuoteLine[]>(() => {
-    if (!quote || !quote.quote_request || !quote.lines) return [];
-
-    const requestServices = quote.quote_request.services;
-    const hasCatalogItem = !!quote.quote_request.catalog_item;
-    const requestServiceType = quote.quote_request.service_type;
-
-    // Group consecutive lines that belong to the same service.
-    // The first line of a service has service_details; route-expansion lines
-    // that follow have no service_details but their concept starts with the
-    // same service label prefix (e.g. "Publicidad Móvil / Vallas Móviles — Ruta 2").
-    interface LineGroup { serviceType?: string; lines: QuoteLine[] }
+  interface LineGroup { serviceType?: string; lines: QuoteLine[] }
+  const lineGroups = useMemo<LineGroup[]>(() => {
+    if (!quote?.lines) return [];
     const groups: LineGroup[] = [];
     for (const line of quote.lines) {
       const sd = line.service_details as Record<string, unknown> | undefined;
@@ -385,6 +376,47 @@ export default function QuoteDetailPage() {
         groups.push({ serviceType: undefined, lines: [line] });
       }
     }
+    return groups;
+  }, [quote]);
+
+  // ── Map each request service (by index) → matched quote line group ──
+  const serviceToLinesMap = useMemo<Map<number, QuoteLine[]>>(() => {
+    const map = new Map<number, QuoteLine[]>();
+    if (!quote?.quote_request) return map;
+
+    const requestServices = quote.quote_request.services;
+    if (requestServices && requestServices.length > 0) {
+      // Track which groups have been assigned
+      const assignedGroups = new Set<number>();
+      for (let svcIdx = 0; svcIdx < requestServices.length; svcIdx++) {
+        const svc = requestServices[svcIdx];
+        for (let gIdx = 0; gIdx < lineGroups.length; gIdx++) {
+          if (!assignedGroups.has(gIdx) && lineGroups[gIdx].serviceType === svc.service_type) {
+            assignedGroups.add(gIdx);
+            map.set(svcIdx, lineGroups[gIdx].lines);
+            break;
+          }
+        }
+      }
+    } else if (quote.quote_request.service_type) {
+      // Single-service: match first group with same service_type → index 0
+      for (const group of lineGroups) {
+        if (group.serviceType === quote.quote_request.service_type) {
+          map.set(0, group.lines);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [quote, lineGroups]);
+
+  // ── Identify vendor-added lines (not from the original request) ──
+  const vendorAddedLines = useMemo<QuoteLine[]>(() => {
+    if (!quote || !quote.quote_request || !quote.lines) return [];
+
+    const requestServices = quote.quote_request.services;
+    const hasCatalogItem = !!quote.quote_request.catalog_item;
+    const requestServiceType = quote.quote_request.service_type;
 
     if (requestServices && requestServices.length > 0) {
       const requestTypeCounts = new Map<string, number>();
@@ -393,7 +425,7 @@ export default function QuoteDetailPage() {
       }
       const remainingCounts = new Map(requestTypeCounts);
       const vendorLines: QuoteLine[] = [];
-      for (const group of groups) {
+      for (const group of lineGroups) {
         if (group.serviceType && remainingCounts.has(group.serviceType) && (remainingCounts.get(group.serviceType)! > 0)) {
           remainingCounts.set(group.serviceType, remainingCounts.get(group.serviceType)! - 1);
         } else {
@@ -406,7 +438,7 @@ export default function QuoteDetailPage() {
     if (requestServiceType) {
       let matched = false;
       const vendorLines: QuoteLine[] = [];
-      for (const group of groups) {
+      for (const group of lineGroups) {
         if (!matched && group.serviceType === requestServiceType) {
           matched = true;
         } else {
@@ -421,7 +453,7 @@ export default function QuoteDetailPage() {
     }
 
     return [];
-  }, [quote]);
+  }, [quote, lineGroups]);
 
   if (authLoading || isLoading) {
     return <LoadingPage message="Cargando cotizacion..." />;
@@ -741,6 +773,38 @@ export default function QuoteDetailPage() {
                         </div>
                       );
                     })()}
+
+                    {/* Vendor's estimated delivery dates (single-service) */}
+                    {(() => {
+                      const matchedLines = serviceToLinesMap.get(0);
+                      if (!matchedLines) return null;
+                      const datesInfo = matchedLines
+                        .filter(l => l.estimated_delivery_date)
+                        .map(l => ({ concept: l.concept, date: l.estimated_delivery_date! }));
+                      if (datesInfo.length === 0) return null;
+                      return (
+                        <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg">
+                          <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            Fecha{datesInfo.length > 1 ? 's' : ''} estimada{datesInfo.length > 1 ? 's' : ''} de entrega (vendedor)
+                          </p>
+                          <div className="space-y-1">
+                            {datesInfo.map((d, i) => (
+                              <div key={i} className="flex items-center justify-between text-sm">
+                                {datesInfo.length > 1 && (
+                                  <span className="text-neutral-400 truncate mr-2">{d.concept}</span>
+                                )}
+                                <span className="text-green-400 font-medium whitespace-nowrap">
+                                  {new Date(d.date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                    year: 'numeric', month: 'short', day: 'numeric',
+                                  })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
 
@@ -822,6 +886,38 @@ export default function QuoteDetailPage() {
                               </div>
                             )}
                           </div>
+
+                          {/* Vendor's estimated delivery dates from quote lines */}
+                          {(() => {
+                            const matchedLines = serviceToLinesMap.get(idx);
+                            if (!matchedLines) return null;
+                            const datesInfo = matchedLines
+                              .filter(l => l.estimated_delivery_date)
+                              .map(l => ({ concept: l.concept, date: l.estimated_delivery_date! }));
+                            if (datesInfo.length === 0) return null;
+                            return (
+                              <div className="mt-3 pt-3 border-t border-neutral-700/50">
+                                <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                                  <CalendarIcon className="h-3 w-3" />
+                                  Fecha{datesInfo.length > 1 ? 's' : ''} estimada{datesInfo.length > 1 ? 's' : ''} de entrega (vendedor)
+                                </p>
+                                <div className="space-y-1">
+                                  {datesInfo.map((d, i) => (
+                                    <div key={i} className="flex items-center justify-between text-sm">
+                                      {datesInfo.length > 1 && (
+                                        <span className="text-neutral-400 truncate mr-2">{d.concept}</span>
+                                      )}
+                                      <span className="text-green-400 font-medium whitespace-nowrap">
+                                        {new Date(d.date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                          year: 'numeric', month: 'short', day: 'numeric',
+                                        })}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* Per-service attachments */}
                           {svc.attachments && svc.attachments.length > 0 && (
