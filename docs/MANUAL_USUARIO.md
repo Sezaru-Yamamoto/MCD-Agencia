@@ -268,6 +268,19 @@ Al seleccionar un servicio, se muestran campos específicos. Por ejemplo:
 
 **Impresión Offset/Serigrafía**: Producto (tarjetas, volantes, otro), cantidad, tipo de impresión, archivo.
 
+**Agregar múltiples servicios**:
+
+Si necesita cotizar más de un servicio en la misma solicitud:
+
+1. Complete los datos del primer servicio (tipo, detalles, método de entrega, fecha requerida).
+2. Haga clic en el botón **"Agregar otro servicio"**.
+3. El servicio actual se guardará y aparecerá un **resumen** debajo del formulario mostrando los servicios agregados.
+4. El formulario se limpiará para que pueda seleccionar y configurar un nuevo servicio.
+5. Repita el proceso para cada servicio adicional.
+6. Para eliminar un servicio guardado, haga clic en el botón **"×"** junto al servicio en el resumen.
+
+> **Nota**: Cada servicio tiene su propio tipo, detalles específicos, método de entrega y fecha requerida independientes.
+
 **Paso 3 — Información adicional**:
 
 | Campo | Obligatorio |
@@ -374,9 +387,9 @@ Al abrir una cotización (desde "Mis Cotizaciones" o desde el enlace recibido po
 | Precio Unitario | Precio por unidad |
 | Total | Cantidad × Precio Unitario |
 
-**Resumen financiero**: Subtotal, IVA (16%), Total.
+**Resumen financiero**: Subtotal, IVA (16%), Envío (si aplica, sin IVA), Total.
 
-**Condiciones**: Términos de la cotización, modo de pago, tiempo de entrega estimado.
+**Condiciones**: Términos de la cotización, condiciones de pago, tiempo de entrega estimado.
 
 **Acciones disponibles**:
 
@@ -550,7 +563,8 @@ Esta sección tiene **dos pestañas**:
 | Sección | Contenido |
 |---------|-----------|
 | **Datos del cliente** | Nombre, correo, teléfono, empresa |
-| **Servicio** | Tipo de servicio y todos los campos específicos completados por el cliente (medidas, materiales, cantidades, rutas, etc.) |
+| **Servicio principal** | Tipo de servicio y todos los campos específicos completados por el cliente (medidas, materiales, cantidades, rutas, etc.) |
+| **Servicios solicitados** | Si el cliente agregó múltiples servicios, se muestra una lista numerada con el tipo de servicio, parámetros específicos, método de entrega, fecha requerida y archivos adjuntos por servicio |
 | **Archivos adjuntos** | Archivos subidos por el cliente, descargables |
 | **Estado actual** | Badge de estado con color |
 
@@ -593,13 +607,15 @@ Para cada ítem, ingrese:
 
 | Campo | Descripción |
 |-------|-------------|
-| Concepto | Nombre del producto/servicio. Puede buscar en el catálogo para prellenar |
+| Concepto | Nombre del producto/servicio. Puede buscar en el catálogo o servicios para prellenar |
 | Descripción | Detalle del ítem |
 | Cantidad | Número de unidades |
 | Unidad | Seleccione: pieza, m², metro lineal, hora, servicio |
 | Precio unitario | Precio por unidad (sin IVA) |
+| Costo de envío | Costo de envío para este ítem (sin IVA). Se suma al total sin aplicarle impuesto |
+| Fecha estimada de entrega | Fecha estimada de entrega para este ítem específico |
 
-El sistema calcula automáticamente el **total por línea** y el **total general** (subtotal + IVA 16%).
+El sistema calcula automáticamente el **total por línea** y el **total general** (subtotal + IVA 16% + envío).
 
 - Haga clic en **"+ Agregar ítem"** para agregar más conceptos.
 - Use el icono **🗑️** para eliminar un concepto.
@@ -609,10 +625,9 @@ El sistema calcula automáticamente el **total por línea** y el **total general
 | Campo | Descripción |
 |-------|-------------|
 | Días de vigencia | Número de días que la cotización será válida |
-| Modo de pago | "Pago completo" o "Depósito permitido" |
-| Porcentaje de depósito | Si seleccionó depósito, indique el porcentaje mínimo |
-| Condiciones de pago | Texto libre con las condiciones (ej. "50% anticipo, 50% contra entrega") |
-| Tiempo de entrega | Tiempo estimado de entrega (ej. "5-7 días hábiles") |
+| Modo de pago | Pago completo (fijo) |
+| Condiciones de pago | Texto libre con las condiciones de pago |
+| Tiempo de entrega | Tiempo estimado de entrega general (ej. "5-7 días hábiles") |
 
 **Términos y notas**:
 
@@ -660,7 +675,7 @@ Acceda desde el menú lateral → **"Cotizaciones"** o visite `/dashboard/cotiza
 
 1. Desde el detalle de una cotización en estado **Borrador**, haga clic en **"Enviar al cliente"**.
 2. El sistema:
-   - Genera el PDF de la cotización con el logo, datos del cliente, tabla de conceptos, totales y condiciones.
+   - Genera el PDF de la cotización con el logo, datos del cliente, tabla de conceptos agrupados por servicio/método de entrega (con encabezados de entrega por grupo), totales desglosados (subtotal, IVA, envío si aplica, total) y condiciones.
    - Envía un correo electrónico al cliente con un enlace único para ver la cotización.
    - Cambia el estado a **"Enviada"**.
 3. El cliente recibirá un correo con el enlace para revisar, aceptar, rechazar o solicitar cambios.
