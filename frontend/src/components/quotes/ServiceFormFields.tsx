@@ -626,6 +626,37 @@ export function ServiceFormFields({
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
+          <label className={labelCls}>Tipo</label>
+          <select
+            value={(value.tipo as string) || ''}
+            onChange={(e) => set('tipo', e.target.value)}
+            className={inputCls}
+            disabled={disabled}
+          >
+            <option value="">Selecciona tipo</option>
+            {ESPECTACULARES_TIPOS.map((t) => (
+              <option key={t} value={t}>
+                {t === 'unipolar'
+                  ? 'Unipolar'
+                  : t === 'azotea'
+                    ? 'Azotea'
+                    : t === 'mural'
+                      ? 'Mural'
+                      : 'Otro'}
+              </option>
+            ))}
+          </select>
+          {value.tipo === 'otro' && (
+            <input
+              value={(value.tipo_otro as string) || ''}
+              onChange={(e) => set('tipo_otro', e.target.value)}
+              className={`${inputCls} mt-1`}
+              placeholder="Especifica el tipo"
+              disabled={disabled}
+            />
+          )}
+        </div>
+        <div>
           <label className={labelCls}>Medidas (ancho × alto)</label>
           <input
             value={(value.medidas as string) || ''}
@@ -1864,6 +1895,17 @@ export function ServiceFormFields({
             placeholder="1"
             disabled={disabled}
           />
+        </div>
+        <div>
+          <label className={labelCls}>Medidas / Dimensiones</label>
+          <input
+            value={(value.medidas as string) || ''}
+            onChange={(e) => set('medidas', e.target.value)}
+            className={inputCls}
+            placeholder="ej. 1080×1080 px, 21×29.7 cm (A4)"
+            disabled={disabled}
+          />
+          <p className="text-xs text-neutral-500 mt-1">Indica las dimensiones y unidad (px, cm, mm, pulgadas).</p>
         </div>
         <RadioGroup
           label="Uso del diseño"
