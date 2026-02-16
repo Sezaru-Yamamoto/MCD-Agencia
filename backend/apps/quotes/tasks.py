@@ -601,6 +601,11 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                 sd = line.service_details or {}
                 rutas = sd.get('rutas', [])
 
+                # Fallback: if this line has no service_details (only the first
+                # route line carries the full JSON), use the shared first_sd.
+                if not rutas and first_sd:
+                    rutas = first_sd.get('rutas', [])
+
                 # Find this line's route data
                 # The concept contains "— Ruta N", extract route index
                 route_data = None
