@@ -115,6 +115,9 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             bottomMargin=margin_bottom,
             title=pdf_title,
             author='MCD Agencia',
+            subject=f"{'Quotation' if is_en else 'Cotización'} {quote.quote_number} - {quote.customer_name}",
+            creator='MCD Agencia - agenciamcd.mx',
+            displayDocTitle=True,
         )
 
         # Styles
@@ -852,6 +855,9 @@ def generate_snapshot_pdf(quote, snapshot, language='es'):
         bottomMargin=margin_bottom,
         title=pdf_title,
         author='MCD Agencia',
+        subject=f"{'Quotation' if is_en else 'Cotización'} {quote.quote_number} - {quote.customer_name}",
+        creator='MCD Agencia - agenciamcd.mx',
+        displayDocTitle=True,
     )
 
     styles = getSampleStyleSheet()
