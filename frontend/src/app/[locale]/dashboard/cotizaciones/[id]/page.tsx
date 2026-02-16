@@ -642,52 +642,225 @@ export default function QuoteDetailPage() {
                   </Link>
                 </div>
 
-                {/* Service Type */}
-                {quote.quote_request.service_type && (
-                  <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
-                    <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
-                    <p className="text-cmyk-cyan font-semibold text-lg">
-                      {SERVICE_LABELS[quote.quote_request.service_type as ServiceId] || quote.quote_request.service_type}
+                {/* ── Single-service rendering (when NO multi-service array) ── */}
+                {(!quote.quote_request.services || quote.quote_request.services.length === 0) && (
+                  <>
+                    {/* Service Type */}
+                    {quote.quote_request.service_type && (
+                      <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
+                        <p className="text-cmyk-cyan font-semibold text-lg">
+                          {SERVICE_LABELS[quote.quote_request.service_type as ServiceId] || quote.quote_request.service_type}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Service Details */}
+                    {quote.quote_request.service_details && Object.keys(quote.quote_request.service_details).length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
+                        <ServiceDetailsDisplay
+                          serviceType={quote.quote_request.service_type}
+                          serviceDetails={quote.quote_request.service_details as Record<string, unknown>}
+                        />
+                      </div>
+                    )}
+
+                    {/* Generic fields fallback */}
+                    {(!quote.quote_request.service_details || Object.keys(quote.quote_request.service_details).length === 0) && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        {quote.quote_request.quantity && (
+                          <div className="p-3 bg-neutral-800/50 rounded-lg">
+                            <p className="text-neutral-500 text-xs">Cantidad</p>
+                            <p className="text-white font-medium">{quote.quote_request.quantity}</p>
+                          </div>
+                        )}
+                        {quote.quote_request.dimensions && (
+                          <div className="p-3 bg-neutral-800/50 rounded-lg">
+                            <p className="text-neutral-500 text-xs">Dimensiones</p>
+                            <p className="text-white">{quote.quote_request.dimensions}</p>
+                          </div>
+                        )}
+                        {quote.quote_request.material && (
+                          <div className="p-3 bg-neutral-800/50 rounded-lg">
+                            <p className="text-neutral-500 text-xs">Material</p>
+                            <p className="text-white">{quote.quote_request.material}</p>
+                          </div>
+                        )}
+                        <div className="p-3 bg-neutral-800/50 rounded-lg">
+                          <p className="text-neutral-500 text-xs">Instalación</p>
+                          <p className="text-white">{quote.quote_request.includes_installation ? 'Sí' : 'No'}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delivery Method from Request */}
+                    {quote.quote_request.delivery_method && (
+                      <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs mb-2">Método de entrega solicitado</p>
+                        <p className="text-white flex items-center gap-2">
+                          <span>{DELIVERY_METHOD_ICONS[quote.quote_request.delivery_method as DeliveryMethod]}</span>
+                          {DELIVERY_METHOD_LABELS[quote.quote_request.delivery_method as DeliveryMethod]?.es || quote.quote_request.delivery_method}
+                        </p>
+                        {quote.quote_request.pickup_branch_detail && (
+                          <p className="text-neutral-300 text-sm mt-1">
+                            Sucursal: {quote.quote_request.pickup_branch_detail.name} — {quote.quote_request.pickup_branch_detail.city}, {quote.quote_request.pickup_branch_detail.state}
+                          </p>
+                        )}
+                        {quote.quote_request.delivery_address && typeof quote.quote_request.delivery_address === 'object' && Object.keys(quote.quote_request.delivery_address).length > 0 && (
+                          <p className="text-neutral-300 text-sm mt-1">
+                            {quote.quote_request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
+                            {[quote.quote_request.delivery_address.street || quote.quote_request.delivery_address.calle, quote.quote_request.delivery_address.exterior_number || quote.quote_request.delivery_address.numero_exterior, quote.quote_request.delivery_address.neighborhood || quote.quote_request.delivery_address.colonia, quote.quote_request.delivery_address.city || quote.quote_request.delivery_address.ciudad, quote.quote_request.delivery_address.state || quote.quote_request.delivery_address.estado, quote.quote_request.delivery_address.postal_code || quote.quote_request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Required Date — hide when routes carry their own dates */}
+                    {(() => {
+                      const details = quote.quote_request.service_details as Record<string, unknown> | undefined;
+                      const hasRouteDates = details && Array.isArray(details.rutas) &&
+                        (details.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                      if (hasRouteDates) return null;
+
+                      const displayDate = quote.quote_request.required_date;
+                      if (!displayDate) return null;
+                      return (
+                        <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
+                          <CalendarIcon className="h-5 w-5 text-neutral-400" />
+                          <div>
+                            <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                            <p className="text-white">
+                              {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* ── Multi-service rendering ── */}
+                {quote.quote_request.services && quote.quote_request.services.length > 0 && (
+                  <div className="space-y-4">
+                    <p className="text-neutral-400 text-sm font-medium">
+                      {quote.quote_request.services.length} servicio{quote.quote_request.services.length > 1 ? 's' : ''} solicitado{quote.quote_request.services.length > 1 ? 's' : ''}
                     </p>
-                  </div>
-                )}
+                    {quote.quote_request.services.map((svc, idx) => {
+                      const svcDetails = svc.service_details as Record<string, unknown> | undefined;
+                      const hasRouteDates = svcDetails && Array.isArray(svcDetails.rutas) &&
+                        (svcDetails.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                      return (
+                        <div key={svc.id} className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold">
+                              {idx + 1}
+                            </span>
+                            <h3 className="text-white font-semibold text-lg">
+                              {SERVICE_LABELS[svc.service_type as ServiceId] || svc.service_type}
+                            </h3>
+                          </div>
 
-                {/* Service Details */}
-                {quote.quote_request.service_details && Object.keys(quote.quote_request.service_details).length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
-                    <ServiceDetailsDisplay
-                      serviceType={quote.quote_request.service_type}
-                      serviceDetails={quote.quote_request.service_details as Record<string, unknown>}
-                    />
-                  </div>
-                )}
+                          {/* Service-specific parameters */}
+                          {svc.service_details && Object.keys(svc.service_details).length > 0 && (
+                            <div className="mb-3">
+                              <ServiceDetailsDisplay
+                                serviceType={svc.service_type}
+                                serviceDetails={svc.service_details as Record<string, unknown>}
+                              />
+                            </div>
+                          )}
 
-                {/* Generic fields fallback */}
-                {(!quote.quote_request.service_details || Object.keys(quote.quote_request.service_details).length === 0) && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    {quote.quote_request.quantity && (
-                      <div className="p-3 bg-neutral-800/50 rounded-lg">
-                        <p className="text-neutral-500 text-xs">Cantidad</p>
-                        <p className="text-white font-medium">{quote.quote_request.quantity}</p>
-                      </div>
-                    )}
-                    {quote.quote_request.dimensions && (
-                      <div className="p-3 bg-neutral-800/50 rounded-lg">
-                        <p className="text-neutral-500 text-xs">Dimensiones</p>
-                        <p className="text-white">{quote.quote_request.dimensions}</p>
-                      </div>
-                    )}
-                    {quote.quote_request.material && (
-                      <div className="p-3 bg-neutral-800/50 rounded-lg">
-                        <p className="text-neutral-500 text-xs">Material</p>
-                        <p className="text-white">{quote.quote_request.material}</p>
-                      </div>
-                    )}
-                    <div className="p-3 bg-neutral-800/50 rounded-lg">
-                      <p className="text-neutral-500 text-xs">Instalación</p>
-                      <p className="text-white">{quote.quote_request.includes_installation ? 'Sí' : 'No'}</p>
-                    </div>
+                          {svc.description && (
+                            <p className="text-neutral-300 text-sm mb-3 whitespace-pre-wrap">{svc.description}</p>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            {svc.delivery_method && (
+                              <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                                <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                                  <span>{DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]}</span>
+                                  {DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es || svc.delivery_method}
+                                </p>
+                              </div>
+                            )}
+                            {svc.pickup_branch_detail && (
+                              <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                                <p className="text-white font-medium mt-auto">{svc.pickup_branch_detail.name}</p>
+                              </div>
+                            )}
+                            {svc.delivery_address && Object.keys(svc.delivery_address).length > 0 && (
+                              <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                                <p className="text-neutral-500 text-xs mb-1">
+                                  {svc.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                                </p>
+                                <p className="text-white font-medium mt-auto">
+                                  {[svc.delivery_address.street || svc.delivery_address.calle,
+                                    svc.delivery_address.exterior_number || svc.delivery_address.numero_exterior,
+                                    svc.delivery_address.neighborhood || svc.delivery_address.colonia,
+                                    svc.delivery_address.city || svc.delivery_address.ciudad,
+                                    svc.delivery_address.state || svc.delivery_address.estado,
+                                    svc.delivery_address.postal_code || svc.delivery_address.codigo_postal,
+                                  ].filter(Boolean).join(', ')}
+                                </p>
+                              </div>
+                            )}
+                            {svc.required_date && !hasRouteDates && (
+                              <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                                <p className="text-white font-medium mt-auto">
+                                  {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                    year: 'numeric', month: 'short', day: 'numeric',
+                                  })}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Per-service attachments */}
+                          {svc.attachments && svc.attachments.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-neutral-700">
+                              <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                                <PaperClipIcon className="h-3 w-3" />
+                                Archivos adjuntos ({svc.attachments.length})
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {svc.attachments.map((att) => {
+                                  const isImage = att.file_type?.startsWith('image/');
+                                  return (
+                                    <a
+                                      key={att.id}
+                                      href={att.file}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block p-2 bg-neutral-900/50 rounded hover:bg-neutral-700 transition-colors group"
+                                    >
+                                      {isImage && (
+                                        <img
+                                          src={att.file}
+                                          alt={att.filename || 'Archivo'}
+                                          className="w-full h-20 object-cover rounded mb-1"
+                                        />
+                                      )}
+                                      <p className="text-xs text-cmyk-cyan truncate group-hover:underline flex items-center gap-1">
+                                        {!isImage && <PaperClipIcon className="h-3 w-3 flex-shrink-0" />}
+                                        {att.filename || 'Archivo'}
+                                      </p>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -698,62 +871,6 @@ export default function QuoteDetailPage() {
                     <p className="text-white whitespace-pre-wrap">{quote.quote_request.description}</p>
                   </div>
                 )}
-
-                {/* Delivery Method from Request */}
-                {quote.quote_request.delivery_method && (
-                  <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg">
-                    <p className="text-neutral-500 text-xs mb-2">Método de entrega solicitado</p>
-                    <p className="text-white flex items-center gap-2">
-                      <span>{DELIVERY_METHOD_ICONS[quote.quote_request.delivery_method as DeliveryMethod]}</span>
-                      {DELIVERY_METHOD_LABELS[quote.quote_request.delivery_method as DeliveryMethod]?.es || quote.quote_request.delivery_method}
-                    </p>
-                    {quote.quote_request.pickup_branch_detail && (
-                      <p className="text-neutral-300 text-sm mt-1">
-                        Sucursal: {quote.quote_request.pickup_branch_detail.name} — {quote.quote_request.pickup_branch_detail.city}, {quote.quote_request.pickup_branch_detail.state}
-                      </p>
-                    )}
-                    {quote.quote_request.delivery_address && typeof quote.quote_request.delivery_address === 'object' && Object.keys(quote.quote_request.delivery_address).length > 0 && (
-                      <p className="text-neutral-300 text-sm mt-1">
-                        {quote.quote_request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
-                        {[quote.quote_request.delivery_address.street || quote.quote_request.delivery_address.calle, quote.quote_request.delivery_address.exterior_number || quote.quote_request.delivery_address.numero_exterior, quote.quote_request.delivery_address.neighborhood || quote.quote_request.delivery_address.colonia, quote.quote_request.delivery_address.city || quote.quote_request.delivery_address.ciudad, quote.quote_request.delivery_address.state || quote.quote_request.delivery_address.estado, quote.quote_request.delivery_address.postal_code || quote.quote_request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Required Date */}
-                {(() => {
-                  let displayDate = quote.quote_request.required_date;
-                  const details = quote.quote_request.service_details as Record<string, unknown> | undefined;
-                  if (details && Array.isArray(details.rutas)) {
-                    const routeDates = (details.rutas as Array<Record<string, unknown>>)
-                      .map(r => r.fecha_inicio as string)
-                      .filter(d => !!d)
-                      .sort();
-                    if (routeDates.length > 0) {
-                      const earliest = routeDates[0];
-                      if (!displayDate || earliest < displayDate) {
-                        displayDate = earliest;
-                      }
-                    }
-                  }
-                  if (!displayDate) return null;
-                  return (
-                    <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
-                      <CalendarIcon className="h-5 w-5 text-neutral-400" />
-                      <div>
-                        <p className="text-neutral-500 text-xs">Fecha Requerida</p>
-                        <p className="text-white">
-                          {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })()}
 
                 {/* Catalog Item */}
                 {quote.quote_request.catalog_item && (
