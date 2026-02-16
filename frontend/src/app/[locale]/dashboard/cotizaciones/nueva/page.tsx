@@ -894,6 +894,12 @@ export default function NewQuotePage() {
                       const svcLabel = SERVICE_LABELS[svcType as ServiceId] || svcType;
                       const svcDetails = svcRef.service_details as Record<string, unknown> | undefined;
 
+                      // Min date for vendor's estimated delivery = client's required_date or today (whichever is later)
+                      const today = new Date().toISOString().split('T')[0];
+                      const minEstimatedDate = svcRef.required_date && svcRef.required_date >= today
+                        ? svcRef.required_date
+                        : today;
+
                       const formatFileSz = (bytes: number) => {
                         if (bytes < 1024) return `${bytes} B`;
                         if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -1098,7 +1104,7 @@ export default function NewQuotePage() {
                                                 type="date"
                                                 value={route.estimated_date || ''}
                                                 onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
-                                                min={new Date().toISOString().split('T')[0]}
+                                                min={minEstimatedDate}
                                                 className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
                                               />
                                             </div>
@@ -1212,7 +1218,7 @@ export default function NewQuotePage() {
                                     type="date"
                                     value={item.lineEstimatedDate || ''}
                                     onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
-                                    min={new Date().toISOString().split('T')[0]}
+                                    min={minEstimatedDate}
                                     className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
                                   />
                                 </div>
