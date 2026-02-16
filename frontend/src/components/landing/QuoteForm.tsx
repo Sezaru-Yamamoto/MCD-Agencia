@@ -291,8 +291,8 @@ export function QuoteForm() {
   const [coloniaManual, setColoniaManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRestoringServiceRef = useRef(false);
-  const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
-  const serviceDropdownRef = useRef<HTMLDivElement>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Multi-service state
   const [savedServices, setSavedServices] = useState<SavedServiceEntry[]>([]);
@@ -452,16 +452,19 @@ export function QuoteForm() {
     return () => window.removeEventListener('hashchange', parseHashParams);
   }, [setValue]);
 
-  // Close service dropdown when clicking outside
+  // Close any custom dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target as Node)) {
-        setServiceDropdownOpen(false);
+      if (openDropdown) {
+        const ref = dropdownRefs.current[openDropdown];
+        if (ref && !ref.contains(e.target as Node)) {
+          setOpenDropdown(null);
+        }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [openDropdown]);
 
   // Get today's date for min date validation
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -497,6 +500,7 @@ export function QuoteForm() {
     setPubRoutes([createEstablishedRoute()]);
     setDeliveryMethod('');
     setDeliveryError('');
+    setOpenDropdown(null);
     setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
     setSelectedBranch('');
     postalCode.reset();
@@ -1367,10 +1371,10 @@ export function QuoteForm() {
                 {/* Hidden input for react-hook-form */}
                 <input type="hidden" {...register('servicio', { required: 'Selecciona un servicio' })} />
                 {/* Custom dropdown — always opens downward */}
-                <div ref={serviceDropdownRef} className="relative" id="servicio">
+                <div ref={el => { dropdownRefs.current['servicio'] = el; }} className="relative" id="servicio">
                   <button
                     type="button"
-                    onClick={() => { if (formStatus !== 'submitting') setServiceDropdownOpen(prev => !prev); }}
+                    onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'servicio' ? null : 'servicio'); }}
                     disabled={formStatus === 'submitting'}
                     className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${
                       selectionFeedback
@@ -1381,16 +1385,16 @@ export function QuoteForm() {
                     <span className="truncate">
                       {servicioValue ? serviceLabels[servicioValue as ServiceId] : t('selectService')}
                     </span>
-                    <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${serviceDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'servicio' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  {serviceDropdownOpen && (
+                  {openDropdown === 'servicio' && (
                     <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
                       <li>
                         <button
                           type="button"
-                          onClick={() => { setValue('servicio', ''); setServiceDropdownOpen(false); }}
+                          onClick={() => { setValue('servicio', ''); setOpenDropdown(null); }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors"
                         >
                           {t('selectService')}
@@ -1400,7 +1404,7 @@ export function QuoteForm() {
                         <li key={sId}>
                           <button
                             type="button"
-                            onClick={() => { setValue('servicio', sId); setServiceDropdownOpen(false); }}
+                            onClick={() => { setValue('servicio', sId); setOpenDropdown(null); }}
                             className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                               servicioValue === sId
                                 ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold'
@@ -1426,18 +1430,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('esp_tipo', { required: 'Selecciona un tipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {ESPECTACULARES_TIPOS.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo === 'unipolar' ? 'Unipolar' : tipo === 'azotea' ? 'Azotea' : tipo === 'mural' ? 'Mural publicitario' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('esp_tipo', { required: 'Selecciona un tipo' })} />
+                  <div ref={el => { dropdownRefs.current['esp_tipo'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'esp_tipo' ? null : 'esp_tipo'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!espTipo ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{espTipo ? (espTipo === 'unipolar' ? 'Unipolar' : espTipo === 'azotea' ? 'Azotea' : espTipo === 'mural' ? 'Mural publicitario' : 'Otro (especificar)') : 'Selecciona tipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'esp_tipo' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'esp_tipo' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('esp_tipo', '' as any); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona tipo</button></li>
+                        {ESPECTACULARES_TIPOS.map(tipo => (
+                          <li key={tipo}><button type="button" onClick={() => { setValue('esp_tipo', tipo); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${espTipo === tipo ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{tipo === 'unipolar' ? 'Unipolar' : tipo === 'azotea' ? 'Azotea' : tipo === 'mural' ? 'Mural publicitario' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.esp_tipo && <p className="error-message">{errors.esp_tipo.message}</p>}
                   {espTipo === 'otro' && (
                     <div className="mt-2">
@@ -1454,18 +1462,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('fab_tipoAnuncio', { required: 'Selecciona un tipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {FABRICACION_ANUNCIOS_TIPOS.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo === 'cajas-luz' ? 'Cajas de luz' : tipo === 'letras-3d' ? 'Letras 3D' : tipo === 'anuncios-2d' ? 'Anuncios 2D' : tipo === 'bastidores' ? 'Bastidores' : tipo === 'toldos' ? 'Toldos' : tipo === 'neon' ? 'Neón' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('fab_tipoAnuncio', { required: 'Selecciona un tipo' })} />
+                  <div ref={el => { dropdownRefs.current['fab_tipoAnuncio'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'fab_tipoAnuncio' ? null : 'fab_tipoAnuncio'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!fabTipoAnuncio ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{fabTipoAnuncio ? (fabTipoAnuncio === 'cajas-luz' ? 'Cajas de luz' : fabTipoAnuncio === 'letras-3d' ? 'Letras 3D' : fabTipoAnuncio === 'anuncios-2d' ? 'Anuncios 2D' : fabTipoAnuncio === 'bastidores' ? 'Bastidores' : fabTipoAnuncio === 'toldos' ? 'Toldos' : fabTipoAnuncio === 'neon' ? 'Neón' : 'Otro (especificar)') : 'Selecciona tipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'fab_tipoAnuncio' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'fab_tipoAnuncio' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('fab_tipoAnuncio', ''); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona tipo</button></li>
+                        {FABRICACION_ANUNCIOS_TIPOS.map(tipo => (
+                          <li key={tipo}><button type="button" onClick={() => { setValue('fab_tipoAnuncio', tipo); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${fabTipoAnuncio === tipo ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{tipo === 'cajas-luz' ? 'Cajas de luz' : tipo === 'letras-3d' ? 'Letras 3D' : tipo === 'anuncios-2d' ? 'Anuncios 2D' : tipo === 'bastidores' ? 'Bastidores' : tipo === 'toldos' ? 'Toldos' : tipo === 'neon' ? 'Neón' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.fab_tipoAnuncio && <p className="error-message">{errors.fab_tipoAnuncio.message}</p>}
                   {fabTipoAnuncio === 'otro' && (
                     <div className="mt-2">
@@ -1482,17 +1494,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('pub_subtipo', { required: 'Selecciona un subtipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona subtipo</option>
-                    <option value="vallas-moviles">Vallas móviles</option>
-                    <option value="publibuses">Publibuses</option>
-                    <option value="perifoneo">Perifoneo</option>
-                    <option value="otro">Otro (especificar)</option>
-                  </select>
+                  <input type="hidden" {...register('pub_subtipo', { required: 'Selecciona un subtipo' })} />
+                  <div ref={el => { dropdownRefs.current['pub_subtipo'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'pub_subtipo' ? null : 'pub_subtipo'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!pubSubtipo ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{pubSubtipo ? (pubSubtipo === 'vallas-moviles' ? 'Vallas móviles' : pubSubtipo === 'publibuses' ? 'Publibuses' : pubSubtipo === 'perifoneo' ? 'Perifoneo' : 'Otro (especificar)') : 'Selecciona subtipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'pub_subtipo' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'pub_subtipo' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('pub_subtipo', '' as any); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona subtipo</button></li>
+                        {(['vallas-moviles', 'publibuses', 'perifoneo', 'otro'] as const).map(st => (
+                          <li key={st}><button type="button" onClick={() => { setValue('pub_subtipo', st); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${pubSubtipo === st ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{st === 'vallas-moviles' ? 'Vallas móviles' : st === 'publibuses' ? 'Publibuses' : st === 'perifoneo' ? 'Perifoneo' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.pub_subtipo && <p className="error-message">{errors.pub_subtipo.message}</p>}
                 </div>
               )}
@@ -1504,16 +1521,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('igf_material', { required: 'Selecciona un material' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona material</option>
-                    {GRAN_FORMATO_MATERIALES.map(mat => (
-                      <option key={mat} value={mat}>{mat === 'otro' ? 'Otro (especificar)' : mat.charAt(0).toUpperCase() + mat.slice(1)}</option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('igf_material', { required: 'Selecciona un material' })} />
+                  <div ref={el => { dropdownRefs.current['igf_material'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'igf_material' ? null : 'igf_material'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!igfMaterial ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{igfMaterial ? (igfMaterial === 'otro' ? 'Otro (especificar)' : igfMaterial.charAt(0).toUpperCase() + igfMaterial.slice(1)) : 'Selecciona material'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'igf_material' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'igf_material' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('igf_material', '' as any); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona material</button></li>
+                        {GRAN_FORMATO_MATERIALES.map(mat => (
+                          <li key={mat}><button type="button" onClick={() => { setValue('igf_material', mat); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${igfMaterial === mat ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{mat === 'otro' ? 'Otro (especificar)' : mat.charAt(0).toUpperCase() + mat.slice(1)}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.igf_material && <p className="error-message">{errors.igf_material.message}</p>}
                   {igfMaterial === 'otro' && (
                     <div className="mt-2">
@@ -1530,18 +1553,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('sen_tipo', { required: 'Selecciona un tipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {SENALIZACION_TIPOS.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo === 'interior' ? 'Interior' : tipo === 'exterior' ? 'Exterior' : tipo === 'vial' ? 'Vial' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('sen_tipo', { required: 'Selecciona un tipo' })} />
+                  <div ref={el => { dropdownRefs.current['sen_tipo'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'sen_tipo' ? null : 'sen_tipo'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!senTipo ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{senTipo ? (senTipo === 'interior' ? 'Interior' : senTipo === 'exterior' ? 'Exterior' : senTipo === 'vial' ? 'Vial' : 'Otro (especificar)') : 'Selecciona tipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'sen_tipo' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'sen_tipo' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('sen_tipo', '' as any); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona tipo</button></li>
+                        {SENALIZACION_TIPOS.map(tipo => (
+                          <li key={tipo}><button type="button" onClick={() => { setValue('sen_tipo', tipo); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${senTipo === tipo ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{tipo === 'interior' ? 'Interior' : tipo === 'exterior' ? 'Exterior' : tipo === 'vial' ? 'Vial' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.sen_tipo && <p className="error-message">{errors.sen_tipo.message}</p>}
                   {senTipo === 'otro' && (
                     <div className="mt-2">
@@ -1558,18 +1585,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('rot_tipoRotulacion', { required: 'Selecciona un tipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {ROTULACION_TIPOS.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo === 'completa' ? 'Rotulación completa' : tipo === 'parcial' ? 'Rotulación parcial' : tipo === 'vinil-recortado' ? 'Vinil recortado' : tipo === 'impresion-digital' ? 'Impresión digital' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('rot_tipoRotulacion', { required: 'Selecciona un tipo' })} />
+                  <div ref={el => { dropdownRefs.current['rot_tipoRotulacion'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'rot_tipoRotulacion' ? null : 'rot_tipoRotulacion'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!rotTipoRotulacion ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{rotTipoRotulacion ? (rotTipoRotulacion === 'completa' ? 'Rotulación completa' : rotTipoRotulacion === 'parcial' ? 'Rotulación parcial' : rotTipoRotulacion === 'vinil-recortado' ? 'Vinil recortado' : rotTipoRotulacion === 'impresion-digital' ? 'Impresión digital' : 'Otro (especificar)') : 'Selecciona tipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'rot_tipoRotulacion' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'rot_tipoRotulacion' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('rot_tipoRotulacion', ''); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona tipo</button></li>
+                        {ROTULACION_TIPOS.map(tipo => (
+                          <li key={tipo}><button type="button" onClick={() => { setValue('rot_tipoRotulacion', tipo); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${rotTipoRotulacion === tipo ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{tipo === 'completa' ? 'Rotulación completa' : tipo === 'parcial' ? 'Rotulación parcial' : tipo === 'vinil-recortado' ? 'Vinil recortado' : tipo === 'impresion-digital' ? 'Impresión digital' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.rot_tipoRotulacion && <p className="error-message">{errors.rot_tipoRotulacion.message}</p>}
                   {rotTipoRotulacion === 'otro' && (
                     <div className="mt-2">
@@ -1586,18 +1617,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('cnc_tipo', { required: 'Selecciona un tipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {CNC_LASER_TIPOS.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo === 'router-cnc' ? 'Router CNC' : tipo === 'corte-laser' ? 'Corte Láser' : tipo === 'grabado-laser' ? 'Grabado Láser' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('cnc_tipo', { required: 'Selecciona un tipo' })} />
+                  <div ref={el => { dropdownRefs.current['cnc_tipo'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'cnc_tipo' ? null : 'cnc_tipo'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!cncTipo ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{cncTipo ? (cncTipo === 'router-cnc' ? 'Router CNC' : cncTipo === 'corte-laser' ? 'Corte Láser' : cncTipo === 'grabado-laser' ? 'Grabado Láser' : 'Otro (especificar)') : 'Selecciona tipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'cnc_tipo' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'cnc_tipo' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('cnc_tipo', '' as any); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona tipo</button></li>
+                        {CNC_LASER_TIPOS.map(tipo => (
+                          <li key={tipo}><button type="button" onClick={() => { setValue('cnc_tipo', tipo); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${cncTipo === tipo ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{tipo === 'router-cnc' ? 'Router CNC' : tipo === 'corte-laser' ? 'Corte Láser' : tipo === 'grabado-laser' ? 'Grabado Láser' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.cnc_tipo && <p className="error-message">{errors.cnc_tipo.message}</p>}
                   {cncTipo === 'otro' && (
                     <div className="mt-2">
@@ -1614,18 +1649,22 @@ export function QuoteForm() {
                       <span className="text-xs text-cmyk-cyan font-semibold animate-pulse">Seleccionado</span>
                     )}
                   </div>
-                  <select
-                    {...register('dis_tipo', { required: 'Selecciona un tipo' })}
-                    className={`input-field transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''}`}
-                    disabled={formStatus === 'submitting'}
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {DISENO_GRAFICO_TIPOS.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo === 'logotipos' ? 'Logotipos' : tipo === 'papeleria' ? 'Papelería' : tipo === 'redes-sociales' ? 'Redes Sociales' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('dis_tipo', { required: 'Selecciona un tipo' })} />
+                  <div ref={el => { dropdownRefs.current['dis_tipo'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'dis_tipo' ? null : 'dis_tipo'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${selectionFeedback?.subtype ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]' : ''} ${!disTipo ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{disTipo ? (disTipo === 'logotipos' ? 'Logotipos' : disTipo === 'papeleria' ? 'Papelería' : disTipo === 'redes-sociales' ? 'Redes Sociales' : 'Otro (especificar)') : 'Selecciona tipo'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'dis_tipo' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'dis_tipo' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('dis_tipo', '' as any); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona tipo</button></li>
+                        {DISENO_GRAFICO_TIPOS.map(tipo => (
+                          <li key={tipo}><button type="button" onClick={() => { setValue('dis_tipo', tipo); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${disTipo === tipo ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{tipo === 'logotipos' ? 'Logotipos' : tipo === 'papeleria' ? 'Papelería' : tipo === 'redes-sociales' ? 'Redes Sociales' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.dis_tipo && <p className="error-message">{errors.dis_tipo.message}</p>}
                   {disTipo === 'otro' && (
                     <div className="mt-2">
@@ -1637,14 +1676,22 @@ export function QuoteForm() {
               {servicioValue === 'impresion-offset-serigrafia' && (
                 <div>
                   <label className="label-field">Producto <span className="text-cmyk-magenta">*</span></label>
-                  <select {...register('off_producto', { required: 'Selecciona un producto' })} className="input-field" disabled={formStatus === 'submitting'}>
-                    <option value="">Selecciona producto</option>
-                    {OFFSET_PRODUCTOS.map(prod => (
-                      <option key={prod} value={prod}>
-                        {prod === 'tarjetas-presentacion' ? 'Tarjetas de presentación' : prod === 'volantes' ? 'Volantes' : 'Otro (especificar)'}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('off_producto', { required: 'Selecciona un producto' })} />
+                  <div ref={el => { dropdownRefs.current['off_producto'] = el; }} className="relative">
+                    <button type="button" onClick={() => { if (formStatus !== 'submitting') setOpenDropdown(prev => prev === 'off_producto' ? null : 'off_producto'); }} disabled={formStatus === 'submitting'}
+                      className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${!offProducto ? 'text-gray-500' : 'text-white'}`}>
+                      <span className="truncate">{offProducto ? (offProducto === 'tarjetas-presentacion' ? 'Tarjetas de presentación' : offProducto === 'volantes' ? 'Volantes' : 'Otro (especificar)') : 'Selecciona producto'}</span>
+                      <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openDropdown === 'off_producto' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {openDropdown === 'off_producto' && (
+                      <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                        <li><button type="button" onClick={() => { setValue('off_producto', ''); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors">Selecciona producto</button></li>
+                        {OFFSET_PRODUCTOS.map(prod => (
+                          <li key={prod}><button type="button" onClick={() => { setValue('off_producto', prod); setOpenDropdown(null); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${offProducto === prod ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold' : 'text-white hover:bg-neutral-700'}`}>{prod === 'tarjetas-presentacion' ? 'Tarjetas de presentación' : prod === 'volantes' ? 'Volantes' : 'Otro (especificar)'}</button></li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   {errors.off_producto && <p className="error-message">{errors.off_producto.message}</p>}
                   {offProducto === 'otro' && (
                     <div className="mt-2">
