@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
   MapPinIcon,
@@ -616,6 +616,18 @@ export function ServiceFormFields({
 
   const today = new Date().toISOString().split('T')[0];
 
+  // Minimum 8 business days for publicidad-movil route dates
+  const minRouteStartDate = useMemo(() => {
+    const result = new Date();
+    let added = 0;
+    while (added < 8) {
+      result.setDate(result.getDate() + 1);
+      const dow = result.getDay();
+      if (dow !== 0 && dow !== 6) added++;
+    }
+    return result.toISOString().split('T')[0];
+  }, []);
+
   if (!serviceType) return null;
 
   /* ════════════════════════════════════════════════════════════
@@ -865,6 +877,7 @@ export function ServiceFormFields({
                       <input
                         type="date"
                         className={inputCls}
+                        min={minRouteStartDate}
                         value={entry.fechaInicio}
                         disabled={disabled}
                         onChange={(e) =>
@@ -883,6 +896,7 @@ export function ServiceFormFields({
                       <input
                         type="date"
                         className={inputCls}
+                        min={minRouteStartDate}
                         value={entry.fechaFin}
                         disabled={disabled}
                         onChange={(e) =>
@@ -1121,7 +1135,7 @@ export function ServiceFormFields({
                       <input
                         type="date"
                         className={inputCls}
-                        min={today}
+                        min={minRouteStartDate}
                         value={entry.fechaInicio}
                         disabled={disabled || !mesesCampana}
                         onChange={(e) =>
@@ -1293,6 +1307,7 @@ export function ServiceFormFields({
                       <input
                         type="date"
                         className={inputCls}
+                        min={minRouteStartDate}
                         value={entry.fechaInicio}
                         disabled={disabled}
                         onChange={(e) =>
@@ -1311,6 +1326,7 @@ export function ServiceFormFields({
                       <input
                         type="date"
                         className={inputCls}
+                        min={minRouteStartDate}
                         value={entry.fechaFin}
                         disabled={disabled}
                         onChange={(e) =>
