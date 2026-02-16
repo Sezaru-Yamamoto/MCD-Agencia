@@ -105,13 +105,16 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         margin_bottom = 1.2 * inch  # Extra space for fixed footer
 
         # Create document with extra bottom margin for footer
+        pdf_title = f"{'Quotation' if is_en else 'Cotización'} {quote.quote_number}"
         doc = SimpleDocTemplate(
             buffer,
             pagesize=letter,
             rightMargin=margin_right,
             leftMargin=margin_left,
             topMargin=margin_top,
-            bottomMargin=margin_bottom
+            bottomMargin=margin_bottom,
+            title=pdf_title,
+            author='MCD Agencia',
         )
 
         # Styles
@@ -839,13 +842,16 @@ def generate_snapshot_pdf(quote, snapshot, language='es'):
     margin_top = 0.5 * inch
     margin_bottom = 1.2 * inch
 
+    pdf_title = f"{'Quotation' if is_en else 'Cotización'} {quote.quote_number}"
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
         rightMargin=margin_right,
         leftMargin=margin_left,
         topMargin=margin_top,
-        bottomMargin=margin_bottom
+        bottomMargin=margin_bottom,
+        title=pdf_title,
+        author='MCD Agencia',
     )
 
     styles = getSampleStyleSheet()
