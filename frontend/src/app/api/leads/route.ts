@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // Add all quote request fields
     Object.entries(quoteRequestData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
+      if (value !== undefined && value !== null && value !== '') {
         if (typeof value === 'object') {
           backendFormData.append(key, JSON.stringify(value));
         } else {
@@ -80,16 +80,51 @@ export async function POST(request: NextRequest) {
     }
 
     // Send to Django backend
-    const response = await fetch(`${BACKEND_URL}/quotes/request/`, {
-      method: 'POST',
-      body: backendFormData,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${BACKEND_URL}/quotes/request/`, {
+        method: 'POST',
+        body: backendFormData,
+      });
+    } catch (fetchError) {
+      console.error('Backend connection error:', fetchError);
+      return NextResponse.json(
+        { error: 'No se pudo conectar con el servidor. Inténtalo de nuevo en unos minutos.' },
+        { status: 503 }
+      );
+    }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Backend error:', errorData);
+      const responseText = await response.text().catch(() => '');
+      let errorData: Record<string, unknown> = {};
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        console.error('Backend non-JSON error:', response.status, responseText.substring(0, 500));
+        return NextResponse.json(
+          { error: `Error del servidor (${response.status}). Inténtalo de nuevo más tarde.` },
+          { status: response.status }
+        );
+      }
+      console.error('Backend error:', response.status, errorData);
+
+      // DRF validation errors come as { field: [errors] } or { detail: "..." }
+      let errorMessage = 'Error al procesar la solicitud';
+      if (errorData.detail) {
+        errorMessage = String(errorData.detail);
+      } else if (typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+        // Flatten DRF field errors into readable message
+        const fieldErrors = Object.entries(errorData)
+          .map(([field, msgs]) => {
+            const messages = Array.isArray(msgs) ? msgs.join(', ') : String(msgs);
+            return `${field}: ${messages}`;
+          })
+          .join('; ');
+        errorMessage = fieldErrors;
+      }
+
       return NextResponse.json(
-        { error: errorData.detail || 'Error processing request' },
+        { error: errorMessage },
         { status: response.status }
       );
     }
@@ -104,8 +139,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('API leads error:', error);
+    const message = error instanceof Error ? error.message : 'Error interno del servidor';
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: `Error interno: ${message}` },
       { status: 500 }
     );
   }
