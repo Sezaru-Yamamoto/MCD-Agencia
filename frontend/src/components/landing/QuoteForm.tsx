@@ -186,17 +186,13 @@ interface QuoteFormData {
   pub_subtipoOtro?: string;
   pub_otroDescripcion?: string;
   // Vallas móviles
-  vallas_cantidad?: number;
-  vallas_zona?: string;
-  vallas_impresionIncluida?: 'si' | 'no';
+  // (only routes — cantidad/zona/impresion removed)
   // Publibuses
-  pub_ciudadZona?: string;
   pub_mesesCampana?: number;
-  pub_impresionIncluida?: 'si' | 'no';
+  // (ciudadZona/impresion removed)
   // Perifoneo
-  pub_zonaCobertura?: string;
-  pub_archivoGrabacion?: 'si' | 'no';
   pub_requiereGrabacion?: 'si' | 'no';
+  // (zonaCobertura/archivoGrabacion removed)
   pub_descripcionZona?: string;
 
   // Impresión gran formato
@@ -360,6 +356,7 @@ export function QuoteForm() {
   const cncTipo = watch('cnc_tipo');
   const disTipo = watch('dis_tipo');
   const pubMesesCampana = watch('pub_mesesCampana');
+  const pubRequiereGrabacion = watch('pub_requiereGrabacion');
 
   // Pre-fill form fields from logged-in user profile
   useEffect(() => {
@@ -511,6 +508,20 @@ export function QuoteForm() {
       return false;
     }
 
+    // Perifoneo: if user does NOT require provider recording, file is mandatory
+    if (data.servicio === 'publicidad-movil' && data.pub_subtipo === 'perifoneo' && data.pub_requiereGrabacion === 'no' && selectedFiles.length === 0) {
+      setFormStatus('error');
+      setErrorMessage('Debes adjuntar el archivo de grabación para perifoneo.');
+      return false;
+    }
+
+    // Perifoneo: if user requires provider recording, comments are mandatory
+    if (data.servicio === 'publicidad-movil' && data.pub_subtipo === 'perifoneo' && data.pub_requiereGrabacion === 'si' && !data.comentarios?.trim()) {
+      setFormStatus('error');
+      setErrorMessage('En comentarios especifica qué quieres que diga la grabación y la duración deseada.');
+      return false;
+    }
+
     // Build details same as buildPayload but only the service part
     const detalles: Record<string, unknown> = {};
     switch (data.servicio) {
@@ -522,11 +533,11 @@ export function QuoteForm() {
         break;
       case 'publicidad-movil':
         if (data.pub_subtipo === 'vallas-moviles') {
-          Object.assign(detalles, { subtipo: 'vallas-moviles', cantidad: data.vallas_cantidad, zona: data.vallas_zona, impresion_incluida: data.vallas_impresionIncluida === 'si', rutas: vallasRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB, distancia_metros: r.route.routeData?.distance, duracion_segundos: r.route.routeData?.duration } : null })) });
+          Object.assign(detalles, { subtipo: 'vallas-moviles', rutas: vallasRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB, distancia_metros: r.route.routeData?.distance, duracion_segundos: r.route.routeData?.duration } : null })) });
         } else if (data.pub_subtipo === 'publibuses') {
-          Object.assign(detalles, { subtipo: 'publibuses', ciudad_zona: data.pub_ciudadZona, meses_campana: data.pub_mesesCampana, impresion_incluida: data.pub_impresionIncluida === 'si', rutas: pubRoutes.map((r, i) => ({ numero: i + 1, ruta_preestablecida: r.ruta, fecha_inicio: r.fechaInicio })) });
+          Object.assign(detalles, { subtipo: 'publibuses', meses_campana: data.pub_mesesCampana, rutas: pubRoutes.map((r, i) => ({ numero: i + 1, ruta_preestablecida: r.ruta, fecha_inicio: r.fechaInicio })) });
         } else if (data.pub_subtipo === 'perifoneo') {
-          Object.assign(detalles, { subtipo: 'perifoneo', zona_cobertura: data.pub_zonaCobertura, rutas: perifoneoRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB } : null })) });
+          Object.assign(detalles, { subtipo: 'perifoneo', requiere_grabacion: data.pub_requiereGrabacion === 'si', rutas: perifoneoRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB } : null })) });
         } else if (data.pub_subtipo === 'otro') {
           Object.assign(detalles, { subtipo: data.pub_subtipoOtro, descripcion: data.pub_otroDescripcion });
         }
@@ -687,6 +698,17 @@ export function QuoteForm() {
       // Validate delivery method
       const availMethods = data.servicio ? getDeliveryMethodsForService(data.servicio) : [];
       const onlyNA = availMethods.length === 1 && availMethods[0] === 'not_applicable';
+
+      // Perifoneo: file required if no provider recording; comments required if yes
+      if (data.servicio === 'publicidad-movil' && data.pub_subtipo === 'perifoneo') {
+        if (data.pub_requiereGrabacion === 'no' && selectedFiles.length === 0) {
+          setFormStatus('error');
+          setErrorMessage('Debes adjuntar el archivo de grabación para perifoneo.');
+          return;
+        }
+        // Comments validation already handled by react-hook-form required rule
+      }
+
       if (!onlyNA && !deliveryMethod) {
         setDeliveryError('Selecciona un método de entrega');
         setFormStatus('error');
@@ -962,9 +984,6 @@ export function QuoteForm() {
         if (data.pub_subtipo === 'vallas-moviles') {
           basePayload.detalles = {
             subtipo: 'vallas-moviles',
-            cantidad: data.vallas_cantidad,
-            zona: data.vallas_zona,
-            impresion_incluida: data.vallas_impresionIncluida === 'si',
             rutas: vallasRoutes.map((r, i) => ({
               numero: i + 1,
               fecha_inicio: r.fechaInicio || null,
@@ -983,9 +1002,7 @@ export function QuoteForm() {
         } else if (data.pub_subtipo === 'publibuses') {
           basePayload.detalles = {
             subtipo: 'publibuses',
-            ciudad_zona: data.pub_ciudadZona,
             meses_campana: data.pub_mesesCampana,
-            impresion_incluida: data.pub_impresionIncluida === 'si',
             rutas: pubRoutes.map((r, i) => ({
               numero: i + 1,
               ruta_preestablecida: r.ruta || null,
@@ -996,8 +1013,6 @@ export function QuoteForm() {
         } else if (data.pub_subtipo === 'perifoneo') {
           basePayload.detalles = {
             subtipo: 'perifoneo',
-            zona_cobertura: data.pub_zonaCobertura,
-            archivo_grabacion_proporcionado: data.pub_archivoGrabacion === 'si',
             requiere_grabacion: data.pub_requiereGrabacion === 'si',
             delimitacion_zona: data.pub_descripcionZona || null,
             rutas: perifoneoRoutes.map((r, i) => ({
@@ -1707,25 +1722,6 @@ export function QuoteForm() {
                   {/* Vallas móviles fields */}
                   {pubSubtipo === 'vallas-moviles' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50 overflow-hidden">
-                      <div>
-                        <label className="label-field">Cantidad de vallas <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('vallas_cantidad', { required: pubSubtipo === 'vallas-moviles' ? 'La cantidad es requerida' : false, min: { value: 1, message: 'Mínimo 1' }, valueAsNumber: true })} type="number" min="1" className="input-field" placeholder="1" disabled={formStatus === 'submitting'} />
-                      </div>
-                      <div>
-                        <label className="label-field">Zona / ciudades de circulación <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('vallas_zona', { required: pubSubtipo === 'vallas-moviles' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Zona o ciudades donde circularán" disabled={formStatus === 'submitting'} />
-                      </div>
-                      <div>
-                        <label className="label-field">¿Impresión incluida? <span className="text-cmyk-magenta">*</span></label>
-                        <div className="flex gap-4 mt-2">
-                          <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('vallas_impresionIncluida')} type="radio" value="si" className="text-cmyk-cyan" /> Sí
-                          </label>
-                          <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('vallas_impresionIncluida')} type="radio" value="no" className="text-cmyk-cyan" /> No
-                          </label>
-                        </div>
-                      </div>
 
                       {/* Multi-route section */}
                       <div className="md:col-span-2 space-y-4">
@@ -1809,11 +1805,7 @@ export function QuoteForm() {
                   {/* Publibuses fields */}
                   {pubSubtipo === 'publibuses' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50">
-                      <div>
-                        <label className="label-field">Ciudad / zona <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('pub_ciudadZona', { required: pubSubtipo === 'publibuses' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Ciudad o zona de campaña" disabled={formStatus === 'submitting'} />
-                      </div>
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="label-field">Tiempo de campaña (meses) <span className="text-cmyk-magenta">*</span></label>
                         <select {...register('pub_mesesCampana', { required: pubSubtipo === 'publibuses' ? 'Selecciona los meses' : false, valueAsNumber: true })} className="input-field" disabled={formStatus === 'submitting'}>
                           <option value="">Selecciona duración</option>
@@ -1821,17 +1813,6 @@ export function QuoteForm() {
                             <option key={m} value={m}>{m} {m === 1 ? 'mes' : 'meses'}</option>
                           ))}
                         </select>
-                      </div>
-                      <div>
-                        <label className="label-field">¿Impresión incluida? <span className="text-cmyk-magenta">*</span></label>
-                        <div className="flex gap-4 mt-2">
-                          <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('pub_impresionIncluida')} type="radio" value="si" className="text-cmyk-cyan" /> Sí
-                          </label>
-                          <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('pub_impresionIncluida')} type="radio" value="no" className="text-cmyk-cyan" /> No
-                          </label>
-                        </div>
                       </div>
 
                       {/* Multi-route for publibuses */}
@@ -1932,32 +1913,36 @@ export function QuoteForm() {
                   {/* Perifoneo fields */}
                   {pubSubtipo === 'perifoneo' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-4 border-t border-neutral-700/50 overflow-hidden">
-                      <div>
-                        <label className="label-field">Zona de cobertura <span className="text-cmyk-magenta">*</span></label>
-                        <input {...register('pub_zonaCobertura', { required: pubSubtipo === 'perifoneo' ? 'La zona es requerida' : false })} type="text" className="input-field" placeholder="Colonia, municipio o área" disabled={formStatus === 'submitting'} />
-                      </div>
-                      <div>
-                        <label className="label-field">¿Archivo de grabación proporcionado? <span className="text-cmyk-magenta">*</span></label>
-                        <div className="flex gap-4 mt-2">
-                          <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('pub_archivoGrabacion')} type="radio" value="si" className="text-cmyk-cyan" /> Sí
-                          </label>
-                          <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('pub_archivoGrabacion')} type="radio" value="no" className="text-cmyk-cyan" /> No
-                          </label>
-                        </div>
-                      </div>
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="label-field">¿Requiere grabación por parte del proveedor? <span className="text-cmyk-magenta">*</span></label>
                         <div className="flex gap-4 mt-2">
                           <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('pub_requiereGrabacion')} type="radio" value="si" className="text-cmyk-cyan" /> Sí
+                            <input {...register('pub_requiereGrabacion', { required: pubSubtipo === 'perifoneo' ? 'Selecciona una opción' : false })} type="radio" value="si" className="text-cmyk-cyan" /> Sí
                           </label>
                           <label className="flex items-center gap-2 text-white cursor-pointer">
-                            <input {...register('pub_requiereGrabacion')} type="radio" value="no" className="text-cmyk-cyan" /> No
+                            <input {...register('pub_requiereGrabacion')} type="radio" value="no" className="text-cmyk-cyan" /> No, proporcionaré el archivo
                           </label>
                         </div>
+                        {errors.pub_requiereGrabacion && <p className="error-message">{errors.pub_requiereGrabacion.message}</p>}
                       </div>
+
+                      {/* Conditional message based on grabación answer */}
+                      {pubRequiereGrabacion === 'si' && (
+                        <div className="md:col-span-2">
+                          <p className="text-xs text-amber-400/90 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
+                            <span className="mt-0.5">📝</span>
+                            <span>En la sección de <strong>comentarios</strong> (más abajo) es <strong>obligatorio</strong> que especifiques qué quieres que diga la grabación y la duración deseada.</span>
+                          </p>
+                        </div>
+                      )}
+                      {pubRequiereGrabacion === 'no' && (
+                        <div className="md:col-span-2">
+                          <p className="text-xs text-amber-400/90 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
+                            <span className="mt-0.5">📎</span>
+                            <span>Es <strong>obligatorio</strong> adjuntar el archivo de grabación en la sección de <strong>archivos adjuntos</strong> (más abajo).</span>
+                          </p>
+                        </div>
+                      )}
 
                       {/* Multi-route section for perifoneo */}
                       <div className="md:col-span-2 space-y-4">
@@ -2615,7 +2600,16 @@ export function QuoteForm() {
             <div className="space-y-5 pt-4 border-t border-neutral-700/50">
               {/* File upload */}
               <div>
-                <label className="label-field">Agregar archivos</label>
+                <label className="label-field">
+                  Agregar archivos
+                  {servicioValue === 'publicidad-movil' && pubSubtipo === 'perifoneo' && pubRequiereGrabacion === 'no' && <span className="text-cmyk-magenta"> *</span>}
+                </label>
+                {servicioValue === 'publicidad-movil' && pubSubtipo === 'perifoneo' && pubRequiereGrabacion === 'no' && selectedFiles.length === 0 && (
+                  <p className="text-xs text-amber-400/90 mb-2 flex items-start gap-1">
+                    <span className="mt-0.5">⚠️</span>
+                    <span>Debes adjuntar el archivo de grabación.</span>
+                  </p>
+                )}
                 <div
                   className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
                     isDragging ? 'border-cmyk-magenta bg-cmyk-magenta/10' : 'border-gray-600 hover:border-cmyk-magenta hover:bg-cmyk-magenta/5'
@@ -2632,13 +2626,13 @@ export function QuoteForm() {
                     className="hidden"
                     onChange={(e) => handleFileChange(e.target.files)}
                     disabled={formStatus === 'submitting'}
-                    accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg"
+                    accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg,.mp3,.wav,.ogg,.m4a"
                   />
                   <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   <p className="text-white font-medium text-sm">{t('dragOrClick')}</p>
-                  <p className="text-gray-400 text-xs mt-1">PDF, JPG, PNG, AI, CDR, DXF, SVG (max 10MB por archivo)</p>
+                  <p className="text-gray-400 text-xs mt-1">PDF, JPG, PNG, AI, CDR, DXF, SVG, MP3, WAV (max 10MB por archivo)</p>
                   {servicioValue === 'diseno-grafico' && (
                     <p className="text-xs text-cmyk-cyan mt-2 flex items-start gap-1 justify-center">
                       <span className="mt-0.5">💡</span>
@@ -2674,17 +2668,25 @@ export function QuoteForm() {
               <div>
                 <label htmlFor="comentarios" className="label-field">
                   {t('comments')}
-                  {servicioValue === 'diseno-grafico' && <span className="text-cmyk-magenta"> *</span>}
+                  {(servicioValue === 'diseno-grafico' || (servicioValue === 'publicidad-movil' && pubSubtipo === 'perifoneo' && pubRequiereGrabacion === 'si')) && <span className="text-cmyk-magenta"> *</span>}
                 </label>
                 <textarea
                   {...register('comentarios', {
-                    required: servicioValue === 'diseno-grafico' ? 'Los comentarios son obligatorios para Diseño Gráfico. Describe qué necesitas para tu diseño.' : false,
+                    required: servicioValue === 'diseno-grafico'
+                      ? 'Los comentarios son obligatorios para Diseño Gráfico. Describe qué necesitas para tu diseño.'
+                      : (servicioValue === 'publicidad-movil' && pubSubtipo === 'perifoneo' && pubRequiereGrabacion === 'si')
+                        ? 'Los comentarios son obligatorios. Especifica qué quieres que diga la grabación y la duración deseada.'
+                        : false,
                     maxLength: { value: 2000, message: 'Máximo 2000 caracteres' }
                   })}
                   id="comentarios"
                   rows={3}
                   className="input-field resize-none"
-                  placeholder={servicioValue === 'diseno-grafico' ? 'Describe detalladamente qué necesitas: concepto, colores, estilo, texto, público objetivo, referencias, etc.' : t('commentsPlaceholder')}
+                  placeholder={servicioValue === 'diseno-grafico'
+                    ? 'Describe detalladamente qué necesitas: concepto, colores, estilo, texto, público objetivo, referencias, etc.'
+                    : (servicioValue === 'publicidad-movil' && pubSubtipo === 'perifoneo' && pubRequiereGrabacion === 'si')
+                      ? 'Especifica: ¿Qué quieres que diga la grabación? ¿Cuánto debe durar? (ej. 30 segundos, 1 minuto)'
+                      : t('commentsPlaceholder')}
                   disabled={formStatus === 'submitting'}
                 />
                 {errors.comentarios && <p className="error-message">{errors.comentarios.message}</p>}
@@ -2692,6 +2694,12 @@ export function QuoteForm() {
                   <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
                     <span className="mt-0.5">📝</span>
                     <span>Es importante que describas lo que necesitas para tu diseño: concepto, estilo deseado, colores, textos, etc.</span>
+                  </p>
+                )}
+                {servicioValue === 'publicidad-movil' && pubSubtipo === 'perifoneo' && pubRequiereGrabacion === 'si' && (
+                  <p className="text-xs text-amber-400/90 mt-1.5 flex items-start gap-1">
+                    <span className="mt-0.5">🎙️</span>
+                    <span>Especifica el contenido de la grabación (texto o guion) y la duración deseada.</span>
                   </p>
                 )}
               </div>

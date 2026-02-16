@@ -300,7 +300,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                 'zona': 'Zona', 'zona_cobertura': 'Cobertura',
                 'impresion_incluida': 'Impresión', 'instalacion_incluida': 'Instalación',
                 'diseno_incluido': 'Diseño incluido', 'archivo_listo': 'Archivo listo',
-                'iluminacion': 'Iluminación',
+                'iluminacion': 'Iluminación', 'requiere_grabacion': 'Requiere grabación',
             }
             SKIP_KEYS = {'service_type', 'tipo_personalizado', 'material_personalizado',
                          'producto_personalizado', 'subtipo_personalizado',
