@@ -249,6 +249,24 @@ interface QuoteFormData {
   website?: string;
 }
 
+// Saved service entry for multi-service requests
+interface SavedServiceEntry {
+  id: string;
+  serviceType: ServiceId;
+  serviceLabel: string;
+  serviceDetails: Record<string, unknown>;
+  deliveryMethod: DeliveryMethod | '';
+  deliveryAddress: Record<string, string>;
+  pickupBranch: string;
+  requiredDate: string;
+  comments: string;
+  files: File[];
+  // Route data (publicidad-movil)
+  vallasRoutes?: ConfigurableRouteEntry[];
+  perifoneoRoutes?: ConfigurableRouteEntry[];
+  pubRoutes?: EstablishedRouteEntry[];
+}
+
 export function QuoteForm() {
   const t = useTranslations('landing.quoteForm');
   const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha();
@@ -274,6 +292,9 @@ export function QuoteForm() {
   const postalCode = usePostalCode();
   const [coloniaManual, setColoniaManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Multi-service state
+  const [savedServices, setSavedServices] = useState<SavedServiceEntry[]>([]);
 
   // Saved addresses for logged-in users
   const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
@@ -466,6 +487,119 @@ export function QuoteForm() {
     }
   }, [servicioValue]);
 
+  // Capture current service data into savedServices and reset service fields
+  const captureCurrentService = (data: QuoteFormData): boolean => {
+    if (!data.servicio) return false;
+
+    // Validate required date (unless route-based pub-movil)
+    const isRouteBased = data.servicio === 'publicidad-movil' && ['publibuses', 'vallas-moviles', 'perifoneo'].includes(data.pub_subtipo || '');
+    if (!isRouteBased && !data.fechaRequerida) {
+      setFormStatus('error');
+      setErrorMessage('Selecciona la fecha requerida antes de agregar otro servicio');
+      return false;
+    }
+
+    // Build details same as buildPayload but only the service part
+    const detalles: Record<string, unknown> = {};
+    switch (data.servicio) {
+      case 'espectaculares':
+        Object.assign(detalles, { tipo: data.esp_tipo === 'otro' ? data.esp_tipoOtro : data.esp_tipo, medidas: data.esp_medidas, tiempo_exhibicion: data.esp_tiempoExhibicion, impresion_incluida: data.esp_impresionIncluida === 'si' });
+        break;
+      case 'fabricacion-anuncios':
+        Object.assign(detalles, { tipo_anuncio: data.fab_tipoAnuncio === 'otro' ? data.fab_tipoOtro : data.fab_tipoAnuncio, medidas: data.fab_medidas, uso: data.fab_uso, iluminacion: data.fab_iluminacion === 'si' });
+        break;
+      case 'publicidad-movil':
+        if (data.pub_subtipo === 'vallas-moviles') {
+          Object.assign(detalles, { subtipo: 'vallas-moviles', cantidad: data.vallas_cantidad, zona: data.vallas_zona, impresion_incluida: data.vallas_impresionIncluida === 'si', rutas: vallasRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB, distancia_metros: r.route.routeData?.distance, duracion_segundos: r.route.routeData?.duration } : null })) });
+        } else if (data.pub_subtipo === 'publibuses') {
+          Object.assign(detalles, { subtipo: 'publibuses', ciudad_zona: data.pub_ciudadZona, meses_campana: data.pub_mesesCampana, impresion_incluida: data.pub_impresionIncluida === 'si', rutas: pubRoutes.map((r, i) => ({ numero: i + 1, ruta_preestablecida: r.ruta, fecha_inicio: r.fechaInicio })) });
+        } else if (data.pub_subtipo === 'perifoneo') {
+          Object.assign(detalles, { subtipo: 'perifoneo', zona_cobertura: data.pub_zonaCobertura, rutas: perifoneoRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB } : null })) });
+        } else if (data.pub_subtipo === 'otro') {
+          Object.assign(detalles, { subtipo: data.pub_subtipoOtro, descripcion: data.pub_otroDescripcion });
+        }
+        break;
+      case 'impresion-gran-formato':
+        Object.assign(detalles, { material: data.igf_material === 'otro' ? data.igf_materialOtro : data.igf_material, medidas: data.igf_medidas, cantidad: data.igf_cantidad, archivo_listo: data.igf_archivoListo === 'si' });
+        break;
+      case 'senalizacion':
+        Object.assign(detalles, { tipo: data.sen_tipo === 'otro' ? data.sen_tipoOtro : data.sen_tipo, medidas: data.sen_medidas, cantidad: data.sen_cantidad });
+        break;
+      case 'rotulacion-vehicular':
+        Object.assign(detalles, { tipo_vehiculo: data.rot_tipoVehiculo, tipo_rotulacion: data.rot_tipoRotulacion === 'otro' ? data.rot_tipoRotulacionOtro : data.rot_tipoRotulacion, diseno_incluido: data.rot_disenoIncluido === 'si' });
+        break;
+      case 'corte-grabado-cnc-laser':
+        Object.assign(detalles, { tipo: data.cnc_tipo === 'otro' ? data.cnc_tipoOtro : data.cnc_tipo, medidas: data.cnc_medidas, cantidad: data.cnc_cantidad, archivo_listo: data.cnc_archivoListo === 'si' });
+        break;
+      case 'diseno-grafico':
+        Object.assign(detalles, { tipo: data.dis_tipo === 'otro' ? data.dis_tipoOtro : data.dis_tipo, numero_piezas: data.dis_numeroPiezas, medidas: data.dis_medidas, uso: data.dis_usoDiseno, cambios_incluidos: data.dis_cambiosIncluidos === 'si' });
+        break;
+      case 'impresion-offset-serigrafia':
+        Object.assign(detalles, { producto: data.off_producto === 'otro' ? data.off_productoOtro : data.off_producto, cantidad: data.off_cantidad, archivo_listo: data.off_archivoListo === 'si' });
+        break;
+      case 'otros':
+        Object.assign(detalles, { tipo_servicio: data.otros_tipoServicio, descripcion: data.otros_descripcion, medidas: data.otros_medidas, cantidad: data.otros_cantidad });
+        break;
+    }
+
+    // Compute required_date for route-based services
+    let reqDate = data.fechaRequerida || '';
+    if (isRouteBased) {
+      let allDates: string[] = [];
+      if (data.pub_subtipo === 'vallas-moviles') allDates = vallasRoutes.map(r => r.fechaInicio).filter(Boolean);
+      else if (data.pub_subtipo === 'publibuses') allDates = pubRoutes.map(r => r.fechaInicio).filter(Boolean);
+      else if (data.pub_subtipo === 'perifoneo') allDates = perifoneoRoutes.map(r => r.fechaInicio).filter(Boolean);
+      if (allDates.length > 0) { allDates.sort(); reqDate = allDates[0]; }
+    }
+
+    // Resolve delivery address from saved address if applicable
+    let resolvedAddress = deliveryAddress;
+    if ((deliveryMethod === 'installation' || deliveryMethod === 'shipping') && !useNewAddress && selectedAddressId && savedAddresses.length > 0) {
+      const sa = savedAddresses.find(a => a.id === selectedAddressId);
+      if (sa) {
+        resolvedAddress = { calle: sa.calle, numero_exterior: sa.numero_exterior, numero_interior: sa.numero_interior || '', colonia: sa.colonia, ciudad: sa.ciudad, estado: sa.estado, codigo_postal: sa.codigo_postal, referencia: sa.referencia || '' };
+      }
+    }
+
+    const entry: SavedServiceEntry = {
+      id: `svc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      serviceType: data.servicio as ServiceId,
+      serviceLabel: serviceLabels[data.servicio as ServiceId] || data.servicio,
+      serviceDetails: detalles,
+      deliveryMethod: deliveryMethod,
+      deliveryAddress: resolvedAddress,
+      pickupBranch: selectedBranch,
+      requiredDate: reqDate,
+      comments: data.comentarios || '',
+      files: [...selectedFiles],
+      vallasRoutes: data.pub_subtipo === 'vallas-moviles' ? [...vallasRoutes] : undefined,
+      perifoneoRoutes: data.pub_subtipo === 'perifoneo' ? [...perifoneoRoutes] : undefined,
+      pubRoutes: data.pub_subtipo === 'publibuses' ? [...pubRoutes] : undefined,
+    };
+
+    setSavedServices(prev => [...prev, entry]);
+
+    // Reset service-specific fields
+    setValue('servicio', '');
+    setValue('fechaRequerida', '');
+    setValue('comentarios', '');
+    setSelectedFiles([]);
+    setDeliveryMethod('');
+    setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+    setSelectedBranch('');
+    postalCode.reset();
+    setColoniaManual(false);
+    setVallasRoutes([createConfigurableRoute()]);
+    setPerifoneoRoutes([createConfigurableRoute()]);
+    setPubRoutes([createEstablishedRoute()]);
+
+    return true;
+  };
+
+  const removeService = (serviceId: string) => {
+    setSavedServices(prev => prev.filter(s => s.id !== serviceId));
+  };
+
   const onSubmit = async (data: QuoteFormData) => {
     try {
       setFormStatus('submitting');
@@ -609,9 +743,17 @@ export function QuoteForm() {
       const formData = new FormData();
       formData.append('payload', JSON.stringify(payload));
 
-      // Add files
+      // Add files from current service
       selectedFiles.forEach((file, index) => {
         formData.append(`archivo_${index}`, file);
+      });
+      // Add files from saved services
+      let fileOffset = selectedFiles.length;
+      savedServices.forEach(svc => {
+        svc.files.forEach((file) => {
+          formData.append(`archivo_${fileOffset}`, file);
+          fileOffset++;
+        });
       });
 
       const response = await fetch('/api/leads', {
@@ -629,6 +771,7 @@ export function QuoteForm() {
       });
       reset();
       setSelectedFiles([]);
+      setSavedServices([]);
       setDeliveryMethod('');
       setDeliveryError('');
       setDeliveryAddress({ calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
@@ -884,6 +1027,41 @@ export function QuoteForm() {
         };
         break;
     }
+
+    // Build services array (savedServices + current service)
+    const allServices: Array<Record<string, unknown>> = [];
+
+    // Add previously saved services
+    savedServices.forEach((svc, idx) => {
+      allServices.push({
+        position: idx,
+        service_type: svc.serviceType,
+        service_details: svc.serviceDetails,
+        delivery_method: svc.deliveryMethod || null,
+        delivery_address: (svc.deliveryMethod === 'installation' || svc.deliveryMethod === 'shipping') ? svc.deliveryAddress : null,
+        pickup_branch: svc.deliveryMethod === 'pickup' ? svc.pickupBranch : null,
+        required_date: svc.requiredDate || null,
+        description: svc.comments || null,
+      });
+    });
+
+    // Add current service (the one in the form right now)
+    if (data.servicio) {
+      const entrega = basePayload.entrega as Record<string, unknown> | undefined;
+      allServices.push({
+        position: allServices.length,
+        service_type: data.servicio,
+        service_details: basePayload.detalles,
+        delivery_method: basePayload.metodo_entrega,
+        delivery_address: entrega?.direccion || null,
+        pickup_branch: entrega?.sucursal || null,
+        required_date: basePayload.fecha_requerida,
+        description: data.comentarios || null,
+      });
+    }
+
+    // Attach services array to payload
+    (basePayload as Record<string, unknown>).servicios = allServices.length > 0 ? allServices : null;
 
     return basePayload;
   };
@@ -2328,6 +2506,65 @@ export function QuoteForm() {
               </div>
             );
           })()}
+
+          {/* SECTION: Saved Services Summary + Add Another */}
+          {savedServices.length > 0 && (
+            <div className="space-y-3 border border-cmyk-cyan/30 rounded-xl p-4 sm:p-6 bg-cmyk-cyan/5">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>📋</span>
+                Servicios agregados ({savedServices.length})
+              </h3>
+              <div className="space-y-2">
+                {savedServices.map((svc, idx) => (
+                  <div key={svc.id} className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3 border border-neutral-700/50">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {idx + 1}. {svc.serviceLabel}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {svc.requiredDate && `Fecha: ${new Date(svc.requiredDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}`}
+                        {svc.deliveryMethod && svc.deliveryMethod !== 'not_applicable' && (
+                          <span> · {DELIVERY_METHOD_LABELS[svc.deliveryMethod]?.es || svc.deliveryMethod}</span>
+                        )}
+                        {svc.files.length > 0 && <span> · {svc.files.length} archivo{svc.files.length > 1 ? 's' : ''}</span>}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeService(svc.id)}
+                      disabled={formStatus === 'submitting'}
+                      className="text-red-400 hover:text-red-300 p-1.5 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+                      title="Quitar servicio"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add Another Service Button */}
+          {servicioValue && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleSubmit((formData) => {
+                  captureCurrentService(formData);
+                })}
+                disabled={formStatus === 'submitting'}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-dashed border-cmyk-cyan/40 text-cmyk-cyan hover:bg-cmyk-cyan/10 hover:border-cmyk-cyan/70 transition-all text-sm font-medium"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Agregar otro servicio
+              </button>
+              <p className="text-xs text-gray-500 mt-1.5">¿Necesitas cotizar otro servicio en esta misma solicitud?</p>
+            </div>
+          )}
 
           {/* SECTION: Files and Comments */}
           <div className="space-y-6">

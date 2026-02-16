@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Map multi-service data (servicios array from landing form)
+    if (payload.servicios && Array.isArray(payload.servicios) && payload.servicios.length > 0) {
+      quoteRequestData.services = JSON.stringify(payload.servicios);
+    }
+
     // Create FormData for backend
     const backendFormData = new FormData();
 

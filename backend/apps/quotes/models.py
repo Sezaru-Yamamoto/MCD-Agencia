@@ -463,6 +463,91 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         ])
 
 
+class QuoteRequestService(TimeStampedModel):
+    """
+    Individual service within a multi-service quote request.
+
+    Allows customers to request quotes for multiple services in a single
+    request, each with its own service type, details, delivery method,
+    and required date.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    quote_request = models.ForeignKey(
+        QuoteRequest,
+        on_delete=models.CASCADE,
+        related_name='services',
+        help_text=_('Parent quote request.'),
+    )
+    position = models.PositiveIntegerField(
+        _('position'),
+        default=0,
+        help_text=_('Display order within the request.'),
+    )
+
+    # Service details
+    service_type = models.CharField(
+        _('service type'),
+        max_length=100,
+        blank=True,
+        help_text=_('Type of service requested.'),
+    )
+    service_details = models.JSONField(
+        _('service details'),
+        default=dict,
+        blank=True,
+        help_text=_('Dynamic service-specific details.'),
+    )
+
+    # Per-service delivery
+    delivery_method = models.CharField(
+        _('delivery method'),
+        max_length=20,
+        choices=QuoteRequest.DELIVERY_METHOD_CHOICES,
+        blank=True,
+    )
+    delivery_address = models.JSONField(
+        _('delivery address'),
+        default=dict,
+        blank=True,
+    )
+    pickup_branch = models.ForeignKey(
+        'content.Branch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='request_services',
+        verbose_name=_('pickup branch'),
+    )
+
+    # Per-service required date
+    required_date = models.DateField(
+        _('required date'),
+        null=True,
+        blank=True,
+    )
+
+    # Per-service description / comments
+    description = models.TextField(
+        _('comments'),
+        blank=True,
+    )
+
+    # Per-service attachments are handled via QuoteAttachment FK
+
+    class Meta:
+        verbose_name = _('quote request service')
+        verbose_name_plural = _('quote request services')
+        ordering = ['position', 'created_at']
+
+    def __str__(self):
+        return f"{self.service_type} (#{self.position + 1})"
+
+
 class Quote(TimeStampedModel, SoftDeleteModel):
     """
     Quotation response from sales team.
@@ -862,10 +947,15 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         return self.total
 
     def calculate_totals(self):
-        """Recalculate quote totals from line items."""
-        self.subtotal = sum(line.line_total for line in self.lines.all())
+        """Recalculate quote totals from line items.
+
+        Shipping costs are added separately without IVA.
+        """
+        lines = self.lines.all()
+        self.subtotal = sum(line.line_total for line in lines)
         self.tax_amount = self.subtotal * self.tax_rate
-        self.total = self.subtotal + self.tax_amount
+        shipping_total = sum(line.shipping_cost for line in lines)
+        self.total = self.subtotal + self.tax_amount + shipping_total
 
     def mark_as_viewed(self):
         """Mark quote as viewed by customer."""
@@ -978,6 +1068,40 @@ class QuoteLine(TimeStampedModel):
         help_text=_('Line total.')
     )
 
+    # Shipping cost (separate from product price, no IVA applied)
+    shipping_cost = models.DecimalField(
+        _('shipping cost'),
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text=_('Shipping/delivery cost for this line item (no tax applied).')
+    )
+
+    # Per-line delivery info (for multi-service quotes each service may differ)
+    delivery_method = models.CharField(
+        _('delivery method'),
+        max_length=20,
+        choices=QuoteRequest.DELIVERY_METHOD_CHOICES,
+        blank=True,
+    )
+    delivery_address = models.JSONField(
+        _('delivery address'),
+        default=dict,
+        blank=True,
+    )
+    pickup_branch = models.ForeignKey(
+        'content.Branch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quote_lines',
+    )
+    estimated_delivery_date = models.DateField(
+        _('estimated delivery date'),
+        null=True,
+        blank=True,
+    )
+
     # Service-specific structured details (JSON)
     service_details = models.JSONField(
         _('service details'),
@@ -1035,6 +1159,14 @@ class QuoteAttachment(TimeStampedModel):
         blank=True,
         related_name='attachments',
         help_text=_('Source quote request.')
+    )
+    request_service = models.ForeignKey(
+        QuoteRequestService,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='attachments',
+        help_text=_('Source request service (for multi-service requests).')
     )
     quote = models.ForeignKey(
         Quote,

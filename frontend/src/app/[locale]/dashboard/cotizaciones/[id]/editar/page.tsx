@@ -52,6 +52,7 @@ interface QuoteLineItem {
   quantity: number;
   unit: string;
   unit_price: number;
+  shipping_cost: number;
   catalogItem?: CatalogItem;
   serviceDetails?: ServiceDetailsData;
   showServiceForm?: boolean;
@@ -78,8 +79,7 @@ export default function EditQuotePage() {
   const [serviceSearchQuery, setServiceSearchQuery] = useState('');
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [validDays, setValidDays] = useState(15);
-  const [paymentMode, setPaymentMode] = useState<'FULL' | 'DEPOSIT_ALLOWED'>('FULL');
-  const [depositPercentage, setDepositPercentage] = useState(50);
+  const paymentMode = 'FULL' as const;
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
   const [terms, setTerms] = useState('');
@@ -116,8 +116,6 @@ export default function EditQuotePage() {
       setCustomerName(quote.customer_name);
       setCustomerEmail(quote.customer_email);
       setCustomerCompany(quote.customer_company || '');
-      setPaymentMode(quote.payment_mode);
-      setDepositPercentage(Number(quote.deposit_percentage) || 50);
       setEstimatedDeliveryDate(quote.estimated_delivery_date || '');
       setPaymentConditions(quote.payment_conditions || '');
       setTerms(quote.terms || '');
@@ -249,6 +247,7 @@ export default function EditQuotePage() {
                 quantity: line.quantity,
                 unit: line.unit,
                 unit_price: Number(line.unit_price),
+                shipping_cost: parseFloat(line.shipping_cost || '0') || 0,
                 serviceDetails: prefillDetails,
                 showServiceForm: true,
               });
@@ -266,6 +265,7 @@ export default function EditQuotePage() {
             quantity: line.quantity,
             unit: line.unit,
             unit_price: Number(line.unit_price),
+            shipping_cost: parseFloat(line.shipping_cost || '0') || 0,
           });
         }
 
@@ -341,6 +341,7 @@ export default function EditQuotePage() {
       quantity: 1,
       unit: 'pza',
       unit_price: parseFloat(item.base_price || '0'),
+      shipping_cost: 0,
       catalogItem: item,
     }]);
     setProductSearch('');
@@ -356,6 +357,7 @@ export default function EditQuotePage() {
       quantity: 1,
       unit: 'pza',
       unit_price: 0,
+      shipping_cost: 0,
     }]);
   };
 
@@ -381,8 +383,8 @@ export default function EditQuotePage() {
   }, 0);
   const taxRate = 0.16;
   const taxAmount = subtotal * taxRate;
-  const total = subtotal + taxAmount;
-  const depositAmount = paymentMode === 'DEPOSIT_ALLOWED' ? total * (depositPercentage / 100) : 0;
+  const shippingTotal = items.reduce((sum, item) => sum + (item.shipping_cost || 0), 0);
+  const total = subtotal + taxAmount + shippingTotal;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -437,7 +439,6 @@ export default function EditQuotePage() {
         customer_company: customerCompany || undefined,
         valid_days: validDays,
         payment_mode: paymentMode,
-        deposit_percentage: paymentMode === 'DEPOSIT_ALLOWED' ? depositPercentage : undefined,
         terms: terms || undefined,
         internal_notes: internalNotes || undefined,
         estimated_delivery_date: estimatedDeliveryDate || undefined,
@@ -467,6 +468,7 @@ export default function EditQuotePage() {
               quantity: rl.quantity,
               unit: rl.unit,
               unit_price: rl.unit_price,
+              shipping_cost: ri === 0 ? item.shipping_cost || 0 : 0,
               position: 0, // will be set below
               service_details: ri === 0 ? (item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined) : undefined,
             }));
@@ -480,6 +482,7 @@ export default function EditQuotePage() {
             quantity: item.quantity,
             unit: item.unit,
             unit_price: item.unit_price,
+            shipping_cost: item.shipping_cost || 0,
             position: 0,
             service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
           }];
@@ -717,6 +720,7 @@ export default function EditQuotePage() {
                                         quantity: 1,
                                         unit: 'servicio',
                                         unit_price: 0,
+                                        shipping_cost: 0,
                                         serviceDetails: details,
                                         showServiceForm: true,
                                       }]);
@@ -885,6 +889,14 @@ export default function EditQuotePage() {
                                 className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
                               />
                             </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-neutral-500 text-xs">Envío <span className="text-neutral-600">(sin IVA)</span>:</label>
+                              <PriceInput
+                                value={item.shipping_cost}
+                                onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                className="w-24 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                              />
+                            </div>
                             <div className="ml-auto flex items-center gap-3">
                               <span className="text-white font-medium">
                                 {formatCurrency(item.quantity * item.unit_price)}
@@ -947,30 +959,11 @@ export default function EditQuotePage() {
                 </div>
                 <div>
                   <label className="block text-neutral-400 text-sm mb-2">Modo de Pago</label>
-                  <select
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value as 'FULL' | 'DEPOSIT_ALLOWED')}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan"
-                  >
-                    <option value="FULL">Pago completo</option>
-                    <option value="DEPOSIT_ALLOWED">Permite anticipo</option>
-                  </select>
+                  <div className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white">
+                    Pago completo
+                  </div>
                 </div>
               </div>
-
-              {paymentMode === 'DEPOSIT_ALLOWED' && (
-                <div className="mb-4">
-                  <label className="block text-neutral-400 text-sm mb-2">Porcentaje de Anticipo (%)</label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="90"
-                    value={depositPercentage}
-                    onChange={(e) => setDepositPercentage(parseInt(e.target.value) || 50)}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan"
-                  />
-                </div>
-              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -1184,16 +1177,16 @@ export default function EditQuotePage() {
                   <span>IVA (16%)</span>
                   <span>{formatCurrency(taxAmount)}</span>
                 </div>
+                {shippingTotal > 0 && (
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Envío <span className="text-neutral-600 text-xs">(sin IVA)</span></span>
+                    <span>{formatCurrency(shippingTotal)}</span>
+                  </div>
+                )}
                 <div className="border-t border-neutral-700 pt-3 flex justify-between text-white font-semibold text-lg">
                   <span>Total</span>
                   <span>{formatCurrency(total)}</span>
                 </div>
-                {paymentMode === 'DEPOSIT_ALLOWED' && depositAmount > 0 && (
-                  <div className="flex justify-between text-cmyk-cyan text-sm">
-                    <span>Anticipo ({depositPercentage}%)</span>
-                    <span>{formatCurrency(depositAmount)}</span>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-3">

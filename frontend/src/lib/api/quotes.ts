@@ -31,6 +31,18 @@ export interface QuoteLine {
   line_total: string;
   position: number;
   service_details?: Record<string, unknown>;
+  shipping_cost?: string;
+  delivery_method?: string;
+  delivery_address?: Record<string, string>;
+  pickup_branch?: string;
+  pickup_branch_detail?: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+    full_address: string;
+  } | null;
+  estimated_delivery_date?: string;
 }
 
 export interface QuoteAttachment {
@@ -47,6 +59,27 @@ export interface SalesRep {
   id: string;
   full_name: string;
   email: string;
+}
+
+export interface QuoteRequestService {
+  id: string;
+  position: number;
+  service_type: string;
+  service_details?: Record<string, unknown>;
+  delivery_method?: string;
+  delivery_method_display?: string;
+  delivery_address?: Record<string, string>;
+  pickup_branch?: string;
+  pickup_branch_detail?: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+    full_address: string;
+  } | null;
+  required_date?: string;
+  description?: string;
+  attachments?: QuoteAttachment[];
 }
 
 export interface QuoteRequest {
@@ -94,6 +127,7 @@ export interface QuoteRequest {
     full_address: string;
   } | null;
   attachments: QuoteAttachment[];
+  services?: QuoteRequestService[];
   created_at: string;
   updated_at: string;
   info_request_message?: string;
@@ -223,6 +257,11 @@ export interface CreateQuoteData {
     unit_price: string | number;
     position?: number;
     service_details?: Record<string, unknown>;
+    shipping_cost?: number;
+    delivery_method?: string;
+    delivery_address?: Record<string, string>;
+    pickup_branch?: string;
+    estimated_delivery_date?: string;
   }>;
 }
 

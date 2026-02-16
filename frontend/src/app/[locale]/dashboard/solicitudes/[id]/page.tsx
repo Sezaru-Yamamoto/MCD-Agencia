@@ -481,6 +481,108 @@ export default function QuoteRequestDetailPage() {
               })()}
             </Card>
 
+            {/* Multi-Service Details */}
+            {request.services && request.services.length > 0 && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">
+                  Servicios Solicitados ({request.services.length})
+                </h2>
+                <div className="space-y-4">
+                  {request.services.map((svc, idx) => (
+                    <div key={svc.id} className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold">
+                          {idx + 1}
+                        </span>
+                        <h3 className="text-white font-semibold text-lg">
+                          {SERVICE_LABELS[svc.service_type as ServiceId] || svc.service_type}
+                        </h3>
+                      </div>
+
+                      {/* Service-specific parameters */}
+                      {svc.service_details && Object.keys(svc.service_details).length > 0 && (
+                        <div className="mb-3">
+                          <ServiceDetailsDisplay
+                            serviceType={svc.service_type}
+                            serviceDetails={svc.service_details as Record<string, unknown>}
+                          />
+                        </div>
+                      )}
+
+                      {svc.description && (
+                        <p className="text-neutral-300 text-sm mb-3 whitespace-pre-wrap">{svc.description}</p>
+                      )}
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                        {svc.delivery_method && (
+                          <div className="p-2 bg-neutral-900/50 rounded">
+                            <p className="text-neutral-500 text-xs">Entrega</p>
+                            <p className="text-white flex items-center gap-1">
+                              <span>{DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]}</span>
+                              {DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es || svc.delivery_method}
+                            </p>
+                          </div>
+                        )}
+                        {svc.pickup_branch_detail && (
+                          <div className="p-2 bg-neutral-900/50 rounded">
+                            <p className="text-neutral-500 text-xs">Sucursal</p>
+                            <p className="text-white">{svc.pickup_branch_detail.name}</p>
+                          </div>
+                        )}
+                        {svc.delivery_address && Object.keys(svc.delivery_address).length > 0 && (
+                          <div className="p-2 bg-neutral-900/50 rounded col-span-2">
+                            <p className="text-neutral-500 text-xs">
+                              {svc.delivery_method === 'installation' ? 'Dir. Instalación' : 'Dir. Envío'}
+                            </p>
+                            <p className="text-white text-xs">
+                              {[svc.delivery_address.street || svc.delivery_address.calle,
+                                svc.delivery_address.exterior_number || svc.delivery_address.numero_exterior,
+                                svc.delivery_address.neighborhood || svc.delivery_address.colonia,
+                                svc.delivery_address.city || svc.delivery_address.ciudad,
+                                svc.delivery_address.state || svc.delivery_address.estado,
+                                svc.delivery_address.postal_code || svc.delivery_address.codigo_postal,
+                              ].filter(Boolean).join(', ')}
+                            </p>
+                          </div>
+                        )}
+                        {svc.required_date && (
+                          <div className="p-2 bg-neutral-900/50 rounded">
+                            <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                            <p className="text-white">
+                              {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                year: 'numeric', month: 'short', day: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Per-service attachments */}
+                      {svc.attachments && svc.attachments.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-neutral-700">
+                          <p className="text-neutral-500 text-xs mb-2">Archivos ({svc.attachments.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {svc.attachments.map((att) => (
+                              <a
+                                key={att.id}
+                                href={att.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs px-2 py-1 bg-neutral-800 rounded text-cmyk-cyan hover:bg-neutral-700 transition-colors"
+                              >
+                                <PaperClipIcon className="h-3 w-3" />
+                                {att.filename || 'Archivo'}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
             {/* Attachments */}
             {request.attachments && request.attachments.length > 0 && (
               <Card className="p-6">

@@ -49,9 +49,12 @@ interface QuoteLineItem {
   quantity: number;
   unit: string;
   unit_price: number;
+  shipping_cost: number;
   catalogItem?: CatalogItem;
   serviceDetails?: ServiceDetailsData;
   showServiceForm?: boolean;
+  lineDeliveryMethod?: DeliveryMethod | '';
+  lineEstimatedDate?: string;
 }
 
 export default function NewQuotePage() {
@@ -73,8 +76,8 @@ export default function NewQuotePage() {
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [validDays, setValidDays] = useState(15);
-  const [paymentMode, setPaymentMode] = useState<'FULL' | 'DEPOSIT_ALLOWED'>('FULL');
-  const [depositPercentage, setDepositPercentage] = useState(50);
+  // Payment mode is always FULL (deposit removed)
+  const paymentMode = 'FULL' as const;
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
   const [terms, setTerms] = useState('');
@@ -167,6 +170,7 @@ export default function NewQuotePage() {
           quantity: quantityValue,
           unit: prefillServiceDetails ? 'servicio' : 'pza',
           unit_price: 0,
+          shipping_cost: 0,
           serviceDetails: prefillServiceDetails,
           showServiceForm: !!prefillServiceDetails,
         }]);
@@ -273,6 +277,7 @@ export default function NewQuotePage() {
       quantity: 1,
       unit: 'pza',
       unit_price: parseFloat(item.base_price || '0'),
+      shipping_cost: 0,
       catalogItem: item,
     }]);
 
@@ -289,6 +294,7 @@ export default function NewQuotePage() {
       quantity: 1,
       unit: 'pza',
       unit_price: 0,
+      shipping_cost: 0,
     }]);
   };
 
@@ -312,10 +318,10 @@ export default function NewQuotePage() {
     }
     return sum + (item.quantity * item.unit_price);
   }, 0);
+  const shippingTotal = items.reduce((sum, item) => sum + (item.shipping_cost || 0), 0);
   const taxRate = 0.16;
   const taxAmount = subtotal * taxRate;
-  const total = subtotal + taxAmount;
-  const depositAmount = paymentMode === 'DEPOSIT_ALLOWED' ? total * (depositPercentage / 100) : 0;
+  const total = subtotal + taxAmount + shippingTotal;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -370,8 +376,7 @@ export default function NewQuotePage() {
         customer_email: customerEmail,
         customer_company: customerCompany || undefined,
         valid_days: validDays,
-        payment_mode: paymentMode,
-        deposit_percentage: paymentMode === 'DEPOSIT_ALLOWED' ? depositPercentage : undefined,
+        payment_mode: 'FULL',
         terms: terms || undefined,
         internal_notes: internalNotes || undefined,
         estimated_delivery_date: estimatedDeliveryDate || undefined,
@@ -390,6 +395,12 @@ export default function NewQuotePage() {
             concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
           }
 
+          // Per-line delivery info
+          const lineDelivery = item.lineDeliveryMethod || deliveryMethod || undefined;
+          const lineAddress = lineDelivery === 'shipping' || lineDelivery === 'installation'
+            ? deliveryAddress : undefined;
+          const lineBranch = lineDelivery === 'pickup' ? pickupBranch || undefined : undefined;
+
           // Route-based: expand into one line per route
           if (isRouteBasedDetails(item.serviceDetails)) {
             const routeLines = expandRouteLines(item.serviceDetails!, concept, item.description || '');
@@ -403,6 +414,11 @@ export default function NewQuotePage() {
               unit_price: rl.unit_price,
               position: 0, // will be set below
               service_details: ri === 0 ? (item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined) : undefined,
+              shipping_cost: ri === 0 ? (item.shipping_cost || undefined) : undefined,
+              delivery_method: ri === 0 ? lineDelivery : undefined,
+              delivery_address: ri === 0 ? lineAddress : undefined,
+              pickup_branch: ri === 0 ? lineBranch : undefined,
+              estimated_delivery_date: ri === 0 && item.lineEstimatedDate ? item.lineEstimatedDate : undefined,
             }));
           }
 
@@ -416,6 +432,11 @@ export default function NewQuotePage() {
             unit_price: item.unit_price,
             position: 0,
             service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
+            shipping_cost: item.shipping_cost || undefined,
+            delivery_method: lineDelivery,
+            delivery_address: lineAddress,
+            pickup_branch: lineBranch,
+            estimated_delivery_date: item.lineEstimatedDate || undefined,
           }];
         }).map((line, idx) => ({ ...line, position: idx + 1 })),
       };
@@ -751,6 +772,7 @@ export default function NewQuotePage() {
                                         quantity: 1,
                                         unit: 'servicio',
                                         unit_price: 0,
+                                        shipping_cost: 0,
                                         serviceDetails: details,
                                         showServiceForm: true,
                                       }]);
@@ -927,7 +949,31 @@ export default function NewQuotePage() {
                             </div>
                           )}
 
-
+                          {/* Shipping Cost + Estimated Delivery Date */}
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <label className="text-neutral-500 text-xs">
+                                <TruckIcon className="h-3.5 w-3.5 inline mr-1" />
+                                Costo envío:
+                              </label>
+                              <PriceInput
+                                value={item.shipping_cost}
+                                onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                              />
+                              <span className="text-neutral-600 text-xs">(sin IVA)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-neutral-500 text-xs">Entrega est.:</label>
+                              <input
+                                type="date"
+                                value={item.lineEstimatedDate || ''}
+                                onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                              />
+                            </div>
+                          </div>
 
                           {/* Service Form Toggle & Fields */}
                           {item.serviceDetails && (
@@ -983,30 +1029,11 @@ export default function NewQuotePage() {
                 </div>
                 <div>
                   <label className="block text-neutral-400 text-sm mb-2">Modo de Pago</label>
-                  <select
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value as 'FULL' | 'DEPOSIT_ALLOWED')}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan"
-                  >
-                    <option value="FULL">Pago completo</option>
-                    <option value="DEPOSIT_ALLOWED">Permite anticipo</option>
-                  </select>
+                  <div className="px-4 py-2 bg-neutral-800/50 border border-neutral-700/50 rounded-lg text-neutral-300 text-sm">
+                    Pago completo
+                  </div>
                 </div>
               </div>
-
-              {paymentMode === 'DEPOSIT_ALLOWED' && (
-                <div className="mb-4">
-                  <label className="block text-neutral-400 text-sm mb-2">Porcentaje de Anticipo (%)</label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="90"
-                    value={depositPercentage}
-                    onChange={(e) => setDepositPercentage(parseInt(e.target.value) || 50)}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan"
-                  />
-                </div>
-              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -1175,16 +1202,16 @@ export default function NewQuotePage() {
                   <span>IVA (16%)</span>
                   <span>{formatCurrency(taxAmount)}</span>
                 </div>
+                {shippingTotal > 0 && (
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Envío <span className="text-xs text-neutral-500">(sin IVA)</span></span>
+                    <span>{formatCurrency(shippingTotal)}</span>
+                  </div>
+                )}
                 <div className="border-t border-neutral-700 pt-3 flex justify-between text-white font-semibold text-lg">
                   <span>Total</span>
                   <span>{formatCurrency(total)}</span>
                 </div>
-                {paymentMode === 'DEPOSIT_ALLOWED' && depositAmount > 0 && (
-                  <div className="flex justify-between text-cmyk-cyan text-sm">
-                    <span>Anticipo ({depositPercentage}%)</span>
-                    <span>{formatCurrency(depositAmount)}</span>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-3">

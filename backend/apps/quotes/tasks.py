@@ -81,7 +81,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
 
         quote = Quote.objects.select_related(
             'quote_request', 'created_by'
-        ).prefetch_related('lines').get(id=quote_id)
+        ).prefetch_related('lines', 'lines__pickup_branch').get(id=quote_id)
 
         # Professional ReportLab PDF with brand colors
         buffer = BytesIO()
@@ -243,7 +243,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         elements.append(Spacer(1, 20))
 
         # =====================================================================
-        # LINE ITEMS TABLE
+        # LINE ITEMS TABLE — grouped by service with delivery info
         # =====================================================================
 
         elements.append(Paragraph(LBL['detail_title'], styles['SectionTitle']))
@@ -273,52 +273,151 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             alignment=TA_CENTER
         )
 
-        # Table header
-        table_data = [
-            [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL['total_col']]
-        ]
+        # Delivery method labels
+        DELIVERY_LABELS = {
+            'installation': 'Instalación en sitio' if not is_en else 'On-site installation',
+            'pickup': 'Recolección en sucursal' if not is_en else 'Branch pickup',
+            'shipping': 'Envío' if not is_en else 'Shipping',
+            'digital': 'Entrega digital' if not is_en else 'Digital delivery',
+            'not_applicable': 'No aplica' if not is_en else 'N/A',
+        }
+        LBL_SHIPPING = 'Shipping' if is_en else 'Envío'
+        LBL_DELIVERY = 'Delivery' if is_en else 'Entrega'
+        LBL_EST_DATE = 'Est. date' if is_en else 'Fecha est.'
 
-        # Table rows - using Paragraph for text wrapping (use _en fields when available)
-        for line in quote.lines.all():
-            concept_text = (line.concept_en or line.concept) if is_en else line.concept
-            desc_text = (line.description_en or line.description) if is_en else line.description
-            concept = Paragraph(concept_text or '', cell_style)
-            description = Paragraph(desc_text or '', cell_style)
-            qty = Paragraph(str(line.quantity), cell_style_center)
-            unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
-            total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
-            table_data.append([concept, description, qty, unit_price, total])
+        # Helper: build description text from service_details JSON
+        def build_description_from_details(details):
+            """Build human-readable description from service_details dict."""
+            if not details or not isinstance(details, dict):
+                return ''
+            DETAIL_LABELS = {
+                'tipo': 'Tipo', 'subtipo': 'Subtipo', 'tipo_anuncio': 'Tipo',
+                'tipo_vehiculo': 'Vehículo', 'tipo_rotulacion': 'Rotulación',
+                'material': 'Material', 'medidas': 'Medidas', 'cantidad': 'Cantidad',
+                'uso': 'Uso', 'producto': 'Producto', 'tipo_diseno': 'Diseño',
+                'numero_piezas': 'Piezas', 'duracion': 'Duración',
+                'tiempo_exhibicion': 'Exhibición', 'tiempo_campana': 'Campaña',
+                'zona': 'Zona', 'zona_cobertura': 'Cobertura',
+                'impresion_incluida': 'Impresión', 'instalacion_incluida': 'Instalación',
+                'diseno_incluido': 'Diseño incluido', 'archivo_listo': 'Archivo listo',
+                'iluminacion': 'Iluminación',
+            }
+            SKIP_KEYS = {'service_type', 'tipo_personalizado', 'material_personalizado',
+                         'producto_personalizado', 'subtipo_personalizado',
+                         'tipo_rotulacion_personalizado', 'rutas', 'coordenadas'}
+            parts = []
+            for key, val in details.items():
+                if key in SKIP_KEYS or val is None or val == '':
+                    continue
+                label = DETAIL_LABELS.get(key, key.replace('_', ' ').capitalize())
+                if isinstance(val, bool):
+                    parts.append(f"{label}: {'Sí' if val else 'No'}")
+                else:
+                    parts.append(f"{label}: {val}")
+            return ', '.join(parts)
 
         # Column widths
         col_widths = [1.6 * inch, 2.7 * inch, 0.5 * inch, 1.0 * inch, 1.1 * inch]
 
-        items_table = Table(table_data, colWidths=col_widths)
-        items_table.setStyle(TableStyle([
-            # Header styling
-            ('BACKGROUND', (0, 0), (-1, 0), CYAN),
-            ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        # Group lines by delivery method + address/branch (or treat all as one group)
+        all_lines = list(quote.lines.all())
+        shipping_total = sum(line.shipping_cost for line in all_lines)
 
-            # Body styling - vertical alignment top for wrapped text
-            ('VALIGN', (0, 1), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-            ('LEFTPADDING', (0, 1), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 1), (-1, -1), 4),
+        # Build group key for each line
+        def line_group_key(line):
+            dm = line.delivery_method or quote.delivery_method or ''
+            if dm == 'pickup' and line.pickup_branch_id:
+                return (dm, f'branch:{line.pickup_branch_id}')
+            elif dm in ('shipping', 'installation') and line.delivery_address:
+                addr = line.delivery_address or {}
+                return (dm, addr.get('calle', '') + addr.get('ciudad', ''))
+            return (dm, '')
 
-            # Alternating row colors
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
+        from itertools import groupby as _groupby
+        from collections import OrderedDict
+        groups = OrderedDict()
+        for line in all_lines:
+            key = line_group_key(line)
+            groups.setdefault(key, []).append(line)
 
-            # Grid
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.Color(0.8, 0.8, 0.8)),
-            ('BOX', (0, 0), (-1, -1), 1, CYAN),
-        ]))
-        elements.append(items_table)
-        elements.append(Spacer(1, 20))
+        for (dm, _addr_key), group_lines in groups.items():
+            # Delivery info header above this group (if there's a delivery method)
+            if dm:
+                delivery_label = DELIVERY_LABELS.get(dm, dm)
+                header_parts = [f"<b>{LBL_DELIVERY}:</b> {delivery_label}"]
+                # Show estimated delivery date from first line that has one
+                est_date = next(
+                    (l.estimated_delivery_date for l in group_lines if l.estimated_delivery_date),
+                    None
+                )
+                if est_date:
+                    header_parts.append(f"<b>{LBL_EST_DATE}:</b> {est_date.strftime('%d/%m/%Y')}")
+                # Show pickup branch name
+                if dm == 'pickup':
+                    branch = next((l.pickup_branch for l in group_lines if l.pickup_branch_id), None)
+                    if branch:
+                        header_parts.append(f"<b>{'Branch' if is_en else 'Sucursal'}:</b> {branch.name}")
+                # Show address city for shipping/installation
+                if dm in ('shipping', 'installation'):
+                    addr = next((l.delivery_address for l in group_lines if l.delivery_address), None) or {}
+                    city_parts = [addr.get('calle', ''), addr.get('ciudad', ''), addr.get('estado', '')]
+                    city_str = ', '.join(p for p in city_parts if p)
+                    if city_str:
+                        header_parts.append(f"<b>{'Address' if is_en else 'Dirección'}:</b> {city_str}")
+
+                delivery_header = Paragraph(' &nbsp;|&nbsp; '.join(header_parts), ParagraphStyle(
+                    'DeliveryHeader', fontSize=8, fontName='Helvetica', textColor=GRAY, leading=12,
+                    spaceBefore=8, spaceAfter=4
+                ))
+                elements.append(delivery_header)
+
+            # Build line items table for this group
+            table_data = [
+                [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL['total_col']]
+            ]
+
+            for line in group_lines:
+                concept_text = (line.concept_en or line.concept) if is_en else line.concept
+                # Build description: prefer explicit, fallback to service_details params
+                desc_text = (line.description_en or line.description) if is_en else line.description
+                if not desc_text and line.service_details:
+                    desc_text = build_description_from_details(line.service_details)
+                concept = Paragraph(concept_text or '', cell_style)
+                description = Paragraph(desc_text or '', cell_style)
+                qty = Paragraph(str(line.quantity), cell_style_center)
+                unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
+                total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
+                table_data.append([concept, description, qty, unit_price, total])
+
+            items_table = Table(table_data, colWidths=col_widths)
+            items_table.setStyle(TableStyle([
+                # Header styling
+                ('BACKGROUND', (0, 0), (-1, 0), CYAN),
+                ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+
+                # Body styling - vertical alignment top for wrapped text
+                ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                ('LEFTPADDING', (0, 1), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 1), (-1, -1), 4),
+
+                # Alternating row colors
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
+
+                # Grid
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.Color(0.8, 0.8, 0.8)),
+                ('BOX', (0, 0), (-1, -1), 1, CYAN),
+            ]))
+            elements.append(items_table)
+            elements.append(Spacer(1, 12))
+
+        elements.append(Spacer(1, 8))
 
         # =====================================================================
         # TOTALS SECTION - Keep together to avoid page breaks
@@ -329,23 +428,26 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         totals_data = [
             ['', 'Subtotal:', f"${quote.subtotal:,.2f}"],
             ['', f'IVA ({tax_percent:.0f}%):', f"${quote.tax_amount:,.2f}"],
-            ['', 'TOTAL:', f"${quote.total:,.2f}"],
         ]
+        if shipping_total > 0:
+            totals_data.append(['', f'{LBL_SHIPPING}:', f"${shipping_total:,.2f}"])
+        totals_data.append(['', 'TOTAL:', f"${quote.total:,.2f}"])
 
         totals_table = Table(totals_data, colWidths=[content_width - 3 * inch, 1.5 * inch, 1.5 * inch])
+        total_row_idx = len(totals_data) - 1
         totals_table.setStyle(TableStyle([
-            ('FONTNAME', (1, 0), (1, 1), 'Helvetica'),
-            ('FONTNAME', (1, 2), (1, 2), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, 1), 'Helvetica'),
-            ('FONTNAME', (2, 2), (2, 2), 'Helvetica-Bold'),
-            ('FONTSIZE', (1, 0), (-1, 1), 10),
-            ('FONTSIZE', (1, 2), (-1, 2), 12),
-            ('TEXTCOLOR', (1, 2), (-1, 2), CYAN),
+            ('FONTNAME', (1, 0), (1, total_row_idx - 1), 'Helvetica'),
+            ('FONTNAME', (1, total_row_idx), (1, total_row_idx), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, total_row_idx - 1), 'Helvetica'),
+            ('FONTNAME', (2, total_row_idx), (2, total_row_idx), 'Helvetica-Bold'),
+            ('FONTSIZE', (1, 0), (-1, total_row_idx - 1), 10),
+            ('FONTSIZE', (1, total_row_idx), (-1, total_row_idx), 12),
+            ('TEXTCOLOR', (1, total_row_idx), (-1, total_row_idx), CYAN),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
             ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
             ('TOPPADDING', (0, 0), (-1, -1), 5),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('LINEABOVE', (1, 2), (-1, 2), 1, CYAN),
+            ('LINEABOVE', (1, total_row_idx), (-1, total_row_idx), 1, CYAN),
         ]))
         # Wrap totals in KeepTogether to prevent page break in the middle
         elements.append(KeepTogether([totals_table, Spacer(1, 20)]))

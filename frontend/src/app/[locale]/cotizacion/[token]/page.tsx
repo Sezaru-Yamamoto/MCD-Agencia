@@ -650,16 +650,21 @@ export default function QuoteViewPage() {
                   <span>IVA ({parseFloat(quote.tax_rate) * 100}%)</span>
                   <span>{formatCurrency(quote.tax_amount)}</span>
                 </div>
+                {(() => {
+                  const shippingTotal = quote.lines?.reduce(
+                    (sum, l) => sum + (parseFloat(l.shipping_cost || '0') || 0), 0
+                  ) || 0;
+                  return shippingTotal > 0 ? (
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Envío</span>
+                      <span>{formatCurrency(shippingTotal)}</span>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex justify-between text-white text-lg font-bold pt-2 border-t border-neutral-700">
                   <span>Total</span>
                   <span>{formatCurrency(quote.total)}</span>
                 </div>
-                {quote.payment_mode === 'DEPOSIT_ALLOWED' && quote.deposit_amount && (
-                  <div className="flex justify-between text-cmyk-cyan mt-2">
-                    <span>Anticipo ({quote.deposit_percentage}%)</span>
-                    <span>{formatCurrency(quote.deposit_amount)}</span>
-                  </div>
-                )}
               </div>
             </Card>
 

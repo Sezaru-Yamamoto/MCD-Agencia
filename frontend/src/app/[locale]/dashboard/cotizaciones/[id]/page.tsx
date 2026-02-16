@@ -525,6 +525,17 @@ export default function QuoteDetailPage() {
                   <span>IVA ({Number(quote.tax_rate) * 100}%)</span>
                   <span>{formatCurrency(quote.tax_amount)}</span>
                 </div>
+                {(() => {
+                  const shippingTotal = quote.lines?.reduce(
+                    (sum, l) => sum + (parseFloat(l.shipping_cost || '0') || 0), 0
+                  ) || 0;
+                  return shippingTotal > 0 ? (
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Envío <span className="text-neutral-600 text-xs">(sin IVA)</span></span>
+                      <span>{formatCurrency(shippingTotal)}</span>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex justify-between text-xl font-bold text-white pt-2 border-t border-neutral-700">
                   <span>Total</span>
                   <span className="text-cmyk-cyan">{formatCurrency(quote.total)}</span>
@@ -1174,18 +1185,8 @@ export default function QuoteDetailPage() {
               <div className="space-y-4">
                 <div>
                   <p className="text-neutral-500 text-sm">Modo de pago</p>
-                  <p className="text-white">
-                    {quote.payment_mode === 'FULL' ? 'Pago completo' : 'Anticipo permitido'}
-                  </p>
+                  <p className="text-white">Pago completo</p>
                 </div>
-                {quote.payment_mode === 'DEPOSIT_ALLOWED' && quote.deposit_percentage && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Anticipo requerido</p>
-                    <p className="text-white">
-                      {quote.deposit_percentage}% ({formatCurrency(quote.deposit_amount || 0)})
-                    </p>
-                  </div>
-                )}
                 {quote.payment_conditions && (
                   <div>
                     <p className="text-neutral-500 text-sm">Condiciones</p>

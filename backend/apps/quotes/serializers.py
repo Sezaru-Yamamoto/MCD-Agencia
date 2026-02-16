@@ -15,7 +15,7 @@ from rest_framework import serializers
 
 from apps.catalog.serializers import CatalogItemListSerializer
 from .models import (
-    QuoteRequest, Quote, QuoteLine, QuoteAttachment,
+    QuoteRequest, QuoteRequestService, Quote, QuoteLine, QuoteAttachment,
     QuoteResponse, GuestAccessToken, QuoteChangeRequest
 )
 
@@ -60,6 +60,7 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
     Serializer for creating quote requests (public/guest).
 
     Handles RFQ submissions from the website.
+    Supports multi-service requests via the ``services`` JSON array.
     """
 
     attachments = serializers.ListField(
@@ -70,6 +71,9 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
     )
     catalog_item_id = serializers.UUIDField(required=False, write_only=True)
 
+    # Multi-service support: optional JSON array of service objects
+    services = serializers.JSONField(required=False, write_only=True, default=None)
+
     class Meta:
         model = QuoteRequest
         fields = [
@@ -78,8 +82,32 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
             'dimensions', 'material', 'includes_installation',
             'description', 'preferred_language', 'attachments',
             'service_type', 'service_details', 'required_date',
-            'delivery_method', 'delivery_address', 'pickup_branch'
+            'delivery_method', 'delivery_address', 'pickup_branch',
+            'services',
         ]
+
+    def validate_services(self, value):
+        """Validate the multi-service array if provided."""
+        if value is None:
+            return value
+        if isinstance(value, str):
+            import json
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError(_('Invalid JSON for services.'))
+        if not isinstance(value, list):
+            raise serializers.ValidationError(_('services must be an array.'))
+        for idx, svc in enumerate(value):
+            if not isinstance(svc, dict):
+                raise serializers.ValidationError(
+                    _('Each service must be an object (index %(idx)s).') % {'idx': idx}
+                )
+            if not svc.get('service_type'):
+                raise serializers.ValidationError(
+                    _('service_type is required for each service (index %(idx)s).') % {'idx': idx}
+                )
+        return value
 
     def validate_customer_email(self, value):
         """Normalize email."""
@@ -142,9 +170,10 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        """Create quote request with attachments and auto-assignment."""
+        """Create quote request with attachments, services, and auto-assignment."""
         attachments = validated_data.pop('attachments', [])
         catalog_item_id = validated_data.pop('catalog_item_id', None)
+        services_data = validated_data.pop('services', None)
 
         # Set catalog item if provided
         if catalog_item_id:
@@ -239,10 +268,107 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                 file_size=file.size
             )
 
+        # Create per-service records (multi-service support)
+        if services_data and isinstance(services_data, list):
+            from apps.content.models import Branch
+            for idx, svc in enumerate(services_data):
+                pickup_branch_obj = None
+                pickup_id = svc.get('pickup_branch')
+                if pickup_id:
+                    try:
+                        pickup_branch_obj = Branch.objects.get(id=pickup_id, is_active=True)
+                    except (Branch.DoesNotExist, ValueError):
+                        pass
+
+                # Normalize delivery address
+                addr = svc.get('delivery_address', {})
+                if isinstance(addr, dict):
+                    field_map = {
+                        'calle': 'street', 'numero_exterior': 'exterior_number',
+                        'numero_interior': 'interior_number', 'colonia': 'neighborhood',
+                        'ciudad': 'city', 'estado': 'state',
+                        'codigo_postal': 'postal_code', 'referencia': 'reference',
+                    }
+                    normalized = {}
+                    for key, val in addr.items():
+                        eng_key = field_map.get(key, key)
+                        if eng_key not in normalized:
+                            normalized[eng_key] = val
+                    addr = normalized
+
+                QuoteRequestService.objects.create(
+                    quote_request=quote_request,
+                    position=idx,
+                    service_type=svc.get('service_type', ''),
+                    service_details=svc.get('service_details', {}),
+                    delivery_method=svc.get('delivery_method', ''),
+                    delivery_address=addr,
+                    pickup_branch=pickup_branch_obj,
+                    required_date=svc.get('required_date') or None,
+                    description=svc.get('description', ''),
+                )
+
+            # Set earliest required_date from services onto the request for urgency calc
+            from datetime import date as date_cls
+            svc_dates = []
+            for svc in services_data:
+                rd = svc.get('required_date')
+                if rd:
+                    try:
+                        svc_dates.append(date_cls.fromisoformat(rd) if isinstance(rd, str) else rd)
+                    except (ValueError, TypeError):
+                        pass
+                # Also check route dates
+                sd = svc.get('service_details', {})
+                if isinstance(sd, dict) and isinstance(sd.get('rutas'), list):
+                    for ruta in sd['rutas']:
+                        fi = ruta.get('fecha_inicio') if isinstance(ruta, dict) else None
+                        if fi:
+                            try:
+                                svc_dates.append(date_cls.fromisoformat(fi))
+                            except (ValueError, TypeError):
+                                pass
+            if svc_dates:
+                earliest = min(svc_dates)
+                if not quote_request.required_date or earliest < quote_request.required_date:
+                    quote_request.required_date = earliest
+                    quote_request.save(update_fields=['required_date'])
+
         # Attempt automatic assignment
         quote_request.assign_to_sales_rep(auto=True)
 
         return quote_request
+
+
+class QuoteRequestServiceSerializer(serializers.ModelSerializer):
+    """Serializer for QuoteRequestService model (read)."""
+
+    pickup_branch_detail = serializers.SerializerMethodField()
+    delivery_method_display = serializers.CharField(
+        source='get_delivery_method_display', read_only=True
+    )
+    attachments = QuoteAttachmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = QuoteRequestService
+        fields = [
+            'id', 'position', 'service_type', 'service_details',
+            'delivery_method', 'delivery_method_display',
+            'delivery_address', 'pickup_branch', 'pickup_branch_detail',
+            'required_date', 'description', 'attachments',
+        ]
+
+    def get_pickup_branch_detail(self, obj):
+        if obj.pickup_branch:
+            branch = obj.pickup_branch
+            return {
+                'id': str(branch.id),
+                'name': branch.name,
+                'city': branch.city,
+                'state': branch.state,
+                'full_address': getattr(branch, 'full_address', ''),
+            }
+        return None
 
 
 class QuoteRequestSerializer(serializers.ModelSerializer):
@@ -250,6 +376,7 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
 
     catalog_item = CatalogItemListSerializer(read_only=True)
     attachments = QuoteAttachmentSerializer(many=True, read_only=True)
+    services = QuoteRequestServiceSerializer(many=True, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     urgency_display = serializers.CharField(source='get_urgency_display', read_only=True)
     assigned_to_name = serializers.SerializerMethodField()
@@ -268,7 +395,7 @@ class QuoteRequestSerializer(serializers.ModelSerializer):
             'customer_company', 'catalog_item', 'catalog_item_name',
             'quantity', 'dimensions', 'material', 'includes_installation',
             'description', 'preferred_language', 'assigned_to',
-            'assigned_to_name', 'attachments', 'created_at', 'updated_at',
+            'assigned_to_name', 'attachments', 'services', 'created_at', 'updated_at',
             'service_type', 'service_details', 'is_guest', 'required_date',
             'urgency', 'urgency_display', 'days_until_required',
             'assignment_method', 'assigned_at',
@@ -328,14 +455,31 @@ class QuoteRequestAdminSerializer(QuoteRequestSerializer):
 class QuoteLineSerializer(serializers.ModelSerializer):
     """Serializer for QuoteLine model."""
 
+    pickup_branch_detail = serializers.SerializerMethodField()
+
     class Meta:
         model = QuoteLine
         fields = [
             'id', 'concept', 'concept_en', 'description', 'description_en',
             'quantity', 'unit', 'unit_price', 'line_total', 'position',
-            'service_details'
+            'service_details', 'shipping_cost',
+            'delivery_method', 'delivery_address',
+            'pickup_branch', 'pickup_branch_detail',
+            'estimated_delivery_date',
         ]
         read_only_fields = ['id', 'line_total']
+
+    def get_pickup_branch_detail(self, obj):
+        if obj.pickup_branch:
+            branch = obj.pickup_branch
+            return {
+                'id': str(branch.id),
+                'name': branch.name,
+                'city': branch.city,
+                'state': branch.state,
+                'full_address': getattr(branch, 'full_address', ''),
+            }
+        return None
 
 
 class QuoteSerializer(serializers.ModelSerializer):
@@ -550,10 +694,26 @@ class QuoteCreateSerializer(serializers.Serializer):
 
         # Create line items
         subtotal = Decimal('0.00')
+        shipping_total = Decimal('0.00')
         for position, line_data in enumerate(lines_data):
             quantity = Decimal(str(line_data.get('quantity', 1)))
             unit_price = Decimal(str(line_data.get('unit_price', 0)))
             line_total = quantity * unit_price
+            shipping_cost = Decimal(str(line_data.get('shipping_cost', 0) or 0))
+
+            # Per-line delivery fields
+            line_delivery_method = line_data.get('delivery_method', '')
+            line_delivery_address = line_data.get('delivery_address', {})
+            line_estimated_delivery_date = line_data.get('estimated_delivery_date')
+            line_pickup_branch_id = line_data.get('pickup_branch') or line_data.get('pickup_branch_id')
+
+            line_pickup_branch = None
+            if line_pickup_branch_id:
+                from apps.content.models import Branch as BranchModel
+                try:
+                    line_pickup_branch = BranchModel.objects.get(id=line_pickup_branch_id, is_active=True)
+                except (BranchModel.DoesNotExist, ValueError):
+                    pass
 
             QuoteLine.objects.create(
                 quote=quote,
@@ -567,13 +727,19 @@ class QuoteCreateSerializer(serializers.Serializer):
                 line_total=line_total,
                 position=line_data.get('position', position),
                 service_details=line_data.get('service_details'),
+                shipping_cost=shipping_cost,
+                delivery_method=line_delivery_method,
+                delivery_address=line_delivery_address or {},
+                pickup_branch=line_pickup_branch,
+                estimated_delivery_date=line_estimated_delivery_date,
             )
             subtotal += line_total
+            shipping_total += shipping_cost
 
-        # Calculate and save totals
+        # Calculate and save totals (shipping has no IVA)
         quote.subtotal = subtotal
         quote.tax_amount = subtotal * quote.tax_rate
-        quote.total = subtotal + quote.tax_amount
+        quote.total = subtotal + quote.tax_amount + shipping_total
         quote.save(update_fields=['subtotal', 'tax_amount', 'total'])
 
         # Update quote request status to 'quoted' when a quote is created
