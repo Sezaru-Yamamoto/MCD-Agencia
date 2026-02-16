@@ -291,6 +291,8 @@ export function QuoteForm() {
   const [coloniaManual, setColoniaManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRestoringServiceRef = useRef(false);
+  const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
+  const serviceDropdownRef = useRef<HTMLDivElement>(null);
 
   // Multi-service state
   const [savedServices, setSavedServices] = useState<SavedServiceEntry[]>([]);
@@ -449,6 +451,17 @@ export function QuoteForm() {
     window.addEventListener('hashchange', parseHashParams);
     return () => window.removeEventListener('hashchange', parseHashParams);
   }, [setValue]);
+
+  // Close service dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target as Node)) {
+        setServiceDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Get today's date for min date validation
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -1351,23 +1364,56 @@ export function QuoteForm() {
                     </span>
                   )}
                 </div>
-                <select
-                  {...register('servicio', { required: 'Selecciona un servicio' })}
-                  id="servicio"
-                  className={`input-field transition-all duration-300 ${
-                    selectionFeedback
-                      ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
-                      : ''
-                  }`}
-                  disabled={formStatus === 'submitting'}
-                >
-                  <option value="">{t('selectService')}</option>
-                  {SERVICE_IDS.map((serviceId) => (
-                    <option key={serviceId} value={serviceId}>
-                      {serviceLabels[serviceId]}
-                    </option>
-                  ))}
-                </select>
+                {/* Hidden input for react-hook-form */}
+                <input type="hidden" {...register('servicio', { required: 'Selecciona un servicio' })} />
+                {/* Custom dropdown — always opens downward */}
+                <div ref={serviceDropdownRef} className="relative" id="servicio">
+                  <button
+                    type="button"
+                    onClick={() => { if (formStatus !== 'submitting') setServiceDropdownOpen(prev => !prev); }}
+                    disabled={formStatus === 'submitting'}
+                    className={`input-field text-left w-full flex items-center justify-between transition-all duration-300 ${
+                      selectionFeedback
+                        ? 'border-cmyk-cyan border-b-4 animate-pulse shadow-[0_0_10px_rgba(0,183,235,0.5)]'
+                        : ''
+                    } ${!servicioValue ? 'text-gray-500' : 'text-white'}`}
+                  >
+                    <span className="truncate">
+                      {servicioValue ? serviceLabels[servicioValue as ServiceId] : t('selectService')}
+                    </span>
+                    <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${serviceDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {serviceDropdownOpen && (
+                    <ul className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg bg-neutral-800 border border-neutral-600 shadow-xl">
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => { setValue('servicio', ''); setServiceDropdownOpen(false); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-neutral-700 transition-colors"
+                        >
+                          {t('selectService')}
+                        </button>
+                      </li>
+                      {SERVICE_IDS.map((sId) => (
+                        <li key={sId}>
+                          <button
+                            type="button"
+                            onClick={() => { setValue('servicio', sId); setServiceDropdownOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                              servicioValue === sId
+                                ? 'bg-cmyk-cyan/20 text-cmyk-cyan font-semibold'
+                                : 'text-white hover:bg-neutral-700'
+                            }`}
+                          >
+                            {serviceLabels[sId]}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 {errors.servicio && <p className="error-message">{errors.servicio.message}</p>}
               </div>
 
