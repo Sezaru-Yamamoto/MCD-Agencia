@@ -72,7 +72,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen pt-20 pb-8">
+    <div className="min-h-screen pt-24 pb-8">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar */}
