@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale } from 'next-intl';
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import {
   DocumentTextIcon,
@@ -64,6 +65,14 @@ export default function CustomerQuoteDetailPage() {
   const [showChangeEditor, setShowChangeEditor] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [signatureName, setSignatureName] = useState('');
+
+  // Portal target for rendering Historial in the layout sidebar
+  const [sidebarPortal, setSidebarPortal] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = document.getElementById('sidebar-extra');
+    if (el) setSidebarPortal(el);
+    return () => { if (el) el.innerHTML = ''; };
+  }, []);
 
   // Lock body scroll when change editor modal is open
   useEffect(() => {
@@ -296,7 +305,7 @@ export default function CustomerQuoteDetailPage() {
   const isChangesRequested = quote.status === 'changes_requested';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Breadcrumb */}
       <Breadcrumb
         items={[
@@ -308,7 +317,7 @@ export default function CustomerQuoteDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-white">Cotización #{quote.quote_number}</h2>
           <p className="text-neutral-400">Recibida el {formatDate(quote.created_at)}</p>
@@ -372,9 +381,9 @@ export default function CustomerQuoteDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           {/* Customer Info */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Tus datos</h3>
@@ -997,310 +1006,10 @@ export default function CustomerQuoteDetailPage() {
               </div>
             </Card>
           )}
-
-          {/* Timeline / Historial */}
-          {(responses.length > 0 || changeRequests.length > 0 || quote.sent_at) && (() => {
-            type TimelineEvent = 
-              | { type: 'response'; date: string; data: QuoteResponseType }
-              | { type: 'change_request'; date: string; data: QuoteChangeRequest }
-              | { type: 'change_request_reviewed'; date: string; data: QuoteChangeRequest };
-
-            const eventsList: TimelineEvent[] = [
-              ...responses.map(r => ({ type: 'response' as const, date: r.created_at, data: r })),
-              ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
-              ...changeRequests
-                .filter(cr => cr.status !== 'pending' && cr.reviewed_at)
-                .map(cr => ({ type: 'change_request_reviewed' as const, date: cr.reviewed_at!, data: cr })),
-            ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-            const sendResponses = responses.filter(r => r.action === 'send').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-            const sendVersionMap = new Map<string, number>();
-            sendResponses.forEach((r, i) => sendVersionMap.set(r.id, i + 1));
-            const hasSendResponses = sendResponses.length > 0;
-
-            const sortedChangeRequests = [...changeRequests].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-            const changeRequestVersionMap = new Map<string, number>();
-            sortedChangeRequests.forEach((cr, i) => changeRequestVersionMap.set(cr.id, i + 2));
-
-            const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-            return (
-            <Card className="p-6">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-                <ClockIcon className="h-5 w-5 text-cmyk-cyan" />
-                Historial
-              </h3>
-              <div className="relative">
-                <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700 z-0"></div>
-                <div className="space-y-4">
-
-                  {eventsList.map((event, idx) => {
-                    const circleBase = 'relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900';
-
-                    if (event.type === 'change_request') {
-                      const cr = event.data;
-                      const crVersion = changeRequestVersionMap.get(cr.id) || 2;
-                      return (
-                        <Link
-                          key={`cr-${cr.id}`}
-                          href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/cambios/${cr.id}`}
-                          className="relative flex items-start gap-3 group"
-                        >
-                          <div className={`${circleBase} border-orange-500/60`}>
-                            <PencilIcon className="h-3 w-3 text-orange-400" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-orange-400 text-xs font-medium group-hover:underline">
-                              Solicitud de cambios v{crVersion}
-                              {cr.changes_summary && (
-                                <span className="ml-1.5 text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full">
-                                  {[
-                                    cr.changes_summary.added > 0 && `+${cr.changes_summary.added}`,
-                                    cr.changes_summary.modified > 0 && `~${cr.changes_summary.modified}`,
-                                    cr.changes_summary.deleted > 0 && `-${cr.changes_summary.deleted}`,
-                                  ].filter(Boolean).join(' ')}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-neutral-500 text-xs">{fmtDate(cr.created_at)}</p>
-                            {cr.customer_comments && (
-                              <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2 group-hover:text-neutral-300 transition-colors">
-                                &ldquo;{cr.customer_comments}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                        </Link>
-                      );
-                    }
-
-                    if (event.type === 'change_request_reviewed') {
-                      const cr = event.data;
-                      const isApproved = cr.status === 'approved';
-                      return (
-                        <div key={`cr-review-${cr.id}`} className="relative flex items-start gap-3">
-                          <div className={`${circleBase} ${
-                            isApproved ? 'border-green-500/60' : 'border-red-500/60'
-                          }`}>
-                            {isApproved ? <CheckCircleIcon className="h-3 w-3 text-green-400" /> : <XCircleIcon className="h-3 w-3 text-red-400" />}
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className={`text-xs font-medium ${isApproved ? 'text-green-400' : 'text-red-400'}`}>
-                              Solicitud de cambios — {isApproved ? 'aprobada' : 'rechazada'}
-                            </p>
-                            <p className="text-neutral-500 text-xs">
-                              {cr.reviewed_by_name || 'Vendedor'} · {fmtDate(cr.reviewed_at!)}
-                            </p>
-                            {cr.review_notes && (
-                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
-                                &ldquo;{cr.review_notes}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    const response = event.data as QuoteResponseType;
-
-                    if (response.action === 'send') {
-                      const version = sendVersionMap.get(response.id) || 1;
-                      const versionLabel = version > 1 ? ` v${version}` : '';
-                      return (
-                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className={`${circleBase} border-cmyk-cyan/60`}>
-                            <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-cmyk-cyan text-xs font-medium">
-                              Cotización creada y enviada{versionLabel}
-                              {version > 1 && (
-                                <span className="ml-1.5 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full">
-                                  v{version}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-neutral-500 text-xs">
-                              {response.responded_by_name || 'Vendedor'} · {fmtDate(response.created_at)}
-                            </p>
-                            {quote.token && (
-                              <Link
-                                href={`/${locale}/cotizacion/${quote.token}`}
-                                target="_blank"
-                                className="text-cmyk-cyan/70 text-xs hover:underline mt-0.5 inline-block"
-                              >
-                                Ver cotización →
-                              </Link>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (response.action === 'view') {
-                      return (
-                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className={`${circleBase} border-purple-500/60`}>
-                            <EyeIcon className="h-3 w-3 text-purple-400" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-purple-400 text-xs font-medium">Cotización vista</p>
-                            <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (response.action === 'approval') {
-                      return (
-                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className={`${circleBase} border-green-500/60`}>
-                            <CheckCircleIcon className="h-3 w-3 text-green-400" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-green-400 text-xs font-medium">Cotización aceptada</p>
-                            <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
-                            {response.comment && (
-                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
-                                &ldquo;{response.comment}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (response.action === 'rejection') {
-                      return (
-                        <div key={`r-${response.id}`} className="relative flex items-start gap-3">
-                          <div className={`${circleBase} border-red-500/60`}>
-                            <XCircleIcon className="h-3 w-3 text-red-400" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-red-400 text-xs font-medium">Cotización rechazada</p>
-                            <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
-                            {response.comment && (
-                              <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
-                                &ldquo;{response.comment}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div key={`r-${response.id}-${idx}`} className="relative flex items-start gap-3">
-                        <div className={`${circleBase} border-blue-500/60`}>
-                          <PencilIcon className="h-3 w-3 text-blue-400" />
-                        </div>
-                        <div className="flex-1 -mt-0.5">
-                          <p className="text-blue-400 text-xs font-medium">
-                            {response.action_display || 'Comentario'}
-                          </p>
-                          <p className="text-neutral-500 text-xs">{fmtDate(response.created_at)}</p>
-                          {response.comment && (
-                            <p className="text-neutral-400 text-xs mt-1 bg-neutral-800/50 rounded p-1.5 line-clamp-2">
-                              &ldquo;{response.comment}&rdquo;
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {quote.sent_at && !hasSendResponses && (
-                    <div className="relative flex items-start gap-3">
-                      <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-cmyk-cyan/60">
-                        <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
-                      </div>
-                      <div className="flex-1 -mt-0.5">
-                        <p className="text-cmyk-cyan text-xs font-medium">
-                          Cotización creada y enviada
-                        </p>
-                        <p className="text-neutral-500 text-xs">{formatDate(quote.sent_at)}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {quote.quote_request && (
-                    <>
-                      <div className="relative flex items-center gap-3 py-1">
-                        <div className="relative z-10 w-5 flex justify-center">
-                          <div className="w-1.5 h-1.5 rounded-full bg-neutral-600"></div>
-                        </div>
-                        <div className="flex-1 border-t border-dashed border-neutral-700"></div>
-                      </div>
-
-                      {quote.quote_request.status !== 'pending' && (
-                        <div className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-yellow-500/60">
-                            <ClockIcon className="h-3 w-3 text-yellow-400" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-yellow-400 text-xs font-medium">Solicitud en revisión</p>
-                            <p className="text-neutral-500 text-xs">{formatDate(quote.quote_request.updated_at)}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {quote.quote_request.assigned_at && (
-                        <div className="relative flex items-start gap-3">
-                          <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-blue-500/60">
-                            <UserIcon className="h-3 w-3 text-blue-400" />
-                          </div>
-                          <div className="flex-1 -mt-0.5">
-                            <p className="text-blue-400 text-xs font-medium">Asignada a {quote.quote_request.assigned_to_name || 'vendedor'}</p>
-                            <p className="text-neutral-500 text-xs">{formatDate(quote.quote_request.assigned_at)}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      <Link
-                        href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/solicitud`}
-                        className="relative flex items-start gap-3 group cursor-pointer"
-                      >
-                        <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-neutral-600">
-                          <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
-                        </div>
-                        <div className="flex-1 -mt-0.5">
-                          <p className="text-neutral-400 text-xs font-medium group-hover:underline">
-                            Solicitud de cotización
-                          </p>
-                          <p className="text-neutral-500 text-xs">
-                            {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
-                          </p>
-                          {quote.quote_request.request_number && (
-                            <p className="text-cmyk-cyan text-xs mt-0.5">
-                              #{quote.quote_request.request_number}
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                    </>
-                  )}
-                </div>
-              </div>
-            </Card>
-            );
-          })()}
-
-          {/* Contact */}
-          <Card className="p-6 bg-cmyk-cyan/5 border-cmyk-cyan/20">
-            <h3 className="font-semibold text-white mb-2">¿Tienes preguntas?</h3>
-            <p className="text-neutral-400 text-sm mb-4">
-              Contáctanos para cualquier duda sobre esta cotización.
-            </p>
-            <a
-              href="mailto:ventas@mcd-agencia.com"
-              className="text-cmyk-cyan hover:underline text-sm"
-            >
-              ventas@mcd-agencia.com
-            </a>
-          </Card>
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Validity */}
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -1589,6 +1298,256 @@ export default function CustomerQuoteDetailPage() {
             </Card>
           </div>
         </div>
+      )}
+
+      {/* Portal: Render Historial + Contact into the layout's left sidebar */}
+      {sidebarPortal && createPortal(
+        <>
+          {/* Timeline / Historial */}
+          {(responses.length > 0 || changeRequests.length > 0 || quote.sent_at) && (() => {
+            type TimelineEvent = 
+              | { type: 'response'; date: string; data: QuoteResponseType }
+              | { type: 'change_request'; date: string; data: QuoteChangeRequest }
+              | { type: 'change_request_reviewed'; date: string; data: QuoteChangeRequest };
+
+            const eventsList: TimelineEvent[] = [
+              ...responses.map(r => ({ type: 'response' as const, date: r.created_at, data: r })),
+              ...changeRequests.map(cr => ({ type: 'change_request' as const, date: cr.created_at, data: cr })),
+              ...changeRequests
+                .filter(cr => cr.status !== 'pending' && cr.reviewed_at)
+                .map(cr => ({ type: 'change_request_reviewed' as const, date: cr.reviewed_at!, data: cr })),
+            ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            const sendResponses = responses.filter(r => r.action === 'send').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            const sendVersionMap = new Map<string, number>();
+            sendResponses.forEach((r, i) => sendVersionMap.set(r.id, i + 1));
+            const hasSendResponses = sendResponses.length > 0;
+
+            const sortedChangeRequests = [...changeRequests].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            const changeRequestVersionMap = new Map<string, number>();
+            sortedChangeRequests.forEach((cr, i) => changeRequestVersionMap.set(cr.id, i + 2));
+
+            const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            return (
+            <Card className="p-4">
+              <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-sm">
+                <ClockIcon className="h-4 w-4 text-cmyk-cyan" />
+                Historial
+              </h3>
+              <div className="relative">
+                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-neutral-700 z-0"></div>
+                <div className="space-y-3">
+
+                  {eventsList.map((event, idx) => {
+                    const circleBase = 'relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900';
+
+                    if (event.type === 'change_request') {
+                      const cr = event.data;
+                      const crVersion = changeRequestVersionMap.get(cr.id) || 2;
+                      return (
+                        <Link
+                          key={`cr-${cr.id}`}
+                          href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/cambios/${cr.id}`}
+                          className="relative flex items-start gap-2 group"
+                        >
+                          <div className={`${circleBase} border-orange-500/60`}>
+                            <PencilIcon className="h-2.5 w-2.5 text-orange-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-orange-400 text-[11px] font-medium group-hover:underline">
+                              Cambios v{crVersion}
+                              {cr.changes_summary && (
+                                <span className="ml-1 text-[9px] bg-neutral-800 text-neutral-400 px-1 py-0.5 rounded-full">
+                                  {[
+                                    cr.changes_summary.added > 0 && `+${cr.changes_summary.added}`,
+                                    cr.changes_summary.modified > 0 && `~${cr.changes_summary.modified}`,
+                                    cr.changes_summary.deleted > 0 && `-${cr.changes_summary.deleted}`,
+                                  ].filter(Boolean).join(' ')}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-neutral-500 text-[10px]">{fmtDate(cr.created_at)}</p>
+                          </div>
+                        </Link>
+                      );
+                    }
+
+                    if (event.type === 'change_request_reviewed') {
+                      const cr = event.data;
+                      const isApproved = cr.status === 'approved';
+                      return (
+                        <div key={`cr-review-${cr.id}`} className="relative flex items-start gap-2">
+                          <div className={`${circleBase} ${isApproved ? 'border-green-500/60' : 'border-red-500/60'}`}>
+                            {isApproved ? <CheckCircleIcon className="h-2.5 w-2.5 text-green-400" /> : <XCircleIcon className="h-2.5 w-2.5 text-red-400" />}
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className={`text-[11px] font-medium ${isApproved ? 'text-green-400' : 'text-red-400'}`}>
+                              Cambios — {isApproved ? 'aprobada' : 'rechazada'}
+                            </p>
+                            <p className="text-neutral-500 text-[10px]">{fmtDate(cr.reviewed_at!)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const response = event.data as QuoteResponseType;
+
+                    if (response.action === 'send') {
+                      const version = sendVersionMap.get(response.id) || 1;
+                      const versionLabel = version > 1 ? ` v${version}` : '';
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-2">
+                          <div className={`${circleBase} border-cmyk-cyan/60`}>
+                            <PaperAirplaneIcon className="h-2.5 w-2.5 text-cmyk-cyan" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-cmyk-cyan text-[11px] font-medium">
+                              Enviada{versionLabel}
+                            </p>
+                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (response.action === 'view') {
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-2">
+                          <div className={`${circleBase} border-purple-500/60`}>
+                            <EyeIcon className="h-2.5 w-2.5 text-purple-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-purple-400 text-[11px] font-medium">Vista</p>
+                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (response.action === 'approval') {
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-2">
+                          <div className={`${circleBase} border-green-500/60`}>
+                            <CheckCircleIcon className="h-2.5 w-2.5 text-green-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-green-400 text-[11px] font-medium">Aceptada</p>
+                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (response.action === 'rejection') {
+                      return (
+                        <div key={`r-${response.id}`} className="relative flex items-start gap-2">
+                          <div className={`${circleBase} border-red-500/60`}>
+                            <XCircleIcon className="h-2.5 w-2.5 text-red-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-red-400 text-[11px] font-medium">Rechazada</p>
+                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={`r-${response.id}-${idx}`} className="relative flex items-start gap-2">
+                        <div className={`${circleBase} border-blue-500/60`}>
+                          <PencilIcon className="h-2.5 w-2.5 text-blue-400" />
+                        </div>
+                        <div className="flex-1 -mt-0.5">
+                          <p className="text-blue-400 text-[11px] font-medium">{response.action_display || 'Comentario'}</p>
+                          <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {quote.sent_at && !hasSendResponses && (
+                    <div className="relative flex items-start gap-2">
+                      <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-cmyk-cyan/60">
+                        <PaperAirplaneIcon className="h-2.5 w-2.5 text-cmyk-cyan" />
+                      </div>
+                      <div className="flex-1 -mt-0.5">
+                        <p className="text-cmyk-cyan text-[11px] font-medium">Enviada</p>
+                        <p className="text-neutral-500 text-[10px]">{formatDate(quote.sent_at)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {quote.quote_request && (
+                    <>
+                      <div className="relative flex items-center gap-2 py-0.5">
+                        <div className="relative z-10 w-4 flex justify-center">
+                          <div className="w-1 h-1 rounded-full bg-neutral-600"></div>
+                        </div>
+                        <div className="flex-1 border-t border-dashed border-neutral-700"></div>
+                      </div>
+
+                      {quote.quote_request.status !== 'pending' && (
+                        <div className="relative flex items-start gap-2">
+                          <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-yellow-500/60">
+                            <ClockIcon className="h-2.5 w-2.5 text-yellow-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-yellow-400 text-[11px] font-medium">En revisión</p>
+                            <p className="text-neutral-500 text-[10px]">{formatDate(quote.quote_request.updated_at)}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {quote.quote_request.assigned_at && (
+                        <div className="relative flex items-start gap-2">
+                          <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-blue-500/60">
+                            <UserIcon className="h-2.5 w-2.5 text-blue-400" />
+                          </div>
+                          <div className="flex-1 -mt-0.5">
+                            <p className="text-blue-400 text-[11px] font-medium">Asignada a {quote.quote_request.assigned_to_name || 'vendedor'}</p>
+                            <p className="text-neutral-500 text-[10px]">{formatDate(quote.quote_request.assigned_at)}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <Link
+                        href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/solicitud`}
+                        className="relative flex items-start gap-2 group cursor-pointer"
+                      >
+                        <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-neutral-600">
+                          <ChatBubbleLeftRightIcon className="h-2.5 w-2.5 text-neutral-400" />
+                        </div>
+                        <div className="flex-1 -mt-0.5">
+                          <p className="text-neutral-400 text-[11px] font-medium group-hover:underline">Solicitud</p>
+                          <p className="text-neutral-500 text-[10px]">
+                            {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
+                          </p>
+                        </div>
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            </Card>
+            );
+          })()}
+
+          {/* Contact */}
+          <Card className="p-4 bg-cmyk-cyan/5 border-cmyk-cyan/20">
+            <h3 className="font-semibold text-white mb-1 text-sm">¿Tienes preguntas?</h3>
+            <p className="text-neutral-400 text-xs mb-2">
+              Contáctanos sobre esta cotización.
+            </p>
+            <a
+              href="mailto:ventas@mcd-agencia.com"
+              className="text-cmyk-cyan hover:underline text-xs"
+            >
+              ventas@mcd-agencia.com
+            </a>
+          </Card>
+        </>,
+        sidebarPortal
       )}
     </div>
   );

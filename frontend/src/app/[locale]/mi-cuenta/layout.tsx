@@ -72,21 +72,21 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-8">
+    <div className="min-h-screen pt-20 pb-8">
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-3xl font-bold text-white mb-2">
+        <div className="mb-3">
+          <h1 className="text-2xl font-bold text-white mb-1">
             {isStaff ? 'Panel de Control' : 'Mi Cuenta'}
           </h1>
-          <p className="text-neutral-400">
+          <p className="text-neutral-400 text-sm">
             Bienvenido, {isStaff ? user?.first_name || 'Staff' : user?.first_name || user?.full_name || user?.email}
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar */}
-          <aside className="lg:w-64 flex-shrink-0">
+          <aside className="lg:w-64 flex-shrink-0 lg:self-start lg:sticky lg:top-20">
             <nav className="bg-neutral-900 border border-neutral-800 rounded-xl p-2 space-y-1">
               {MENU_ITEMS.map((item) => {
                 const isActive = item.exact
@@ -118,10 +118,12 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
                 Cerrar Sesión
               </button>
             </nav>
+            {/* Portal target for page-specific sidebar content (e.g. Historial) */}
+            <div id="sidebar-extra" className="mt-4 space-y-4"></div>
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 min-w-0">{children}</main>
         </div>
       </div>
     </div>
