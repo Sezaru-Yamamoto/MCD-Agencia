@@ -281,7 +281,7 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                         pass
 
                 # Normalize delivery address
-                addr = svc.get('delivery_address', {})
+                addr = svc.get('delivery_address') or {}
                 if isinstance(addr, dict):
                     field_map = {
                         'calle': 'street', 'numero_exterior': 'exterior_number',
@@ -301,11 +301,11 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                     position=idx,
                     service_type=svc.get('service_type', ''),
                     service_details=svc.get('service_details', {}),
-                    delivery_method=svc.get('delivery_method', ''),
+                    delivery_method=svc.get('delivery_method') or '',
                     delivery_address=addr,
                     pickup_branch=pickup_branch_obj,
                     required_date=svc.get('required_date') or None,
-                    description=svc.get('description', ''),
+                    description=svc.get('description') or '',
                 )
 
             # Set earliest required_date from services onto the request for urgency calc
