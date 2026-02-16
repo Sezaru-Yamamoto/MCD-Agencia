@@ -1228,6 +1228,7 @@ export default function NewQuotePage() {
                                   <ServiceFormFields
                                     value={item.serviceDetails}
                                     onChange={(details) => updateItem(item.id, 'serviceDetails', details)}
+                                    hideRoutePricing
                                   />
                                 </div>
                               )}
