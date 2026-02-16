@@ -116,64 +116,99 @@ export default function NewQuotePage() {
       setCustomerEmail(request.customer_email);
       setCustomerCompany(request.customer_company || '');
 
-      // Generate concept based on service type and details
-      let conceptText = '';
-      let descriptionText = request.description || '';
-      let quantityValue = request.quantity || 1;
-      let prefillServiceDetails: ServiceDetailsData | undefined;
-
-      if (request.service_type) {
-        // Get service label
-        const serviceLabel = SERVICE_LABELS[request.service_type as ServiceId] || request.service_type;
-        conceptText = serviceLabel;
-
-        // Add subtype if available
-        const details = request.service_details as Record<string, unknown> | undefined;
-        if (details) {
-          // Check for subtype/tipo fields to enrich the concept name
-          const subtype = details.subtipo || details.tipo || details.tipo_anuncio ||
-                         details.tipo_rotulacion || details.material || details.tipo_diseno ||
-                         details.producto || details.servicio || details.tipo_servicio;
-
-          if (subtype && typeof subtype === 'string') {
-            const subtypeLabel = subtipoLabels[subtype] || subtype;
-            conceptText = `${serviceLabel} — ${subtypeLabel}`;
-          }
-
-          // Use quantity from details if available
-          if (details.cantidad && typeof details.cantidad === 'number') {
-            quantityValue = details.cantidad;
-          }
-
-          // Build service details for the line item form
-          prefillServiceDetails = serviceDetailsFromRequest(request.service_type, details);
-        } else {
-          prefillServiceDetails = { service_type: request.service_type as ServiceId };
-        }
-
-        // Leave description empty — seller fills in technical/commercial specs
-        // Client comments & required_date are shown in the info banner above
-        descriptionText = '';
-      } else if (request.catalog_item) {
-        conceptText = request.catalog_item.name;
-      }
-
       // When prefilling from request, lock customer fields
       setCustomerEditable(false);
 
-      // Pre-fill items if we have a concept
-      if (conceptText) {
-        setItems([{
-          id: `item-${Date.now()}`,
-          concept: conceptText,
-          description: descriptionText,
-          quantity: quantityValue,
-          unit: prefillServiceDetails ? 'servicio' : 'pza',
-          unit_price: 0,
-          shipping_cost: 0,
-          serviceDetails: prefillServiceDetails,
-          showServiceForm: !!prefillServiceDetails,
-        }]);
+      // ── Multi-service pre-fill ──
+      // If the request has services (multi-service), create one QuoteLineItem per service
+      if (request.services && request.services.length > 0) {
+        const newItems: QuoteLineItem[] = request.services.map((svc, idx) => {
+          const svcType = svc.service_type;
+          const svcLabel = SERVICE_LABELS[svcType as ServiceId] || svcType;
+          const details = svc.service_details as Record<string, unknown> | undefined;
+
+          let conceptText = svcLabel;
+          let quantityValue = 1;
+          let prefillServiceDetails: ServiceDetailsData | undefined;
+
+          if (details) {
+            // Add subtype to concept name
+            const subtype = details.subtipo || details.tipo || details.tipo_anuncio ||
+                           details.tipo_rotulacion || details.material || details.tipo_diseno ||
+                           details.producto || details.servicio || details.tipo_servicio;
+            if (subtype && typeof subtype === 'string') {
+              const subtypeLabel = subtipoLabels[subtype] || subtype;
+              conceptText = `${svcLabel} — ${subtypeLabel}`;
+            }
+            if (details.cantidad && typeof details.cantidad === 'number') {
+              quantityValue = details.cantidad;
+            }
+            prefillServiceDetails = serviceDetailsFromRequest(svcType, details);
+          } else {
+            prefillServiceDetails = { service_type: svcType as ServiceId };
+          }
+
+          return {
+            id: `item-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+            concept: conceptText,
+            description: svc.description || '',
+            quantity: quantityValue,
+            unit: prefillServiceDetails ? 'servicio' : 'pza',
+            unit_price: 0,
+            shipping_cost: 0,
+            serviceDetails: prefillServiceDetails,
+            showServiceForm: !!prefillServiceDetails,
+            lineDeliveryMethod: (svc.delivery_method as DeliveryMethod) || '',
+            lineEstimatedDate: svc.required_date || '',
+          };
+        });
+
+        setItems(newItems);
+      } else {
+        // ── Legacy single-service pre-fill (fallback) ──
+        let conceptText = '';
+        let descriptionText = '';
+        let quantityValue = request.quantity || 1;
+        let prefillServiceDetails: ServiceDetailsData | undefined;
+
+        if (request.service_type) {
+          const serviceLabel = SERVICE_LABELS[request.service_type as ServiceId] || request.service_type;
+          conceptText = serviceLabel;
+
+          const details = request.service_details as Record<string, unknown> | undefined;
+          if (details) {
+            const subtype = details.subtipo || details.tipo || details.tipo_anuncio ||
+                           details.tipo_rotulacion || details.material || details.tipo_diseno ||
+                           details.producto || details.servicio || details.tipo_servicio;
+            if (subtype && typeof subtype === 'string') {
+              const subtypeLabel = subtipoLabels[subtype] || subtype;
+              conceptText = `${serviceLabel} — ${subtypeLabel}`;
+            }
+            if (details.cantidad && typeof details.cantidad === 'number') {
+              quantityValue = details.cantidad;
+            }
+            prefillServiceDetails = serviceDetailsFromRequest(request.service_type, details);
+          } else {
+            prefillServiceDetails = { service_type: request.service_type as ServiceId };
+          }
+          descriptionText = '';
+        } else if (request.catalog_item) {
+          conceptText = request.catalog_item.name;
+        }
+
+        if (conceptText) {
+          setItems([{
+            id: `item-${Date.now()}`,
+            concept: conceptText,
+            description: descriptionText,
+            quantity: quantityValue,
+            unit: prefillServiceDetails ? 'servicio' : 'pza',
+            unit_price: 0,
+            shipping_cost: 0,
+            serviceDetails: prefillServiceDetails,
+            showServiceForm: !!prefillServiceDetails,
+          }]);
+        }
       }
     } catch (error) {
       console.error('Error loading quote request:', error);
@@ -221,9 +256,19 @@ export default function NewQuotePage() {
     }
   }, [isAuthenticated, isSalesOrAdmin, loadQuoteRequest, loadCatalogItems, loadBranches]);
 
-  // Compute available delivery methods based on quote request service type
+  // Compute available delivery methods based on quote request service type(s)
   useEffect(() => {
-    if (quoteRequest?.service_type) {
+    if (quoteRequest?.services && quoteRequest.services.length > 0) {
+      // Multi-service: union of all delivery methods from all services
+      const allMethods = new Set<DeliveryMethod>();
+      quoteRequest.services.forEach(svc => {
+        const subtypeId = (svc.service_details as Record<string, unknown>)?.subtipo as string | undefined;
+        const methods = getDeliveryMethodsForService(svc.service_type, subtypeId);
+        methods.forEach(m => allMethods.add(m));
+      });
+      setAvailableDeliveryMethods(Array.from(allMethods));
+      // Don't pre-select global delivery method — each service has its own
+    } else if (quoteRequest?.service_type) {
       const subtypeId = (quoteRequest.service_details as Record<string, unknown>)?.subtipo as string | undefined;
       const methods = getDeliveryMethodsForService(quoteRequest.service_type, subtypeId);
       setAvailableDeliveryMethods(methods);
@@ -521,7 +566,38 @@ export default function NewQuotePage() {
                     {quoteRequest.description}
                   </p>
                 )}
-                {(() => {
+                {/* Show per-service summary for multi-service requests */}
+                {quoteRequest.services && quoteRequest.services.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-neutral-500 text-xs font-medium">
+                      {quoteRequest.services.length} servicio{quoteRequest.services.length > 1 ? 's' : ''} solicitado{quoteRequest.services.length > 1 ? 's' : ''}:
+                    </p>
+                    {quoteRequest.services.map((svc, idx) => {
+                      const svcLabel = SERVICE_LABELS[svc.service_type as ServiceId] || svc.service_type;
+                      const deliveryLabel = svc.delivery_method
+                        ? DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es
+                        : null;
+                      return (
+                        <div key={svc.id} className="flex items-center gap-2 text-sm">
+                          <span className="text-cmyk-cyan font-medium">{idx + 1}.</span>
+                          <span className="text-white">{svcLabel}</span>
+                          {deliveryLabel && (
+                            <span className="text-neutral-500 text-xs">
+                              ({DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]} {deliveryLabel})
+                            </span>
+                          )}
+                          {svc.required_date && (
+                            <span className="text-cmyk-cyan text-xs">
+                              — {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Fallback: single-service required date */}
+                {(!quoteRequest.services || quoteRequest.services.length === 0) && (() => {
                   // Compute the correct required date from route dates if available
                   let displayDate = quoteRequest.required_date;
                   const details = quoteRequest.service_details as Record<string, unknown> | undefined;
@@ -949,20 +1025,45 @@ export default function NewQuotePage() {
                             </div>
                           )}
 
-                          {/* Shipping Cost + Estimated Delivery Date */}
+                          {/* Delivery Method + Shipping Cost + Estimated Delivery Date */}
                           <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-2">
                               <label className="text-neutral-500 text-xs">
                                 <TruckIcon className="h-3.5 w-3.5 inline mr-1" />
-                                Costo envío:
+                                Entrega:
                               </label>
-                              <PriceInput
-                                value={item.shipping_cost}
-                                onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
-                                className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
-                              <span className="text-neutral-600 text-xs">(sin IVA)</span>
+                              <select
+                                value={item.lineDeliveryMethod || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value as DeliveryMethod | '';
+                                  updateItem(item.id, 'lineDeliveryMethod', val);
+                                  // Reset shipping cost when switching away from shipping/installation
+                                  if (val !== 'shipping' && val !== 'installation') {
+                                    updateItem(item.id, 'shipping_cost', 0);
+                                  }
+                                }}
+                                className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                              >
+                                <option value="">— Sin especificar —</option>
+                                {(['installation', 'pickup', 'shipping', 'digital', 'not_applicable'] as DeliveryMethod[]).map(m => (
+                                  <option key={m} value={m}>
+                                    {DELIVERY_METHOD_ICONS[m]} {DELIVERY_METHOD_LABELS[m].es}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
+                            {/* Show shipping cost only for installation or shipping delivery */}
+                            {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                              <div className="flex items-center gap-2">
+                                <label className="text-neutral-500 text-xs">Costo envío:</label>
+                                <PriceInput
+                                  value={item.shipping_cost}
+                                  onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                  className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                />
+                                <span className="text-neutral-600 text-xs">(sin IVA)</span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-2">
                               <label className="text-neutral-500 text-xs">Entrega est.:</label>
                               <input
