@@ -1011,9 +1011,9 @@ export default function CustomerQuoteDetailPage() {
         {/* Sidebar */}
         <div className="space-y-4">
           {/* Validity */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <CalendarDaysIcon className="h-5 w-5 text-cmyk-cyan" />
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarDaysIcon className="h-4 w-4 text-cmyk-cyan" />
               <h3 className="font-semibold text-white">Vigencia</h3>
             </div>
             <div className="space-y-3">
@@ -1044,9 +1044,9 @@ export default function CustomerQuoteDetailPage() {
           </Card>
 
           {/* Payment */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <CurrencyDollarIcon className="h-5 w-5 text-cmyk-cyan" />
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CurrencyDollarIcon className="h-4 w-4 text-cmyk-cyan" />
               <h3 className="font-semibold text-white">Pago</h3>
             </div>
             <div className="space-y-3">
@@ -1065,7 +1065,7 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Terms */}
           {quote.terms && (
-            <Card className="p-6">
+            <Card className="p-5">
               <h3 className="font-semibold text-white mb-3">Términos y Condiciones</h3>
               <p className="text-neutral-300 text-sm whitespace-pre-wrap">{quote.terms}</p>
             </Card>
@@ -1073,7 +1073,7 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Additional Info */}
           {(quote.delivery_method || quote.estimated_delivery_date || quote.included_services) && (
-            <Card className="p-6">
+            <Card className="p-5">
               <h3 className="font-semibold text-white mb-3">Información Adicional</h3>
               <div className="space-y-3">
                 {quote.delivery_method && (
@@ -1122,8 +1122,8 @@ export default function CustomerQuoteDetailPage() {
           )}
 
           {/* Actions */}
-          <Card className="p-6">
-            <h3 className="font-semibold text-white mb-4">Acciones</h3>
+          <Card className="p-5">
+            <h3 className="font-semibold text-white mb-3">Acciones</h3>
             <div className="space-y-3">
               {/* Download PDF */}
               {(quote.pdf_file || quote.token) && (
@@ -1330,17 +1330,17 @@ export default function CustomerQuoteDetailPage() {
             const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
             return (
-            <Card className="p-4">
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-sm">
+            <Card className="p-5">
+              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
                 <ClockIcon className="h-4 w-4 text-cmyk-cyan" />
                 Historial
               </h3>
               <div className="relative">
-                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-neutral-700 z-0"></div>
+                <div className="absolute left-[9px] top-2 bottom-2 w-px bg-neutral-700 z-0"></div>
                 <div className="space-y-3">
 
                   {eventsList.map((event, idx) => {
-                    const circleBase = 'relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900';
+                    const circleBase = 'relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900';
 
                     if (event.type === 'change_request') {
                       const cr = event.data;
@@ -1352,13 +1352,13 @@ export default function CustomerQuoteDetailPage() {
                           className="relative flex items-start gap-2 group"
                         >
                           <div className={`${circleBase} border-orange-500/60`}>
-                            <PencilIcon className="h-2.5 w-2.5 text-orange-400" />
+                            <PencilIcon className="h-3 w-3 text-orange-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-orange-400 text-[11px] font-medium group-hover:underline">
+                            <p className="text-orange-400 text-xs font-medium group-hover:underline">
                               Cambios v{crVersion}
                               {cr.changes_summary && (
-                                <span className="ml-1 text-[9px] bg-neutral-800 text-neutral-400 px-1 py-0.5 rounded-full">
+                                <span className="ml-1 text-[10px] bg-neutral-800 text-neutral-400 px-1 py-0.5 rounded-full">
                                   {[
                                     cr.changes_summary.added > 0 && `+${cr.changes_summary.added}`,
                                     cr.changes_summary.modified > 0 && `~${cr.changes_summary.modified}`,
@@ -1367,7 +1367,7 @@ export default function CustomerQuoteDetailPage() {
                                 </span>
                               )}
                             </p>
-                            <p className="text-neutral-500 text-[10px]">{fmtDate(cr.created_at)}</p>
+                            <p className="text-neutral-500 text-[11px]">{fmtDate(cr.created_at)}</p>
                           </div>
                         </Link>
                       );
@@ -1379,13 +1379,13 @@ export default function CustomerQuoteDetailPage() {
                       return (
                         <div key={`cr-review-${cr.id}`} className="relative flex items-start gap-2">
                           <div className={`${circleBase} ${isApproved ? 'border-green-500/60' : 'border-red-500/60'}`}>
-                            {isApproved ? <CheckCircleIcon className="h-2.5 w-2.5 text-green-400" /> : <XCircleIcon className="h-2.5 w-2.5 text-red-400" />}
+                            {isApproved ? <CheckCircleIcon className="h-3 w-3 text-green-400" /> : <XCircleIcon className="h-3 w-3 text-red-400" />}
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className={`text-[11px] font-medium ${isApproved ? 'text-green-400' : 'text-red-400'}`}>
+                            <p className={`text-xs font-medium ${isApproved ? 'text-green-400' : 'text-red-400'}`}>
                               Cambios — {isApproved ? 'aprobada' : 'rechazada'}
                             </p>
-                            <p className="text-neutral-500 text-[10px]">{fmtDate(cr.reviewed_at!)}</p>
+                            <p className="text-neutral-500 text-[11px]">{fmtDate(cr.reviewed_at!)}</p>
                           </div>
                         </div>
                       );
@@ -1399,13 +1399,13 @@ export default function CustomerQuoteDetailPage() {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-2">
                           <div className={`${circleBase} border-cmyk-cyan/60`}>
-                            <PaperAirplaneIcon className="h-2.5 w-2.5 text-cmyk-cyan" />
+                            <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-cmyk-cyan text-[11px] font-medium">
+                            <p className="text-cmyk-cyan text-xs font-medium">
                               Enviada{versionLabel}
                             </p>
-                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                            <p className="text-neutral-500 text-[11px]">{fmtDate(response.created_at)}</p>
                           </div>
                         </div>
                       );
@@ -1415,11 +1415,11 @@ export default function CustomerQuoteDetailPage() {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-2">
                           <div className={`${circleBase} border-purple-500/60`}>
-                            <EyeIcon className="h-2.5 w-2.5 text-purple-400" />
+                            <EyeIcon className="h-3 w-3 text-purple-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-purple-400 text-[11px] font-medium">Vista</p>
-                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                            <p className="text-purple-400 text-xs font-medium">Vista</p>
+                            <p className="text-neutral-500 text-[11px]">{fmtDate(response.created_at)}</p>
                           </div>
                         </div>
                       );
@@ -1429,11 +1429,11 @@ export default function CustomerQuoteDetailPage() {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-2">
                           <div className={`${circleBase} border-green-500/60`}>
-                            <CheckCircleIcon className="h-2.5 w-2.5 text-green-400" />
+                            <CheckCircleIcon className="h-3 w-3 text-green-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-green-400 text-[11px] font-medium">Aceptada</p>
-                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                            <p className="text-green-400 text-xs font-medium">Aceptada</p>
+                            <p className="text-neutral-500 text-[11px]">{fmtDate(response.created_at)}</p>
                           </div>
                         </div>
                       );
@@ -1443,11 +1443,11 @@ export default function CustomerQuoteDetailPage() {
                       return (
                         <div key={`r-${response.id}`} className="relative flex items-start gap-2">
                           <div className={`${circleBase} border-red-500/60`}>
-                            <XCircleIcon className="h-2.5 w-2.5 text-red-400" />
+                            <XCircleIcon className="h-3 w-3 text-red-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-red-400 text-[11px] font-medium">Rechazada</p>
-                            <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                            <p className="text-red-400 text-xs font-medium">Rechazada</p>
+                            <p className="text-neutral-500 text-[11px]">{fmtDate(response.created_at)}</p>
                           </div>
                         </div>
                       );
@@ -1456,11 +1456,11 @@ export default function CustomerQuoteDetailPage() {
                     return (
                       <div key={`r-${response.id}-${idx}`} className="relative flex items-start gap-2">
                         <div className={`${circleBase} border-blue-500/60`}>
-                          <PencilIcon className="h-2.5 w-2.5 text-blue-400" />
+                          <PencilIcon className="h-3 w-3 text-blue-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
-                          <p className="text-blue-400 text-[11px] font-medium">{response.action_display || 'Comentario'}</p>
-                          <p className="text-neutral-500 text-[10px]">{fmtDate(response.created_at)}</p>
+                          <p className="text-blue-400 text-xs font-medium">{response.action_display || 'Comentario'}</p>
+                          <p className="text-neutral-500 text-[11px]">{fmtDate(response.created_at)}</p>
                         </div>
                       </div>
                     );
@@ -1468,12 +1468,12 @@ export default function CustomerQuoteDetailPage() {
 
                   {quote.sent_at && !hasSendResponses && (
                     <div className="relative flex items-start gap-2">
-                      <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-cmyk-cyan/60">
-                        <PaperAirplaneIcon className="h-2.5 w-2.5 text-cmyk-cyan" />
+                      <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-cmyk-cyan/60">
+                        <PaperAirplaneIcon className="h-3 w-3 text-cmyk-cyan" />
                       </div>
                       <div className="flex-1 -mt-0.5">
-                        <p className="text-cmyk-cyan text-[11px] font-medium">Enviada</p>
-                        <p className="text-neutral-500 text-[10px]">{formatDate(quote.sent_at)}</p>
+                        <p className="text-cmyk-cyan text-xs font-medium">Enviada</p>
+                        <p className="text-neutral-500 text-[11px]">{formatDate(quote.sent_at)}</p>
                       </div>
                     </div>
                   )}
@@ -1481,32 +1481,32 @@ export default function CustomerQuoteDetailPage() {
                   {quote.quote_request && (
                     <>
                       <div className="relative flex items-center gap-2 py-0.5">
-                        <div className="relative z-10 w-4 flex justify-center">
-                          <div className="w-1 h-1 rounded-full bg-neutral-600"></div>
+                        <div className="relative z-10 w-5 flex justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-neutral-600"></div>
                         </div>
                         <div className="flex-1 border-t border-dashed border-neutral-700"></div>
                       </div>
 
                       {quote.quote_request.status !== 'pending' && (
                         <div className="relative flex items-start gap-2">
-                          <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-yellow-500/60">
-                            <ClockIcon className="h-2.5 w-2.5 text-yellow-400" />
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-yellow-500/60">
+                            <ClockIcon className="h-3 w-3 text-yellow-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-yellow-400 text-[11px] font-medium">En revisión</p>
-                            <p className="text-neutral-500 text-[10px]">{formatDate(quote.quote_request.updated_at)}</p>
+                            <p className="text-yellow-400 text-xs font-medium">En revisión</p>
+                            <p className="text-neutral-500 text-[11px]">{formatDate(quote.quote_request.updated_at)}</p>
                           </div>
                         </div>
                       )}
 
                       {quote.quote_request.assigned_at && (
                         <div className="relative flex items-start gap-2">
-                          <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-blue-500/60">
-                            <UserIcon className="h-2.5 w-2.5 text-blue-400" />
+                          <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-blue-500/60">
+                            <UserIcon className="h-3 w-3 text-blue-400" />
                           </div>
                           <div className="flex-1 -mt-0.5">
-                            <p className="text-blue-400 text-[11px] font-medium">Asignada a {quote.quote_request.assigned_to_name || 'vendedor'}</p>
-                            <p className="text-neutral-500 text-[10px]">{formatDate(quote.quote_request.assigned_at)}</p>
+                            <p className="text-blue-400 text-xs font-medium">Asignada a {quote.quote_request.assigned_to_name || 'vendedor'}</p>
+                            <p className="text-neutral-500 text-[11px]">{formatDate(quote.quote_request.assigned_at)}</p>
                           </div>
                         </div>
                       )}
@@ -1515,12 +1515,12 @@ export default function CustomerQuoteDetailPage() {
                         href={`/${locale}/mi-cuenta/cotizaciones/${quoteId}/solicitud`}
                         className="relative flex items-start gap-2 group cursor-pointer"
                       >
-                        <div className="relative z-10 flex items-center justify-center w-4 h-4 rounded-full border bg-neutral-900 border-neutral-600">
-                          <ChatBubbleLeftRightIcon className="h-2.5 w-2.5 text-neutral-400" />
+                        <div className="relative z-10 flex items-center justify-center w-5 h-5 rounded-full border bg-neutral-900 border-neutral-600">
+                          <ChatBubbleLeftRightIcon className="h-3 w-3 text-neutral-400" />
                         </div>
                         <div className="flex-1 -mt-0.5">
-                          <p className="text-neutral-400 text-[11px] font-medium group-hover:underline">Solicitud</p>
-                          <p className="text-neutral-500 text-[10px]">
+                          <p className="text-neutral-400 text-xs font-medium group-hover:underline">Solicitud</p>
+                          <p className="text-neutral-500 text-[11px]">
                             {quote.quote_request.customer_name} · {formatDate(quote.quote_request.created_at)}
                           </p>
                         </div>
@@ -1534,14 +1534,14 @@ export default function CustomerQuoteDetailPage() {
           })()}
 
           {/* Contact */}
-          <Card className="p-4 bg-cmyk-cyan/5 border-cmyk-cyan/20">
-            <h3 className="font-semibold text-white mb-1 text-sm">¿Tienes preguntas?</h3>
-            <p className="text-neutral-400 text-xs mb-2">
+          <Card className="p-5 bg-cmyk-cyan/5 border-cmyk-cyan/20">
+            <h3 className="font-semibold text-white mb-1">¿Tienes preguntas?</h3>
+            <p className="text-neutral-400 text-sm mb-2">
               Contáctanos sobre esta cotización.
             </p>
             <a
               href="mailto:ventas@mcd-agencia.com"
-              className="text-cmyk-cyan hover:underline text-xs"
+              className="text-cmyk-cyan hover:underline text-sm"
             >
               ventas@mcd-agencia.com
             </a>
