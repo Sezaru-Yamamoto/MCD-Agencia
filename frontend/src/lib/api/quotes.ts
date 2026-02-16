@@ -641,7 +641,13 @@ export async function downloadQuotePdf(id: string): Promise<Blob> {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error((errorData as Record<string, string>).error || 'Error downloading PDF');
+    const errField = (errorData as Record<string, unknown>).error;
+    const msg = typeof errField === 'string'
+      ? errField
+      : (errField && typeof errField === 'object' && 'message' in errField)
+        ? String((errField as Record<string, unknown>).message)
+        : (errorData as Record<string, unknown>).detail as string || 'Error downloading PDF';
+    throw new Error(msg);
   }
 
   return response.blob();
@@ -689,7 +695,13 @@ export async function downloadResponsePdf(quoteId: string, responseId: string): 
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error((errorData as Record<string, string>).error || 'Error downloading PDF');
+    const errField = (errorData as Record<string, unknown>).error;
+    const msg = typeof errField === 'string'
+      ? errField
+      : (errField && typeof errField === 'object' && 'message' in errField)
+        ? String((errField as Record<string, unknown>).message)
+        : (errorData as Record<string, unknown>).detail as string || 'Error downloading PDF';
+    throw new Error(msg);
   }
 
   return response.blob();
@@ -960,7 +972,13 @@ export async function downloadChangeRequestPdf(changeRequestId: string): Promise
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error((errorData as Record<string, string>).error || 'Error downloading PDF');
+    const errField = (errorData as Record<string, unknown>).error;
+    const msg = typeof errField === 'string'
+      ? errField
+      : (errField && typeof errField === 'object' && 'message' in errField)
+        ? String((errField as Record<string, unknown>).message)
+        : (errorData as Record<string, unknown>).detail as string || 'Error downloading PDF';
+    throw new Error(msg);
   }
 
   return response.blob();
