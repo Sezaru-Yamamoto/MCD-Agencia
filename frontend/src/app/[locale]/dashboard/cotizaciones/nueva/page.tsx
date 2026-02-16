@@ -15,6 +15,8 @@ import {
   WrenchScrewdriverIcon,
   TruckIcon,
   MapPinIcon,
+  CalendarIcon,
+  PaperClipIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -22,7 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import PriceInput from '@/components/ui/PriceInput';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
-import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
+import { ServiceDetailsDisplay, subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
 import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, expandRouteLines } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
@@ -30,6 +32,7 @@ import {
   sendQuote,
   Quote,
   QuoteRequest,
+  QuoteRequestService,
   CreateQuoteData,
 } from '@/lib/api/quotes';
 import { getProducts, ProductListItem } from '@/lib/api/catalog';
@@ -55,6 +58,8 @@ interface QuoteLineItem {
   showServiceForm?: boolean;
   lineDeliveryMethod?: DeliveryMethod | '';
   lineEstimatedDate?: string;
+  /** Reference to the original QuoteRequestService for read-only display */
+  requestServiceRef?: QuoteRequestService;
 }
 
 export default function NewQuotePage() {
@@ -159,7 +164,8 @@ export default function NewQuotePage() {
             serviceDetails: prefillServiceDetails,
             showServiceForm: !!prefillServiceDetails,
             lineDeliveryMethod: (svc.delivery_method as DeliveryMethod) || '',
-            lineEstimatedDate: svc.required_date || '',
+            lineEstimatedDate: '',
+            requestServiceRef: svc,
           };
         });
 
@@ -880,7 +886,238 @@ export default function NewQuotePage() {
                 <div className="space-y-4">
                   {items.map((item, index) => {
                     const itemIsRouteBased = isRouteBasedDetails(item.serviceDetails);
+                    const svcRef = item.requestServiceRef;
 
+                    // ── Service item WITH request reference → solicitud-style card ──
+                    if (item.serviceDetails && svcRef) {
+                      const svcType = svcRef.service_type;
+                      const svcLabel = SERVICE_LABELS[svcType as ServiceId] || svcType;
+                      const svcDetails = svcRef.service_details as Record<string, unknown> | undefined;
+
+                      const formatFileSz = (bytes: number) => {
+                        if (bytes < 1024) return `${bytes} B`;
+                        if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+                        return `${(bytes / 1048576).toFixed(1)} MB`;
+                      };
+
+                      return (
+                        <div key={item.id} className="relative rounded-xl border border-neutral-700 bg-neutral-800/30 overflow-hidden">
+                          {/* Delete button */}
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="absolute top-3 right-3 z-10 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                            title="Eliminar concepto"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+
+                          {/* Service header — like solicitud detail */}
+                          <div className="flex items-center gap-3 p-4 pb-0">
+                            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold">
+                              {index + 1}
+                            </span>
+                            <h3 className="text-white font-semibold text-lg">{svcLabel}</h3>
+                          </div>
+
+                          {/* Read-only service details from client request */}
+                          <div className="p-4">
+                            {svcDetails && Object.keys(svcDetails).length > 0 && (
+                              <div className="mb-3">
+                                <ServiceDetailsDisplay
+                                  serviceType={svcType}
+                                  serviceDetails={svcDetails}
+                                />
+                              </div>
+                            )}
+
+                            {svcRef.description && (
+                              <p className="text-neutral-300 text-sm mb-3 whitespace-pre-wrap">{svcRef.description}</p>
+                            )}
+
+                            {/* Delivery method, address, required date — read-only from request */}
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              {svcRef.delivery_method && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                                  <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                                    <span>{DELIVERY_METHOD_ICONS[svcRef.delivery_method as DeliveryMethod]}</span>
+                                    {DELIVERY_METHOD_LABELS[svcRef.delivery_method as DeliveryMethod]?.es || svcRef.delivery_method}
+                                  </p>
+                                </div>
+                              )}
+                              {svcRef.pickup_branch_detail && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                                  <p className="text-white font-medium mt-auto">{svcRef.pickup_branch_detail.name}</p>
+                                </div>
+                              )}
+                              {svcRef.delivery_address && Object.keys(svcRef.delivery_address).length > 0 && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">
+                                    {svcRef.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                                  </p>
+                                  <p className="text-white font-medium mt-auto">
+                                    {[svcRef.delivery_address.street || svcRef.delivery_address.calle,
+                                      svcRef.delivery_address.exterior_number || svcRef.delivery_address.numero_exterior,
+                                      svcRef.delivery_address.neighborhood || svcRef.delivery_address.colonia,
+                                      svcRef.delivery_address.city || svcRef.delivery_address.ciudad,
+                                      svcRef.delivery_address.state || svcRef.delivery_address.estado,
+                                      svcRef.delivery_address.postal_code || svcRef.delivery_address.codigo_postal,
+                                    ].filter(Boolean).join(', ')}
+                                  </p>
+                                </div>
+                              )}
+                              {svcRef.required_date && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                                  <p className="text-white font-medium mt-auto">
+                                    {new Date(svcRef.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                      year: 'numeric', month: 'short', day: 'numeric',
+                                    })}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Per-service attachments */}
+                            {svcRef.attachments && svcRef.attachments.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-neutral-700">
+                                <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                                  <PaperClipIcon className="h-3 w-3" />
+                                  Archivos adjuntos ({svcRef.attachments.length})
+                                </p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {svcRef.attachments.map((att) => {
+                                    const isImage = att.file_type?.startsWith('image/');
+                                    return (
+                                      <a
+                                        key={att.id}
+                                        href={att.file}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block p-2 bg-neutral-900/50 rounded hover:bg-neutral-700 transition-colors group"
+                                      >
+                                        {isImage && (
+                                          <img
+                                            src={att.file}
+                                            alt={att.filename || 'Archivo'}
+                                            className="w-full h-20 object-cover rounded mb-1"
+                                          />
+                                        )}
+                                        <p className="text-xs text-cmyk-cyan truncate group-hover:underline flex items-center gap-1">
+                                          {!isImage && <PaperClipIcon className="h-3 w-3 flex-shrink-0" />}
+                                          {att.filename || 'Archivo'}
+                                        </p>
+                                        {att.file_size > 0 && (
+                                          <p className="text-neutral-500 text-[10px]">{formatFileSz(att.file_size)}</p>
+                                        )}
+                                      </a>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ── Vendor-editable fields ── */}
+                          <div className="p-4 pt-0">
+                            <div className="border-t border-cmyk-cyan/20 pt-4">
+                              <p className="text-cmyk-cyan text-xs font-semibold uppercase tracking-wider mb-3">Cotización del vendedor</p>
+
+                              {/* Row 1: Quantity / Unit / Unit Price / Line Total */}
+                              {!itemIsRouteBased && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Cantidad</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Unidad</label>
+                                    <select
+                                      value={item.unit}
+                                      onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    >
+                                      <option value="pza">pza</option>
+                                      <option value="m2">m²</option>
+                                      <option value="ml">ml</option>
+                                      <option value="kg">kg</option>
+                                      <option value="hr">hr</option>
+                                      <option value="servicio">servicio</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Precio Unitario</label>
+                                    <PriceInput
+                                      value={item.unit_price}
+                                      onChange={(val) => updateItem(item.id, 'unit_price', val)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Total línea</label>
+                                    <div className="px-3 py-2 bg-neutral-900/50 border border-neutral-700/50 rounded-lg text-white font-medium text-right text-sm">
+                                      {formatCurrency(item.quantity * item.unit_price)}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Row 2: Shipping cost (conditional) + Estimated delivery date */}
+                              <div className="grid grid-cols-2 gap-3">
+                                {/* Shipping cost — only when delivery is installation or shipping */}
+                                {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">
+                                      <TruckIcon className="h-3.5 w-3.5 inline mr-1" />
+                                      Costo de envío <span className="text-neutral-600">(sin IVA)</span>
+                                    </label>
+                                    <PriceInput
+                                      value={item.shipping_cost}
+                                      onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    />
+                                  </div>
+                                )}
+                                <div className={!(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') ? 'col-span-2 md:col-span-1' : ''}>
+                                  <label className="block text-neutral-500 text-xs mb-1">
+                                    <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />
+                                    Fecha de entrega estimada
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={item.lineEstimatedDate || ''}
+                                    onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Description (optional, for vendor notes on this line) */}
+                              <div className="mt-3">
+                                <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas del concepto</label>
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                  placeholder="Descripción o notas adicionales para este concepto..."
+                                  rows={2}
+                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // ── Non-request items (catalog products, custom items, manually added services) ──
                     return (
                     <div key={item.id} className="relative p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
                       {/* Delete button — top right */}
@@ -914,7 +1151,6 @@ export default function NewQuotePage() {
                                         service_type: newType,
                                         subtipo: firstSubtipo,
                                       };
-                                      // Sync tipo/tipo_anuncio for matching services
                                       if (newType === 'espectaculares') updated.tipo = firstSubtipo;
                                       if (newType === 'fabricacion-anuncios') updated.tipo_anuncio = firstSubtipo;
                                       updateItem(item.id, 'serviceDetails', updated);
@@ -937,14 +1173,8 @@ export default function NewQuotePage() {
                                           ...item.serviceDetails!,
                                           subtipo: newSubtipo,
                                         };
-                                        // Keep 'tipo' in sync for espectaculares
-                                        if (svcType === 'espectaculares') {
-                                          updated.tipo = newSubtipo;
-                                        }
-                                        // Keep 'tipo_anuncio' in sync for fabricacion-anuncios
-                                        if (svcType === 'fabricacion-anuncios') {
-                                          updated.tipo_anuncio = newSubtipo;
-                                        }
+                                        if (svcType === 'espectaculares') updated.tipo = newSubtipo;
+                                        if (svcType === 'fabricacion-anuncios') updated.tipo_anuncio = newSubtipo;
                                         updateItem(item.id, 'serviceDetails', updated);
                                       }}
                                       className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
@@ -1052,7 +1282,6 @@ export default function NewQuotePage() {
                                 onChange={(e) => {
                                   const val = e.target.value as DeliveryMethod | '';
                                   updateItem(item.id, 'lineDeliveryMethod', val);
-                                  // Reset shipping cost when switching away from shipping/installation
                                   if (val !== 'shipping' && val !== 'installation') {
                                     updateItem(item.id, 'shipping_cost', 0);
                                   }
@@ -1067,7 +1296,6 @@ export default function NewQuotePage() {
                                 ))}
                               </select>
                             </div>
-                            {/* Show shipping cost only for installation or shipping delivery */}
                             {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
                               <div className="flex items-center gap-2">
                                 <label className="text-neutral-500 text-xs">Costo envío:</label>
