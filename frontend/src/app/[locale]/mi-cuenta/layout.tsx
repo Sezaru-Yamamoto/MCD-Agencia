@@ -76,7 +76,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar */}
-          <aside className="lg:w-64 flex-shrink-0 lg:self-start lg:sticky lg:top-20">
+          <aside className="lg:w-64 flex-shrink-0">
             {/* Header inside sidebar */}
             <div className="mb-3">
               <h1 className="text-lg font-bold text-white mb-0.5">
