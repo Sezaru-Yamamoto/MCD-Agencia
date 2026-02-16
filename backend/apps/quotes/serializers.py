@@ -258,17 +258,20 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
         quote_request.urgency = quote_request.calculate_urgency()
         quote_request.save(update_fields=['urgency'])
 
-        # Create attachments
+        # Create attachments (initially linked to quote_request only)
+        attachment_objects = []
         for file in attachments:
-            QuoteAttachment.objects.create(
+            att = QuoteAttachment.objects.create(
                 quote_request=quote_request,
                 file=file,
                 filename=file.name,
                 file_type=file.content_type,
                 file_size=file.size
             )
+            attachment_objects.append(att)
 
         # Create per-service records (multi-service support)
+        created_services = []  # track created service objects for file linking
         if services_data and isinstance(services_data, list):
             from apps.content.models import Branch
             for idx, svc in enumerate(services_data):
@@ -296,7 +299,7 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                             normalized[eng_key] = val
                     addr = normalized
 
-                QuoteRequestService.objects.create(
+                svc_obj = QuoteRequestService.objects.create(
                     quote_request=quote_request,
                     position=idx,
                     service_type=svc.get('service_type', ''),
@@ -307,6 +310,7 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                     required_date=svc.get('required_date') or None,
                     description=svc.get('description') or '',
                 )
+                created_services.append(svc_obj)
 
             # Set earliest required_date from services onto the request for urgency calc
             from datetime import date as date_cls
@@ -333,6 +337,27 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                 if not quote_request.required_date or earliest < quote_request.required_date:
                     quote_request.required_date = earliest
                     quote_request.save(update_fields=['required_date'])
+
+        # Link attachments to per-service records using file_service_map
+        if created_services and attachment_objects:
+            http_request = self.context.get('request')
+            file_service_map_raw = http_request.data.get('file_service_map') if http_request else None
+            if file_service_map_raw:
+                import json as json_mod
+                try:
+                    if isinstance(file_service_map_raw, str):
+                        file_service_map = json_mod.loads(file_service_map_raw)
+                    else:
+                        file_service_map = file_service_map_raw
+                    if isinstance(file_service_map, list):
+                        for file_idx, svc_idx in enumerate(file_service_map):
+                            if (file_idx < len(attachment_objects)
+                                    and isinstance(svc_idx, int)
+                                    and 0 <= svc_idx < len(created_services)):
+                                attachment_objects[file_idx].request_service = created_services[svc_idx]
+                                attachment_objects[file_idx].save(update_fields=['request_service'])
+                except (json_mod.JSONDecodeError, TypeError, ValueError):
+                    pass  # If mapping fails, attachments stay linked to quote_request only
 
         # Attempt automatic assignment
         quote_request.assign_to_sales_rep(auto=True)

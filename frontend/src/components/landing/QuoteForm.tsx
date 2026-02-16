@@ -859,18 +859,28 @@ export function QuoteForm() {
       const formData = new FormData();
       formData.append('payload', JSON.stringify(payload));
 
-      // Add files from current service
+      // Add files from current service (with per-service tracking)
+      // Build file_service_map: array where index = file index, value = service index
+      const fileServiceMap: number[] = [];
       selectedFiles.forEach((file, index) => {
         formData.append(`archivo_${index}`, file);
+        // Current service is always the last one in allServices
+        fileServiceMap.push(savedServices.length);
       });
       // Add files from saved services
       let fileOffset = selectedFiles.length;
-      savedServices.forEach(svc => {
+      savedServices.forEach((svc, svcIdx) => {
         svc.files.forEach((file) => {
           formData.append(`archivo_${fileOffset}`, file);
+          fileServiceMap.push(svcIdx);
           fileOffset++;
         });
       });
+
+      // Send file-to-service mapping so backend can link attachments per service
+      if (fileServiceMap.length > 0) {
+        formData.append('file_service_map', JSON.stringify(fileServiceMap));
+      }
 
       const response = await fetch('/api/leads', {
         method: 'POST',

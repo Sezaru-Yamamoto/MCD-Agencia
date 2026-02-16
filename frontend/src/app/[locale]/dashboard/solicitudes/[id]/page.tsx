@@ -334,7 +334,8 @@ export default function QuoteRequestDetailPage() {
               )}
             </Card>
 
-            {/* Service Details */}
+            {/* Service Details — only show legacy single-service card when there are NO multi-service records */}
+            {(!request.services || request.services.length === 0) && (
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Detalles del Servicio</h2>
 
@@ -363,7 +364,6 @@ export default function QuoteRequestDetailPage() {
                 </div>
               )}
 
-              {/* Service-specific details from landing form */}
               {request.service_details && Object.keys(request.service_details).length > 0 && (
                 <div className="mb-4">
                   <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
@@ -374,7 +374,6 @@ export default function QuoteRequestDetailPage() {
                 </div>
               )}
 
-              {/* Generic fields - only show if no service_details */}
               {(!request.service_details || Object.keys(request.service_details).length === 0) && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   {request.quantity && (
@@ -409,7 +408,6 @@ export default function QuoteRequestDetailPage() {
                 </div>
               )}
 
-              {/* Delivery Method */}
               {request.delivery_method && (
                 <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg">
                   <p className="text-neutral-500 text-xs mb-2">Método de entrega preferido</p>
@@ -432,7 +430,6 @@ export default function QuoteRequestDetailPage() {
               )}
 
               {(() => {
-                // Compute the correct required date from route dates if available
                 let displayDate = request.required_date;
                 const details = request.service_details as Record<string, unknown> | undefined;
                 if (details && Array.isArray(details.rutas)) {
@@ -480,6 +477,7 @@ export default function QuoteRequestDetailPage() {
                 );
               })()}
             </Card>
+            )}
 
             {/* Multi-Service Details */}
             {request.services && request.services.length > 0 && (
@@ -560,20 +558,38 @@ export default function QuoteRequestDetailPage() {
                       {/* Per-service attachments */}
                       {svc.attachments && svc.attachments.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-neutral-700">
-                          <p className="text-neutral-500 text-xs mb-2">Archivos ({svc.attachments.length})</p>
-                          <div className="flex flex-wrap gap-2">
-                            {svc.attachments.map((att) => (
-                              <a
-                                key={att.id}
-                                href={att.file}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-xs px-2 py-1 bg-neutral-800 rounded text-cmyk-cyan hover:bg-neutral-700 transition-colors"
-                              >
-                                <PaperClipIcon className="h-3 w-3" />
-                                {att.filename || 'Archivo'}
-                              </a>
-                            ))}
+                          <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                            <PaperClipIcon className="h-3 w-3" />
+                            Archivos adjuntos ({svc.attachments.length})
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {svc.attachments.map((att) => {
+                              const isImage = att.file_type?.startsWith('image/');
+                              return (
+                                <a
+                                  key={att.id}
+                                  href={att.file}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block p-2 bg-neutral-900/50 rounded hover:bg-neutral-700 transition-colors group"
+                                >
+                                  {isImage && (
+                                    <img
+                                      src={att.file}
+                                      alt={att.filename || 'Archivo'}
+                                      className="w-full h-20 object-cover rounded mb-1"
+                                    />
+                                  )}
+                                  <p className="text-xs text-cmyk-cyan truncate group-hover:underline flex items-center gap-1">
+                                    {!isImage && <PaperClipIcon className="h-3 w-3 flex-shrink-0" />}
+                                    {att.filename || 'Archivo'}
+                                  </p>
+                                  {att.file_size > 0 && (
+                                    <p className="text-neutral-500 text-[10px]">{formatFileSize(att.file_size)}</p>
+                                  )}
+                                </a>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -583,35 +599,46 @@ export default function QuoteRequestDetailPage() {
               </Card>
             )}
 
-            {/* Attachments */}
-            {request.attachments && request.attachments.length > 0 && (
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
-                  Archivos Adjuntos ({request.attachments.length})
-                </h2>
-                <div className="space-y-2">
-                  {request.attachments.map((attachment) => (
-                    <a
-                      key={attachment.id}
-                      href={attachment.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg hover:bg-neutral-800 transition-colors"
-                    >
-                      <PaperClipIcon className="h-5 w-5 text-neutral-400" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white truncate">{attachment.filename}</p>
-                        <p className="text-neutral-500 text-xs">
-                          {formatFileSize(attachment.file_size)}
-                          {attachment.file_type && ` • ${attachment.file_type}`}
-                        </p>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </Card>
-            )}
+            {/* Global Attachments — only show files NOT already linked to a service */}
+            {(() => {
+              // Collect IDs of attachments already shown per-service
+              const perServiceAttIds = new Set<string>();
+              if (request.services) {
+                request.services.forEach(svc => {
+                  svc.attachments?.forEach(att => perServiceAttIds.add(att.id));
+                });
+              }
+              const globalOnly = (request.attachments || []).filter(a => !perServiceAttIds.has(a.id));
+              if (globalOnly.length === 0) return null;
+              return (
+                <Card className="p-6">
+                  <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
+                    Archivos Adjuntos ({globalOnly.length})
+                  </h2>
+                  <div className="space-y-2">
+                    {globalOnly.map((attachment) => (
+                      <a
+                        key={attachment.id}
+                        href={attachment.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg hover:bg-neutral-800 transition-colors"
+                      >
+                        <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white truncate">{attachment.filename}</p>
+                          <p className="text-neutral-500 text-xs">
+                            {formatFileSize(attachment.file_size)}
+                            {attachment.file_type && ` • ${attachment.file_type}`}
+                          </p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })()}
           </div>
 
           {/* Sidebar */}

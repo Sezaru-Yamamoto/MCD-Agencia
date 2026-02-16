@@ -79,6 +79,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Forward file-to-service mapping if present
+    const fileServiceMap = formData.get('file_service_map');
+    if (fileServiceMap && typeof fileServiceMap === 'string') {
+      backendFormData.append('file_service_map', fileServiceMap);
+    }
+
     // Send to Django backend
     let response: Response;
     try {
