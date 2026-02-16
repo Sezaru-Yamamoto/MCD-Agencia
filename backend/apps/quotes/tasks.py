@@ -81,7 +81,10 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
 
         quote = Quote.objects.select_related(
             'quote_request', 'created_by'
-        ).prefetch_related('lines', 'lines__pickup_branch').get(id=quote_id)
+        ).prefetch_related(
+            'lines', 'lines__pickup_branch',
+            'quote_request__services',
+        ).get(id=quote_id)
 
         # Professional ReportLab PDF with brand colors
         buffer = BytesIO()
@@ -283,24 +286,44 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         }
         LBL_SHIPPING = 'Shipping' if is_en else 'Envío'
         LBL_DELIVERY = 'Delivery' if is_en else 'Entrega'
-        LBL_EST_DATE = 'Est. date' if is_en else 'Fecha est.'
+        LBL_EST_DATE = 'Estimated date' if is_en else 'Fecha estimada'
+        LBL_EST_END = 'Estimated end date' if is_en else 'Fecha de fin estimada'
+        LBL_SHIPPING_PRICE = 'Shipping Price' if is_en else 'Precio de envío'
 
         # Helper: build description text from service_details JSON
-        def build_description_from_details(details):
-            """Build human-readable description from service_details dict."""
+        def build_description_from_details(details, request_service=None):
+            """Build human-readable description from service_details dict.
+
+            Includes all service parameters and optionally the required_date
+            and customer comments from the matching QuoteRequestService.
+            """
             if not details or not isinstance(details, dict):
                 return ''
             DETAIL_LABELS = {
-                'tipo': 'Tipo', 'subtipo': 'Subtipo', 'tipo_anuncio': 'Tipo',
-                'tipo_vehiculo': 'Vehículo', 'tipo_rotulacion': 'Rotulación',
-                'material': 'Material', 'medidas': 'Medidas', 'cantidad': 'Cantidad',
-                'uso': 'Uso', 'producto': 'Producto', 'tipo_diseno': 'Diseño',
-                'numero_piezas': 'Piezas', 'duracion': 'Duración',
-                'tiempo_exhibicion': 'Exhibición', 'tiempo_campana': 'Campaña',
-                'zona': 'Zona', 'zona_cobertura': 'Cobertura',
-                'impresion_incluida': 'Impresión', 'instalacion_incluida': 'Instalación',
-                'diseno_incluido': 'Diseño incluido', 'archivo_listo': 'Archivo listo',
-                'iluminacion': 'Iluminación', 'requiere_grabacion': 'Requiere grabación',
+                'tipo': 'Tipo' if not is_en else 'Type',
+                'subtipo': 'Subtype' if is_en else 'Subtipo',
+                'tipo_anuncio': 'Type' if is_en else 'Tipo',
+                'tipo_vehiculo': 'Vehicle' if is_en else 'Vehículo',
+                'tipo_rotulacion': 'Wrap type' if is_en else 'Rotulación',
+                'material': 'Material',
+                'medidas': 'Dimensions' if is_en else 'Medidas',
+                'cantidad': 'Quantity' if is_en else 'Cantidad',
+                'uso': 'Usage' if is_en else 'Uso',
+                'producto': 'Product' if is_en else 'Producto',
+                'tipo_diseno': 'Design' if is_en else 'Diseño',
+                'numero_piezas': 'Pieces' if is_en else 'Piezas',
+                'duracion': 'Duration' if is_en else 'Duración',
+                'tiempo_exhibicion': 'Exhibition time' if is_en else 'Tiempo en exhibición',
+                'tiempo_campana': 'Campaign time' if is_en else 'Tiempo de campaña',
+                'zona': 'Zone' if is_en else 'Zona',
+                'zona_cobertura': 'Coverage' if is_en else 'Cobertura',
+                'impresion_incluida': 'Print included' if is_en else 'Impresión incluida',
+                'instalacion_incluida': 'Installation included' if is_en else 'Instalación incluida',
+                'diseno_incluido': 'Design included' if is_en else 'Diseño incluido',
+                'archivo_listo': 'File ready' if is_en else 'Archivo listo',
+                'iluminacion': 'Lighting' if is_en else 'Iluminación',
+                'requiere_grabacion': 'Recording needed' if is_en else 'Requiere grabación',
+                'duracion_campana': 'Campaign duration' if is_en else 'Duración de campaña',
             }
             SKIP_KEYS = {'service_type', 'tipo_personalizado', 'material_personalizado',
                          'producto_personalizado', 'subtipo_personalizado',
@@ -311,19 +334,149 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                     continue
                 label = DETAIL_LABELS.get(key, key.replace('_', ' ').capitalize())
                 if isinstance(val, bool):
-                    parts.append(f"{label}: {'Sí' if val else 'No'}")
+                    parts.append(f"{label}: {'Sí' if not is_en else 'Yes'}" if val else f"{label}: No")
                 else:
                     parts.append(f"{label}: {val}")
+            # Append required_date and customer comments from request service
+            if request_service:
+                if request_service.required_date:
+                    lbl_req = 'Required date' if is_en else 'Fecha requerida'
+                    parts.append(f"{lbl_req}: {request_service.required_date.strftime('%d/%m/%Y')}")
+                if request_service.description:
+                    lbl_comments = 'Customer comments' if is_en else 'Comentarios del cliente'
+                    parts.append(f"{lbl_comments}: {request_service.description}")
             return ', '.join(parts)
 
-        # Column widths
-        col_widths = [1.6 * inch, 2.7 * inch, 0.5 * inch, 1.0 * inch, 1.1 * inch]
+        def build_route_description(route, route_index):
+            """Build description for a single publicidad-movil route."""
+            parts = []
+            # Route geo info
+            coordenadas = route.get('coordenadas') or {}
+            if coordenadas:
+                inicio = coordenadas.get('inicio') or {}
+                fin = coordenadas.get('fin') or {}
+                if inicio.get('nombre'):
+                    lbl = 'Route start' if is_en else 'Ruta inicio'
+                    parts.append(f"{lbl}: {inicio['nombre']}")
+                if fin.get('nombre'):
+                    lbl = 'Route end' if is_en else 'Ruta fin'
+                    parts.append(f"{lbl}: {fin['nombre']}")
+                dist = coordenadas.get('distancia')
+                if dist:
+                    km = dist / 1000 if dist > 100 else dist  # meters → km
+                    lbl = 'Distance' if is_en else 'Kilómetros'
+                    parts.append(f"{lbl}: {km:.1f} km")
+            # Pre-established route (publibuses)
+            if route.get('ruta'):
+                lbl = 'Route' if is_en else 'Ruta'
+                parts.append(f"{lbl}: {route['ruta']}")
+            # Schedule
+            if route.get('horario_inicio'):
+                lbl = 'Start time' if is_en else 'Horario inicio'
+                parts.append(f"{lbl}: {route['horario_inicio']}")
+            if route.get('horario_fin'):
+                lbl = 'End time' if is_en else 'Horario fin'
+                parts.append(f"{lbl}: {route['horario_fin']}")
+            # Dates
+            if route.get('fecha_inicio'):
+                lbl = 'Start date' if is_en else 'Fecha inicio'
+                parts.append(f"{lbl}: {route['fecha_inicio']}")
+            if route.get('fecha_fin'):
+                lbl = 'End date' if is_en else 'Fecha fin'
+                parts.append(f"{lbl}: {route['fecha_fin']}")
+            return ', '.join(parts)
+
+        def find_matching_request_service(line):
+            """Find the QuoteRequestService that matches a quote line's service_details."""
+            if not quote.quote_request:
+                return None
+            sd = line.service_details or {}
+            line_svc_type = sd.get('service_type', '')
+            if not line_svc_type:
+                return None
+            try:
+                services = list(quote.quote_request.services.all())
+            except Exception:
+                return None
+            for svc in services:
+                if svc.service_type == line_svc_type:
+                    return svc
+            return None
+
+        def calc_estimated_end_date(line, route):
+            """Calculate estimated end date for a route.
+
+            Logic: offset = estimated_delivery_date - client_fecha_inicio
+            estimated_end = client_fecha_fin + offset
+            """
+            from datetime import datetime as _dt
+            est_delivery = line.estimated_delivery_date
+            if not est_delivery:
+                # Check route-level estimated delivery date
+                est_str = route.get('fecha_entrega_estimada') or route.get('estimated_delivery_date')
+                if est_str:
+                    try:
+                        est_delivery = _dt.strptime(str(est_str), '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        return None
+            if not est_delivery:
+                return None
+            fecha_inicio_str = route.get('fecha_inicio')
+            fecha_fin_str = route.get('fecha_fin')
+            if not fecha_inicio_str or not fecha_fin_str:
+                return None
+            try:
+                fecha_inicio = _dt.strptime(str(fecha_inicio_str), '%Y-%m-%d').date()
+                fecha_fin = _dt.strptime(str(fecha_fin_str), '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                return None
+            offset = (est_delivery - fecha_inicio).days
+            if offset < 0:
+                offset = 0
+            from datetime import timedelta as _td
+            return fecha_fin + _td(days=offset)
+
+        # Column widths (6 columns: concept, description, qty, unit price, shipping, total)
+        col_widths = [1.3 * inch, 2.1 * inch, 0.45 * inch, 0.95 * inch, 0.95 * inch, 1.05 * inch]
 
         # Group lines by delivery method + address/branch (or treat all as one group)
         all_lines = list(quote.lines.all())
         shipping_total = sum(line.shipping_cost for line in all_lines)
 
-        # Build group key for each line
+        # Pre-load request services for matching
+        request_services = []
+        if quote.quote_request:
+            try:
+                request_services = list(quote.quote_request.services.all())
+            except Exception:
+                pass
+        # Fallback: build a pseudo-service from the QuoteRequest itself
+        if not request_services and quote.quote_request:
+            request_services = [quote.quote_request]  # has .service_type, .required_date, .description
+
+        def _find_request_svc(service_type):
+            """Find the matching request service for a given service_type."""
+            if not service_type:
+                return None
+            for svc in request_services:
+                svc_st = getattr(svc, 'service_type', '')
+                if svc_st == service_type:
+                    return svc
+            return None
+
+        # Detect which lines are publicidad-movil route-expanded lines.
+        # These have concept like "Publicidad Móvil — Ruta 1" and
+        # service_details containing route-level info.
+        def is_route_line(line):
+            sd = line.service_details or {}
+            svc_type = sd.get('service_type', '')
+            return svc_type == 'publicidad-movil' or '— Ruta' in (line.concept or '')
+
+        # Separate route lines vs regular lines
+        route_lines = [l for l in all_lines if is_route_line(l)]
+        regular_lines = [l for l in all_lines if not is_route_line(l)]
+
+        # For regular lines: group by delivery method + address/branch
         def line_group_key(line):
             dm = line.delivery_method or quote.delivery_method or ''
             if dm == 'pickup' and line.pickup_branch_id:
@@ -333,89 +486,183 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                 return (dm, addr.get('calle', '') + addr.get('ciudad', ''))
             return (dm, '')
 
-        from itertools import groupby as _groupby
         from collections import OrderedDict
         groups = OrderedDict()
-        for line in all_lines:
+        for line in regular_lines:
             key = line_group_key(line)
             groups.setdefault(key, []).append(line)
 
-        for (dm, _addr_key), group_lines in groups.items():
-            # Delivery info header above this group (if there's a delivery method)
-            if dm:
-                delivery_label = DELIVERY_LABELS.get(dm, dm)
-                header_parts = [f"<b>{LBL_DELIVERY}:</b> {delivery_label}"]
-                # Show estimated delivery date from first line that has one
+        # ── Delivery header builder (reusable) ──
+        delivery_header_style = ParagraphStyle(
+            'DeliveryHeader', fontSize=8, fontName='Helvetica', textColor=GRAY,
+            leading=12, spaceBefore=8, spaceAfter=4
+        )
+
+        def _build_delivery_header(dm, group_lines_for_header, est_date_override=None, est_end_override=None):
+            """Build a delivery info Paragraph for a group of lines."""
+            delivery_label = DELIVERY_LABELS.get(dm, dm)
+            header_parts = [f"<b>{LBL_DELIVERY}:</b> {delivery_label}"]
+            # Estimated delivery date
+            est_date = est_date_override
+            if not est_date and group_lines_for_header:
                 est_date = next(
-                    (l.estimated_delivery_date for l in group_lines if l.estimated_delivery_date),
+                    (l.estimated_delivery_date for l in group_lines_for_header if l.estimated_delivery_date),
                     None
                 )
-                if est_date:
-                    header_parts.append(f"<b>{LBL_EST_DATE}:</b> {est_date.strftime('%d/%m/%Y')}")
-                # Show pickup branch name
-                if dm == 'pickup':
-                    branch = next((l.pickup_branch for l in group_lines if l.pickup_branch_id), None)
-                    if branch:
-                        header_parts.append(f"<b>{'Branch' if is_en else 'Sucursal'}:</b> {branch.name}")
-                # Show address city for shipping/installation
-                if dm in ('shipping', 'installation'):
-                    addr = next((l.delivery_address for l in group_lines if l.delivery_address), None) or {}
-                    city_parts = [addr.get('calle', ''), addr.get('ciudad', ''), addr.get('estado', '')]
-                    city_str = ', '.join(p for p in city_parts if p)
-                    if city_str:
-                        header_parts.append(f"<b>{'Address' if is_en else 'Dirección'}:</b> {city_str}")
+            if est_date:
+                fmt = est_date.strftime('%d/%m/%Y') if hasattr(est_date, 'strftime') else str(est_date)
+                header_parts.append(f"<b>{LBL_EST_DATE}:</b> {fmt}")
+            # Estimated end date
+            if est_end_override:
+                fmt = est_end_override.strftime('%d/%m/%Y') if hasattr(est_end_override, 'strftime') else str(est_end_override)
+                header_parts.append(f"<b>{LBL_EST_END}:</b> {fmt}")
+            # Pickup branch
+            if dm == 'pickup' and group_lines_for_header:
+                branch = next((l.pickup_branch for l in group_lines_for_header if l.pickup_branch_id), None)
+                if branch:
+                    header_parts.append(f"<b>{'Branch' if is_en else 'Sucursal'}:</b> {branch.name}")
+            # Address
+            if dm in ('shipping', 'installation') and group_lines_for_header:
+                addr = next((l.delivery_address for l in group_lines_for_header if l.delivery_address), None) or {}
+                city_parts = [addr.get('calle', ''), addr.get('ciudad', ''), addr.get('estado', '')]
+                city_str = ', '.join(p for p in city_parts if p)
+                if city_str:
+                    header_parts.append(f"<b>{'Address' if is_en else 'Dirección'}:</b> {city_str}")
+            return Paragraph(' &nbsp;|&nbsp; '.join(header_parts), delivery_header_style)
 
-                delivery_header = Paragraph(' &nbsp;|&nbsp; '.join(header_parts), ParagraphStyle(
-                    'DeliveryHeader', fontSize=8, fontName='Helvetica', textColor=GRAY, leading=12,
-                    spaceBefore=8, spaceAfter=4
-                ))
-                elements.append(delivery_header)
-
-            # Build line items table for this group
-            table_data = [
-                [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL['total_col']]
-            ]
-
-            for line in group_lines:
-                concept_text = (line.concept_en or line.concept) if is_en else line.concept
-                # Build description: prefer explicit, fallback to service_details params
-                desc_text = (line.description_en or line.description) if is_en else line.description
-                if not desc_text and line.service_details:
-                    desc_text = build_description_from_details(line.service_details)
-                concept = Paragraph(concept_text or '', cell_style)
-                description = Paragraph(desc_text or '', cell_style)
-                qty = Paragraph(str(line.quantity), cell_style_center)
-                unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
-                total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
-                table_data.append([concept, description, qty, unit_price, total])
-
-            items_table = Table(table_data, colWidths=col_widths)
-            items_table.setStyle(TableStyle([
+        # ── Table builder (reusable) ──
+        def _build_items_table(rows):
+            """Build a styled ReportLab Table from header + data rows."""
+            tbl = Table(rows, colWidths=col_widths)
+            tbl.setStyle(TableStyle([
                 # Header styling
                 ('BACKGROUND', (0, 0), (-1, 0), CYAN),
                 ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                ('TOPPADDING', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-
-                # Body styling - vertical alignment top for wrapped text
+                ('TOPPADDING', (0, 0), (-1, 0), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                # Body styling
                 ('VALIGN', (0, 1), (-1, -1), 'TOP'),
                 ('TOPPADDING', (0, 1), (-1, -1), 6),
                 ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
                 ('LEFTPADDING', (0, 1), (-1, -1), 4),
                 ('RIGHTPADDING', (0, 1), (-1, -1), 4),
-
                 # Alternating row colors
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GRAY]),
-
                 # Grid
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.Color(0.8, 0.8, 0.8)),
                 ('BOX', (0, 0), (-1, -1), 1, CYAN),
             ]))
-            elements.append(items_table)
+            return tbl
+
+        table_header_row = [
+            LBL['concept'], LBL['description'], LBL['qty'],
+            LBL['unit_price'], LBL_SHIPPING_PRICE, LBL['total_col']
+        ]
+
+        # ── Render REGULAR (non-route) line groups ──
+        for (dm, _addr_key), group_lines in groups.items():
+            if dm:
+                elements.append(_build_delivery_header(dm, group_lines))
+
+            table_data = [list(table_header_row)]
+            for line in group_lines:
+                concept_text = (line.concept_en or line.concept) if is_en else line.concept
+                desc_text = (line.description_en or line.description) if is_en else line.description
+                if not desc_text and line.service_details:
+                    req_svc = _find_request_svc((line.service_details or {}).get('service_type', ''))
+                    desc_text = build_description_from_details(line.service_details, req_svc)
+                concept = Paragraph(concept_text or '', cell_style)
+                description = Paragraph(desc_text or '', cell_style)
+                qty = Paragraph(str(line.quantity), cell_style_center)
+                unit_price = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
+                ship_cost = Paragraph(f"${line.shipping_cost:,.2f}", cell_style_right)
+                total = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
+                table_data.append([concept, description, qty, unit_price, ship_cost, total])
+
+            elements.append(_build_items_table(table_data))
             elements.append(Spacer(1, 12))
+
+        # ── Render ROUTE (publicidad-movil) lines ──
+        # Each route line gets its own delivery header showing
+        # "Método de entrega: No aplica | Fecha estimada: X | Fecha de fin estimada: Y"
+        if route_lines:
+            # Find the matching request service for customer comments
+            first_sd = route_lines[0].service_details or {}
+            first_svc_type = first_sd.get('service_type', '')
+            req_svc = _find_request_svc(first_svc_type)
+
+            # Build a shared service-level description (params without route details)
+            svc_desc_text = build_description_from_details(first_sd, req_svc) if first_sd else ''
+
+            for line in route_lines:
+                sd = line.service_details or {}
+                rutas = sd.get('rutas', [])
+
+                # Find this line's route data
+                # The concept contains "— Ruta N", extract route index
+                route_data = None
+                route_idx = 0
+                concept_str = line.concept or ''
+                if '— Ruta ' in concept_str:
+                    try:
+                        route_num = int(concept_str.split('— Ruta ')[1].strip())
+                        route_idx = route_num - 1
+                    except (ValueError, IndexError):
+                        pass
+                if rutas and route_idx < len(rutas):
+                    route_data = rutas[route_idx]
+                elif rutas and len(rutas) == 1:
+                    route_data = rutas[0]
+
+                # Build per-route delivery header
+                dm = line.delivery_method or 'not_applicable'
+                est_date = line.estimated_delivery_date
+                est_end = None
+                if route_data:
+                    # Try to get route-level estimated delivery date if line doesn't have one
+                    if not est_date:
+                        from datetime import datetime as _dt2
+                        est_str = route_data.get('fecha_entrega_estimada') or route_data.get('estimated_delivery_date')
+                        if est_str:
+                            try:
+                                est_date = _dt2.strptime(str(est_str), '%Y-%m-%d').date()
+                            except (ValueError, TypeError):
+                                pass
+                    est_end = calc_estimated_end_date(line, route_data)
+
+                elements.append(_build_delivery_header(dm, [line], est_date_override=est_date, est_end_override=est_end))
+
+                # Build description with route details
+                route_desc_parts = []
+                # Add service-level details (only for first route to avoid repetition)
+                if route_data:
+                    route_desc = build_route_description(route_data, route_idx)
+                    if route_desc:
+                        route_desc_parts.append(route_desc)
+                # Add customer comments from request service (only once)
+                if req_svc and req_svc.description and route_idx == 0:
+                    lbl_comments = 'Customer comments' if is_en else 'Comentarios del cliente'
+                    route_desc_parts.append(f"{lbl_comments}: {req_svc.description}")
+
+                desc_text = (line.description_en or line.description) if is_en else line.description
+                if not desc_text:
+                    desc_text = ', '.join(route_desc_parts) if route_desc_parts else svc_desc_text
+
+                concept_text = (line.concept_en or line.concept) if is_en else line.concept
+                table_data = [list(table_header_row)]
+                concept_p = Paragraph(concept_text or '', cell_style)
+                description_p = Paragraph(desc_text or '', cell_style)
+                qty_p = Paragraph(str(line.quantity), cell_style_center)
+                unit_price_p = Paragraph(f"${line.unit_price:,.2f}", cell_style_right)
+                ship_cost_p = Paragraph(f"${line.shipping_cost:,.2f}", cell_style_right)
+                total_p = Paragraph(f"${line.line_total:,.2f}", cell_style_right)
+                table_data.append([concept_p, description_p, qty_p, unit_price_p, ship_cost_p, total_p])
+
+                elements.append(_build_items_table(table_data))
+                elements.append(Spacer(1, 8))
 
         elements.append(Spacer(1, 8))
 
@@ -710,8 +957,10 @@ def generate_snapshot_pdf(quote, snapshot, language='es'):
     cell_style_right = ParagraphStyle('TableCellRight', fontSize=9, fontName='Helvetica', leading=11, textColor=BLACK, alignment=TA_RIGHT)
     cell_style_center = ParagraphStyle('TableCellCenter', fontSize=9, fontName='Helvetica', leading=11, textColor=BLACK, alignment=TA_CENTER)
 
+    LBL_SHIPPING_PRICE = 'Shipping Price' if is_en else 'Precio de envío'
+
     table_data = [
-        [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL['total_col']]
+        [LBL['concept'], LBL['description'], LBL['qty'], LBL['unit_price'], LBL_SHIPPING_PRICE, LBL['total_col']]
     ]
 
     for line in snapshot.get('lines', []):
@@ -720,11 +969,13 @@ def generate_snapshot_pdf(quote, snapshot, language='es'):
         qty = Paragraph(str(line.get('quantity', '')), cell_style_center)
         up = Decimal(str(line.get('unit_price', 0)))
         lt = Decimal(str(line.get('line_total', 0)))
+        sc = Decimal(str(line.get('shipping_cost', 0)))
         unit_price = Paragraph(f"${up:,.2f}", cell_style_right)
+        ship_cost = Paragraph(f"${sc:,.2f}", cell_style_right)
         total = Paragraph(f"${lt:,.2f}", cell_style_right)
-        table_data.append([concept, description, qty, unit_price, total])
+        table_data.append([concept, description, qty, unit_price, ship_cost, total])
 
-    col_widths = [1.6 * inch, 2.7 * inch, 0.5 * inch, 1.0 * inch, 1.1 * inch]
+    col_widths = [1.3 * inch, 2.1 * inch, 0.45 * inch, 0.95 * inch, 0.95 * inch, 1.05 * inch]
     items_table = Table(table_data, colWidths=col_widths)
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), CYAN),
