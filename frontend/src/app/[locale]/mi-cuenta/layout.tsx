@@ -75,12 +75,12 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
     <div className="min-h-screen pt-24 pb-8">
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-4">
           <h1 className="text-3xl font-bold text-white mb-2">
             {isStaff ? 'Panel de Control' : 'Mi Cuenta'}
           </h1>
           <p className="text-neutral-400">
-            Bienvenido, {user?.role?.display_name || (isStaff ? user?.first_name || 'Staff' : user?.first_name || user?.email)}
+            Bienvenido, {isStaff ? user?.first_name || 'Staff' : user?.first_name || user?.full_name || user?.email}
           </p>
         </div>
 
