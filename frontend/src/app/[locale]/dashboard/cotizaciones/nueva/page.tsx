@@ -25,7 +25,7 @@ import { Card, Button, LoadingPage, SuccessModal } from '@/components/ui';
 import PriceInput from '@/components/ui/PriceInput';
 import { SendConfirmationModal } from '@/components/quotes/SendConfirmationModal';
 import { ServiceDetailsDisplay, subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
-import { ServiceFormFields, type ServiceDetailsData, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, expandRouteLines } from '@/components/quotes/ServiceFormFields';
+import { ServiceFormFields, type ServiceDetailsData, type ConfigurableRouteEntry, type EstablishedRouteEntry, serviceDetailsFromRequest, cleanServiceDetailsForApi, isRouteBasedService, isRouteBasedDetails, computeRoutesTotal, expandRouteLines } from '@/components/quotes/ServiceFormFields';
 import {
   getAdminQuoteRequestById,
   createQuote,
@@ -469,7 +469,7 @@ export default function NewQuotePage() {
               delivery_method: ri === 0 ? lineDelivery : undefined,
               delivery_address: ri === 0 ? lineAddress : undefined,
               pickup_branch: ri === 0 ? lineBranch : undefined,
-              estimated_delivery_date: ri === 0 && item.lineEstimatedDate ? item.lineEstimatedDate : undefined,
+              estimated_delivery_date: rl.estimated_date || (ri === 0 && item.lineEstimatedDate ? item.lineEstimatedDate : undefined),
             }));
           }
 
@@ -930,10 +930,6 @@ export default function NewQuotePage() {
                               </div>
                             )}
 
-                            {svcRef.description && (
-                              <p className="text-neutral-300 text-sm mb-3 whitespace-pre-wrap">{svcRef.description}</p>
-                            )}
-
                             {/* Delivery method, address, required date — read-only from request */}
                             <div className="grid grid-cols-2 gap-3 text-sm">
                               {svcRef.delivery_method && (
@@ -1024,7 +1020,128 @@ export default function NewQuotePage() {
                             <div className="border-t border-cmyk-cyan/20 pt-4">
                               <p className="text-cmyk-cyan text-xs font-semibold uppercase tracking-wider mb-3">Cotización del vendedor</p>
 
-                              {/* Row 1: Quantity / Unit / Unit Price / Line Total */}
+                              {/* === Route-based: per-route pricing === */}
+                              {itemIsRouteBased && (() => {
+                                const sd = item.serviceDetails!;
+                                const routeArrayKey = sd._vallasRoutes ? '_vallasRoutes'
+                                  : sd._pubRoutes ? '_pubRoutes'
+                                  : sd._perifoneoRoutes ? '_perifoneoRoutes'
+                                  : null;
+                                const routes = (routeArrayKey ? sd[routeArrayKey] : null) as
+                                  | Array<ConfigurableRouteEntry | EstablishedRouteEntry>
+                                  | null;
+
+                                if (!routes || routes.length === 0) return null;
+
+                                const updateRouteField = (routeIdx: number, field: string, value: unknown) => {
+                                  const updatedRoutes = [...routes];
+                                  updatedRoutes[routeIdx] = { ...updatedRoutes[routeIdx], [field]: value };
+                                  updateItem(item.id, 'serviceDetails', { ...sd, [routeArrayKey!]: updatedRoutes });
+                                };
+
+                                return (
+                                  <div className="space-y-4">
+                                    {routes.map((route, rIdx) => {
+                                      const qty = route.cantidad || 1;
+                                      const price = route.unit_price || 0;
+                                      const rutaLabel = 'ruta' in route && route.ruta
+                                        ? (subtipoLabels[route.ruta] || route.ruta)
+                                        : null;
+
+                                      return (
+                                        <div key={route.id} className="rounded-lg border border-neutral-700/60 bg-neutral-900/30 p-3 space-y-3">
+                                          {/* Route header */}
+                                          <div className="flex items-center gap-2">
+                                            <MapPinIcon className="h-4 w-4 text-cmyk-cyan" />
+                                            <span className="text-cmyk-cyan text-sm font-semibold">Ruta {rIdx + 1}</span>
+                                            {rutaLabel && (
+                                              <span className="text-neutral-400 text-xs">— {rutaLabel}</span>
+                                            )}
+                                          </div>
+
+                                          {/* Cantidad / Precio Unitario / Total */}
+                                          <div className="grid grid-cols-3 gap-3">
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Cantidad</label>
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                value={qty}
+                                                onChange={(e) => updateRouteField(rIdx, 'cantidad', parseInt(e.target.value) || 1)}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Precio Unitario</label>
+                                              <PriceInput
+                                                value={price}
+                                                onChange={(val) => updateRouteField(rIdx, 'unit_price', val)}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Total ruta</label>
+                                              <div className="px-3 py-2 bg-neutral-900/50 border border-neutral-700/50 rounded-lg text-white font-medium text-right text-sm">
+                                                {formatCurrency(qty * price)}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Fecha de entrega estimada + Descripción */}
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">
+                                                <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />
+                                                Fecha de entrega estimada
+                                              </label>
+                                              <input
+                                                type="date"
+                                                value={route.estimated_date || ''}
+                                                onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas</label>
+                                              <input
+                                                type="text"
+                                                value={route.vendorDescription || ''}
+                                                onChange={(e) => updateRouteField(rIdx, 'vendorDescription', e.target.value)}
+                                                placeholder="Notas para esta ruta..."
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+
+                                    {/* Route-based total summary */}
+                                    <div className="flex items-center justify-between px-3 py-2 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
+                                      <span className="text-neutral-400 text-sm font-medium">Total rutas ({routes.length})</span>
+                                      <span className="text-white font-semibold text-sm">{formatCurrency(computeRoutesTotal(sd))}</span>
+                                    </div>
+
+                                    {/* Shipping cost (conditional) */}
+                                    {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                                      <div>
+                                        <label className="block text-neutral-500 text-xs mb-1">
+                                          <TruckIcon className="h-3.5 w-3.5 inline mr-1" />
+                                          Costo de envío <span className="text-neutral-600">(sin IVA)</span>
+                                        </label>
+                                        <PriceInput
+                                          value={item.shipping_cost}
+                                          onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {/* === Non-route-based: single pricing row === */}
                               {!itemIsRouteBased && (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                                   <div>
@@ -1069,7 +1186,8 @@ export default function NewQuotePage() {
                                 </div>
                               )}
 
-                              {/* Row 2: Shipping cost (conditional) + Estimated delivery date */}
+                              {/* Row 2: Shipping cost (conditional) + Estimated delivery date — only for non-route items */}
+                              {!itemIsRouteBased && (
                               <div className="grid grid-cols-2 gap-3">
                                 {/* Shipping cost — only when delivery is installation or shipping */}
                                 {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
@@ -1099,8 +1217,10 @@ export default function NewQuotePage() {
                                   />
                                 </div>
                               </div>
+                              )}
 
                               {/* Description (optional, for vendor notes on this line) */}
+                              {!itemIsRouteBased && (
                               <div className="mt-3">
                                 <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas del concepto</label>
                                 <textarea
@@ -1111,6 +1231,7 @@ export default function NewQuotePage() {
                                   className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
                                 />
                               </div>
+                              )}
                             </div>
                           </div>
                         </div>

@@ -55,6 +55,10 @@ export interface ConfigurableRouteEntry {
   cantidad: number;
   unidad: string;
   unit_price: number;
+  /** Vendor-set estimated delivery date for this route */
+  estimated_date?: string;
+  /** Vendor description / notes for this route */
+  vendorDescription?: string;
   /** Read-only info from client request */
   clientRouteInfo?: {
     punto_a?: { name?: string; lat?: number; lon?: number } | null;
@@ -71,6 +75,10 @@ export interface EstablishedRouteEntry {
   cantidad: number;
   unidad: string;
   unit_price: number;
+  /** Vendor-set estimated delivery date for this route */
+  estimated_date?: string;
+  /** Vendor description / notes for this route */
+  vendorDescription?: string;
 }
 
 const createConfigurableRoute = (): ConfigurableRouteEntry => ({
@@ -403,6 +411,7 @@ export interface ExpandedRouteLine {
   line_total: number;
   position?: number;
   service_details?: Record<string, unknown>;
+  estimated_date?: string;
 }
 
 export function expandRouteLines(
@@ -414,7 +423,7 @@ export function expandRouteLines(
   const internalRoutes = (details._vallasRoutes ||
     details._pubRoutes ||
     details._perifoneoRoutes) as
-    | Array<{ cantidad?: number; unit_price?: number; unidad?: string; ruta?: string }>
+    | Array<{ cantidad?: number; unit_price?: number; unidad?: string; ruta?: string; estimated_date?: string; vendorDescription?: string }>
     | undefined;
 
   if (internalRoutes && internalRoutes.length > 0) {
@@ -423,11 +432,12 @@ export function expandRouteLines(
       const price = r.unit_price || 0;
       return {
         concept: `${baseConcept} — Ruta ${i + 1}`,
-        description: baseDescription,
+        description: r.vendorDescription || baseDescription,
         quantity: qty,
         unit: r.unidad || 'servicio',
         unit_price: price,
         line_total: qty * price,
+        estimated_date: r.estimated_date || undefined,
       };
     });
   }
