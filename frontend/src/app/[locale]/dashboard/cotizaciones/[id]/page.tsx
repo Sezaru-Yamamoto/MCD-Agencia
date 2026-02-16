@@ -40,6 +40,7 @@ import {
   deleteQuote,
   duplicateQuote,
   downloadQuotePdf,
+  regenerateQuotePdf,
   getQuoteResponses,
   getAdminChangeRequests,
   updateQuoteInternalNotes,
@@ -130,6 +131,7 @@ export default function QuoteDetailPage() {
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isRegeneratingPdf, setIsRegeneratingPdf] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [responses, setResponses] = useState<QuoteResponse[]>([]);
   const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
@@ -298,6 +300,24 @@ export default function QuoteDetailPage() {
       setModal({ open: true, title: 'Error al descargar PDF', message: msg, variant: 'error' });
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleRegeneratePdf = async () => {
+    if (!quote) return;
+    setIsRegeneratingPdf(true);
+    try {
+      await regenerateQuotePdf(quote.id);
+      // Refresh quote data so pdf_file is updated
+      const updated = await getAdminQuoteById(quote.id);
+      setQuote(updated);
+      toast.success('PDF regenerado exitosamente');
+    } catch (error) {
+      console.error('Error regenerating PDF:', error);
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      setModal({ open: true, title: 'Error al regenerar PDF', message: msg, variant: 'error' });
+    } finally {
+      setIsRegeneratingPdf(false);
     }
   };
 
@@ -551,6 +571,14 @@ export default function QuoteDetailPage() {
                 {isDownloadingPdf ? 'Descargando...' : 'Ver PDF'}
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={handleRegeneratePdf}
+              disabled={isRegeneratingPdf}
+              leftIcon={<ArrowPathIcon className={`h-4 w-4 ${isRegeneratingPdf ? 'animate-spin' : ''}`} />}
+            >
+              {isRegeneratingPdf ? 'Regenerando...' : 'Regenerar PDF'}
+            </Button>
             {quote.status === 'draft' && (
               <Button
                 variant="outline"
