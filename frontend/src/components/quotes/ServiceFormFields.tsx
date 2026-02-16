@@ -616,47 +616,6 @@ export function ServiceFormFields({
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Tipo de espectacular</label>
-          <select
-            value={(value.tipo as string) || ''}
-            onChange={(e) => set('tipo', e.target.value)}
-            className={inputCls}
-            disabled={disabled}
-          >
-            <option value="">Selecciona tipo</option>
-            {ESPECTACULARES_TIPOS.map((t) => (
-              <option key={t} value={t}>
-                {t === 'unipolar'
-                  ? 'Unipolar'
-                  : t === 'azotea'
-                    ? 'Azotea'
-                    : t === 'mural'
-                      ? 'Mural publicitario'
-                      : 'Otro'}
-              </option>
-            ))}
-          </select>
-          {value.tipo === 'otro' && (
-            <input
-              value={(value.tipo_otro as string) || ''}
-              onChange={(e) => set('tipo_otro', e.target.value)}
-              className={`${inputCls} mt-1`}
-              placeholder="Especifica el tipo"
-              disabled={disabled}
-            />
-          )}
-        </div>
-        <div>
-          <label className={labelCls}>Ubicación</label>
-          <input
-            value={(value.ubicacion as string) || ''}
-            onChange={(e) => set('ubicacion', e.target.value)}
-            className={inputCls}
-            placeholder="Dirección o zona"
-            disabled={disabled}
-          />
-        </div>
-        <div>
           <label className={labelCls}>Medidas (ancho × alto)</label>
           <input
             value={(value.medidas as string) || ''}
@@ -685,17 +644,6 @@ export function ServiceFormFields({
             { value: 'no', label: 'No' },
           ]}
           onChange={(v) => set('impresion_incluida', v)}
-          disabled={disabled}
-        />
-        <RadioGroup
-          label="¿Instalación incluida?"
-          name="esp_inst"
-          value={value.instalacion_incluida as string}
-          options={[
-            { value: 'si', label: 'Sí' },
-            { value: 'no', label: 'No' },
-          ]}
-          onChange={(v) => set('instalacion_incluida', v)}
           disabled={disabled}
         />
       </div>
@@ -775,17 +723,6 @@ export function ServiceFormFields({
             { value: 'no', label: 'No' },
           ]}
           onChange={(v) => set('iluminacion', v)}
-          disabled={disabled}
-        />
-        <RadioGroup
-          label="¿Instalación incluida?"
-          name="fab_inst"
-          value={value.instalacion_incluida as string}
-          options={[
-            { value: 'si', label: 'Sí' },
-            { value: 'no', label: 'No' },
-          ]}
-          onChange={(v) => set('instalacion_incluida', v)}
           disabled={disabled}
         />
       </div>
@@ -1725,17 +1662,6 @@ export function ServiceFormFields({
             disabled={disabled}
           />
         </div>
-        <RadioGroup
-          label="¿Instalación incluida?"
-          name="sen_inst"
-          value={value.instalacion_incluida as string}
-          options={[
-            { value: 'si', label: 'Sí' },
-            { value: 'no', label: 'No' },
-          ]}
-          onChange={(v) => set('instalacion_incluida', v)}
-          disabled={disabled}
-        />
       </div>
     );
   }
@@ -2114,6 +2040,16 @@ export function serviceDetailsFromRequest(
     service_type: serviceType as ServiceId,
     ...serviceDetails,
   };
+
+  // For espectaculares: the client form stores the type as 'tipo', but the
+  // concept header reads 'subtipo'. Sync them so both show the same value.
+  if (serviceType === 'espectaculares' && base.tipo && !base.subtipo) {
+    base.subtipo = base.tipo;
+  }
+  // For fabricacion-anuncios: sync tipo_anuncio → subtipo
+  if (serviceType === 'fabricacion-anuncios' && base.tipo_anuncio && !base.subtipo) {
+    base.subtipo = base.tipo_anuncio;
+  }
 
   // Convert boolean values to 'si'/'no' for RadioGroup compatibility
   const boolFields = [

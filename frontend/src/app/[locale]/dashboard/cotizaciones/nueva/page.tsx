@@ -908,11 +908,16 @@ export default function NewQuotePage() {
                                     onChange={(e) => {
                                       const newType = e.target.value as ServiceId;
                                       const newSubcats = SERVICE_SUBCATEGORIES[newType as LandingServiceId] || [];
-                                      updateItem(item.id, 'serviceDetails', {
+                                      const firstSubtipo = newSubcats.length > 0 ? newSubcats[0].id : undefined;
+                                      const updated: Record<string, unknown> = {
                                         ...item.serviceDetails!,
                                         service_type: newType,
-                                        subtipo: newSubcats.length > 0 ? newSubcats[0].id : undefined,
-                                      });
+                                        subtipo: firstSubtipo,
+                                      };
+                                      // Sync tipo/tipo_anuncio for matching services
+                                      if (newType === 'espectaculares') updated.tipo = firstSubtipo;
+                                      if (newType === 'fabricacion-anuncios') updated.tipo_anuncio = firstSubtipo;
+                                      updateItem(item.id, 'serviceDetails', updated);
                                     }}
                                     className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
                                   >
@@ -927,10 +932,20 @@ export default function NewQuotePage() {
                                     <select
                                       value={svcSubtipo || ''}
                                       onChange={(e) => {
-                                        updateItem(item.id, 'serviceDetails', {
+                                        const newSubtipo = e.target.value || undefined;
+                                        const updated: Record<string, unknown> = {
                                           ...item.serviceDetails!,
-                                          subtipo: e.target.value || undefined,
-                                        });
+                                          subtipo: newSubtipo,
+                                        };
+                                        // Keep 'tipo' in sync for espectaculares
+                                        if (svcType === 'espectaculares') {
+                                          updated.tipo = newSubtipo;
+                                        }
+                                        // Keep 'tipo_anuncio' in sync for fabricacion-anuncios
+                                        if (svcType === 'fabricacion-anuncios') {
+                                          updated.tipo_anuncio = newSubtipo;
+                                        }
+                                        updateItem(item.id, 'serviceDetails', updated);
                                       }}
                                       className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
                                     >
