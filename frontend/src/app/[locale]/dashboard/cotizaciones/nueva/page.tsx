@@ -906,7 +906,7 @@ export default function NewQuotePage() {
                                   </p>
                                 </div>
                               )}
-                              {svcRef.required_date && (
+                              {svcRef.required_date && svcType !== 'publicidad-movil' && (
                                 <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
                                   <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
                                   <p className="text-white font-medium mt-auto">
