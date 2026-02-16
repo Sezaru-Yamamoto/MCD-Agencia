@@ -21,6 +21,9 @@ import {
   UserIcon,
   PencilSquareIcon,
   PaperClipIcon,
+  CalendarIcon,
+  InformationCircleIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -44,7 +47,8 @@ import {
   ChangeRequestStatus,
 } from '@/lib/api/quotes';
 import { convertQuoteToOrder } from '@/lib/api/orders';
-import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
+import { SERVICE_LABELS, type ServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
+import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
 
 const statusColors: Record<QuoteStatus, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500',
@@ -533,6 +537,200 @@ export default function QuoteDetailPage() {
               <Card className="p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">Terminos y Condiciones</h2>
                 <p className="text-neutral-300 whitespace-pre-wrap">{quote.terms}</p>
+              </Card>
+            )}
+
+            {/* Original Quote Request Details */}
+            {quote.quote_request && (
+              <Card className="p-6 border-cmyk-cyan/20">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <DocumentTextIcon className="h-5 w-5 text-cmyk-cyan" />
+                    Solicitud Original
+                  </h2>
+                  <Link
+                    href={`/${locale}/dashboard/solicitudes/${quote.quote_request.id}`}
+                    className="text-xs text-cmyk-cyan hover:underline"
+                  >
+                    #{quote.quote_request.request_number} →
+                  </Link>
+                </div>
+
+                {/* Service Type */}
+                {quote.quote_request.service_type && (
+                  <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+                    <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
+                    <p className="text-cmyk-cyan font-semibold text-lg">
+                      {SERVICE_LABELS[quote.quote_request.service_type as ServiceId] || quote.quote_request.service_type}
+                    </p>
+                  </div>
+                )}
+
+                {/* Service Details */}
+                {quote.quote_request.service_details && Object.keys(quote.quote_request.service_details).length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
+                    <ServiceDetailsDisplay
+                      serviceType={quote.quote_request.service_type}
+                      serviceDetails={quote.quote_request.service_details as Record<string, unknown>}
+                    />
+                  </div>
+                )}
+
+                {/* Generic fields fallback */}
+                {(!quote.quote_request.service_details || Object.keys(quote.quote_request.service_details).length === 0) && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    {quote.quote_request.quantity && (
+                      <div className="p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Cantidad</p>
+                        <p className="text-white font-medium">{quote.quote_request.quantity}</p>
+                      </div>
+                    )}
+                    {quote.quote_request.dimensions && (
+                      <div className="p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Dimensiones</p>
+                        <p className="text-white">{quote.quote_request.dimensions}</p>
+                      </div>
+                    )}
+                    {quote.quote_request.material && (
+                      <div className="p-3 bg-neutral-800/50 rounded-lg">
+                        <p className="text-neutral-500 text-xs">Material</p>
+                        <p className="text-white">{quote.quote_request.material}</p>
+                      </div>
+                    )}
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Instalación</p>
+                      <p className="text-white">{quote.quote_request.includes_installation ? 'Sí' : 'No'}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Description / Comments */}
+                {quote.quote_request.description && (
+                  <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg">
+                    <p className="text-neutral-500 text-xs mb-2">Comentarios del cliente</p>
+                    <p className="text-white whitespace-pre-wrap">{quote.quote_request.description}</p>
+                  </div>
+                )}
+
+                {/* Delivery Method from Request */}
+                {quote.quote_request.delivery_method && (
+                  <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg">
+                    <p className="text-neutral-500 text-xs mb-2">Método de entrega solicitado</p>
+                    <p className="text-white flex items-center gap-2">
+                      <span>{DELIVERY_METHOD_ICONS[quote.quote_request.delivery_method as DeliveryMethod]}</span>
+                      {DELIVERY_METHOD_LABELS[quote.quote_request.delivery_method as DeliveryMethod]?.es || quote.quote_request.delivery_method}
+                    </p>
+                    {quote.quote_request.pickup_branch_detail && (
+                      <p className="text-neutral-300 text-sm mt-1">
+                        Sucursal: {quote.quote_request.pickup_branch_detail.name} — {quote.quote_request.pickup_branch_detail.city}, {quote.quote_request.pickup_branch_detail.state}
+                      </p>
+                    )}
+                    {quote.quote_request.delivery_address && typeof quote.quote_request.delivery_address === 'object' && Object.keys(quote.quote_request.delivery_address).length > 0 && (
+                      <p className="text-neutral-300 text-sm mt-1">
+                        {quote.quote_request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
+                        {[quote.quote_request.delivery_address.street || quote.quote_request.delivery_address.calle, quote.quote_request.delivery_address.exterior_number || quote.quote_request.delivery_address.numero_exterior, quote.quote_request.delivery_address.neighborhood || quote.quote_request.delivery_address.colonia, quote.quote_request.delivery_address.city || quote.quote_request.delivery_address.ciudad, quote.quote_request.delivery_address.state || quote.quote_request.delivery_address.estado, quote.quote_request.delivery_address.postal_code || quote.quote_request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Required Date */}
+                {(() => {
+                  let displayDate = quote.quote_request.required_date;
+                  const details = quote.quote_request.service_details as Record<string, unknown> | undefined;
+                  if (details && Array.isArray(details.rutas)) {
+                    const routeDates = (details.rutas as Array<Record<string, unknown>>)
+                      .map(r => r.fecha_inicio as string)
+                      .filter(d => !!d)
+                      .sort();
+                    if (routeDates.length > 0) {
+                      const earliest = routeDates[0];
+                      if (!displayDate || earliest < displayDate) {
+                        displayDate = earliest;
+                      }
+                    }
+                  }
+                  if (!displayDate) return null;
+                  return (
+                    <div className="mb-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
+                      <CalendarIcon className="h-5 w-5 text-neutral-400" />
+                      <div>
+                        <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                        <p className="text-white">
+                          {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Catalog Item */}
+                {quote.quote_request.catalog_item && (
+                  <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
+                    {quote.quote_request.catalog_item.image && (
+                      <img
+                        src={quote.quote_request.catalog_item.image}
+                        alt={quote.quote_request.catalog_item.name}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                    )}
+                    <div>
+                      <p className="text-neutral-500 text-xs">Producto/Servicio</p>
+                      <p className="text-white font-medium">{quote.quote_request.catalog_item.name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Request Attachments */}
+                {quote.quote_request.attachments && quote.quote_request.attachments.length > 0 && (
+                  <div>
+                    <p className="text-neutral-400 text-sm mb-2 font-medium flex items-center gap-2">
+                      <PaperClipIcon className="h-4 w-4" />
+                      Archivos del cliente ({quote.quote_request.attachments.length})
+                    </p>
+                    <div className="space-y-2">
+                      {quote.quote_request.attachments.map((att) => {
+                        const isImage = att.file_type?.startsWith('image/');
+                        return (
+                          <div key={att.id} className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
+                            {isImage ? (
+                              <a href={att.file} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                <img
+                                  src={att.file}
+                                  alt={att.filename}
+                                  className="w-12 h-12 object-cover rounded border border-neutral-600 hover:border-cmyk-cyan transition-colors"
+                                />
+                              </a>
+                            ) : (
+                              <div className="w-8 h-8 flex items-center justify-center bg-neutral-700 rounded flex-shrink-0">
+                                <PaperClipIcon className="h-4 w-4 text-neutral-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <a
+                                href={att.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-cmyk-cyan hover:underline truncate block"
+                              >
+                                {att.filename}
+                              </a>
+                              <p className="text-xs text-neutral-500">
+                                {att.file_size > 0 && `${(att.file_size / 1024).toFixed(0)} KB`}
+                                {att.file_type && ` · ${att.file_type}`}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
 
