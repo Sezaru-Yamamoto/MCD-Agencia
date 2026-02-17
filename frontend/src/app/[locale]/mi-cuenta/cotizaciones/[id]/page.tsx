@@ -518,6 +518,11 @@ export default function CustomerQuoteDetailPage() {
 
         if (hasChanges && matchedLines.length > 0) {
           const firstLine = matchedLines[0];
+          // Only include delivery_address for methods that use an address
+          const includeAddress = (currentData.deliveryMethod === 'installation' || currentData.deliveryMethod === 'shipping')
+            && Object.keys(currentData.deliveryAddress).length > 0;
+          // Don't include delivery_method for not_applicable services
+          const includeDelivery = currentData.deliveryMethod && currentData.deliveryMethod !== 'not_applicable';
           proposed_lines.push({
             id: firstLine.id,
             action: 'modify',
@@ -527,10 +532,10 @@ export default function CustomerQuoteDetailPage() {
             unit: firstLine.unit,
             service_details: {
               ...cleanServiceDetailsForApi(currentData.details),
-              delivery_method: currentData.deliveryMethod || undefined,
-              delivery_address: Object.keys(currentData.deliveryAddress).length > 0 ? currentData.deliveryAddress : undefined,
-              pickup_branch: currentData.pickupBranch || undefined,
-              required_date: currentData.requiredDate || undefined,
+              ...(includeDelivery ? { delivery_method: currentData.deliveryMethod } : {}),
+              ...(includeAddress ? { delivery_address: currentData.deliveryAddress } : {}),
+              ...(currentData.deliveryMethod === 'pickup' && currentData.pickupBranch ? { pickup_branch: currentData.pickupBranch } : {}),
+              ...(currentData.requiredDate ? { required_date: currentData.requiredDate } : {}),
             },
           });
         }

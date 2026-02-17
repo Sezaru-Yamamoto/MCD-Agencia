@@ -527,29 +527,87 @@ export default function ChangeRequestReviewPage() {
                                   )}
 
                                 {/* Service details modified by client */}
-                                {line.service_details && Object.keys(line.service_details).length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-yellow-500/20">
-                                    <p className="text-xs text-yellow-500 font-medium mb-2">Detalle del servicio (modificado por el cliente):</p>
-                                    <ServiceDetailsDisplay
-                                      serviceType={String(line.service_details.service_type || originalLine?.service_type || '')}
-                                      serviceDetails={line.service_details}
-                                    />
-                                    {/* Show original service details for comparison */}
-                                    {originalLine?.service_details && Object.keys(originalLine.service_details).length > 0 && (
-                                      <details className="mt-2">
-                                        <summary className="text-neutral-500 text-xs cursor-pointer hover:text-neutral-400">
-                                          Ver detalle de servicio original
-                                        </summary>
-                                        <div className="mt-2 p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
-                                          <ServiceDetailsDisplay
-                                            serviceType={originalLine.service_type || ''}
-                                            serviceDetails={originalLine.service_details}
-                                          />
+                                {line.service_details && Object.keys(line.service_details).length > 0 && (() => {
+                                  const sd = line.service_details as Record<string, unknown>;
+                                  const deliveryMethod = sd.delivery_method as string | undefined;
+                                  const deliveryAddress = sd.delivery_address as Record<string, string> | undefined;
+                                  const pickupBranch = sd.pickup_branch as string | undefined;
+                                  const requiredDate = sd.required_date as string | undefined;
+                                  const serviceType = String(sd.service_type || originalLine?.service_type || '');
+
+                                  return (
+                                    <div className="mt-3 pt-3 border-t border-yellow-500/20">
+                                      <p className="text-xs text-yellow-500 font-medium mb-2">Detalle del servicio (modificado por el cliente):</p>
+                                      <ServiceDetailsDisplay
+                                        serviceType={serviceType}
+                                        serviceDetails={sd}
+                                      />
+
+                                      {/* Delivery method & address (rendered properly instead of raw values) */}
+                                      {(deliveryMethod || requiredDate) && (
+                                        <div className="grid grid-cols-2 gap-3 text-sm mt-3">
+                                          {deliveryMethod && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                                              <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                                                <span>{DELIVERY_METHOD_ICONS[deliveryMethod as DeliveryMethod] || '📦'}</span>
+                                                {DELIVERY_METHOD_LABELS[deliveryMethod as DeliveryMethod]?.es || deliveryMethod}
+                                              </p>
+                                            </div>
+                                          )}
+                                          {deliveryMethod === 'pickup' && pickupBranch && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">Sucursal</p>
+                                              <p className="text-white font-medium mt-auto">{pickupBranch}</p>
+                                            </div>
+                                          )}
+                                          {(deliveryMethod === 'installation' || deliveryMethod === 'shipping') && deliveryAddress && Object.keys(deliveryAddress).length > 0 && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">
+                                                {deliveryMethod === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                                              </p>
+                                              <p className="text-white font-medium mt-auto">
+                                                {[
+                                                  deliveryAddress.street || deliveryAddress.calle,
+                                                  deliveryAddress.exterior_number || deliveryAddress.numero_exterior,
+                                                  deliveryAddress.neighborhood || deliveryAddress.colonia,
+                                                  deliveryAddress.city || deliveryAddress.ciudad,
+                                                  deliveryAddress.state || deliveryAddress.estado,
+                                                  deliveryAddress.postal_code || deliveryAddress.codigo_postal,
+                                                ].filter(Boolean).join(', ')}
+                                              </p>
+                                            </div>
+                                          )}
+                                          {requiredDate && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                                              <p className="text-white font-medium mt-auto">
+                                                {new Date(requiredDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                                                  year: 'numeric', month: 'short', day: 'numeric',
+                                                })}
+                                              </p>
+                                            </div>
+                                          )}
                                         </div>
-                                      </details>
-                                    )}
-                                  </div>
-                                )}
+                                      )}
+
+                                      {/* Show original service details for comparison */}
+                                      {originalLine?.service_details && Object.keys(originalLine.service_details).length > 0 && (
+                                        <details className="mt-2">
+                                          <summary className="text-neutral-500 text-xs cursor-pointer hover:text-neutral-400">
+                                            Ver detalle de servicio original
+                                          </summary>
+                                          <div className="mt-2 p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
+                                            <ServiceDetailsDisplay
+                                              serviceType={originalLine.service_type || ''}
+                                              serviceDetails={originalLine.service_details}
+                                            />
+                                          </div>
+                                        </details>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           )}

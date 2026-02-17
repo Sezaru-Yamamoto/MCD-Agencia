@@ -2088,5 +2088,11 @@ export function cleanServiceDetailsForApi(
   if (!details.service_type) return null;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _vallasRoutes, _pubRoutes, _perifoneoRoutes, ...rest } = details;
-  return rest;
+  // Strip empty strings, null, undefined values so empty fields aren't sent
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rest)) {
+    if (value === null || value === undefined || value === '') continue;
+    cleaned[key] = value;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : null;
 }

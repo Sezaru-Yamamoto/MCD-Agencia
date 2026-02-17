@@ -274,7 +274,7 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails, routePrices
     return indexA - indexB;
   });
 
-  // Fields to hide (internal indicators + fields not filled by client form)
+  // Fields to hide (internal indicators + fields not filled by client form + delivery fields handled separately)
   const hiddenFields = [
     'service_type',                 // already used as serviceType prop — never show raw slug
     'ruta', 'delimitacion_zona', 'coordenadas', 'rutas',
@@ -284,6 +284,10 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails, routePrices
     // These fields are NOT collected by the client quote form
     'instalacion_incluida',
     'ubicacion',
+    // Delivery-related fields are rendered separately by the parent — never show as raw grid items
+    'delivery_method', 'delivery_address', 'pickup_branch', 'required_date',
+    // Vendor internal flag
+    'vendor_added',
     // For espectaculares, 'subtipo' is a duplicate of 'tipo' — hide it
     ...(serviceType === 'espectaculares' && serviceDetails.tipo ? ['subtipo'] : []),
   ];
