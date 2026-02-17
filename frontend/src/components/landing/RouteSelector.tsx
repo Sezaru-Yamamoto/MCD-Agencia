@@ -243,10 +243,23 @@ export function RouteSelector({ onChange, initialPointA, initialPointB }: RouteS
     }
   }, [pointA, pointB]);
 
-  // Notificar cambios
+  // Notificar cambios — use a ref so the effect does NOT re-fire when
+  // the parent passes a new onChange reference (which happens on every render
+  // because it's an inline arrow).  This was causing cascading state updates
+  // that overwrote vendor-set prices.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    onChange?.({ pointA, pointB, routeData });
-  }, [pointA, pointB, routeData, onChange]);
+    // Skip the very first render — the parent already has the initial data.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    onChangeRef.current?.({ pointA, pointB, routeData });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointA, pointB, routeData]);
 
   // Calculate straight-line distance using Haversine formula
   const calculateHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
