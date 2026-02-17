@@ -61,10 +61,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
  * Validate a ServiceEditData object. Returns an array of human-readable error messages.
  * Empty array = valid.
  */
-export function validateServiceEditData(
-  data: ServiceEditData,
-  opts?: { useNewAddress?: boolean; selectedAddressId?: string; savedAddressCount?: number }
-): string[] {
+export function validateServiceEditData(data: ServiceEditData): string[] {
   const errors: string[] = [];
   const st = data.serviceType;
   const d = data.details;
@@ -152,19 +149,16 @@ export function validateServiceEditData(
     if (!data.deliveryMethod) {
       errors.push('Selecciona un método de entrega.');
     } else if (data.deliveryMethod === 'installation' || data.deliveryMethod === 'shipping') {
-      // Check address
-      const useNew = opts?.useNewAddress ?? true;
-      const hasSavedSelected = !useNew && !!(opts?.selectedAddressId) && (opts?.savedAddressCount ?? 0) > 0;
-      if (!hasSavedSelected) {
-        // Validate manual address fields
-        const addr = data.deliveryAddress;
-        if (!addr.calle?.trim()) errors.push('Ingresa la calle de la dirección de entrega.');
-        if (!addr.numero_exterior?.trim()) errors.push('Ingresa el número exterior.');
-        if (!addr.colonia?.trim()) errors.push('Ingresa la colonia.');
-        if (!addr.ciudad?.trim()) errors.push('Ingresa la ciudad.');
-        if (!addr.estado?.trim()) errors.push('Ingresa el estado.');
-        if (!addr.codigo_postal?.trim()) errors.push('Ingresa el código postal.');
-      }
+      // Check address — if a saved address was resolved before save, the fields
+      // will already be populated in data.deliveryAddress, so we simply validate
+      // the actual data regardless of how it got there (saved picker vs manual).
+      const addr = data.deliveryAddress;
+      if (!addr.calle?.trim()) errors.push('Ingresa la calle de la dirección de entrega.');
+      if (!addr.numero_exterior?.trim()) errors.push('Ingresa el número exterior.');
+      if (!addr.colonia?.trim()) errors.push('Ingresa la colonia.');
+      if (!addr.ciudad?.trim()) errors.push('Ingresa la ciudad.');
+      if (!addr.estado?.trim()) errors.push('Ingresa el estado.');
+      if (!addr.codigo_postal?.trim()) errors.push('Ingresa el código postal.');
     } else if (data.deliveryMethod === 'pickup' && !data.pickupBranch) {
       errors.push('Selecciona una sucursal para recoger.');
     }
@@ -781,11 +775,7 @@ export function InlineServiceEditor({
             }
 
             // Validate before saving
-            const errs = validateServiceEditData(resolvedData, {
-              useNewAddress,
-              selectedAddressId,
-              savedAddressCount: savedAddresses.length,
-            });
+            const errs = validateServiceEditData(resolvedData);
             if (errs.length > 0) {
               setValidationErrors(errs);
               return;
