@@ -308,39 +308,60 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             DETAIL_LABELS = {
                 'tipo': 'Tipo' if not is_en else 'Type',
                 'subtipo': 'Subtype' if is_en else 'Subtipo',
-                'tipo_anuncio': 'Type' if is_en else 'Tipo',
-                'tipo_vehiculo': 'Vehicle' if is_en else 'Vehículo',
-                'tipo_rotulacion': 'Wrap type' if is_en else 'Rotulación',
+                'tipo_anuncio': 'Type' if is_en else 'Tipo de anuncio',
+                'tipo_vehiculo': 'Vehicle' if is_en else 'Tipo de vehículo',
+                'tipo_rotulacion': 'Wrap type' if is_en else 'Tipo de rotulación',
+                'tipo_diseno': 'Design type' if is_en else 'Tipo de diseño',
+                'tipo_impresion': 'Print type' if is_en else 'Tipo de impresión',
+                'tipo_servicio': 'Service type' if is_en else 'Tipo de servicio',
                 'material': 'Material',
                 'medidas': 'Dimensions' if is_en else 'Medidas',
                 'cantidad': 'Quantity' if is_en else 'Cantidad',
                 'uso': 'Usage' if is_en else 'Uso',
                 'producto': 'Product' if is_en else 'Producto',
-                'tipo_diseno': 'Design' if is_en else 'Diseño',
-                'numero_piezas': 'Pieces' if is_en else 'Piezas',
+                'numero_piezas': 'Pieces' if is_en else 'Número de piezas',
                 'duracion': 'Duration' if is_en else 'Duración',
                 'tiempo_exhibicion': 'Exhibition time' if is_en else 'Tiempo en exhibición',
                 'tiempo_campana': 'Campaign time' if is_en else 'Tiempo de campaña',
+                'duracion_campana': 'Campaign duration' if is_en else 'Duración de campaña',
+                'meses_campana': 'Campaign months' if is_en else 'Meses de campaña',
                 'zona': 'Zone' if is_en else 'Zona',
-                'zona_cobertura': 'Coverage' if is_en else 'Cobertura',
+                'zona_cobertura': 'Coverage zone' if is_en else 'Zona de cobertura',
+                'ciudad_zona': 'City / Zone' if is_en else 'Ciudad / Zona',
+                'ubicacion': 'Location' if is_en else 'Ubicación',
+                'descripcion': 'Description' if is_en else 'Descripción',
+                'servicio': 'Service' if is_en else 'Servicio',
+                # Boolean flags
                 'impresion_incluida': 'Print included' if is_en else 'Impresión incluida',
                 'instalacion_incluida': 'Installation included' if is_en else 'Instalación incluida',
                 'diseno_incluido': 'Design included' if is_en else 'Diseño incluido',
                 'archivo_listo': 'File ready' if is_en else 'Archivo listo',
                 'iluminacion': 'Lighting' if is_en else 'Iluminación',
                 'requiere_grabacion': 'Recording needed' if is_en else 'Requiere grabación',
-                'duracion_campana': 'Campaign duration' if is_en else 'Duración de campaña',
+                'cambios_incluidos': 'Changes included' if is_en else 'Cambios incluidos',
+                'archivo_grabacion': 'Recording file provided' if is_en else 'Archivo de grabación proporcionado',
+                'delimitacion_zona': 'Zone delimitation' if is_en else 'Delimitación de zona',
             }
             SKIP_KEYS = {'service_type', 'tipo_personalizado', 'material_personalizado',
                          'producto_personalizado', 'subtipo_personalizado',
-                         'tipo_rotulacion_personalizado', 'rutas', 'coordenadas'}
+                         'tipo_rotulacion_personalizado', 'tipo_impresion_personalizado',
+                         'rutas', 'coordenadas', 'ruta', 'ruta_preestablecida',
+                         'punto_a', 'punto_b', 'distancia_metros', 'duracion_segundos',
+                         'rutas_vallas', 'rutas_publibuses', 'rutas_perifoneo'}
             parts = []
             for key, val in details.items():
                 if key in SKIP_KEYS or val is None or val == '':
                     continue
+                # Skip complex objects (dicts, lists) — they're handled separately
+                if isinstance(val, (dict, list)):
+                    continue
                 label = DETAIL_LABELS.get(key, key.replace('_', ' ').capitalize())
                 if isinstance(val, bool):
                     parts.append(f"{label}: {'Sí' if not is_en else 'Yes'}" if val else f"{label}: No")
+                elif isinstance(val, str) and val.lower() in ('si', 'sí'):
+                    parts.append(f"{label}: Sí")
+                elif isinstance(val, str) and val.lower() == 'no':
+                    parts.append(f"{label}: No")
                 else:
                     parts.append(f"{label}: {val}")
             # Append required_date and customer comments from request service
@@ -356,26 +377,46 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         def build_route_description(route, route_index):
             """Build description for a single publicidad-movil route."""
             parts = []
-            # Route geo info
+            # Pre-established route (publibuses)
+            ruta_pre = route.get('ruta_preestablecida')
+            if ruta_pre:
+                lbl = 'Preset route' if is_en else 'Ruta preestablecida'
+                parts.append(f"{lbl}: {ruta_pre}")
+            # Route geo info — old format (coordenadas dict)
             coordenadas = route.get('coordenadas') or {}
             if coordenadas:
                 inicio = coordenadas.get('inicio') or {}
                 fin = coordenadas.get('fin') or {}
                 if inicio.get('nombre'):
-                    lbl = 'Route start' if is_en else 'Ruta inicio'
+                    lbl = 'Route start' if is_en else 'Inicio'
                     parts.append(f"{lbl}: {inicio['nombre']}")
                 if fin.get('nombre'):
-                    lbl = 'Route end' if is_en else 'Ruta fin'
+                    lbl = 'Route end' if is_en else 'Fin'
                     parts.append(f"{lbl}: {fin['nombre']}")
                 dist = coordenadas.get('distancia')
                 if dist:
-                    km = dist / 1000 if dist > 100 else dist  # meters → km
-                    lbl = 'Distance' if is_en else 'Kilómetros'
+                    km = dist / 1000 if dist > 100 else dist
+                    lbl = 'Distance' if is_en else 'Distancia'
                     parts.append(f"{lbl}: {km:.1f} km")
-            # Pre-established route (publibuses)
-            if route.get('ruta'):
+            # Route geo info — new format (ruta object with punto_a/punto_b)
+            ruta_obj = route.get('ruta')
+            if isinstance(ruta_obj, dict):
+                pa = ruta_obj.get('punto_a') or {}
+                pb = ruta_obj.get('punto_b') or {}
+                if isinstance(pa, dict) and pa.get('name'):
+                    lbl = 'Route start' if is_en else 'Inicio'
+                    parts.append(f"{lbl}: {pa['name']}")
+                if isinstance(pb, dict) and pb.get('name'):
+                    lbl = 'Route end' if is_en else 'Fin'
+                    parts.append(f"{lbl}: {pb['name']}")
+                dist_m = ruta_obj.get('distancia_metros')
+                if dist_m:
+                    km = dist_m / 1000 if dist_m >= 1000 else dist_m / 1000
+                    lbl = 'Distance' if is_en else 'Distancia'
+                    parts.append(f"{lbl}: {km:.1f} km")
+            elif isinstance(ruta_obj, str) and ruta_obj:
                 lbl = 'Route' if is_en else 'Ruta'
-                parts.append(f"{lbl}: {route['ruta']}")
+                parts.append(f"{lbl}: {ruta_obj}")
             # Schedule
             if route.get('horario_inicio'):
                 lbl = 'Start time' if is_en else 'Horario inicio'
@@ -577,9 +618,15 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             for line in group_lines:
                 concept_text = (line.concept_en or line.concept) if is_en else line.concept
                 desc_text = (line.description_en or line.description) if is_en else line.description
-                if not desc_text and line.service_details:
+                # Always enrich description with service_details parameters
+                if line.service_details:
                     req_svc = _find_request_svc((line.service_details or {}).get('service_type', ''))
-                    desc_text = build_description_from_details(line.service_details, req_svc)
+                    details_text = build_description_from_details(line.service_details, req_svc)
+                    if details_text:
+                        if desc_text:
+                            desc_text = f"{desc_text}\n{details_text}"
+                        else:
+                            desc_text = details_text
                 concept = Paragraph(concept_text or '', cell_style)
                 description = Paragraph(desc_text or '', cell_style)
                 qty = Paragraph(str(line.quantity), cell_style_center)
@@ -659,8 +706,15 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                     route_desc_parts.append(f"{lbl_comments}: {req_svc.description}")
 
                 desc_text = (line.description_en or line.description) if is_en else line.description
+                # Always enrich description with route + service details
+                route_details_text = ', '.join(route_desc_parts) if route_desc_parts else ''
+                if route_details_text:
+                    if desc_text:
+                        desc_text = f"{desc_text}\n{route_details_text}"
+                    else:
+                        desc_text = route_details_text
                 if not desc_text:
-                    desc_text = ', '.join(route_desc_parts) if route_desc_parts else svc_desc_text
+                    desc_text = svc_desc_text
 
                 concept_text = (line.concept_en or line.concept) if is_en else line.concept
                 table_data = [list(table_header_row)]
