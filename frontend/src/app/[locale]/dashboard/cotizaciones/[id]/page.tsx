@@ -1966,6 +1966,35 @@ export default function QuoteDetailPage() {
                       </Button>
                     </>
                   )}
+                  {quote.status === 'changes_requested' && (() => {
+                    const pendingCRs = changeRequests.filter(cr => cr.status === 'pending');
+                    if (pendingCRs.length === 0) return null;
+                    return (
+                      <>
+                        {pendingCRs.map((cr, idx) => (
+                          <Link
+                            key={cr.id}
+                            href={`/${locale}/dashboard/cotizaciones/${quote.id}/cambios/${cr.id}`}
+                            className="block"
+                          >
+                            <Button
+                              leftIcon={<PencilSquareIcon className="h-4 w-4" />}
+                              className="w-full justify-center bg-orange-600 hover:bg-orange-700 text-white"
+                            >
+                              {pendingCRs.length === 1
+                                ? 'Revisar Solicitud de Cambios'
+                                : `Revisar Cambio ${idx + 1} de ${pendingCRs.length}`}
+                            </Button>
+                          </Link>
+                        ))}
+                        <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`} className="block">
+                          <Button variant="outline" leftIcon={<PencilIcon className="h-4 w-4" />} className="w-full justify-center">
+                            Editar Cotización
+                          </Button>
+                        </Link>
+                      </>
+                    );
+                  })()}
                   {quote.status === 'accepted' && (
                     <Button
                       onClick={handleConvertToOrder}
