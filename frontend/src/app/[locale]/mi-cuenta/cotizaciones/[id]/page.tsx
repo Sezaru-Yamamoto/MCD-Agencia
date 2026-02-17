@@ -286,6 +286,27 @@ export default function CustomerQuoteDetailPage() {
     return [];
   }, [quote, lineGroups]);
 
+  // ── Group vendor-added lines by service type (so multi-route services are grouped) ──
+  const vendorLineGroups = useMemo<{ serviceType: string | undefined; lines: QuoteLine[] }[]>(() => {
+    if (vendorAddedLines.length === 0) return [];
+    const groups: { serviceType: string | undefined; lines: QuoteLine[] }[] = [];
+    for (const line of vendorAddedLines) {
+      const sd = line.service_details as Record<string, unknown> | undefined;
+      const lineServiceType = sd?.service_type as string | undefined;
+      if (lineServiceType) {
+        const lastGroup = groups.length > 0 ? groups[groups.length - 1] : null;
+        if (lastGroup && lastGroup.serviceType === lineServiceType) {
+          lastGroup.lines.push(line);
+        } else {
+          groups.push({ serviceType: lineServiceType, lines: [line] });
+        }
+      } else {
+        groups.push({ serviceType: undefined, lines: [line] });
+      }
+    }
+    return groups;
+  }, [vendorAddedLines]);
+
   if (isLoading) {
     return <LoadingPage message="Cargando cotización..." />;
   }
@@ -686,124 +707,171 @@ export default function CustomerQuoteDetailPage() {
                 );
               })()}
 
-              {/* Vendor-added lines for single-service */}
-              {(!quote.quote_request.services || quote.quote_request.services.length === 0) && vendorAddedLines.length > 0 && (
-                <div className="space-y-3 mt-3">
-                  {vendorAddedLines.map((line, idx) => {
-                    const sd = line.service_details as Record<string, unknown> | undefined;
-                    const serviceType = sd?.service_type as string | undefined;
-                    const vendorKey = `vendor-${idx}`;
-                    const isOpen = expandedServices.has(vendorKey);
-                    const conceptLabel = serviceType
-                      ? (SERVICE_LABELS[serviceType as ServiceId] || serviceType)
-                      : line.concept;
-                    const serviceNumber = idx + 2;
+              {/* Vendor-added services for single-service view */}
+              {(!quote.quote_request.services || quote.quote_request.services.length === 0) && vendorLineGroups.length > 0 && vendorLineGroups.map((vGroup, gIdx) => {
+                const vendorKey = `vendor-${gIdx}`;
+                const isOpen = expandedServices.has(vendorKey);
+                const svcLabel = vGroup.serviceType
+                  ? (SERVICE_LABELS[vGroup.serviceType as ServiceId] || vGroup.serviceType)
+                  : vGroup.lines[0]?.concept || 'Servicio';
+                const vGroupTotal = vGroup.lines.reduce((s, l) => s + (parseFloat(String(l.line_total || 0))), 0);
+                const firstEstDate = vGroup.lines.find(l => l.estimated_delivery_date)?.estimated_delivery_date;
+                const routeCount = vGroup.lines.length;
+                const vGroupSD = vGroup.lines[0]?.service_details as Record<string, unknown> | undefined;
 
-                    return (
-                      <div key={`vendor-${line.id || idx}`} className="rounded-lg border border-neutral-700 overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => toggleService(vendorKey)}
-                          className="w-full flex items-center gap-3 p-4 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
-                        >
-                          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold flex-shrink-0">
-                            {serviceNumber}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-white font-semibold text-sm truncate">{conceptLabel}</p>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/30">
-                                Agregado por el vendedor
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                              {line.estimated_delivery_date && (
-                                <span className="text-neutral-400 text-xs flex items-center gap-1">
-                                  <CalendarIcon className="h-3 w-3" />
-                                  {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                </span>
-                              )}
-                              <span className="text-green-400 text-xs font-medium">{formatPrice(line.line_total)}</span>
-                              {line.delivery_method && (
-                                <span className="text-neutral-500 text-xs flex items-center gap-1">
-                                  <span className="text-xs">{DELIVERY_METHOD_ICONS[line.delivery_method as DeliveryMethod]}</span>
-                                  {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
-                                </span>
-                              )}
-                            </div>
+                return (
+                  <div key={`vendor-${gIdx}`} className="rounded-lg border border-neutral-700 overflow-hidden mt-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleService(vendorKey)}
+                      className="w-full flex items-center gap-3 p-4 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
+                    >
+                      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold flex-shrink-0">
+                        {gIdx + 2}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold text-sm truncate">
+                          {svcLabel}
+                          {routeCount > 1 && (
+                            <span className="ml-2 text-xs font-normal text-neutral-400">({routeCount} rutas)</span>
+                          )}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/30 ml-2 align-middle">Agregado por el vendedor</span>
+                        </p>
+                        {vGroup.lines.length > 1 ? (
+                          <div className="mt-1 space-y-0.5">
+                            {vGroup.lines.map((ml, mlIdx) => {
+                              const routeLabel = ml.concept?.includes(' — Ruta ')
+                                ? ml.concept.split(' — ')[1]
+                                : `Ruta ${mlIdx + 1}`;
+                              return (
+                                <div key={mlIdx} className="flex items-center gap-2 text-xs">
+                                  <span className="text-neutral-400">{routeLabel}</span>
+                                  {ml.estimated_delivery_date && (
+                                    <span className="text-neutral-500 flex items-center gap-0.5">
+                                      <CalendarIcon className="h-3 w-3" />
+                                      {new Date(ml.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    </span>
+                                  )}
+                                  <span className="text-green-400 font-medium">{formatPrice(ml.line_total)}</span>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <ChevronDownIcon className={`h-5 w-5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {isOpen && (
-                          <div className="p-4 border-t border-neutral-700 space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                {serviceType && (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/30 mb-2">
-                                    {SERVICE_LABELS[serviceType as ServiceId] || serviceType}
-                                  </span>
-                                )}
-                                <p className="text-white font-medium">{line.concept}</p>
-                                {line.description && (
-                                  <p className="text-neutral-400 text-sm mt-1">{line.description}</p>
-                                )}
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-white font-semibold">{formatPrice(line.line_total)}</p>
-                                <p className="text-neutral-500 text-xs">
-                                  {line.quantity} {line.unit} × {formatPrice(line.unit_price)}
-                                </p>
-                              </div>
-                            </div>
-
-                            {sd && Object.keys(sd).length > 0 && serviceType && (
-                              <div>
-                                <ServiceDetailsDisplay serviceType={serviceType} serviceDetails={sd} />
-                              </div>
+                        ) : (
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            {firstEstDate && (
+                              <span className="text-neutral-400 text-xs flex items-center gap-1">
+                                <CalendarIcon className="h-3 w-3" />
+                                {new Date(firstEstDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
                             )}
-
-                            {line.delivery_method && (
-                              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                                {line.delivery_method === 'shipping' && <TruckIcon className="h-4 w-4 text-neutral-400" />}
-                                {line.delivery_method === 'pickup' && <MapPinIcon className="h-4 w-4 text-neutral-400" />}
-                                {line.delivery_method === 'installation' && <WrenchScrewdriverIcon className="h-4 w-4 text-neutral-400" />}
-                                <span>{DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}</span>
-                                {line.pickup_branch_detail && (
-                                  <span className="text-neutral-500">— {line.pickup_branch_detail.name}, {line.pickup_branch_detail.city}</span>
-                                )}
-                              </div>
+                            {vGroupTotal > 0 && (
+                              <span className="text-green-400 text-xs font-medium">{formatPrice(vGroupTotal)}</span>
                             )}
-                            {line.delivery_address && typeof line.delivery_address === 'object' && Object.keys(line.delivery_address).length > 0 && (
-                              <p className="text-neutral-400 text-xs">
-                                {[line.delivery_address.street || line.delivery_address.calle, line.delivery_address.exterior_number || line.delivery_address.numero_exterior, line.delivery_address.neighborhood || line.delivery_address.colonia, line.delivery_address.city || line.delivery_address.ciudad, line.delivery_address.state || line.delivery_address.estado, line.delivery_address.postal_code || line.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                              </p>
-                            )}
-                            {line.estimated_delivery_date && (
-                              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                                <CalendarIcon className="h-4 w-4 text-neutral-400" />
-                                <span>Entrega estimada: {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                              </div>
-                            )}
-                            {parseFloat(line.shipping_cost || '0') > 0 && (
-                              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                                <TruckIcon className="h-4 w-4 text-neutral-400" />
-                                <span>Envío: {formatPrice(line.shipping_cost || '0')}</span>
-                              </div>
+                            {vGroup.lines[0]?.delivery_method && (
+                              <span className="text-neutral-500 text-xs flex items-center gap-1">
+                                <span className="text-xs">{DELIVERY_METHOD_ICONS[vGroup.lines[0].delivery_method as DeliveryMethod]}</span>
+                                {DELIVERY_METHOD_LABELS[vGroup.lines[0].delivery_method as DeliveryMethod]?.es || vGroup.lines[0].delivery_method}
+                              </span>
                             )}
                           </div>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <ChevronDownIcon className={`h-5 w-5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-4 border-t border-neutral-700 space-y-3">
+                        {vGroupSD && Object.keys(vGroupSD).length > 0 && vGroup.serviceType && (
+                          <div>
+                            <ServiceDetailsDisplay
+                              serviceType={vGroup.serviceType}
+                              serviceDetails={vGroupSD}
+                              routePrices={vGroup.lines.length > 1
+                                ? vGroup.lines.reduce((acc, ml, mlIdx) => ({ ...acc, [mlIdx]: formatPrice(ml.line_total) }), {} as Record<number, string>)
+                                : undefined
+                              }
+                            />
+                          </div>
+                        )}
+
+                        {vGroup.lines[0]?.description && (
+                          <p className="text-neutral-300 text-sm whitespace-pre-wrap">{vGroup.lines[0].description}</p>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {vGroup.lines[0]?.delivery_method && (
+                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                              <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                              <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                                <span>{DELIVERY_METHOD_ICONS[vGroup.lines[0].delivery_method as DeliveryMethod]}</span>
+                                {DELIVERY_METHOD_LABELS[vGroup.lines[0].delivery_method as DeliveryMethod]?.es || vGroup.lines[0].delivery_method}
+                              </p>
+                            </div>
+                          )}
+                          {vGroup.lines[0]?.pickup_branch_detail && (
+                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                              <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                              <p className="text-white font-medium mt-auto">{vGroup.lines[0].pickup_branch_detail.name}</p>
+                            </div>
+                          )}
+                          {vGroup.lines[0]?.delivery_address && typeof vGroup.lines[0].delivery_address === 'object' && Object.keys(vGroup.lines[0].delivery_address).length > 0 && (
+                            <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                              <p className="text-neutral-500 text-xs mb-1">
+                                {vGroup.lines[0].delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                              </p>
+                              <p className="text-white font-medium mt-auto">
+                                {[vGroup.lines[0].delivery_address.street || vGroup.lines[0].delivery_address.calle,
+                                  vGroup.lines[0].delivery_address.exterior_number || vGroup.lines[0].delivery_address.numero_exterior,
+                                  vGroup.lines[0].delivery_address.neighborhood || vGroup.lines[0].delivery_address.colonia,
+                                  vGroup.lines[0].delivery_address.city || vGroup.lines[0].delivery_address.ciudad,
+                                  vGroup.lines[0].delivery_address.state || vGroup.lines[0].delivery_address.estado,
+                                  vGroup.lines[0].delivery_address.postal_code || vGroup.lines[0].delivery_address.codigo_postal,
+                                ].filter(Boolean).join(', ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {(() => {
+                          const datesInfo = vGroup.lines
+                            .filter(l => l.estimated_delivery_date)
+                            .map(l => ({ concept: l.concept, date: l.estimated_delivery_date! }));
+                          if (datesInfo.length === 0) return null;
+                          return (
+                            <div className="pt-3 border-t border-neutral-700/50">
+                              <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                                <CalendarIcon className="h-3 w-3" />
+                                Fecha{datesInfo.length > 1 ? 's' : ''} estimada{datesInfo.length > 1 ? 's' : ''} de entrega
+                              </p>
+                              <div className="space-y-1">
+                                {datesInfo.map((d, i) => (
+                                  <div key={i} className="flex items-center justify-between text-sm">
+                                    {datesInfo.length > 1 && (
+                                      <span className="text-neutral-400 truncate mr-2">{d.concept}</span>
+                                    )}
+                                    <span className="text-green-400 font-medium whitespace-nowrap">
+                                      {new Date(d.date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                        year: 'numeric', month: 'short', day: 'numeric',
+                                      })}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* ── Multi-service rendering (collapsible accordion) ── */}
               {quote.quote_request.services && quote.quote_request.services.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-neutral-400 text-sm font-medium">
-                    {(quote.quote_request.services.length + vendorAddedLines.length)} servicio{(quote.quote_request.services.length + vendorAddedLines.length) > 1 ? 's' : ''} en esta cotización
+                    {(quote.quote_request.services.length + vendorLineGroups.length)} servicio{(quote.quote_request.services.length + vendorLineGroups.length) > 1 ? 's' : ''} en esta cotización
                   </p>
                   {quote.quote_request.services.map((svc, idx) => {
                     const svcDetails = svc.service_details as Record<string, unknown> | undefined;
@@ -1016,109 +1084,160 @@ export default function CustomerQuoteDetailPage() {
                     );
                   })}
 
-                  {/* Vendor-added lines rendered as additional accordion items */}
-                  {vendorAddedLines.map((line, idx) => {
-                    const sd = line.service_details as Record<string, unknown> | undefined;
-                    const serviceType = sd?.service_type as string | undefined;
-                    const vendorKey = `vendor-${idx}`;
+                  {/* Vendor-added services rendered as regular accordion items */}
+                  {vendorLineGroups.map((vGroup, gIdx) => {
+                    const vendorKey = `vendor-${gIdx}`;
                     const isOpen = expandedServices.has(vendorKey);
-                    const conceptLabel = serviceType
-                      ? (SERVICE_LABELS[serviceType as ServiceId] || serviceType)
-                      : line.concept;
-                    const serviceNumber = (quote.quote_request?.services?.length || 0) + idx + 1;
+                    const svcLabel = vGroup.serviceType
+                      ? (SERVICE_LABELS[vGroup.serviceType as ServiceId] || vGroup.serviceType)
+                      : vGroup.lines[0]?.concept || 'Servicio';
+                    const vGroupTotal = vGroup.lines.reduce((s, l) => s + (parseFloat(String(l.line_total || 0))), 0);
+                    const firstEstDate = vGroup.lines.find(l => l.estimated_delivery_date)?.estimated_delivery_date;
+                    const routeCount = vGroup.lines.length;
+                    const vGroupSD = vGroup.lines[0]?.service_details as Record<string, unknown> | undefined;
 
                     return (
-                      <div key={`vendor-${line.id || idx}`} className="rounded-lg border border-neutral-700 overflow-hidden">
+                      <div key={`vendor-${gIdx}`} className="rounded-lg border border-neutral-700 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => toggleService(vendorKey)}
                           className="w-full flex items-center gap-3 p-4 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
                         >
                           <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold flex-shrink-0">
-                            {serviceNumber}
+                            {gIdx + 1 + (quote.quote_request?.services?.length || 0)}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-white font-semibold text-sm truncate">{conceptLabel}</p>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/30">
-                                Agregado por el vendedor
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                              {line.estimated_delivery_date && (
-                                <span className="text-neutral-400 text-xs flex items-center gap-1">
-                                  <CalendarIcon className="h-3 w-3" />
-                                  {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                </span>
+                            <p className="text-white font-semibold text-sm truncate">
+                              {svcLabel}
+                              {routeCount > 1 && (
+                                <span className="ml-2 text-xs font-normal text-neutral-400">({routeCount} rutas)</span>
                               )}
-                              <span className="text-green-400 text-xs font-medium">{formatPrice(line.line_total)}</span>
-                              {line.delivery_method && (
-                                <span className="text-neutral-500 text-xs flex items-center gap-1">
-                                  <span className="text-xs">{DELIVERY_METHOD_ICONS[line.delivery_method as DeliveryMethod]}</span>
-                                  {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
-                                </span>
-                              )}
-                            </div>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/30 ml-2 align-middle">Agregado por el vendedor</span>
+                            </p>
+                            {vGroup.lines.length > 1 ? (
+                              <div className="mt-1 space-y-0.5">
+                                {vGroup.lines.map((ml, mlIdx) => {
+                                  const routeLabel = ml.concept?.includes(' — Ruta ')
+                                    ? ml.concept.split(' — ')[1]
+                                    : `Ruta ${mlIdx + 1}`;
+                                  return (
+                                    <div key={mlIdx} className="flex items-center gap-2 text-xs">
+                                      <span className="text-neutral-400">{routeLabel}</span>
+                                      {ml.estimated_delivery_date && (
+                                        <span className="text-neutral-500 flex items-center gap-0.5">
+                                          <CalendarIcon className="h-3 w-3" />
+                                          {new Date(ml.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                        </span>
+                                      )}
+                                      <span className="text-green-400 font-medium">{formatPrice(ml.line_total)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                {firstEstDate && (
+                                  <span className="text-neutral-400 text-xs flex items-center gap-1">
+                                    <CalendarIcon className="h-3 w-3" />
+                                    {new Date(firstEstDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  </span>
+                                )}
+                                {vGroupTotal > 0 && (
+                                  <span className="text-green-400 text-xs font-medium">{formatPrice(vGroupTotal)}</span>
+                                )}
+                                {vGroup.lines[0]?.delivery_method && (
+                                  <span className="text-neutral-500 text-xs flex items-center gap-1">
+                                    <span className="text-xs">{DELIVERY_METHOD_ICONS[vGroup.lines[0].delivery_method as DeliveryMethod]}</span>
+                                    {DELIVERY_METHOD_LABELS[vGroup.lines[0].delivery_method as DeliveryMethod]?.es || vGroup.lines[0].delivery_method}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <ChevronDownIcon className={`h-5 w-5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {isOpen && (
                           <div className="p-4 border-t border-neutral-700 space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                {serviceType && (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/30 mb-2">
-                                    {SERVICE_LABELS[serviceType as ServiceId] || serviceType}
-                                  </span>
-                                )}
-                                <p className="text-white font-medium">{line.concept}</p>
-                                {line.description && (
-                                  <p className="text-neutral-400 text-sm mt-1">{line.description}</p>
-                                )}
+                            {vGroupSD && Object.keys(vGroupSD).length > 0 && vGroup.serviceType && (
+                              <div>
+                                <ServiceDetailsDisplay
+                                  serviceType={vGroup.serviceType}
+                                  serviceDetails={vGroupSD}
+                                  routePrices={vGroup.lines.length > 1
+                                    ? vGroup.lines.reduce((acc, ml, mlIdx) => ({ ...acc, [mlIdx]: formatPrice(ml.line_total) }), {} as Record<number, string>)
+                                    : undefined
+                                  }
+                                />
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-white font-semibold">{formatPrice(line.line_total)}</p>
-                                <p className="text-neutral-500 text-xs">
-                                  {line.quantity} {line.unit} × {formatPrice(line.unit_price)}
-                                </p>
-                              </div>
+                            )}
+
+                            {vGroup.lines[0]?.description && (
+                              <p className="text-neutral-300 text-sm whitespace-pre-wrap">{vGroup.lines[0].description}</p>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              {vGroup.lines[0]?.delivery_method && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                                  <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                                    <span>{DELIVERY_METHOD_ICONS[vGroup.lines[0].delivery_method as DeliveryMethod]}</span>
+                                    {DELIVERY_METHOD_LABELS[vGroup.lines[0].delivery_method as DeliveryMethod]?.es || vGroup.lines[0].delivery_method}
+                                  </p>
+                                </div>
+                              )}
+                              {vGroup.lines[0]?.pickup_branch_detail && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                                  <p className="text-white font-medium mt-auto">{vGroup.lines[0].pickup_branch_detail.name}</p>
+                                </div>
+                              )}
+                              {vGroup.lines[0]?.delivery_address && typeof vGroup.lines[0].delivery_address === 'object' && Object.keys(vGroup.lines[0].delivery_address).length > 0 && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">
+                                    {vGroup.lines[0].delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                                  </p>
+                                  <p className="text-white font-medium mt-auto">
+                                    {[vGroup.lines[0].delivery_address.street || vGroup.lines[0].delivery_address.calle,
+                                      vGroup.lines[0].delivery_address.exterior_number || vGroup.lines[0].delivery_address.numero_exterior,
+                                      vGroup.lines[0].delivery_address.neighborhood || vGroup.lines[0].delivery_address.colonia,
+                                      vGroup.lines[0].delivery_address.city || vGroup.lines[0].delivery_address.ciudad,
+                                      vGroup.lines[0].delivery_address.state || vGroup.lines[0].delivery_address.estado,
+                                      vGroup.lines[0].delivery_address.postal_code || vGroup.lines[0].delivery_address.codigo_postal,
+                                    ].filter(Boolean).join(', ')}
+                                  </p>
+                                </div>
+                              )}
                             </div>
 
-                            {sd && Object.keys(sd).length > 0 && serviceType && (
-                              <div>
-                                <ServiceDetailsDisplay serviceType={serviceType} serviceDetails={sd} />
-                              </div>
-                            )}
-
-                            {line.delivery_method && (
-                              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                                {line.delivery_method === 'shipping' && <TruckIcon className="h-4 w-4 text-neutral-400" />}
-                                {line.delivery_method === 'pickup' && <MapPinIcon className="h-4 w-4 text-neutral-400" />}
-                                {line.delivery_method === 'installation' && <WrenchScrewdriverIcon className="h-4 w-4 text-neutral-400" />}
-                                <span>{DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}</span>
-                                {line.pickup_branch_detail && (
-                                  <span className="text-neutral-500">— {line.pickup_branch_detail.name}, {line.pickup_branch_detail.city}</span>
-                                )}
-                              </div>
-                            )}
-                            {line.delivery_address && typeof line.delivery_address === 'object' && Object.keys(line.delivery_address).length > 0 && (
-                              <p className="text-neutral-400 text-xs">
-                                {[line.delivery_address.street || line.delivery_address.calle, line.delivery_address.exterior_number || line.delivery_address.numero_exterior, line.delivery_address.neighborhood || line.delivery_address.colonia, line.delivery_address.city || line.delivery_address.ciudad, line.delivery_address.state || line.delivery_address.estado, line.delivery_address.postal_code || line.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                              </p>
-                            )}
-                            {line.estimated_delivery_date && (
-                              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                                <CalendarIcon className="h-4 w-4 text-neutral-400" />
-                                <span>Entrega estimada: {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                              </div>
-                            )}
-                            {parseFloat(line.shipping_cost || '0') > 0 && (
-                              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                                <TruckIcon className="h-4 w-4 text-neutral-400" />
-                                <span>Envío: {formatPrice(line.shipping_cost || '0')}</span>
-                              </div>
-                            )}
+                            {(() => {
+                              const datesInfo = vGroup.lines
+                                .filter(l => l.estimated_delivery_date)
+                                .map(l => ({ concept: l.concept, date: l.estimated_delivery_date! }));
+                              if (datesInfo.length === 0) return null;
+                              return (
+                                <div className="pt-3 border-t border-neutral-700/50">
+                                  <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                                    <CalendarIcon className="h-3 w-3" />
+                                    Fecha{datesInfo.length > 1 ? 's' : ''} estimada{datesInfo.length > 1 ? 's' : ''} de entrega
+                                  </p>
+                                  <div className="space-y-1">
+                                    {datesInfo.map((d, i) => (
+                                      <div key={i} className="flex items-center justify-between text-sm">
+                                        {datesInfo.length > 1 && (
+                                          <span className="text-neutral-400 truncate mr-2">{d.concept}</span>
+                                        )}
+                                        <span className="text-green-400 font-medium whitespace-nowrap">
+                                          {new Date(d.date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                            year: 'numeric', month: 'short', day: 'numeric',
+                                          })}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
