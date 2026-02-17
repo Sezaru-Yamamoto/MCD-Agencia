@@ -220,8 +220,8 @@ export default function EditQuotePage() {
                 shipping_cost: parseFloat(line.shipping_cost || '0') || 0,
                 serviceDetails: prefillDetails,
                 showServiceForm: true,
-                lineDeliveryMethod: (line.delivery_method as DeliveryMethod) || '',
-                lineEstimatedDate: line.estimated_delivery_date || '',
+                lineDeliveryMethod: (line.delivery_method as DeliveryMethod) || (sd.delivery_method as DeliveryMethod) || '',
+                lineEstimatedDate: line.estimated_delivery_date || (sd.required_date as string) || '',
               });
               continue;
             }

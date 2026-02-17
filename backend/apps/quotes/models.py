@@ -1688,6 +1688,26 @@ class QuoteChangeRequest(TimeStampedModel):
                                             if (new_qty is None or new_qty == 0) and old_qty and old_qty > 0:
                                                 new_r['cantidad'] = old_qty
 
+                        # Extract delivery fields from service_details
+                        # and apply to top-level QuoteLine fields
+                        if isinstance(new_sd, dict):
+                            sd_delivery = new_sd.get('delivery_method')
+                            if sd_delivery:
+                                line.delivery_method = sd_delivery
+                            sd_address = new_sd.get('delivery_address')
+                            if sd_address:
+                                line.delivery_address = sd_address
+                            sd_date = new_sd.get('required_date')
+                            if sd_date:
+                                line.estimated_delivery_date = sd_date
+                            sd_branch = new_sd.get('pickup_branch')
+                            if sd_branch:
+                                from apps.content.models import Branch
+                                try:
+                                    line.pickup_branch = Branch.objects.get(id=sd_branch)
+                                except (Branch.DoesNotExist, ValueError):
+                                    pass
+
                         line.service_details = new_sd
                     line.save()  # save() recalculates line_total
                 except QuoteLine.DoesNotExist:
@@ -1699,7 +1719,8 @@ class QuoteChangeRequest(TimeStampedModel):
                 )['position__max'] or 0
                 up = Decimal(str(line_data.get('unit_price', 0))) if line_data.get('unit_price') else Decimal('0.00')
                 qty = Decimal(str(line_data.get('quantity', 1)))
-                QuoteLine.objects.create(
+                sd = line_data.get('service_details')
+                create_kwargs = dict(
                     quote=quote,
                     concept=line_data.get('concept', 'Nuevo concepto'),
                     description=line_data.get('description', ''),
@@ -1708,8 +1729,23 @@ class QuoteChangeRequest(TimeStampedModel):
                     unit_price=up,
                     line_total=qty * up,
                     position=max_pos + 1,
-                    service_details=line_data.get('service_details'),
+                    service_details=sd,
                 )
+                # Extract delivery fields from service_details
+                if isinstance(sd, dict):
+                    if sd.get('delivery_method'):
+                        create_kwargs['delivery_method'] = sd['delivery_method']
+                    if sd.get('delivery_address'):
+                        create_kwargs['delivery_address'] = sd['delivery_address']
+                    if sd.get('required_date'):
+                        create_kwargs['estimated_delivery_date'] = sd['required_date']
+                    if sd.get('pickup_branch'):
+                        from apps.content.models import Branch
+                        try:
+                            create_kwargs['pickup_branch'] = Branch.objects.get(id=sd['pickup_branch'])
+                        except (Branch.DoesNotExist, ValueError):
+                            pass
+                QuoteLine.objects.create(**create_kwargs)
 
         # Link change request attachments to the quote
         self.attachments.filter(quote__isnull=True).update(quote=quote)
