@@ -337,29 +337,43 @@ export default function CustomerQuoteDetailPage() {
     if (qr.services && qr.services.length > 0) {
       qr.services.forEach((svc, idx) => {
         const key = `multi-${idx}`;
+        // Merge service_details from matched lines (line-level has richer data after vendor edits)
+        const matchedLines = serviceToLinesMap.get(idx) || [];
+        const lineSD = matchedLines.find(l => l.service_details && Object.keys(l.service_details).length > 0)?.service_details as Record<string, unknown> | undefined;
+        const effectiveSD = lineSD ?? (svc.service_details as Record<string, unknown> | undefined);
+        // Delivery info: prefer line-level (vendor may have set it), fall back to service-level
+        const firstLine = matchedLines[0];
         map[key] = buildServiceEditData({
           serviceType: svc.service_type || '',
-          serviceDetails: svc.service_details as Record<string, unknown> | undefined,
-          deliveryMethod: svc.delivery_method,
-          deliveryAddress: svc.delivery_address as Record<string, string> | undefined,
-          pickupBranch: svc.pickup_branch,
+          serviceDetails: effectiveSD,
+          deliveryMethod: firstLine?.delivery_method || svc.delivery_method,
+          deliveryAddress: (firstLine?.delivery_address || svc.delivery_address) as Record<string, string> | undefined,
+          pickupBranch: firstLine?.pickup_branch || svc.pickup_branch,
           requiredDate: svc.required_date,
           comments: svc.description || '',
           attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
         });
       });
     } else if (qr.service_type) {
-      const lineWithDetails = quote.lines?.find(
+      // Single-service: merge service_details from lines (richer after vendor processing)
+      const allNonVendorLines = (serviceToLinesMap.get(0) || []).length > 0
+        ? serviceToLinesMap.get(0)!
+        : (quote.lines || []).filter(l => !l.service_details?.vendor_added);
+      const lineWithDetails = allNonVendorLines.find(
+        l => l.service_details && Object.keys(l.service_details).length > 0
+      ) || quote.lines?.find(
         l => l.service_details && Object.keys(l.service_details).length > 0
       );
       const effectiveSD = lineWithDetails?.service_details as Record<string, unknown> | undefined
         ?? (qr.service_details as Record<string, unknown> | undefined);
+      // Delivery info: prefer line-level → quote-level → request-level
+      const firstLine = allNonVendorLines[0] || quote.lines?.[0];
       map['single-0'] = buildServiceEditData({
         serviceType: qr.service_type || '',
         serviceDetails: effectiveSD,
-        deliveryMethod: qr.delivery_method,
-        deliveryAddress: qr.delivery_address as Record<string, string> | undefined,
-        pickupBranch: qr.pickup_branch,
+        deliveryMethod: firstLine?.delivery_method || quote.delivery_method || qr.delivery_method,
+        deliveryAddress: (firstLine?.delivery_address || quote.delivery_address || qr.delivery_address) as Record<string, string> | undefined,
+        pickupBranch: firstLine?.pickup_branch || quote.pickup_branch || qr.pickup_branch,
         requiredDate: qr.required_date,
         comments: qr.description || '',
         attachments: qr.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
@@ -382,7 +396,7 @@ export default function CustomerQuoteDetailPage() {
     });
 
     return map;
-  }, [quote, vendorLineGroups]);
+  }, [quote, vendorLineGroups, serviceToLinesMap]);
 
   const enterEditMode = useCallback(() => {
     if (!quote) return;
@@ -850,16 +864,22 @@ export default function CustomerQuoteDetailPage() {
                         {editMode && !deletedServiceKeys.has(singleKey) ? (
                           <InlineServiceEditor
                             key={singleKey}
-                            initial={editDataMap[singleKey] || buildServiceEditData({
-                              serviceType: quote.quote_request!.service_type || '',
-                              serviceDetails: quote.quote_request?.service_details as Record<string, unknown> | undefined,
-                              deliveryMethod: quote.quote_request?.delivery_method,
-                              deliveryAddress: quote.quote_request?.delivery_address as Record<string, string> | undefined,
-                              pickupBranch: quote.quote_request?.pickup_branch,
-                              requiredDate: quote.quote_request?.required_date,
-                              comments: '',
-                              attachments: quote.quote_request?.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
-                            })}
+                            initial={editDataMap[singleKey] || (() => {
+                              const _lwd = quote.lines?.find(l => l.service_details && Object.keys(l.service_details).length > 0);
+                              const _esd = _lwd?.service_details as Record<string, unknown> | undefined
+                                ?? (quote.quote_request?.service_details as Record<string, unknown> | undefined);
+                              const _fl = quote.lines?.[0];
+                              return buildServiceEditData({
+                                serviceType: quote.quote_request!.service_type || '',
+                                serviceDetails: _esd,
+                                deliveryMethod: _fl?.delivery_method || quote.delivery_method || quote.quote_request?.delivery_method,
+                                deliveryAddress: (_fl?.delivery_address || quote.delivery_address || quote.quote_request?.delivery_address) as Record<string, string> | undefined,
+                                pickupBranch: _fl?.pickup_branch || quote.pickup_branch || quote.quote_request?.pickup_branch,
+                                requiredDate: quote.quote_request?.required_date,
+                                comments: '',
+                                attachments: quote.quote_request?.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
+                              });
+                            })()}
                             label={svcLabel}
                             onSave={(data) => handleEditServiceSave(singleKey, data)}
                             onCancel={() => setConfirmDialog('cancel')}
@@ -1301,16 +1321,21 @@ export default function CustomerQuoteDetailPage() {
                             {editMode && !deletedServiceKeys.has(multiKey) ? (
                               <InlineServiceEditor
                                 key={multiKey}
-                                initial={editDataMap[multiKey] || buildServiceEditData({
-                                  serviceType: svc.service_type || '',
-                                  serviceDetails: svc.service_details as Record<string, unknown> | undefined,
-                                  deliveryMethod: svc.delivery_method,
-                                  deliveryAddress: svc.delivery_address as Record<string, string> | undefined,
-                                  pickupBranch: svc.pickup_branch,
-                                  requiredDate: svc.required_date,
-                                  comments: svc.description || '',
-                                  attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
-                                })}
+                                initial={editDataMap[multiKey] || (() => {
+                                  const _ml = serviceToLinesMap.get(idx) || [];
+                                  const _lineSD = _ml.find(l => l.service_details && Object.keys(l.service_details).length > 0)?.service_details as Record<string, unknown> | undefined;
+                                  const _fl = _ml[0];
+                                  return buildServiceEditData({
+                                    serviceType: svc.service_type || '',
+                                    serviceDetails: _lineSD ?? (svc.service_details as Record<string, unknown> | undefined),
+                                    deliveryMethod: _fl?.delivery_method || svc.delivery_method,
+                                    deliveryAddress: (_fl?.delivery_address || svc.delivery_address) as Record<string, string> | undefined,
+                                    pickupBranch: _fl?.pickup_branch || svc.pickup_branch,
+                                    requiredDate: svc.required_date,
+                                    comments: svc.description || '',
+                                    attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
+                                  });
+                                })()}
                                 label={svcLabel}
                                 onSave={(data) => handleEditServiceSave(multiKey, data)}
                                 onCancel={() => setConfirmDialog('cancel')}

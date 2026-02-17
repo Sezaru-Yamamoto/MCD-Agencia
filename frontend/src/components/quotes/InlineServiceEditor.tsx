@@ -111,6 +111,23 @@ export function InlineServiceEditor({
   const [data, setData] = useState<ServiceEditData>(initial);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
+
+  /* ---- sync when initial prop changes (covers stale-initial-value) ---- */
+  const initialRef = useRef(initial);
+  useEffect(() => {
+    // Only sync if the initial prop materially changed (different service_type or details)
+    const prev = initialRef.current;
+    const hasRicherDetails = initial.details && Object.keys(initial.details).length > Object.keys(prev.details || {}).length;
+    const serviceTypeChanged = initial.serviceType !== prev.serviceType;
+    const deliveryChanged = initial.deliveryMethod !== prev.deliveryMethod;
+    const addressChanged = JSON.stringify(initial.deliveryAddress) !== JSON.stringify(prev.deliveryAddress);
+    const branchChanged = initial.pickupBranch !== prev.pickupBranch;
+    const dateChanged = initial.requiredDate !== prev.requiredDate;
+    if (hasRicherDetails || serviceTypeChanged || deliveryChanged || addressChanged || branchChanged || dateChanged) {
+      setData(initial);
+      initialRef.current = initial;
+    }
+  }, [initial]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
