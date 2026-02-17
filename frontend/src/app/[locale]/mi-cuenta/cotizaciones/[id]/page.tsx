@@ -722,23 +722,46 @@ export default function CustomerQuoteDetailPage() {
                                 <span className="ml-2 text-xs font-normal text-neutral-400">({routeCount} rutas)</span>
                               )}
                             </p>
-                            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                              {firstEstDate && (
-                                <span className="text-neutral-400 text-xs flex items-center gap-1">
-                                  <CalendarIcon className="h-3 w-3" />
-                                  {new Date(firstEstDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                </span>
-                              )}
-                              {svcTotal > 0 && (
-                                <span className="text-green-400 text-xs font-medium">{formatPrice(svcTotal)}</span>
-                              )}
-                              {svc.delivery_method && (
-                                <span className="text-neutral-500 text-xs flex items-center gap-1">
-                                  <span className="text-xs">{DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]}</span>
-                                  {DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es || svc.delivery_method}
-                                </span>
-                              )}
-                            </div>
+                            {/* Per-route breakdown when multiple routes exist */}
+                            {matchedLines && matchedLines.length > 1 ? (
+                              <div className="mt-1 space-y-0.5">
+                                {matchedLines.map((ml, mlIdx) => {
+                                  const routeLabel = ml.concept?.includes(' — Ruta ')
+                                    ? ml.concept.split(' — ')[1]
+                                    : `Ruta ${mlIdx + 1}`;
+                                  return (
+                                    <div key={mlIdx} className="flex items-center gap-2 text-xs">
+                                      <span className="text-neutral-400">{routeLabel}</span>
+                                      {ml.estimated_delivery_date && (
+                                        <span className="text-neutral-500 flex items-center gap-0.5">
+                                          <CalendarIcon className="h-3 w-3" />
+                                          {new Date(ml.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                        </span>
+                                      )}
+                                      <span className="text-green-400 font-medium">{formatPrice(ml.line_total)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                {firstEstDate && (
+                                  <span className="text-neutral-400 text-xs flex items-center gap-1">
+                                    <CalendarIcon className="h-3 w-3" />
+                                    {new Date(firstEstDate + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  </span>
+                                )}
+                                {svcTotal > 0 && (
+                                  <span className="text-green-400 text-xs font-medium">{formatPrice(svcTotal)}</span>
+                                )}
+                                {svc.delivery_method && (
+                                  <span className="text-neutral-500 text-xs flex items-center gap-1">
+                                    <span className="text-xs">{DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]}</span>
+                                    {DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es || svc.delivery_method}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <ChevronDownIcon className={`h-5 w-5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -752,6 +775,10 @@ export default function CustomerQuoteDetailPage() {
                                 <ServiceDetailsDisplay
                                   serviceType={svc.service_type}
                                   serviceDetails={svc.service_details as Record<string, unknown>}
+                                  routePrices={matchedLines && matchedLines.length > 1
+                                    ? matchedLines.reduce((acc, ml, mlIdx) => ({ ...acc, [mlIdx]: formatPrice(ml.line_total) }), {} as Record<number, string>)
+                                    : undefined
+                                  }
                                 />
                               </div>
                             )}
@@ -878,13 +905,6 @@ export default function CustomerQuoteDetailPage() {
                 </div>
               )}
 
-              {/* Description / Comments */}
-              {quote.quote_request.description && (
-                <div className="mt-4 p-4 bg-neutral-800/50 rounded-lg">
-                  <p className="text-neutral-500 text-xs mb-2">Comentarios de la solicitud</p>
-                  <p className="text-white whitespace-pre-wrap">{quote.quote_request.description}</p>
-                </div>
-              )}
             </Card>
           )}
 

@@ -135,9 +135,10 @@ export const subtipoLabels: Record<string, string> = {
 interface ServiceDetailsDisplayProps {
   serviceType?: string;
   serviceDetails?: Record<string, unknown>;
+  routePrices?: Record<number, string>;
 }
 
-export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDetailsDisplayProps) {
+export function ServiceDetailsDisplay({ serviceType, serviceDetails, routePrices }: ServiceDetailsDisplayProps) {
   if (!serviceDetails || Object.keys(serviceDetails).length === 0) {
     return null;
   }
@@ -349,8 +350,11 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails }: ServiceDe
 
             return (
               <div key={idx} className="rounded-xl border border-neutral-700 bg-neutral-800/30 p-4 space-y-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-cmyk-cyan">Ruta {ruta.numero as number || idx + 1}</span>
+                  {routePrices && routePrices[idx] !== undefined && (
+                    <span className="text-green-400 text-xs font-semibold">{routePrices[idx]}</span>
+                  )}
                 </div>
 
                 {/* Publibuses: ruta preestablecida */}
