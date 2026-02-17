@@ -2146,13 +2146,11 @@ Agencia MCD
     @action(detail=True, methods=['get'])
     def pdf(self, request, pk=None):
         """
-        Download PDF for the quote version that was active at the time of
-        this change request.
+        Download the current quote PDF (regenerated with latest format).
 
-        Strategy:
-        1. Find the matching send response (most recent 'send' before this
-           change request was created) and serve its pdf_file if available.
-        2. Otherwise, generate a PDF on the fly from original_snapshot data.
+        Always uses generate_quote_pdf so the PDF includes all recent
+        improvements (delivery grouping, description enrichment, shipping
+        cost column, route details, etc.).
         """
         if not _is_internal_user(request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
@@ -2160,45 +2158,42 @@ Agencia MCD
         change_request = self.get_object()
         quote = change_request.quote
 
-        # Strategy 1: Try the send response's PDF snapshot
-        matching_send = QuoteResponse.objects.filter(
-            quote=quote,
-            action=QuoteResponse.ACTION_SEND,
-            created_at__lte=change_request.created_at,
-        ).order_by('-created_at').first()
-
-        if matching_send and matching_send.pdf_file:
-            try:
-                pdf_data = matching_send.pdf_file.read()
-                version_label = matching_send.comment or 'v1'
-                response = HttpResponse(pdf_data, content_type='application/pdf')
-                response['Content-Disposition'] = (
-                    f'attachment; filename="cotizacion_{quote.quote_number}_{version_label}.pdf"'
-                )
-                return response
-            except Exception as e:
-                logger.warning(f"Failed to read send response PDF: {e}")
-
-        # Strategy 2: Generate from original_snapshot
-        snapshot = change_request.original_snapshot
-        if not snapshot or not snapshot.get('lines'):
+        # Always regenerate from current quote data for the latest PDF format
+        try:
+            from apps.quotes.tasks import generate_quote_pdf
+            generate_quote_pdf(str(quote.id), language=quote.language or 'es')
+            quote.refresh_from_db()
+        except Exception as e:
+            logger.error(
+                f"Failed to generate PDF for change request "
+                f"{change_request.id}: {e}", exc_info=True
+            )
             return Response(
-                {'error': _('No snapshot data available for this change request.')},
+                {'error': f'Error generating PDF: {str(e)[:200]}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        pdf_field = quote.pdf_file
+        if not pdf_field:
+            return Response(
+                {'error': _('PDF not available.')},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         try:
-            from apps.quotes.tasks import generate_snapshot_pdf
-            pdf_content = generate_snapshot_pdf(quote, snapshot, language=quote.language or 'es')
-            response = HttpResponse(pdf_content, content_type='application/pdf')
+            pdf_data = pdf_field.read()
+            response = HttpResponse(pdf_data, content_type='application/pdf')
             response['Content-Disposition'] = (
-                f'attachment; filename="cotizacion_{quote.quote_number}_snapshot.pdf"'
+                f'attachment; filename="cotizacion_{quote.quote_number}.pdf"'
             )
             return response
         except Exception as e:
-            logger.error(f"Failed to generate snapshot PDF: {e}", exc_info=True)
+            logger.error(
+                f"Failed to read PDF for quote {quote.quote_number}: {e}",
+                exc_info=True
+            )
             return Response(
-                {'error': f'Error generating PDF: {str(e)[:200]}'},
+                {'error': f'Error reading PDF: {str(e)[:200]}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
