@@ -268,6 +268,7 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails, routePrices
 
   // Fields to hide (internal indicators + fields not filled by client form)
   const hiddenFields = [
+    'service_type',                 // already used as serviceType prop — never show raw slug
     'ruta', 'delimitacion_zona', 'coordenadas', 'rutas',
     'tipo_personalizado', 'subtipo_personalizado', 'material_personalizado',
     'tipo_rotulacion_personalizado', 'producto_personalizado', 'tipo_impresion_personalizado',
