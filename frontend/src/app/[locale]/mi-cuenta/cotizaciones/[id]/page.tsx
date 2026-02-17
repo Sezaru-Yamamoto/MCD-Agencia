@@ -1014,7 +1014,7 @@ export default function CustomerQuoteDetailPage() {
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <CalendarDaysIcon className="h-4 w-4 text-cmyk-cyan" />
-              <h3 className="font-semibold text-white text-sm">Vigencia</h3>
+              <h3 className="font-medium text-white text-xs">Vigencia</h3>
             </div>
             <div className="space-y-2">
               <div>
@@ -1047,7 +1047,7 @@ export default function CustomerQuoteDetailPage() {
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <CurrencyDollarIcon className="h-4 w-4 text-cmyk-cyan" />
-              <h3 className="font-semibold text-white text-sm">Pago</h3>
+              <h3 className="font-medium text-white text-xs">Pago</h3>
             </div>
             <div className="space-y-2">
               <div>
@@ -1066,15 +1066,15 @@ export default function CustomerQuoteDetailPage() {
           {/* Terms */}
           {quote.terms && (
             <Card className="p-4">
-              <h3 className="font-semibold text-white text-sm mb-2">Términos y Condiciones</h3>
+              <h3 className="font-medium text-white text-xs mb-2">Términos y Condiciones</h3>
               <p className="text-neutral-300 text-xs whitespace-pre-wrap">{quote.terms}</p>
             </Card>
           )}
 
           {/* Additional Info */}
-          {(quote.delivery_method || quote.estimated_delivery_date || quote.included_services) && (
+          {(quote.delivery_method || quote.estimated_delivery_date || quote.included_services || quote.delivery_time_text || quote.payment_conditions || quote.lines?.some((l: QuoteLine) => l.delivery_method || l.estimated_delivery_date)) && (
             <Card className="p-4">
-              <h3 className="font-semibold text-white text-sm mb-2">Información Adicional</h3>
+              <h3 className="font-medium text-white text-xs mb-2">Información Adicional</h3>
               <div className="space-y-2">
                 {quote.delivery_method && (
                   <div>
@@ -1107,6 +1107,18 @@ export default function CustomerQuoteDetailPage() {
                     <p className="text-white text-xs">{new Date(quote.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   </div>
                 )}
+                {quote.delivery_time_text && (
+                  <div>
+                    <p className="text-neutral-500 text-xs">Tiempo de Entrega</p>
+                    <p className="text-white text-xs">{quote.delivery_time_text}</p>
+                  </div>
+                )}
+                {quote.payment_conditions && (
+                  <div>
+                    <p className="text-neutral-500 text-xs">Condiciones de Pago</p>
+                    <p className="text-white text-xs">{quote.payment_conditions}</p>
+                  </div>
+                )}
                 {quote.included_services && quote.included_services.length > 0 && (
                   <div>
                     <p className="text-neutral-500 text-xs">Servicios Incluidos</p>
@@ -1117,13 +1129,28 @@ export default function CustomerQuoteDetailPage() {
                     </ul>
                   </div>
                 )}
+                {/* Line-level delivery info when no quote-level delivery is set */}
+                {!quote.delivery_method && quote.lines?.filter((l: QuoteLine) => l.delivery_method).length > 0 && (
+                  <div>
+                    <p className="text-neutral-500 text-xs">Entrega por concepto</p>
+                    <div className="space-y-1 mt-1">
+                      {quote.lines.filter((l: QuoteLine) => l.delivery_method).map((l: QuoteLine, i: number) => (
+                        <p key={i} className="text-white text-xs flex items-center gap-1">
+                          <span>{DELIVERY_METHOD_ICONS[l.delivery_method as DeliveryMethod]}</span>
+                          <span className="text-neutral-400">{l.concept}:</span>{' '}
+                          {DELIVERY_METHOD_LABELS[l.delivery_method as DeliveryMethod]?.es || l.delivery_method}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           )}
 
           {/* Actions */}
-          <Card className="p-4">
-            <h3 className="font-semibold text-white text-sm mb-2">Acciones</h3>
+          <Card className="p-4 sticky top-20 z-10">
+            <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
             <div className="space-y-2">
               {/* Download PDF */}
               {(quote.pdf_file || quote.token) && (
@@ -1331,7 +1358,7 @@ export default function CustomerQuoteDetailPage() {
 
             return (
             <Card className="p-4">
-              <h3 className="font-semibold text-white text-sm mb-2 flex items-center gap-2">
+              <h3 className="font-medium text-white text-xs mb-2 flex items-center gap-2">
                 <ClockIcon className="h-4 w-4 text-cmyk-cyan" />
                 Historial
               </h3>
@@ -1535,7 +1562,7 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Contact */}
           <Card className="p-4 bg-cmyk-cyan/5 border-cmyk-cyan/20">
-            <h3 className="font-semibold text-white text-sm mb-1">¿Tienes preguntas?</h3>
+            <h3 className="font-medium text-white text-xs mb-1">¿Tienes preguntas?</h3>
             <p className="text-neutral-400 text-xs mb-2">
               Contáctanos sobre esta cotización.
             </p>
