@@ -13,7 +13,7 @@ import {
   ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 
-import { ServiceFormFields, type ServiceDetailsData, cleanServiceDetailsForApi } from './ServiceFormFields';
+import { ServiceFormFields, type ServiceDetailsData, cleanServiceDetailsForApi, type ConfigurableRouteEntry, type EstablishedRouteEntry } from './ServiceFormFields';
 import {
   type ServiceId,
   SERVICE_LABELS,
@@ -24,6 +24,8 @@ import {
   getDeliveryMethodsForService,
 } from '@/lib/service-ids';
 import { getBranches, type Branch } from '@/lib/api/content';
+import { getUserAddresses, type UserAddress } from '@/lib/api/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 /* ---------- helpers ---------- */
 
@@ -111,6 +113,11 @@ export function InlineServiceEditor({
   const [data, setData] = useState<ServiceEditData>(initial);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [useNewAddress, setUseNewAddress] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+  const { user } = useAuth();
 
   /* ---- sync when initial prop changes (covers stale-initial-value) ---- */
   const initialRef = useRef(initial);
@@ -142,6 +149,43 @@ export function InlineServiceEditor({
     return () => { cancelled = true; };
   }, []);
 
+  /* ---- fetch saved addresses for logged-in users ---- */
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setLoadingAddresses(true);
+    getUserAddresses()
+      .then((addrs) => {
+        if (cancelled) return;
+        const list = Array.isArray(addrs) ? addrs : [];
+        setSavedAddresses(list);
+        // If the current delivery address matches a saved one, pre-select it
+        if (list.length > 0 && data.deliveryAddress && Object.keys(data.deliveryAddress).length > 0) {
+          const match = list.find(a =>
+            a.calle === data.deliveryAddress.calle &&
+            a.numero_exterior === data.deliveryAddress.numero_exterior &&
+            a.codigo_postal === data.deliveryAddress.codigo_postal
+          );
+          if (match) {
+            setSelectedAddressId(match.id);
+            setUseNewAddress(false);
+          } else {
+            // Address doesn't match any saved one — show the manual form pre-filled
+            setUseNewAddress(true);
+          }
+        } else if (list.length > 0) {
+          // No existing address — default to saved address picker
+          const def = list.find(a => a.is_default);
+          setSelectedAddressId(def?.id || list[0].id);
+          setUseNewAddress(false);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingAddresses(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   /* ---- helpers ---- */
   const update = useCallback(<K extends keyof ServiceEditData>(key: K, val: ServiceEditData[K]) => {
     setData((prev) => ({ ...prev, [key]: val }));
@@ -159,7 +203,15 @@ export function InlineServiceEditor({
       deliveryAddress: method === prev.deliveryMethod ? prev.deliveryAddress : {},
       pickupBranch: method === prev.deliveryMethod ? prev.pickupBranch : '',
     }));
-  }, []);
+    // When switching to installation/shipping, reset address state for saved address picker
+    if (method !== data.deliveryMethod && (method === 'installation' || method === 'shipping')) {
+      if (savedAddresses.length > 0) {
+        setUseNewAddress(false);
+        const def = savedAddresses.find(a => a.is_default);
+        setSelectedAddressId(def?.id || savedAddresses[0].id);
+      }
+    }
+  }, [data.deliveryMethod, savedAddresses]);
 
   /* ---- file handling ---- */
   const handleFileChange = useCallback((fileList: FileList | null) => {
@@ -272,65 +324,136 @@ export function InlineServiceEditor({
 
           {/* Address form for installation / shipping */}
           {(data.deliveryMethod === 'installation' || data.deliveryMethod === 'shipping') && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-              <div>
-                <label className="text-xs text-neutral-400">Calle *</label>
-                <input type="text" value={data.deliveryAddress.calle || ''}
-                  onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, calle: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                  placeholder="Calle" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-neutral-400">No. Ext *</label>
-                  <input type="text" value={data.deliveryAddress.numero_exterior || ''}
-                    onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, numero_exterior: e.target.value })}
-                    className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                    placeholder="#" />
+            <div className="space-y-3 mt-3">
+              <p className="text-sm text-cmyk-cyan font-medium">
+                {data.deliveryMethod === 'installation'
+                  ? '📍 Dirección donde se realizará la instalación'
+                  : '📦 Dirección de envío'}
+              </p>
+
+              {/* Saved addresses picker (logged-in users with addresses) */}
+              {savedAddresses.length > 0 && !useNewAddress ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {savedAddresses.map((addr) => (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() => setSelectedAddressId(addr.id)}
+                        className={`w-full text-left p-3 rounded-lg border transition-all ${
+                          selectedAddressId === addr.id
+                            ? 'border-cmyk-magenta bg-cmyk-magenta/10 ring-2 ring-cmyk-magenta/50'
+                            : 'border-neutral-600 bg-neutral-800 hover:border-neutral-400'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`text-sm mt-0.5 ${selectedAddressId === addr.id ? 'text-cmyk-cyan' : 'text-neutral-500'}`}>📍</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-white">{addr.label || 'Dirección'}</span>
+                              {addr.is_default && <span className="text-xs text-cmyk-cyan">(Predeterminada)</span>}
+                            </div>
+                            <p className="text-xs text-neutral-400 mt-0.5">
+                              {addr.calle} {addr.numero_exterior}{addr.numero_interior ? ` Int. ${addr.numero_interior}` : ''}, {addr.colonia}, {addr.ciudad}, {addr.estado} C.P. {addr.codigo_postal}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseNewAddress(true);
+                      // Pre-fill form with existing address data if available
+                      if (Object.keys(data.deliveryAddress).length === 0) {
+                        update('deliveryAddress', { calle: '', numero_exterior: '', numero_interior: '', colonia: '', ciudad: '', estado: '', codigo_postal: '', referencia: '' });
+                      }
+                    }}
+                    className="text-sm text-cmyk-cyan hover:underline font-medium"
+                  >
+                    + Usar otra dirección
+                  </button>
                 </div>
-                <div>
-                  <label className="text-xs text-neutral-400">No. Int</label>
-                  <input type="text" value={data.deliveryAddress.numero_interior || ''}
-                    onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, numero_interior: e.target.value })}
-                    className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                    placeholder="Opcional" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-neutral-400">Colonia *</label>
-                <input type="text" value={data.deliveryAddress.colonia || ''}
-                  onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, colonia: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                  placeholder="Colonia" />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-400">Ciudad *</label>
-                <input type="text" value={data.deliveryAddress.ciudad || ''}
-                  onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, ciudad: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                  placeholder="Ciudad" />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-400">Estado *</label>
-                <input type="text" value={data.deliveryAddress.estado || ''}
-                  onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, estado: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                  placeholder="Estado" />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-400">C.P. *</label>
-                <input type="text" value={data.deliveryAddress.codigo_postal || ''}
-                  onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, codigo_postal: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                  placeholder="C.P." maxLength={5} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-400">Referencia</label>
-                <input type="text" value={data.deliveryAddress.referencia || ''}
-                  onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, referencia: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
-                  placeholder="Punto de referencia (opcional)" />
-              </div>
+              ) : (
+                <>
+                  {/* Back to saved addresses link */}
+                  {savedAddresses.length > 0 && useNewAddress && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseNewAddress(false);
+                        const def = savedAddresses.find(a => a.is_default);
+                        setSelectedAddressId(def?.id || savedAddresses[0].id);
+                      }}
+                      className="text-sm text-cmyk-cyan hover:underline font-medium mb-1"
+                    >
+                      ← Usar una dirección guardada
+                    </button>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-neutral-400">Calle *</label>
+                      <input type="text" value={data.deliveryAddress.calle || ''}
+                        onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, calle: e.target.value })}
+                        className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                        placeholder="Calle" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-neutral-400">No. Ext *</label>
+                        <input type="text" value={data.deliveryAddress.numero_exterior || ''}
+                          onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, numero_exterior: e.target.value })}
+                          className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                          placeholder="#" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-neutral-400">No. Int</label>
+                        <input type="text" value={data.deliveryAddress.numero_interior || ''}
+                          onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, numero_interior: e.target.value })}
+                          className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                          placeholder="Opcional" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400">Colonia *</label>
+                      <input type="text" value={data.deliveryAddress.colonia || ''}
+                        onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, colonia: e.target.value })}
+                        className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                        placeholder="Colonia" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400">Ciudad *</label>
+                      <input type="text" value={data.deliveryAddress.ciudad || ''}
+                        onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, ciudad: e.target.value })}
+                        className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                        placeholder="Ciudad" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400">Estado *</label>
+                      <input type="text" value={data.deliveryAddress.estado || ''}
+                        onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, estado: e.target.value })}
+                        className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                        placeholder="Estado" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400">C.P. *</label>
+                      <input type="text" value={data.deliveryAddress.codigo_postal || ''}
+                        onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, codigo_postal: e.target.value })}
+                        className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                        placeholder="C.P." maxLength={5} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-neutral-400">Referencia</label>
+                      <input type="text" value={data.deliveryAddress.referencia || ''}
+                        onChange={(e) => update('deliveryAddress', { ...data.deliveryAddress, referencia: e.target.value })}
+                        className="w-full mt-1 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50"
+                        placeholder="Punto de referencia (opcional)" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -493,7 +616,29 @@ export function InlineServiceEditor({
         </button>
         <button
           type="button"
-          onClick={() => onSave(data)}
+          onClick={() => {
+            // If using a saved address, resolve it into deliveryAddress before saving
+            const resolvedData = { ...data };
+            if (
+              (data.deliveryMethod === 'installation' || data.deliveryMethod === 'shipping') &&
+              !useNewAddress && selectedAddressId && savedAddresses.length > 0
+            ) {
+              const sa = savedAddresses.find(a => a.id === selectedAddressId);
+              if (sa) {
+                resolvedData.deliveryAddress = {
+                  calle: sa.calle,
+                  numero_exterior: sa.numero_exterior,
+                  numero_interior: sa.numero_interior || '',
+                  colonia: sa.colonia,
+                  ciudad: sa.ciudad,
+                  estado: sa.estado,
+                  codigo_postal: sa.codigo_postal,
+                  referencia: sa.referencia || '',
+                };
+              }
+            }
+            onSave(resolvedData);
+          }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white bg-cmyk-cyan hover:bg-cmyk-cyan/80 transition-colors"
         >
           <CheckIcon className="h-4 w-4" />
@@ -509,6 +654,81 @@ export function InlineServiceEditor({
    ================================================================ */
 
 /**
+ * Transform backend `rutas` array into internal `_vallasRoutes` format.
+ * Backend format: { numero, fecha_inicio, fecha_fin, horario_inicio, horario_fin, cantidad, unidad, precio_unitario, ruta: { punto_a, punto_b, distancia_metros, duracion_segundos, coordenadas } }
+ * Internal format: ConfigurableRouteEntry[]
+ */
+function transformRutasToVallasRoutes(
+  rutas: Array<Record<string, unknown>>
+): ConfigurableRouteEntry[] {
+  if (!rutas || rutas.length === 0) return [];
+  return rutas.map((r) => {
+    const rutaObj = r.ruta as Record<string, unknown> | null;
+    let route: ConfigurableRouteEntry['route'] = null;
+    let clientRouteInfo: ConfigurableRouteEntry['clientRouteInfo'] = null;
+
+    if (rutaObj) {
+      const puntoA = rutaObj.punto_a as { name?: string; lat?: number; lon?: number } | null;
+      const puntoB = rutaObj.punto_b as { name?: string; lat?: number; lon?: number } | null;
+      const coords = rutaObj.coordenadas as Array<[number, number]> | null;
+      const dist = rutaObj.distancia_metros as number | null;
+      const dur = rutaObj.duracion_segundos as number | null;
+
+      if (puntoA || puntoB) {
+        route = {
+          pointA: puntoA ? { name: puntoA.name || '', lat: puntoA.lat || 0, lon: puntoA.lon || 0 } : null,
+          pointB: puntoB ? { name: puntoB.name || '', lat: puntoB.lat || 0, lon: puntoB.lon || 0 } : null,
+          routeData: coords ? { coordinates: coords, distance: dist || 0, duration: dur || 0 } : null,
+        };
+        // Also set clientRouteInfo for read-only display
+        clientRouteInfo = {
+          punto_a: puntoA || null,
+          punto_b: puntoB || null,
+          distancia_metros: dist,
+          duracion_segundos: dur,
+        };
+      }
+    }
+
+    return {
+      id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      fechaInicio: (r.fecha_inicio as string) || '',
+      fechaFin: (r.fecha_fin as string) || '',
+      horarioInicio: (r.horario_inicio as string) || '',
+      horarioFin: (r.horario_fin as string) || '',
+      route,
+      cantidad: (r.cantidad as number) || 1,
+      unidad: (r.unidad as string) || 'servicio',
+      unit_price: (r.precio_unitario as number) || 0,
+      estimated_date: (r.estimated_date as string) || undefined,
+      vendorDescription: (r.vendorDescription as string) || undefined,
+      clientRouteInfo,
+    };
+  });
+}
+
+/**
+ * Transform backend `rutas` array into internal `_pubRoutes` format.
+ * Backend format: { numero, ruta_preestablecida, fecha_inicio, fecha_fin, cantidad, unidad, precio_unitario }
+ * Internal format: EstablishedRouteEntry[]
+ */
+function transformRutasToPubRoutes(
+  rutas: Array<Record<string, unknown>>
+): EstablishedRouteEntry[] {
+  if (!rutas || rutas.length === 0) return [];
+  return rutas.map((r) => ({
+    id: `er-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    ruta: (r.ruta_preestablecida as string) || '',
+    fechaInicio: (r.fecha_inicio as string) || '',
+    cantidad: (r.cantidad as number) || 1,
+    unidad: (r.unidad as string) || 'servicio',
+    unit_price: (r.precio_unitario as number) || 0,
+    estimated_date: (r.estimated_date as string) || undefined,
+    vendorDescription: (r.vendorDescription as string) || undefined,
+  }));
+}
+
+/**
  * Build an InlineServiceEditor initial state from a QuoteRequestService
  * and its matched QuoteLines.
  */
@@ -522,11 +742,27 @@ export function buildServiceEditData(opts: {
   comments?: string;
   attachments?: Array<{ id: string; file: string; filename: string }>;
 }): ServiceEditData {
+  const sd = { ...((opts.serviceDetails || {}) as Record<string, unknown>) };
+  const serviceType = (opts.serviceType || '') as ServiceId | '';
+  const subtipo = sd.subtipo as string | undefined;
+
+  // ── Transform backend rutas → internal route arrays ──
+  const rutas = sd.rutas as Array<Record<string, unknown>> | undefined;
+  if (serviceType === 'publicidad-movil' && rutas && rutas.length > 0) {
+    if (subtipo === 'vallas-moviles') {
+      sd._vallasRoutes = transformRutasToVallasRoutes(rutas);
+    } else if (subtipo === 'publibuses') {
+      sd._pubRoutes = transformRutasToPubRoutes(rutas);
+    } else if (subtipo === 'perifoneo') {
+      sd._perifoneoRoutes = transformRutasToVallasRoutes(rutas);
+    }
+  }
+
   return {
-    serviceType: (opts.serviceType || '') as ServiceId | '',
+    serviceType,
     details: {
-      service_type: (opts.serviceType || '') as ServiceId | '',
-      ...((opts.serviceDetails || {}) as Record<string, unknown>),
+      service_type: serviceType,
+      ...sd,
     } as ServiceDetailsData,
     deliveryMethod: (opts.deliveryMethod || '') as DeliveryMethod | '',
     deliveryAddress: opts.deliveryAddress || {},
