@@ -424,6 +424,11 @@ export default function CustomerQuoteDetailPage() {
     toast.success('Cambios guardados localmente');
   }, []);
 
+  /** Keep editDataMap in sync with live edits (so global submit always has fresh data) */
+  const handleEditDataChange = useCallback((key: string, data: ServiceEditData) => {
+    setEditDataMap(prev => ({ ...prev, [key]: data }));
+  }, []);
+
   const handleDeleteService = useCallback((key: string) => {
     setDeletedServiceKeys(prev => {
       const next = new Set(prev);
@@ -896,6 +901,7 @@ export default function CustomerQuoteDetailPage() {
                             })()}
                             label={svcLabel}
                             onSave={(data) => handleEditServiceSave(singleKey, data)}
+                            onDataChange={(data) => handleEditDataChange(singleKey, data)}
                             onCancel={() => setConfirmDialog('cancel')}
                             onDelete={() => handleDeleteService(singleKey)}
                             vendorEstimatedDate={firstEstDate}
@@ -1143,6 +1149,7 @@ export default function CustomerQuoteDetailPage() {
                             })}
                             label={svcLabel}
                             onSave={(data) => handleEditServiceSave(vendorKey, data)}
+                            onDataChange={(data) => handleEditDataChange(vendorKey, data)}
                             onCancel={() => setConfirmDialog('cancel')}
                             onDelete={() => handleDeleteService(vendorKey)}
                             isVendorAdded
@@ -1352,6 +1359,7 @@ export default function CustomerQuoteDetailPage() {
                                 })()}
                                 label={svcLabel}
                                 onSave={(data) => handleEditServiceSave(multiKey, data)}
+                                onDataChange={(data) => handleEditDataChange(multiKey, data)}
                                 onCancel={() => setConfirmDialog('cancel')}
                                 onDelete={() => handleDeleteService(multiKey)}
                                 vendorEstimatedDate={firstEstDate}
@@ -1596,6 +1604,7 @@ export default function CustomerQuoteDetailPage() {
                                 })}
                                 label={svcLabel}
                                 onSave={(data) => handleEditServiceSave(vendorKey, data)}
+                                onDataChange={(data) => handleEditDataChange(vendorKey, data)}
                                 onCancel={() => setConfirmDialog('cancel')}
                                 onDelete={() => handleDeleteService(vendorKey)}
                                 isVendorAdded

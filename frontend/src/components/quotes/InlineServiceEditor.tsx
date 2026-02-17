@@ -206,6 +206,8 @@ interface InlineServiceEditorProps {
   label: string;
   /** Called when the user saves changes for this service */
   onSave: (data: ServiceEditData) => void;
+  /** Called whenever the user modifies any data (keeps parent in sync) */
+  onDataChange?: (data: ServiceEditData) => void;
   /** Called when the user cancels editing */
   onCancel: () => void;
   /** Called when the user wants to delete this service */
@@ -224,6 +226,7 @@ export function InlineServiceEditor({
   initial,
   label,
   onSave,
+  onDataChange,
   onCancel,
   onDelete,
   isVendorAdded = false,
@@ -242,15 +245,16 @@ export function InlineServiceEditor({
   /* ---- sync when initial prop changes (covers stale-initial-value) ---- */
   const initialRef = useRef(initial);
   useEffect(() => {
-    // Only sync if the initial prop materially changed (different service_type or details)
+    // Only sync if the initial prop materially changed (different service_type or details).
+    // Address changes are NOT synced here because the child manages address state
+    // (saved address picker + manual form) and pushes changes up via onDataChange.
     const prev = initialRef.current;
     const hasRicherDetails = initial.details && Object.keys(initial.details).length > Object.keys(prev.details || {}).length;
     const serviceTypeChanged = initial.serviceType !== prev.serviceType;
-    const deliveryChanged = initial.deliveryMethod !== prev.deliveryMethod;
-    const addressChanged = JSON.stringify(initial.deliveryAddress) !== JSON.stringify(prev.deliveryAddress);
+    const deliveryMethodChanged = initial.deliveryMethod !== prev.deliveryMethod;
     const branchChanged = initial.pickupBranch !== prev.pickupBranch;
     const dateChanged = initial.requiredDate !== prev.requiredDate;
-    if (hasRicherDetails || serviceTypeChanged || deliveryChanged || addressChanged || branchChanged || dateChanged) {
+    if (hasRicherDetails || serviceTypeChanged || deliveryMethodChanged || branchChanged || dateChanged) {
       setData(initial);
       initialRef.current = initial;
     }
@@ -306,6 +310,40 @@ export function InlineServiceEditor({
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  /* ---- sync deliveryAddress when a saved address is selected ---- */
+  useEffect(() => {
+    if (useNewAddress || !selectedAddressId || savedAddresses.length === 0) return;
+    const sa = savedAddresses.find(a => a.id === selectedAddressId);
+    if (!sa) return;
+    const resolved: ServiceEditData['deliveryAddress'] = {
+      calle: sa.calle,
+      numero_exterior: sa.numero_exterior,
+      numero_interior: sa.numero_interior || '',
+      colonia: sa.colonia,
+      ciudad: sa.ciudad,
+      estado: sa.estado,
+      codigo_postal: sa.codigo_postal,
+      referencia: sa.referencia || '',
+    };
+    setData(prev => {
+      // avoid unnecessary updates if already identical
+      if (JSON.stringify(prev.deliveryAddress) === JSON.stringify(resolved)) return prev;
+      return { ...prev, deliveryAddress: resolved };
+    });
+  }, [selectedAddressId, useNewAddress, savedAddresses]);
+
+  /* ---- notify parent whenever data changes (keeps editDataMap in sync) ---- */
+  const dataJsonRef = useRef(JSON.stringify(data));
+  const onDataChangeRef = useRef(onDataChange);
+  onDataChangeRef.current = onDataChange;
+  useEffect(() => {
+    const json = JSON.stringify(data);
+    if (json !== dataJsonRef.current) {
+      dataJsonRef.current = json;
+      onDataChangeRef.current?.(data);
+    }
+  }, [data]);
 
   /* ---- helpers ---- */
   const update = useCallback(<K extends keyof ServiceEditData>(key: K, val: ServiceEditData[K]) => {
