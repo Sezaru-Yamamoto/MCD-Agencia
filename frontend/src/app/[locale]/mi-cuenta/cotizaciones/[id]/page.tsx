@@ -1009,7 +1009,8 @@ export default function CustomerQuoteDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4">
+        <div>
+          <div className="space-y-4">
           {/* Validity */}
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -1149,7 +1150,9 @@ export default function CustomerQuoteDetailPage() {
           )}
 
           {/* Actions */}
-          <Card className="p-4 sticky top-20 z-10">
+          </div>
+          <div className="lg:sticky lg:top-20 mt-4 z-10">
+          <Card className="p-4">
             <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
             <div className="space-y-2">
               {/* Download PDF */}
@@ -1209,6 +1212,7 @@ export default function CustomerQuoteDetailPage() {
               )}
             </div>
           </Card>
+          </div>
         </div>
       </div>
 
