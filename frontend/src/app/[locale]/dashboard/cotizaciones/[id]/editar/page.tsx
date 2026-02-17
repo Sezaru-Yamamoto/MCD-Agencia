@@ -12,6 +12,7 @@ import {
   PaperClipIcon,
   TruckIcon,
   MapPinIcon,
+  CalendarIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -23,6 +24,8 @@ import { subtipoLabels } from '@/components/quotes/ServiceDetailsDisplay';
 import {
   ServiceFormFields,
   type ServiceDetailsData,
+  type ConfigurableRouteEntry,
+  type EstablishedRouteEntry,
   serviceDetailsFromRequest,
   cleanServiceDetailsForApi,
   isRouteBasedDetails,
@@ -38,8 +41,7 @@ import {
   CreateQuoteData,
 } from '@/lib/api/quotes';
 import { getProducts, ProductListItem } from '@/lib/api/catalog';
-import { SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceId, type LandingServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, getDeliveryMethodsForService, type DeliveryMethod } from '@/lib/service-ids';
-import { getBranches, type Branch } from '@/lib/api/content';
+import { SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceId, type LandingServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 
 type CatalogItem = ProductListItem;
 
@@ -56,6 +58,8 @@ interface QuoteLineItem {
   catalogItem?: CatalogItem;
   serviceDetails?: ServiceDetailsData;
   showServiceForm?: boolean;
+  lineDeliveryMethod?: DeliveryMethod | '';
+  lineEstimatedDate?: string;
 }
 
 export default function EditQuotePage() {
@@ -80,7 +84,6 @@ export default function EditQuotePage() {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [validDays, setValidDays] = useState(15);
   const paymentMode = 'FULL' as const;
-  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
   const [terms, setTerms] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -88,13 +91,6 @@ export default function EditQuotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error'; redirectTo?: string }>({ open: false, title: '', message: '', variant: 'success' });
-
-  // Delivery method state
-  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | ''>('');
-  const [pickupBranch, setPickupBranch] = useState<string>('');
-  const [deliveryAddress, setDeliveryAddress] = useState<Record<string, string>>({});
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [availableDeliveryMethods, setAvailableDeliveryMethods] = useState<DeliveryMethod[]>([]);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -116,35 +112,9 @@ export default function EditQuotePage() {
       setCustomerName(quote.customer_name);
       setCustomerEmail(quote.customer_email);
       setCustomerCompany(quote.customer_company || '');
-      setEstimatedDeliveryDate(quote.estimated_delivery_date || '');
       setPaymentConditions(quote.payment_conditions || '');
       setTerms(quote.terms || '');
       setInternalNotes(quote.internal_notes || '');
-
-      // Load delivery method fields
-      if (quote.delivery_method) {
-        setDeliveryMethod(quote.delivery_method as DeliveryMethod);
-      }
-      if (quote.pickup_branch) {
-        setPickupBranch(typeof quote.pickup_branch === 'string' ? quote.pickup_branch : '');
-      }
-      if (quote.delivery_address && typeof quote.delivery_address === 'object') {
-        setDeliveryAddress(quote.delivery_address as Record<string, string>);
-      }
-
-      // Compute available delivery methods from quote request or service type
-      if (quote.quote_request) {
-        const qr = quote.quote_request as unknown as Record<string, unknown>;
-        const serviceType = qr?.service_type as string | undefined;
-        if (serviceType) {
-          const subtypeId = (qr?.service_details as Record<string, unknown>)?.subtipo as string | undefined;
-          setAvailableDeliveryMethods(getDeliveryMethodsForService(serviceType, subtypeId));
-        } else {
-          setAvailableDeliveryMethods(['installation', 'pickup', 'shipping', 'digital', 'not_applicable']);
-        }
-      } else {
-        setAvailableDeliveryMethods(['installation', 'pickup', 'shipping', 'digital', 'not_applicable']);
-      }
 
       // Calculate valid days from valid_until
       if (quote.valid_until) {
@@ -250,6 +220,8 @@ export default function EditQuotePage() {
                 shipping_cost: parseFloat(line.shipping_cost || '0') || 0,
                 serviceDetails: prefillDetails,
                 showServiceForm: true,
+                lineDeliveryMethod: (line.delivery_method as DeliveryMethod) || '',
+                lineEstimatedDate: line.estimated_delivery_date || '',
               });
               continue;
             }
@@ -266,6 +238,8 @@ export default function EditQuotePage() {
             unit: line.unit,
             unit_price: Number(line.unit_price),
             shipping_cost: parseFloat(line.shipping_cost || '0') || 0,
+            lineDeliveryMethod: (line.delivery_method as DeliveryMethod) || '',
+            lineEstimatedDate: line.estimated_delivery_date || '',
           });
         }
 
@@ -290,16 +264,6 @@ export default function EditQuotePage() {
     }
   }, []);
 
-  // Load branches for pickup option
-  const loadBranches = useCallback(async () => {
-    try {
-      const data = await getBranches();
-      setBranches(data);
-    } catch (error) {
-      console.error('Error loading branches:', error);
-    }
-  }, []);
-
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
@@ -314,9 +278,8 @@ export default function EditQuotePage() {
     if (isAuthenticated && isSalesOrAdmin) {
       loadQuote();
       loadCatalogItems();
-      loadBranches();
     }
-  }, [isAuthenticated, isSalesOrAdmin, loadQuote, loadCatalogItems, loadBranches]);
+  }, [isAuthenticated, isSalesOrAdmin, loadQuote, loadCatalogItems]);
 
   if (authLoading || isLoading) {
     return <LoadingPage message="Cargando cotización..." />;
@@ -441,11 +404,7 @@ export default function EditQuotePage() {
         payment_mode: paymentMode,
         terms: terms || undefined,
         internal_notes: internalNotes || undefined,
-        estimated_delivery_date: estimatedDeliveryDate || undefined,
         payment_conditions: paymentConditions || undefined,
-        delivery_method: deliveryMethod || undefined,
-        pickup_branch_id: deliveryMethod === 'pickup' && pickupBranch ? pickupBranch : undefined,
-        delivery_address: (deliveryMethod === 'shipping' || deliveryMethod === 'installation') && Object.keys(deliveryAddress).length > 0 ? deliveryAddress : undefined,
         lines: items.flatMap((item) => {
           // Auto-generate concept from service details if it's a service item
           let concept = item.concept;
@@ -456,6 +415,9 @@ export default function EditQuotePage() {
               : '';
             concept = subLabel ? `${svcLabel} — ${subLabel}` : svcLabel;
           }
+
+          // Per-line delivery info
+          const lineDelivery = item.lineDeliveryMethod || undefined;
 
           // Route-based: expand into one line per route
           if (isRouteBasedDetails(item.serviceDetails)) {
@@ -468,9 +430,11 @@ export default function EditQuotePage() {
               quantity: rl.quantity,
               unit: rl.unit,
               unit_price: rl.unit_price,
-              shipping_cost: ri === 0 ? item.shipping_cost || 0 : 0,
               position: 0, // will be set below
               service_details: ri === 0 ? (item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined) : undefined,
+              shipping_cost: ri === 0 ? (item.shipping_cost || undefined) : undefined,
+              delivery_method: ri === 0 ? lineDelivery : undefined,
+              estimated_delivery_date: rl.estimated_date || (ri === 0 && item.lineEstimatedDate ? item.lineEstimatedDate : undefined),
             }));
           }
 
@@ -482,9 +446,11 @@ export default function EditQuotePage() {
             quantity: item.quantity,
             unit: item.unit,
             unit_price: item.unit_price,
-            shipping_cost: item.shipping_cost || 0,
             position: 0,
             service_details: item.serviceDetails ? cleanServiceDetailsForApi(item.serviceDetails) || undefined : undefined,
+            shipping_cost: item.shipping_cost || undefined,
+            delivery_method: lineDelivery,
+            estimated_delivery_date: item.lineEstimatedDate || undefined,
           }];
         }).map((line, idx) => ({ ...line, position: idx + 1 })),
       };
@@ -752,126 +718,322 @@ export default function EditQuotePage() {
                 <div className="space-y-4">
                   {items.map((item, index) => {
                     const itemIsRouteBased = isRouteBasedDetails(item.serviceDetails);
+                    const today = new Date().toISOString().split('T')[0];
 
+                    // ── Service-based item → new card UI ──
+                    if (item.serviceDetails) {
+                      const svcType = item.serviceDetails.service_type as ServiceId;
+                      const svcLabel = SERVICE_LABELS[svcType] || svcType;
+
+                      return (
+                        <div key={item.id} className="relative rounded-xl border border-neutral-700 bg-neutral-800/30 overflow-hidden">
+                          {/* Delete button */}
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="absolute top-3 right-3 z-10 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                            title="Eliminar concepto"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+
+                          {/* Service header */}
+                          <div className="flex items-center gap-3 p-4 pb-0">
+                            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold">
+                              {index + 1}
+                            </span>
+                            <h3 className="text-white font-semibold text-lg">{svcLabel}</h3>
+                          </div>
+
+                          {/* Editable service details form */}
+                          <div className="p-4">
+                            <div className="mb-3">
+                              <button
+                                type="button"
+                                onClick={() => updateItem(item.id, 'showServiceForm', !item.showServiceForm)}
+                                className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors"
+                              >
+                                <WrenchScrewdriverIcon className="h-4 w-4" />
+                                <span>{item.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
+                                <svg className={`h-3 w-3 transition-transform ${item.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                              {item.showServiceForm && (
+                                <div className="mt-3">
+                                  <ServiceFormFields
+                                    value={item.serviceDetails}
+                                    onChange={(details) => updateItem(item.id, 'serviceDetails', details)}
+                                    hideRoutePricing
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ── Vendor-editable pricing fields ── */}
+                          <div className="p-4 pt-0">
+                            <div className="border-t border-cmyk-cyan/20 pt-4">
+                              <p className="text-cmyk-cyan text-xs font-semibold uppercase tracking-wider mb-3">Cotización del vendedor</p>
+
+                              {/* === Route-based: per-route pricing === */}
+                              {itemIsRouteBased && (() => {
+                                const sd = item.serviceDetails!;
+                                const routeArrayKey = sd._vallasRoutes ? '_vallasRoutes'
+                                  : sd._pubRoutes ? '_pubRoutes'
+                                  : sd._perifoneoRoutes ? '_perifoneoRoutes'
+                                  : null;
+                                const routes = (routeArrayKey ? sd[routeArrayKey] : null) as
+                                  | Array<ConfigurableRouteEntry | EstablishedRouteEntry>
+                                  | null;
+
+                                if (!routes || routes.length === 0) return null;
+
+                                const updateRouteField = (routeIdx: number, field: string, value: unknown) => {
+                                  const updatedRoutes = [...routes];
+                                  updatedRoutes[routeIdx] = { ...updatedRoutes[routeIdx], [field]: value };
+                                  updateItem(item.id, 'serviceDetails', { ...sd, [routeArrayKey!]: updatedRoutes });
+                                };
+
+                                return (
+                                  <div className="space-y-4">
+                                    {routes.map((route, rIdx) => {
+                                      const qty = route.cantidad || 1;
+                                      const price = route.unit_price || 0;
+                                      const rutaLabel = 'ruta' in route && route.ruta
+                                        ? (subtipoLabels[route.ruta] || route.ruta)
+                                        : null;
+
+                                      return (
+                                        <div key={route.id} className="rounded-lg border border-neutral-700/60 bg-neutral-900/30 p-3 space-y-3">
+                                          <div className="flex items-center gap-2">
+                                            <MapPinIcon className="h-4 w-4 text-cmyk-cyan" />
+                                            <span className="text-cmyk-cyan text-sm font-semibold">Ruta {rIdx + 1}</span>
+                                            {rutaLabel && <span className="text-neutral-400 text-xs">— {rutaLabel}</span>}
+                                          </div>
+                                          <div className="grid grid-cols-3 gap-3">
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Cantidad</label>
+                                              <input type="number" min="1" value={qty}
+                                                onChange={(e) => updateRouteField(rIdx, 'cantidad', parseInt(e.target.value) || 1)}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Precio Unitario</label>
+                                              <PriceInput value={price}
+                                                onChange={(val) => updateRouteField(rIdx, 'unit_price', val)}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Total ruta</label>
+                                              <div className="px-3 py-2 bg-neutral-900/50 border border-neutral-700/50 rounded-lg text-white font-medium text-right text-sm">
+                                                {formatCurrency(qty * price)}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">
+                                                <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha de entrega estimada
+                                              </label>
+                                              <input type="date" value={route.estimated_date || ''}
+                                                onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
+                                                min={route.fechaInicio && route.fechaInicio >= today ? route.fechaInicio : today}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas</label>
+                                              <input type="text" value={route.vendorDescription || ''}
+                                                onChange={(e) => updateRouteField(rIdx, 'vendorDescription', e.target.value)}
+                                                placeholder="Notas para esta ruta..."
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="flex items-center justify-between px-3 py-2 bg-neutral-900/50 rounded-lg border border-neutral-700/50">
+                                      <span className="text-neutral-400 text-sm font-medium">Total rutas ({routes.length})</span>
+                                      <span className="text-white font-semibold text-sm">{formatCurrency(computeRoutesTotal(sd))}</span>
+                                    </div>
+                                    {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                                      <div>
+                                        <label className="block text-neutral-500 text-xs mb-1">
+                                          <TruckIcon className="h-3.5 w-3.5 inline mr-1" />Costo de envío <span className="text-neutral-600">(sin IVA)</span>
+                                        </label>
+                                        <PriceInput value={item.shipping_cost}
+                                          onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {/* === Non-route-based: single pricing row === */}
+                              {!itemIsRouteBased && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Cantidad</label>
+                                    <input type="number" min="1" value={item.quantity}
+                                      onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Unidad</label>
+                                    <select value={item.unit}
+                                      onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    >
+                                      <option value="pza">pza</option>
+                                      <option value="m2">m²</option>
+                                      <option value="ml">ml</option>
+                                      <option value="kg">kg</option>
+                                      <option value="hr">hr</option>
+                                      <option value="servicio">servicio</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Precio Unitario</label>
+                                    <PriceInput value={item.unit_price}
+                                      onChange={(val) => updateItem(item.id, 'unit_price', val)}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Total línea</label>
+                                    <div className="px-3 py-2 bg-neutral-900/50 border border-neutral-700/50 rounded-lg text-white font-medium text-right text-sm">
+                                      {formatCurrency(item.quantity * item.unit_price)}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Delivery method, Shipping cost, Estimated delivery, Description — for non-route items */}
+                              {!itemIsRouteBased && (
+                                <>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                                    <div>
+                                      <label className="block text-neutral-500 text-xs mb-1">
+                                        <TruckIcon className="h-3.5 w-3.5 inline mr-1" />Método de entrega
+                                      </label>
+                                      <select
+                                        value={item.lineDeliveryMethod || ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value as DeliveryMethod | '';
+                                          updateItem(item.id, 'lineDeliveryMethod', val);
+                                          if (val !== 'shipping' && val !== 'installation') {
+                                            updateItem(item.id, 'shipping_cost', 0);
+                                          }
+                                        }}
+                                        className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                      >
+                                        <option value="">— Sin especificar —</option>
+                                        {(['installation', 'pickup', 'shipping', 'digital', 'not_applicable'] as DeliveryMethod[]).map(m => (
+                                          <option key={m} value={m}>
+                                            {DELIVERY_METHOD_ICONS[m]} {DELIVERY_METHOD_LABELS[m].es}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                                      <div>
+                                        <label className="block text-neutral-500 text-xs mb-1">
+                                          Costo de envío <span className="text-neutral-600">(sin IVA)</span>
+                                        </label>
+                                        <PriceInput value={item.shipping_cost}
+                                          onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                        />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <label className="block text-neutral-500 text-xs mb-1">
+                                        <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha de entrega estimada
+                                      </label>
+                                      <input type="date" value={item.lineEstimatedDate || ''}
+                                        onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
+                                        min={today}
+                                        className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas del concepto</label>
+                                    <textarea value={item.description || ''}
+                                      onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                      placeholder="Descripción o notas adicionales para este concepto..."
+                                      rows={2}
+                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // ── Plain items (catalog products, custom concepts without service) ──
                     return (
-                    <div key={item.id} className="relative p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
-                      {/* Delete button — top right */}
+                    <div key={item.id} className="relative rounded-xl border border-neutral-700 bg-neutral-800/30 overflow-hidden">
+                      {/* Delete button */}
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="absolute top-2 right-2 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                        className="absolute top-3 right-3 z-10 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                         title="Eliminar concepto"
                       >
                         <TrashIcon className="h-5 w-5" />
                       </button>
-                      <div className="flex items-start gap-4 pr-8">
-                        <span className="text-neutral-500 text-sm font-medium mt-2">{index + 1}.</span>
-                        <div className="flex-1 space-y-3">
-                          {/* Header: Categoría / Subtipo / Descripción (service items) OR Concepto / Descripción */}
-                          {item.serviceDetails ? (() => {
-                            const svcType = item.serviceDetails!.service_type as ServiceId;
-                            const svcSubtipo = item.serviceDetails!.subtipo as string | undefined;
-                            const subcats = SERVICE_SUBCATEGORIES[svcType as LandingServiceId] || [];
-                            return (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
-                                  <label className="block text-neutral-500 text-xs mb-1">Categoría *</label>
-                                  <select
-                                    value={svcType}
-                                    onChange={(e) => {
-                                      const newType = e.target.value as ServiceId;
-                                      const newSubcats = SERVICE_SUBCATEGORIES[newType as LandingServiceId] || [];
-                                      updateItem(item.id, 'serviceDetails', {
-                                        ...item.serviceDetails!,
-                                        service_type: newType,
-                                        subtipo: newSubcats.length > 0 ? newSubcats[0].id : undefined,
-                                      });
-                                    }}
-                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
-                                  >
-                                    {Object.entries(SERVICE_LABELS).map(([key, label]) => (
-                                      <option key={key} value={key}>{label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-neutral-500 text-xs mb-1">Subtipo</label>
-                                  {subcats.length > 0 ? (
-                                    <select
-                                      value={svcSubtipo || ''}
-                                      onChange={(e) => {
-                                        updateItem(item.id, 'serviceDetails', {
-                                          ...item.serviceDetails!,
-                                          subtipo: e.target.value || undefined,
-                                        });
-                                      }}
-                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
-                                    >
-                                      {subcats.map((sc) => (
-                                        <option key={sc.id} value={sc.id}>{sc.label}</option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <div className="px-3 py-2 bg-neutral-800/30 border border-neutral-700/30 rounded text-neutral-500 text-sm">
-                                      Sin subtipos
-                                    </div>
-                                  )}
-                                </div>
-                                <div>
-                                  <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
-                                  <textarea
-                                    value={item.description || ''}
-                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                    placeholder="Descripción opcional"
-                                    rows={2}
-                                    className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })() : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
-                                <input
-                                  type="text"
-                                  value={item.concept}
-                                  onChange={(e) => updateItem(item.id, 'concept', e.target.value)}
-                                  placeholder="Nombre del concepto"
-                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
-                                <textarea
-                                  value={item.description || ''}
-                                  onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                  placeholder="Descripción opcional"
-                                  rows={2}
-                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
-                                />
-                              </div>
-                            </div>
-                          )}
 
-                          {/* Qty / Unit / Price — only for NON-route-based items */}
-                          {!itemIsRouteBased && (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Cantidad:</label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                      <div className="flex items-center gap-3 p-4 pb-0">
+                        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-neutral-700 text-neutral-300 text-sm font-bold">
+                          {index + 1}
+                        </span>
+                        <h3 className="text-white font-semibold text-lg">Concepto personalizado</h3>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="border-t border-cmyk-cyan/20 pt-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">Concepto *</label>
+                              <input type="text" value={item.concept}
+                                onChange={(e) => updateItem(item.id, 'concept', e.target.value)}
+                                placeholder="Nombre del concepto"
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
                               />
                             </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Unidad:</label>
-                              <select
-                                value={item.unit}
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">Descripción</label>
+                              <textarea value={item.description || ''}
+                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                placeholder="Descripción opcional"
+                                rows={1}
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">Cantidad</label>
+                              <input type="number" min="1" value={item.quantity}
+                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-cmyk-cyan text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">Unidad</label>
+                              <select value={item.unit}
                                 onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                                className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
                               >
                                 <option value="pza">pza</option>
                                 <option value="m2">m²</option>
@@ -881,53 +1043,67 @@ export default function EditQuotePage() {
                                 <option value="servicio">servicio</option>
                               </select>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Precio Unit.:</label>
-                              <PriceInput
-                                value={item.unit_price}
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">Precio Unitario</label>
+                              <PriceInput value={item.unit_price}
                                 onChange={(val) => updateItem(item.id, 'unit_price', val)}
-                                className="w-28 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
                               />
                             </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-neutral-500 text-xs">Envío <span className="text-neutral-600">(sin IVA)</span>:</label>
-                              <PriceInput
-                                value={item.shipping_cost}
-                                onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
-                                className="w-24 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
-                              />
-                            </div>
-                            <div className="ml-auto flex items-center gap-3">
-                              <span className="text-white font-medium">
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">Total línea</label>
+                              <div className="px-3 py-2 bg-neutral-900/50 border border-neutral-700/50 rounded-lg text-white font-medium text-right text-sm">
                                 {formatCurrency(item.quantity * item.unit_price)}
-                              </span>
+                              </div>
                             </div>
                           </div>
-                          )}
 
-                          {/* Service Form Toggle & Fields */}
-                          {item.serviceDetails && (
-                            <div className="pt-3 border-t border-neutral-700/50">
-                              <button
-                                type="button"
-                                onClick={() => updateItem(item.id, 'showServiceForm', !item.showServiceForm)}
-                                className="flex items-center gap-2 text-xs font-medium text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors mb-3"
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">
+                                <TruckIcon className="h-3.5 w-3.5 inline mr-1" />Método de entrega
+                              </label>
+                              <select
+                                value={item.lineDeliveryMethod || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value as DeliveryMethod | '';
+                                  updateItem(item.id, 'lineDeliveryMethod', val);
+                                  if (val !== 'shipping' && val !== 'installation') {
+                                    updateItem(item.id, 'shipping_cost', 0);
+                                  }
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
                               >
-                                <WrenchScrewdriverIcon className="h-4 w-4" />
-                                <span>{item.showServiceForm ? 'Ocultar' : 'Mostrar'} detalle de servicio</span>
-                                <svg className={`h-3 w-3 transition-transform ${item.showServiceForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                              {item.showServiceForm && (
-                                <ServiceFormFields
-                                  value={item.serviceDetails}
-                                  onChange={(details) => updateItem(item.id, 'serviceDetails', details)}
-                                  hideRoutePricing
-                                />
-                              )}
+                                <option value="">— Sin especificar —</option>
+                                {(['installation', 'pickup', 'shipping', 'digital', 'not_applicable'] as DeliveryMethod[]).map(m => (
+                                  <option key={m} value={m}>
+                                    {DELIVERY_METHOD_ICONS[m]} {DELIVERY_METHOD_LABELS[m].es}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
-                          )}
+                            {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                              <div>
+                                <label className="block text-neutral-500 text-xs mb-1">
+                                  Costo de envío <span className="text-neutral-600">(sin IVA)</span>
+                                </label>
+                                <PriceInput value={item.shipping_cost}
+                                  onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <label className="block text-neutral-500 text-xs mb-1">
+                                <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha de entrega estimada
+                              </label>
+                              <input type="date" value={item.lineEstimatedDate || ''}
+                                onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
+                                min={today}
+                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -960,139 +1136,22 @@ export default function EditQuotePage() {
                 </div>
                 <div>
                   <label className="block text-neutral-400 text-sm mb-2">Modo de Pago</label>
-                  <div className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white">
+                  <div className="px-4 py-2 bg-neutral-800/50 border border-neutral-700/50 rounded-lg text-neutral-300 text-sm">
                     Pago completo
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-neutral-400 text-sm mb-2">Fecha Estimada de Entrega</label>
-                  <input
-                    type="date"
-                    value={estimatedDeliveryDate}
-                    onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan [color-scheme:dark]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-neutral-400 text-sm mb-2">Condiciones de Pago</label>
-                  <input
-                    type="text"
-                    value={paymentConditions}
-                    onChange={(e) => setPaymentConditions(e.target.value)}
-                    placeholder="Ej: Transferencia, tarjeta"
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                  />
-                </div>
-              </div>
-
-              {/* Delivery Method Section */}
               <div className="mb-4">
-                <label className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
-                  <TruckIcon className="h-4 w-4" />
-                  Método de Entrega
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {availableDeliveryMethods.map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => {
-                        setDeliveryMethod(method);
-                        if (method !== 'pickup') setPickupBranch('');
-                        if (method !== 'shipping' && method !== 'installation') setDeliveryAddress({});
-                      }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
-                        deliveryMethod === method
-                          ? 'border-cmyk-cyan bg-cmyk-cyan/10 text-cmyk-cyan'
-                          : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-600'
-                      }`}
-                    >
-                      <span>{DELIVERY_METHOD_ICONS[method]}</span>
-                      <span>{DELIVERY_METHOD_LABELS[method].es}</span>
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-neutral-400 text-sm mb-2">Condiciones de Pago</label>
+                <input
+                  type="text"
+                  value={paymentConditions}
+                  onChange={(e) => setPaymentConditions(e.target.value)}
+                  placeholder="Ej: Transferencia, tarjeta"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
+                />
               </div>
-
-              {/* Pickup Branch selector */}
-              {deliveryMethod === 'pickup' && (
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
-                    <MapPinIcon className="h-4 w-4" />
-                    Sucursal de Recolección
-                  </label>
-                  <select
-                    value={pickupBranch}
-                    onChange={(e) => setPickupBranch(e.target.value)}
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan"
-                  >
-                    <option value="">Seleccionar sucursal...</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name} — {branch.city}, {branch.state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Delivery Address — shipping or installation */}
-              {(deliveryMethod === 'shipping' || deliveryMethod === 'installation') && (
-                <div className="mb-4 space-y-3">
-                  <label className="flex items-center gap-2 text-neutral-400 text-sm">
-                    <MapPinIcon className="h-4 w-4" />
-                    {deliveryMethod === 'installation' ? 'Dirección de Instalación' : 'Dirección de Envío'}
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={deliveryAddress.street || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, street: e.target.value }))}
-                      placeholder="Calle y número"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.neighborhood || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, neighborhood: e.target.value }))}
-                      placeholder="Colonia"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.city || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, city: e.target.value }))}
-                      placeholder="Ciudad"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.state || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, state: e.target.value }))}
-                      placeholder="Estado"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.postal_code || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, postal_code: e.target.value }))}
-                      placeholder="Código Postal"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                    <input
-                      type="text"
-                      value={deliveryAddress.reference || ''}
-                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, reference: e.target.value }))}
-                      placeholder="Referencia (opcional)"
-                      className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="mb-4">
                 <label className="block text-neutral-400 text-sm mb-2">Términos y Condiciones</label>
@@ -1253,6 +1312,7 @@ export default function EditQuotePage() {
       })}
       subtotal={subtotal}
       taxAmount={taxAmount}
+      shippingTotal={shippingTotal}
       total={total}
     />
 
