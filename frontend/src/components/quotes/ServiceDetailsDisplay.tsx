@@ -132,6 +132,14 @@ export const subtipoLabels: Record<string, string> = {
   'colosio-zocalo': 'Colosio Zócalo',
 };
 
+// Google My Maps embed URLs for predefined publibus routes
+const publibusMapUrls: Record<string, string> = {
+  'zocalo-base':
+    'https://www.google.com/maps/d/embed?mid=1VXvDDqbLCqv54dbwkmtfNs8XKjUxzvo&ll=16.835724183151132%2C-99.87844209999999&z=13',
+  'colosio-zocalo':
+    'https://www.google.com/maps/d/embed?mid=1NrsT2SEvgGKOh7NusgOHD6-NJd4h1GE&ll=16.82830914325928%2C-99.85695&z=13',
+};
+
 interface ServiceDetailsDisplayProps {
   serviceType?: string;
   serviceDetails?: Record<string, unknown>;
@@ -360,11 +368,35 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails, routePrices
 
                 {/* Publibuses: ruta preestablecida */}
                 {subtipo === 'publibuses' && !!ruta.ruta_preestablecida && (
-                  <div className="p-3 bg-neutral-800/50 rounded-lg">
-                    <p className="text-neutral-500 text-xs">Ruta preestablecida</p>
-                    <p className="text-white font-medium">
-                      {subtipoLabels[ruta.ruta_preestablecida as string] || String(ruta.ruta_preestablecida)}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Ruta preestablecida</p>
+                      <p className="text-white font-medium">
+                        {subtipoLabels[ruta.ruta_preestablecida as string] || String(ruta.ruta_preestablecida)}
+                      </p>
+                    </div>
+                    {/* Google My Maps embed for predefined publibus route */}
+                    {publibusMapUrls[ruta.ruta_preestablecida as string] && (
+                      <div className="rounded-xl overflow-hidden border border-cmyk-cyan/30 bg-neutral-900">
+                        <div className="p-2.5 bg-neutral-800/50 border-b border-neutral-700">
+                          <p className="text-xs text-cmyk-cyan font-medium flex items-center gap-2">
+                            <MapPinIcon className="h-3.5 w-3.5" />
+                            {subtipoLabels[ruta.ruta_preestablecida as string] || String(ruta.ruta_preestablecida)}
+                          </p>
+                        </div>
+                        <iframe
+                          src={publibusMapUrls[ruta.ruta_preestablecida as string]}
+                          width="100%"
+                          height="200"
+                          style={{ border: 0, minHeight: '180px' }}
+                          allowFullScreen
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          className="w-full"
+                          title={`Ruta ${subtipoLabels[ruta.ruta_preestablecida as string] || ruta.ruta_preestablecida}`}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
