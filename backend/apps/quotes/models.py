@@ -1651,62 +1651,81 @@ class QuoteChangeRequest(TimeStampedModel):
             elif action == 'modify' and line_id:
                 try:
                     line = QuoteLine.objects.get(id=line_id, quote=quote)
+
+                    # Only update fields the client actually changed.
+                    # The client NEVER sets unit_price at the proposed-line
+                    # level, so we never overwrite the seller's price.
                     if line_data.get('concept'):
                         line.concept = line_data['concept']
                     if line_data.get('description') is not None:
                         line.description = line_data.get('description', '')
-                    if line_data.get('quantity'):
-                        line.quantity = Decimal(str(line_data['quantity']))
+                    # Don't blindly overwrite quantity — the seller controls
+                    # quantities for expanded route lines.
                     if line_data.get('unit'):
                         line.unit = line_data['unit']
-                    if line_data.get('unit_price') is not None:
-                        line.unit_price = Decimal(str(line_data['unit_price']))
+
                     # Apply service_details if provided (routes, dimensions, etc.)
                     if 'service_details' in line_data and line_data['service_details']:
                         new_sd = line_data['service_details']
                         old_sd = line.service_details or {}
 
-                        # Preserve seller route prices: if client sends
-                        # rutas[].precio_unitario == 0 but the existing
-                        # service_details already has prices, keep them.
-                        new_rutas = new_sd.get('rutas') if isinstance(new_sd, dict) else None
-                        old_rutas = old_sd.get('rutas') if isinstance(old_sd, dict) else None
-                        if new_rutas and old_rutas and len(new_rutas) > 0:
-                            for idx, new_r in enumerate(new_rutas):
-                                if isinstance(new_r, dict):
-                                    new_price = new_r.get('precio_unitario', 0)
-                                    # If client didn't send a real price, keep seller's
-                                    if (new_price is None or new_price == 0) and idx < len(old_rutas):
+                        if isinstance(new_sd, dict) and isinstance(old_sd, dict):
+                            # Preserve ALL seller-set route prices & quantities.
+                            new_rutas = new_sd.get('rutas') if isinstance(new_sd.get('rutas'), list) else None
+                            old_rutas = old_sd.get('rutas') if isinstance(old_sd.get('rutas'), list) else None
+                            if new_rutas and old_rutas:
+                                for idx, new_r in enumerate(new_rutas):
+                                    if not isinstance(new_r, dict):
+                                        continue
+                                    if idx < len(old_rutas) and isinstance(old_rutas[idx], dict):
                                         old_r = old_rutas[idx]
-                                        if isinstance(old_r, dict):
-                                            old_price = old_r.get('precio_unitario', 0)
-                                            if old_price and old_price > 0:
-                                                new_r['precio_unitario'] = old_price
-                                            # Also preserve cantidad if client sent 0
-                                            new_qty = new_r.get('cantidad', 0)
-                                            old_qty = old_r.get('cantidad', 0)
-                                            if (new_qty is None or new_qty == 0) and old_qty and old_qty > 0:
-                                                new_r['cantidad'] = old_qty
+                                        # Always keep seller's price (client sends 0)
+                                        old_price = old_r.get('precio_unitario', 0)
+                                        if old_price and old_price > 0:
+                                            new_r['precio_unitario'] = old_price
+                                        # Keep seller's cantidad
+                                        old_qty = old_r.get('cantidad', 0)
+                                        if old_qty and old_qty > 0:
+                                            new_r['cantidad'] = old_qty
 
-                        # Extract delivery fields from service_details
-                        # and apply to top-level QuoteLine fields
-                        if isinstance(new_sd, dict):
-                            sd_delivery = new_sd.get('delivery_method')
-                            if sd_delivery:
-                                line.delivery_method = sd_delivery
-                            sd_address = new_sd.get('delivery_address')
-                            if sd_address:
-                                line.delivery_address = sd_address
-                            sd_date = new_sd.get('required_date')
-                            if sd_date:
-                                line.estimated_delivery_date = sd_date
-                            sd_branch = new_sd.get('pickup_branch')
-                            if sd_branch:
-                                from apps.content.models import Branch
-                                try:
-                                    line.pickup_branch = Branch.objects.get(id=sd_branch)
-                                except (Branch.DoesNotExist, ValueError):
-                                    pass
+                            # Preserve internal route arrays if they exist
+                            # in old_sd but not in new_sd (cleanServiceDetailsForApi
+                            # strips _vallasRoutes etc.)
+                            for rkey in ('_vallasRoutes', '_pubRoutes', '_perifoneoRoutes'):
+                                if rkey in old_sd and rkey not in new_sd:
+                                    new_sd[rkey] = old_sd[rkey]
+
+                            # Determine if this is a publicidad-movil service
+                            svc_type = new_sd.get('service_type') or old_sd.get('service_type') or ''
+                            subtipo = new_sd.get('subtipo') or old_sd.get('subtipo') or ''
+                            is_pub_movil = (svc_type == 'publicidad-movil' and subtipo != 'otro')
+
+                            # Extract delivery fields from service_details
+                            # but NOT for publicidad-movil (they use routes,
+                            # not delivery addresses — except subtipo 'otro')
+                            if not is_pub_movil:
+                                sd_delivery = new_sd.get('delivery_method')
+                                if sd_delivery:
+                                    line.delivery_method = sd_delivery
+                                sd_address = new_sd.get('delivery_address')
+                                if sd_address:
+                                    line.delivery_address = sd_address
+                                sd_date = new_sd.get('required_date')
+                                if sd_date:
+                                    line.estimated_delivery_date = sd_date
+                                sd_branch = new_sd.get('pickup_branch')
+                                if sd_branch:
+                                    from apps.content.models import Branch
+                                    try:
+                                        line.pickup_branch = Branch.objects.get(id=sd_branch)
+                                    except (Branch.DoesNotExist, ValueError):
+                                        pass
+
+                            # Remove transient delivery keys from service_details
+                            # so they don't clutter the stored JSON
+                            for dkey in ('delivery_method', 'delivery_address',
+                                         'pickup_branch', 'required_date'):
+                                new_sd.pop(dkey, None)
 
                         line.service_details = new_sd
                     line.save()  # save() recalculates line_total
@@ -1731,20 +1750,24 @@ class QuoteChangeRequest(TimeStampedModel):
                     position=max_pos + 1,
                     service_details=sd,
                 )
-                # Extract delivery fields from service_details
+                # Extract delivery fields — but not for publicidad-movil
                 if isinstance(sd, dict):
-                    if sd.get('delivery_method'):
-                        create_kwargs['delivery_method'] = sd['delivery_method']
-                    if sd.get('delivery_address'):
-                        create_kwargs['delivery_address'] = sd['delivery_address']
-                    if sd.get('required_date'):
-                        create_kwargs['estimated_delivery_date'] = sd['required_date']
-                    if sd.get('pickup_branch'):
-                        from apps.content.models import Branch
-                        try:
-                            create_kwargs['pickup_branch'] = Branch.objects.get(id=sd['pickup_branch'])
-                        except (Branch.DoesNotExist, ValueError):
-                            pass
+                    svc_type = sd.get('service_type', '')
+                    subtipo = sd.get('subtipo', '')
+                    is_pub_movil = (svc_type == 'publicidad-movil' and subtipo != 'otro')
+                    if not is_pub_movil:
+                        if sd.get('delivery_method'):
+                            create_kwargs['delivery_method'] = sd['delivery_method']
+                        if sd.get('delivery_address'):
+                            create_kwargs['delivery_address'] = sd['delivery_address']
+                        if sd.get('required_date'):
+                            create_kwargs['estimated_delivery_date'] = sd['required_date']
+                        if sd.get('pickup_branch'):
+                            from apps.content.models import Branch
+                            try:
+                                create_kwargs['pickup_branch'] = Branch.objects.get(id=sd['pickup_branch'])
+                            except (Branch.DoesNotExist, ValueError):
+                                pass
                 QuoteLine.objects.create(**create_kwargs)
 
         # Link change request attachments to the quote

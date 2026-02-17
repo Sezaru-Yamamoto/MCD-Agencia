@@ -209,6 +209,10 @@ export default function EditQuotePage() {
                 }
               }
 
+              // Check if this is publicidad-movil (no delivery for route-based pub-movil)
+              const isPubMovilRoutes = serviceType === 'publicidad-movil'
+                && (sd.subtipo as string) !== 'otro';
+
               loadedItems.push({
                 id: line.id || `item-${i}`,
                 concept: conceptText,
@@ -221,13 +225,19 @@ export default function EditQuotePage() {
                 shipping_cost: parseFloat(line.shipping_cost || '0') || 0,
                 serviceDetails: prefillDetails,
                 showServiceForm: true,
-                lineDeliveryMethod: (line.delivery_method as DeliveryMethod) || (sd.delivery_method as DeliveryMethod) || '',
-                lineEstimatedDate: line.estimated_delivery_date || (sd.required_date as string) || '',
-                lineDeliveryAddress: (line.delivery_address && typeof line.delivery_address === 'object' && Object.keys(line.delivery_address).length > 0
-                  ? line.delivery_address
-                  : (sd.delivery_address && typeof sd.delivery_address === 'object' && Object.keys(sd.delivery_address as Record<string,string>).length > 0
-                    ? sd.delivery_address as Record<string, string>
-                    : undefined)) as Record<string, string> | undefined,
+                lineDeliveryMethod: isPubMovilRoutes
+                  ? ''
+                  : ((line.delivery_method as DeliveryMethod) || (sd.delivery_method as DeliveryMethod) || ''),
+                lineEstimatedDate: isPubMovilRoutes
+                  ? ''
+                  : (line.estimated_delivery_date || (sd.required_date as string) || ''),
+                lineDeliveryAddress: isPubMovilRoutes
+                  ? undefined
+                  : ((line.delivery_address && typeof line.delivery_address === 'object' && Object.keys(line.delivery_address).length > 0
+                    ? line.delivery_address
+                    : (sd.delivery_address && typeof sd.delivery_address === 'object' && Object.keys(sd.delivery_address as Record<string,string>).length > 0
+                      ? sd.delivery_address as Record<string, string>
+                      : undefined)) as Record<string, string> | undefined),
               });
               continue;
             }
@@ -876,75 +886,84 @@ export default function EditQuotePage() {
                                       <span className="text-white font-semibold text-sm">{formatCurrency(computeRoutesTotal(sd))}</span>
                                     </div>
 
-                                    {/* Delivery info for route-based items */}
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                      <div>
-                                        <label className="block text-neutral-500 text-xs mb-1">
-                                          <TruckIcon className="h-3.5 w-3.5 inline mr-1" />Método de entrega
-                                        </label>
-                                        <select
-                                          value={item.lineDeliveryMethod || ''}
-                                          onChange={(e) => {
-                                            const val = e.target.value as DeliveryMethod | '';
-                                            updateItem(item.id, 'lineDeliveryMethod', val);
-                                            if (val !== 'shipping' && val !== 'installation') {
-                                              updateItem(item.id, 'shipping_cost', 0);
-                                            }
-                                          }}
-                                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
-                                        >
-                                          <option value="">— Sin especificar —</option>
-                                          {(['installation', 'pickup', 'shipping', 'digital', 'not_applicable'] as DeliveryMethod[]).map(m => (
-                                            <option key={m} value={m}>
-                                              {DELIVERY_METHOD_ICONS[m]} {DELIVERY_METHOD_LABELS[m].es}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                      {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
-                                        <div>
-                                          <label className="block text-neutral-500 text-xs mb-1">
-                                            Costo de envío <span className="text-neutral-600">(sin IVA)</span>
-                                          </label>
-                                          <PriceInput value={item.shipping_cost}
-                                            onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
-                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
-                                          />
-                                        </div>
-                                      )}
-                                      <div>
-                                        <label className="block text-neutral-500 text-xs mb-1">
-                                          <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha requerida
-                                        </label>
-                                        <input type="date" value={item.lineEstimatedDate || ''}
-                                          onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
-                                          min={today}
-                                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
-                                        />
-                                      </div>
-                                    </div>
+                                    {/* Delivery info — NOT for publicidad-movil (they use routes, not delivery) except subtipo 'otro' */}
+                                    {(() => {
+                                      const subtipo = item.serviceDetails?.subtipo as string | undefined;
+                                      const isPubMovil = svcType === 'publicidad-movil' && subtipo !== 'otro';
+                                      if (isPubMovil) return null;
+                                      return (
+                                        <>
+                                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">
+                                                <TruckIcon className="h-3.5 w-3.5 inline mr-1" />Método de entrega
+                                              </label>
+                                              <select
+                                                value={item.lineDeliveryMethod || ''}
+                                                onChange={(e) => {
+                                                  const val = e.target.value as DeliveryMethod | '';
+                                                  updateItem(item.id, 'lineDeliveryMethod', val);
+                                                  if (val !== 'shipping' && val !== 'installation') {
+                                                    updateItem(item.id, 'shipping_cost', 0);
+                                                  }
+                                                }}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm"
+                                              >
+                                                <option value="">— Sin especificar —</option>
+                                                {(['installation', 'pickup', 'shipping', 'digital', 'not_applicable'] as DeliveryMethod[]).map(m => (
+                                                  <option key={m} value={m}>
+                                                    {DELIVERY_METHOD_ICONS[m]} {DELIVERY_METHOD_LABELS[m].es}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            {(item.lineDeliveryMethod === 'installation' || item.lineDeliveryMethod === 'shipping') && (
+                                              <div>
+                                                <label className="block text-neutral-500 text-xs mb-1">
+                                                  Costo de envío <span className="text-neutral-600">(sin IVA)</span>
+                                                </label>
+                                                <PriceInput value={item.shipping_cost}
+                                                  onChange={(val) => updateItem(item.id, 'shipping_cost', val)}
+                                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-right focus:outline-none focus:border-cmyk-cyan text-sm"
+                                                />
+                                              </div>
+                                            )}
+                                            <div>
+                                              <label className="block text-neutral-500 text-xs mb-1">
+                                                <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha requerida
+                                              </label>
+                                              <input type="date" value={item.lineEstimatedDate || ''}
+                                                onChange={(e) => updateItem(item.id, 'lineEstimatedDate', e.target.value)}
+                                                min={today}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                              />
+                                            </div>
+                                          </div>
 
-                                    {/* Delivery address (read-only, from client) */}
-                                    {item.lineDeliveryAddress && Object.keys(item.lineDeliveryAddress).length > 0 && (
-                                      <div className="p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/30">
-                                        <p className="text-neutral-500 text-xs mb-1">
-                                          <MapPinIcon className="h-3.5 w-3.5 inline mr-1" />
-                                          {item.lineDeliveryMethod === 'installation' ? 'Dirección de instalación (del cliente)' : 'Dirección de envío (del cliente)'}
-                                        </p>
-                                        <p className="text-neutral-200 text-sm">
-                                          {[item.lineDeliveryAddress.street || item.lineDeliveryAddress.calle,
-                                            item.lineDeliveryAddress.exterior_number || item.lineDeliveryAddress.numero_exterior,
-                                            item.lineDeliveryAddress.neighborhood || item.lineDeliveryAddress.colonia,
-                                            item.lineDeliveryAddress.city || item.lineDeliveryAddress.ciudad,
-                                            item.lineDeliveryAddress.state || item.lineDeliveryAddress.estado,
-                                            item.lineDeliveryAddress.postal_code || item.lineDeliveryAddress.codigo_postal,
-                                          ].filter(Boolean).join(', ')}
-                                        </p>
-                                        {item.lineDeliveryAddress.references && (
-                                          <p className="text-neutral-500 text-xs mt-1">Ref: {item.lineDeliveryAddress.references}</p>
-                                        )}
-                                      </div>
-                                    )}
+                                          {/* Delivery address (read-only, from client) */}
+                                          {item.lineDeliveryAddress && Object.keys(item.lineDeliveryAddress).length > 0 && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg border border-neutral-700/30">
+                                              <p className="text-neutral-500 text-xs mb-1">
+                                                <MapPinIcon className="h-3.5 w-3.5 inline mr-1" />
+                                                {item.lineDeliveryMethod === 'installation' ? 'Dirección de instalación (del cliente)' : 'Dirección de envío (del cliente)'}
+                                              </p>
+                                              <p className="text-neutral-200 text-sm">
+                                                {[item.lineDeliveryAddress.street || item.lineDeliveryAddress.calle,
+                                                  item.lineDeliveryAddress.exterior_number || item.lineDeliveryAddress.numero_exterior,
+                                                  item.lineDeliveryAddress.neighborhood || item.lineDeliveryAddress.colonia,
+                                                  item.lineDeliveryAddress.city || item.lineDeliveryAddress.ciudad,
+                                                  item.lineDeliveryAddress.state || item.lineDeliveryAddress.estado,
+                                                  item.lineDeliveryAddress.postal_code || item.lineDeliveryAddress.codigo_postal,
+                                                ].filter(Boolean).join(', ')}
+                                              </p>
+                                              {item.lineDeliveryAddress.references && (
+                                                <p className="text-neutral-500 text-xs mt-1">Ref: {item.lineDeliveryAddress.references}</p>
+                                              )}
+                                            </div>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })()}

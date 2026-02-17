@@ -874,6 +874,8 @@ export default function NewQuotePage() {
                             )}
 
                             {/* Delivery method, address, required date — read-only from request */}
+                            {/* Not shown for publicidad-movil (uses routes, not delivery addresses) */}
+                            {svcType !== 'publicidad-movil' && (
                             <div className="grid grid-cols-2 gap-3 text-sm">
                               {svcRef.delivery_method && (
                                 <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
@@ -906,7 +908,7 @@ export default function NewQuotePage() {
                                   </p>
                                 </div>
                               )}
-                              {svcRef.required_date && svcType !== 'publicidad-movil' && (
+                              {svcRef.required_date && (
                                 <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
                                   <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
                                   <p className="text-white font-medium mt-auto">
@@ -917,6 +919,7 @@ export default function NewQuotePage() {
                                 </div>
                               )}
                             </div>
+                            )}
 
                             {/* Per-service attachments */}
                             {svcRef.attachments && svcRef.attachments.length > 0 && (
