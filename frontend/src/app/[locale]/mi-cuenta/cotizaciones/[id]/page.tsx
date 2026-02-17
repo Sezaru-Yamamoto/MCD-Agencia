@@ -1011,24 +1011,24 @@ export default function CustomerQuoteDetailPage() {
         {/* Sidebar */}
         <div className="space-y-4">
           {/* Validity */}
-          <Card className="p-5">
-            <div className="flex items-center gap-2 mb-3">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-2">
               <CalendarDaysIcon className="h-4 w-4 text-cmyk-cyan" />
-              <h3 className="font-semibold text-white">Vigencia</h3>
+              <h3 className="font-semibold text-white text-sm">Vigencia</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div>
-                <p className="text-neutral-500 text-sm">Versión</p>
-                <p className="text-white">v{quote.version}</p>
+                <p className="text-neutral-500 text-xs">Versión</p>
+                <p className="text-white text-sm">v{quote.version}</p>
               </div>
               <div>
-                <p className="text-neutral-500 text-sm">Fecha de emisión</p>
-                <p className="text-white">{formatDate(quote.created_at)}</p>
+                <p className="text-neutral-500 text-xs">Fecha de emisión</p>
+                <p className="text-white text-sm">{formatDate(quote.created_at)}</p>
               </div>
               {quote.valid_until && (
                 <div>
-                  <p className="text-neutral-500 text-sm">Válida hasta</p>
-                  <p className={`font-medium ${quote.is_expired ? 'text-red-400' : 'text-white'}`}>
+                  <p className="text-neutral-500 text-xs">Válida hasta</p>
+                  <p className={`font-medium text-sm ${quote.is_expired ? 'text-red-400' : 'text-white'}`}>
                     {formatDate(quote.valid_until)}
                     {quote.is_expired && ' (Expirada)'}
                   </p>
@@ -1044,20 +1044,20 @@ export default function CustomerQuoteDetailPage() {
           </Card>
 
           {/* Payment */}
-          <Card className="p-5">
-            <div className="flex items-center gap-2 mb-3">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-2">
               <CurrencyDollarIcon className="h-4 w-4 text-cmyk-cyan" />
-              <h3 className="font-semibold text-white">Pago</h3>
+              <h3 className="font-semibold text-white text-sm">Pago</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div>
-                <p className="text-neutral-500 text-sm">Modo de pago</p>
-                <p className="text-white">Pago completo</p>
+                <p className="text-neutral-500 text-xs">Modo de pago</p>
+                <p className="text-white text-sm">Pago completo</p>
               </div>
               {quote.payment_conditions && (
                 <div>
-                  <p className="text-neutral-500 text-sm">Condiciones</p>
-                  <p className="text-neutral-300 text-sm">{quote.payment_conditions}</p>
+                  <p className="text-neutral-500 text-xs">Condiciones</p>
+                  <p className="text-neutral-300 text-xs">{quote.payment_conditions}</p>
                 </div>
               )}
             </div>
@@ -1065,21 +1065,21 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Terms */}
           {quote.terms && (
-            <Card className="p-5">
-              <h3 className="font-semibold text-white mb-3">Términos y Condiciones</h3>
-              <p className="text-neutral-300 text-sm whitespace-pre-wrap">{quote.terms}</p>
+            <Card className="p-4">
+              <h3 className="font-semibold text-white text-sm mb-2">Términos y Condiciones</h3>
+              <p className="text-neutral-300 text-xs whitespace-pre-wrap">{quote.terms}</p>
             </Card>
           )}
 
           {/* Additional Info */}
           {(quote.delivery_method || quote.estimated_delivery_date || quote.included_services) && (
-            <Card className="p-5">
-              <h3 className="font-semibold text-white mb-3">Información Adicional</h3>
-              <div className="space-y-3">
+            <Card className="p-4">
+              <h3 className="font-semibold text-white text-sm mb-2">Información Adicional</h3>
+              <div className="space-y-2">
                 {quote.delivery_method && (
                   <div>
-                    <p className="text-neutral-500 text-sm">Método de Entrega</p>
-                    <p className="text-white text-sm flex items-center gap-2">
+                    <p className="text-neutral-500 text-xs">Método de Entrega</p>
+                    <p className="text-white text-xs flex items-center gap-2">
                       <span>{DELIVERY_METHOD_ICONS[quote.delivery_method as DeliveryMethod]}</span>
                       {DELIVERY_METHOD_LABELS[quote.delivery_method as DeliveryMethod]?.es || quote.delivery_method}
                     </p>
@@ -1087,30 +1087,30 @@ export default function CustomerQuoteDetailPage() {
                 )}
                 {quote.pickup_branch_detail && (
                   <div>
-                    <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                    <p className="text-white text-sm">{quote.pickup_branch_detail.name} — {quote.pickup_branch_detail.city}, {quote.pickup_branch_detail.state}</p>
+                    <p className="text-neutral-500 text-xs">Sucursal de recolección</p>
+                    <p className="text-white text-xs">{quote.pickup_branch_detail.name} — {quote.pickup_branch_detail.city}, {quote.pickup_branch_detail.state}</p>
                   </div>
                 )}
                 {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
                   <div>
-                    <p className="text-neutral-500 text-sm">
+                    <p className="text-neutral-500 text-xs">
                       {quote.delivery_method === 'installation' ? 'Dirección de Instalación' : 'Dirección de Envío'}
                     </p>
-                    <p className="text-white text-sm">
+                    <p className="text-white text-xs">
                       {[quote.delivery_address.street || quote.delivery_address.calle, quote.delivery_address.exterior_number || quote.delivery_address.numero_exterior, quote.delivery_address.neighborhood || quote.delivery_address.colonia, quote.delivery_address.city || quote.delivery_address.ciudad, quote.delivery_address.state || quote.delivery_address.estado, quote.delivery_address.postal_code || quote.delivery_address.codigo_postal].filter(Boolean).join(', ')}
                     </p>
                   </div>
                 )}
                 {quote.estimated_delivery_date && (
                   <div>
-                    <p className="text-neutral-500 text-sm">Fecha Estimada de Entrega</p>
-                    <p className="text-white text-sm">{new Date(quote.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-neutral-500 text-xs">Fecha Estimada de Entrega</p>
+                    <p className="text-white text-xs">{new Date(quote.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   </div>
                 )}
                 {quote.included_services && quote.included_services.length > 0 && (
                   <div>
-                    <p className="text-neutral-500 text-sm">Servicios Incluidos</p>
-                    <ul className="text-white text-sm list-disc list-inside">
+                    <p className="text-neutral-500 text-xs">Servicios Incluidos</p>
+                    <ul className="text-white text-xs list-disc list-inside">
                       {quote.included_services.map((service, index) => (
                         <li key={index}>{service}</li>
                       ))}
@@ -1122,9 +1122,9 @@ export default function CustomerQuoteDetailPage() {
           )}
 
           {/* Actions */}
-          <Card className="p-5">
-            <h3 className="font-semibold text-white mb-3">Acciones</h3>
-            <div className="space-y-3">
+          <Card className="p-4">
+            <h3 className="font-semibold text-white text-sm mb-2">Acciones</h3>
+            <div className="space-y-2">
               {/* Download PDF */}
               {(quote.pdf_file || quote.token) && (
                 <Button
@@ -1330,8 +1330,8 @@ export default function CustomerQuoteDetailPage() {
             const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
             return (
-            <Card className="p-5">
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+            <Card className="p-4">
+              <h3 className="font-semibold text-white text-sm mb-2 flex items-center gap-2">
                 <ClockIcon className="h-4 w-4 text-cmyk-cyan" />
                 Historial
               </h3>
@@ -1534,14 +1534,14 @@ export default function CustomerQuoteDetailPage() {
           })()}
 
           {/* Contact */}
-          <Card className="p-5 bg-cmyk-cyan/5 border-cmyk-cyan/20">
-            <h3 className="font-semibold text-white mb-1">¿Tienes preguntas?</h3>
-            <p className="text-neutral-400 text-sm mb-2">
+          <Card className="p-4 bg-cmyk-cyan/5 border-cmyk-cyan/20">
+            <h3 className="font-semibold text-white text-sm mb-1">¿Tienes preguntas?</h3>
+            <p className="text-neutral-400 text-xs mb-2">
               Contáctanos sobre esta cotización.
             </p>
             <a
               href="mailto:ventas@mcd-agencia.com"
-              className="text-cmyk-cyan hover:underline text-sm"
+              className="text-cmyk-cyan hover:underline text-xs"
             >
               ventas@mcd-agencia.com
             </a>
