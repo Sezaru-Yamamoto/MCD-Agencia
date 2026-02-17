@@ -425,11 +425,11 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Line Items */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Conceptos</h3>
+            <h3 className="text-sm font-semibold text-white mb-3">Conceptos</h3>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-neutral-500 text-sm border-b border-neutral-700">
+                  <tr className="text-left text-neutral-500 text-xs border-b border-neutral-700">
                     <th className="pb-3 pr-4">Concepto</th>
                     <th className="pb-3 pr-4 text-right">Cant.</th>
                     <th className="pb-3 pr-4">Unidad</th>
@@ -440,16 +440,16 @@ export default function CustomerQuoteDetailPage() {
                 <tbody className="divide-y divide-neutral-800">
                   {quote.lines?.map((line, index) => (
                     <tr key={line.id || index}>
-                      <td className="py-3 pr-4">
-                        <p className="text-white font-medium">{line.concept}</p>
+                      <td className="py-2 pr-4">
+                        <p className="text-white font-medium text-sm">{line.concept}</p>
                         {line.description && (
-                          <p className="text-neutral-500 text-sm">{line.description}</p>
+                          <p className="text-neutral-500 text-xs">{line.description}</p>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-right text-white">{line.quantity}</td>
-                      <td className="py-3 pr-4 text-neutral-400">{line.unit}</td>
-                      <td className="py-3 pr-4 text-right text-white">{formatPrice(line.unit_price)}</td>
-                      <td className="py-3 text-right text-white font-medium">{formatPrice(line.line_total)}</td>
+                      <td className="py-2 pr-4 text-right text-white text-sm">{line.quantity}</td>
+                      <td className="py-2 pr-4 text-neutral-400 text-sm">{line.unit}</td>
+                      <td className="py-2 pr-4 text-right text-white text-sm">{formatPrice(line.unit_price)}</td>
+                      <td className="py-2 text-right text-white font-medium text-sm">{formatPrice(line.line_total)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -457,12 +457,12 @@ export default function CustomerQuoteDetailPage() {
             </div>
 
             {/* Totals */}
-            <div className="mt-6 pt-4 border-t border-neutral-700 space-y-2">
-              <div className="flex justify-between text-neutral-400">
+            <div className="mt-4 pt-3 border-t border-neutral-700 space-y-1.5">
+              <div className="flex justify-between text-neutral-400 text-sm">
                 <span>Subtotal</span>
                 <span>{formatPrice(quote.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-neutral-400">
+              <div className="flex justify-between text-neutral-400 text-sm">
                 <span>IVA ({Number(quote.tax_rate) * 100}%)</span>
                 <span>{formatPrice(quote.tax_amount)}</span>
               </div>
@@ -471,13 +471,13 @@ export default function CustomerQuoteDetailPage() {
                   (sum, l) => sum + (parseFloat(l.shipping_cost || '0') || 0), 0
                 ) || 0;
                 return shippingTotal > 0 ? (
-                  <div className="flex justify-between text-neutral-400">
+                  <div className="flex justify-between text-neutral-400 text-sm">
                     <span>Envío</span>
                     <span>{formatPrice(shippingTotal)}</span>
                   </div>
                 ) : null;
               })()}
-              <div className="flex justify-between text-xl font-bold text-white pt-2 border-t border-neutral-700">
+              <div className="flex justify-between text-base font-bold text-white pt-2 border-t border-neutral-700">
                 <span>Total</span>
                 <span className="text-cyan-400">{formatPrice(quote.total)}</span>
               </div>
@@ -1069,83 +1069,6 @@ export default function CustomerQuoteDetailPage() {
             <Card className="p-4">
               <h3 className="font-medium text-white text-xs mb-2">Términos y Condiciones</h3>
               <p className="text-neutral-300 text-xs whitespace-pre-wrap">{quote.terms}</p>
-            </Card>
-          )}
-
-          {/* Additional Info */}
-          {(quote.delivery_method || quote.estimated_delivery_date || quote.included_services || quote.delivery_time_text || quote.payment_conditions || quote.lines?.some((l: QuoteLine) => l.delivery_method || l.estimated_delivery_date)) && (
-            <Card className="p-4">
-              <h3 className="font-medium text-white text-xs mb-2">Información Adicional</h3>
-              <div className="space-y-2">
-                {quote.delivery_method && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Método de Entrega</p>
-                    <p className="text-white text-xs flex items-center gap-2">
-                      <span>{DELIVERY_METHOD_ICONS[quote.delivery_method as DeliveryMethod]}</span>
-                      {DELIVERY_METHOD_LABELS[quote.delivery_method as DeliveryMethod]?.es || quote.delivery_method}
-                    </p>
-                  </div>
-                )}
-                {quote.pickup_branch_detail && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Sucursal de recolección</p>
-                    <p className="text-white text-xs">{quote.pickup_branch_detail.name} — {quote.pickup_branch_detail.city}, {quote.pickup_branch_detail.state}</p>
-                  </div>
-                )}
-                {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">
-                      {quote.delivery_method === 'installation' ? 'Dirección de Instalación' : 'Dirección de Envío'}
-                    </p>
-                    <p className="text-white text-xs">
-                      {[quote.delivery_address.street || quote.delivery_address.calle, quote.delivery_address.exterior_number || quote.delivery_address.numero_exterior, quote.delivery_address.neighborhood || quote.delivery_address.colonia, quote.delivery_address.city || quote.delivery_address.ciudad, quote.delivery_address.state || quote.delivery_address.estado, quote.delivery_address.postal_code || quote.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                    </p>
-                  </div>
-                )}
-                {quote.estimated_delivery_date && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Fecha Estimada de Entrega</p>
-                    <p className="text-white text-xs">{new Date(quote.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  </div>
-                )}
-                {quote.delivery_time_text && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Tiempo de Entrega</p>
-                    <p className="text-white text-xs">{quote.delivery_time_text}</p>
-                  </div>
-                )}
-                {quote.payment_conditions && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Condiciones de Pago</p>
-                    <p className="text-white text-xs">{quote.payment_conditions}</p>
-                  </div>
-                )}
-                {quote.included_services && quote.included_services.length > 0 && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Servicios Incluidos</p>
-                    <ul className="text-white text-xs list-disc list-inside">
-                      {quote.included_services.map((service, index) => (
-                        <li key={index}>{service}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {/* Line-level delivery info when no quote-level delivery is set */}
-                {!quote.delivery_method && quote.lines?.filter((l: QuoteLine) => l.delivery_method).length > 0 && (
-                  <div>
-                    <p className="text-neutral-500 text-xs">Entrega por concepto</p>
-                    <div className="space-y-1 mt-1">
-                      {quote.lines.filter((l: QuoteLine) => l.delivery_method).map((l: QuoteLine, i: number) => (
-                        <p key={i} className="text-white text-xs flex items-center gap-1">
-                          <span>{DELIVERY_METHOD_ICONS[l.delivery_method as DeliveryMethod]}</span>
-                          <span className="text-neutral-400">{l.concept}:</span>{' '}
-                          {DELIVERY_METHOD_LABELS[l.delivery_method as DeliveryMethod]?.es || l.delivery_method}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </Card>
           )}
 
