@@ -892,8 +892,8 @@ export default function CustomerQuoteDetailPage() {
           {vendorAddedLines.length > 0 && (
             <Card className="p-6 border-green-500/20">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <WrenchScrewdriverIcon className="h-5 w-5 text-green-400" />
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <WrenchScrewdriverIcon className="h-4 w-4 text-green-400" />
                   Conceptos Agregados por el Vendedor
                 </h3>
                 <span className="bg-green-500/10 text-green-400 text-xs font-medium px-2.5 py-1 rounded-full border border-green-500/30">
@@ -901,87 +901,127 @@ export default function CustomerQuoteDetailPage() {
                 </span>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {vendorAddedLines.map((line, idx) => {
                   const sd = line.service_details as Record<string, unknown> | undefined;
                   const serviceType = sd?.service_type as string | undefined;
+                  const vendorKey = `vendor-${idx}`;
+                  const isOpen = expandedServices.has(vendorKey);
+                  const conceptLabel = serviceType
+                    ? (SERVICE_LABELS[serviceType as ServiceId] || serviceType)
+                    : line.concept;
 
                   return (
                     <div
                       key={line.id || idx}
-                      className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700/50"
+                      className="rounded-lg border border-neutral-700/50 overflow-hidden"
                     >
-                      {/* Service badge or concept header */}
-                      <div className="flex items-start justify-between gap-4 mb-3">
+                      {/* Accordion header */}
+                      <button
+                        type="button"
+                        onClick={() => toggleService(vendorKey)}
+                        className="w-full flex items-center gap-3 p-4 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
+                      >
+                        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-500/20 text-green-400 text-sm font-bold flex-shrink-0">
+                          {idx + 1}
+                        </span>
                         <div className="flex-1 min-w-0">
-                          {serviceType && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/30 mb-2">
-                              {SERVICE_LABELS[serviceType as ServiceId] || serviceType}
-                            </span>
+                          <p className="text-white font-semibold text-sm truncate">{conceptLabel}</p>
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            {line.estimated_delivery_date && (
+                              <span className="text-neutral-400 text-xs flex items-center gap-1">
+                                <CalendarIcon className="h-3 w-3" />
+                                {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                            <span className="text-green-400 text-xs font-medium">{formatPrice(line.line_total)}</span>
+                            {line.delivery_method && (
+                              <span className="text-neutral-500 text-xs flex items-center gap-1">
+                                <span className="text-xs">{DELIVERY_METHOD_ICONS[line.delivery_method as DeliveryMethod]}</span>
+                                {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronDownIcon className={`h-5 w-5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Accordion content */}
+                      {isOpen && (
+                        <div className="p-4 border-t border-neutral-700 space-y-3">
+                          {/* Concept & pricing details */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              {serviceType && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/30 mb-2">
+                                  {SERVICE_LABELS[serviceType as ServiceId] || serviceType}
+                                </span>
+                              )}
+                              <p className="text-white font-medium">{line.concept}</p>
+                              {line.description && (
+                                <p className="text-neutral-400 text-sm mt-1">{line.description}</p>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-white font-semibold">{formatPrice(line.line_total)}</p>
+                              <p className="text-neutral-500 text-xs">
+                                {line.quantity} {line.unit} × {formatPrice(line.unit_price)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Service Details */}
+                          {sd && Object.keys(sd).length > 0 && serviceType && (
+                            <div>
+                              <ServiceDetailsDisplay
+                                serviceType={serviceType}
+                                serviceDetails={sd}
+                              />
+                            </div>
                           )}
-                          <p className="text-white font-medium">{line.concept}</p>
-                          {line.description && (
-                            <p className="text-neutral-400 text-sm mt-1">{line.description}</p>
+
+                          {/* Delivery info */}
+                          {line.delivery_method && (
+                            <div className="flex items-center gap-2 text-sm text-neutral-300">
+                              {line.delivery_method === 'shipping' && <TruckIcon className="h-4 w-4 text-neutral-400" />}
+                              {line.delivery_method === 'pickup' && <MapPinIcon className="h-4 w-4 text-neutral-400" />}
+                              {line.delivery_method === 'installation' && <WrenchScrewdriverIcon className="h-4 w-4 text-neutral-400" />}
+                              <span>{DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}</span>
+                              {line.pickup_branch_detail && (
+                                <span className="text-neutral-500">
+                                  — {line.pickup_branch_detail.name}, {line.pickup_branch_detail.city}
+                                </span>
+                              )}
+                            </div>
                           )}
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-white font-semibold">{formatPrice(line.line_total)}</p>
-                          <p className="text-neutral-500 text-xs">
-                            {line.quantity} {line.unit} × {formatPrice(line.unit_price)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Service Details */}
-                      {sd && Object.keys(sd).length > 0 && serviceType && (
-                        <div className="mb-3">
-                          <ServiceDetailsDisplay
-                            serviceType={serviceType}
-                            serviceDetails={sd}
-                          />
-                        </div>
-                      )}
-
-                      {/* Delivery info */}
-                      {line.delivery_method && (
-                        <div className="flex items-center gap-2 text-sm text-neutral-300 mt-2">
-                          {line.delivery_method === 'shipping' && <TruckIcon className="h-4 w-4 text-neutral-400" />}
-                          {line.delivery_method === 'pickup' && <MapPinIcon className="h-4 w-4 text-neutral-400" />}
-                          {line.delivery_method === 'installation' && <WrenchScrewdriverIcon className="h-4 w-4 text-neutral-400" />}
-                          <span>{DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}</span>
-                          {line.pickup_branch_detail && (
-                            <span className="text-neutral-500">
-                              — {line.pickup_branch_detail.name}, {line.pickup_branch_detail.city}
-                            </span>
+                          {line.delivery_address && typeof line.delivery_address === 'object' && Object.keys(line.delivery_address).length > 0 && (
+                            <p className="text-neutral-400 text-xs">
+                              {[line.delivery_address.street || line.delivery_address.calle, line.delivery_address.exterior_number || line.delivery_address.numero_exterior, line.delivery_address.neighborhood || line.delivery_address.colonia, line.delivery_address.city || line.delivery_address.ciudad, line.delivery_address.state || line.delivery_address.estado, line.delivery_address.postal_code || line.delivery_address.codigo_postal].filter(Boolean).join(', ')}
+                            </p>
                           )}
-                        </div>
-                      )}
-                      {line.delivery_address && typeof line.delivery_address === 'object' && Object.keys(line.delivery_address).length > 0 && (
-                        <p className="text-neutral-400 text-xs mt-1">
-                          {[line.delivery_address.street || line.delivery_address.calle, line.delivery_address.exterior_number || line.delivery_address.numero_exterior, line.delivery_address.neighborhood || line.delivery_address.colonia, line.delivery_address.city || line.delivery_address.ciudad, line.delivery_address.state || line.delivery_address.estado, line.delivery_address.postal_code || line.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                        </p>
-                      )}
 
-                      {/* Estimated delivery date */}
-                      {line.estimated_delivery_date && (
-                        <div className="flex items-center gap-2 text-sm text-neutral-300 mt-2">
-                          <CalendarIcon className="h-4 w-4 text-neutral-400" />
-                          <span>
-                            Entrega estimada:{' '}
-                            {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                          </span>
-                        </div>
-                      )}
+                          {/* Estimated delivery date */}
+                          {line.estimated_delivery_date && (
+                            <div className="flex items-center gap-2 text-sm text-neutral-300">
+                              <CalendarIcon className="h-4 w-4 text-neutral-400" />
+                              <span>
+                                Entrega estimada:{' '}
+                                {new Date(line.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                          )}
 
-                      {/* Shipping cost */}
-                      {parseFloat(line.shipping_cost || '0') > 0 && (
-                        <div className="flex items-center gap-2 text-sm text-neutral-300 mt-2">
-                          <TruckIcon className="h-4 w-4 text-neutral-400" />
-                          <span>Envío: {formatPrice(line.shipping_cost || '0')}</span>
+                          {/* Shipping cost */}
+                          {parseFloat(line.shipping_cost || '0') > 0 && (
+                            <div className="flex items-center gap-2 text-sm text-neutral-300">
+                              <TruckIcon className="h-4 w-4 text-neutral-400" />
+                              <span>Envío: {formatPrice(line.shipping_cost || '0')}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
