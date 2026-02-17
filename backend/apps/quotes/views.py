@@ -658,6 +658,12 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        if quote.version <= 1:
+            return Response(
+                {'error': _('Initial quotes cannot be edited. Use the new quote page instead.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         before_state = QuoteAdminSerializer(quote).data
 
         # Separate lines from the rest of the data

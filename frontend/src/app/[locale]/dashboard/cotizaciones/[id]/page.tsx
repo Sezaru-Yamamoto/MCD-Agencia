@@ -1949,22 +1949,24 @@ export default function QuoteDetailPage() {
               <Card className="p-5">
                 <h3 className="text-sm font-semibold text-white mb-3">Acciones</h3>
                 <div className="space-y-2">
-                  {quote.status === 'draft' && (
+                  {quote.status === 'draft' && quote.version > 1 && (
                     <>
                       <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`} className="block">
                         <Button variant="outline" leftIcon={<PencilIcon className="h-4 w-4" />} className="w-full justify-center">
                           Editar
                         </Button>
                       </Link>
-                      <Button
-                        onClick={() => setShowSendConfirm(true)}
-                        disabled={isSending}
-                        leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
-                        className="w-full justify-center"
-                      >
-                        {isSending ? 'Enviando...' : 'Enviar al cliente'}
-                      </Button>
                     </>
+                  )}
+                  {quote.status === 'draft' && (
+                    <Button
+                      onClick={() => setShowSendConfirm(true)}
+                      disabled={isSending}
+                      leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+                      className="w-full justify-center"
+                    >
+                      {isSending ? 'Enviando...' : 'Enviar al cliente'}
+                    </Button>
                   )}
                   {quote.status === 'changes_requested' && (() => {
                     const pendingCRs = changeRequests.filter(cr => cr.status === 'pending');
@@ -1987,11 +1989,6 @@ export default function QuoteDetailPage() {
                             </Button>
                           </Link>
                         ))}
-                        <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`} className="block">
-                          <Button variant="outline" leftIcon={<PencilIcon className="h-4 w-4" />} className="w-full justify-center">
-                            Editar Cotización
-                          </Button>
-                        </Link>
                       </>
                     );
                   })()}

@@ -332,7 +332,7 @@ export default function QuotesListPage() {
                           >
                             <EyeIcon className="h-5 w-5" />
                           </Link>
-                          {quote.status === 'draft' && (
+                          {quote.status === 'draft' && quote.version > 1 && (
                             <Link
                               href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`}
                               title="Editar"

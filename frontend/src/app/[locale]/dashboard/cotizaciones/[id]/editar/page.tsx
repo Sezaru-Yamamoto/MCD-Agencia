@@ -102,9 +102,9 @@ export default function EditQuotePage() {
     try {
       const quote = await getAdminQuoteById(quoteId);
 
-      // Only allow editing drafts
-      if (quote.status !== 'draft') {
-        toast.error('Solo se pueden editar cotizaciones en borrador');
+      // Only allow editing drafts v2+ (after a change request has been approved)
+      if (quote.status !== 'draft' || quote.version <= 1) {
+        toast.error('Solo se pueden editar cotizaciones con solicitud de cambios aprobada');
         router.push(`/${locale}/dashboard/cotizaciones/${quoteId}`);
         return;
       }
