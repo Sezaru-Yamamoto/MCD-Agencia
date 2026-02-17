@@ -902,6 +902,25 @@ export function buildServiceEditData(opts: {
     }
   }
 
+  // ── Normalize delivery address keys (backend stores English keys) ──
+  const rawAddr = opts.deliveryAddress || {};
+  const normalizedAddr: Record<string, string> = {};
+  if (Object.keys(rawAddr).length > 0) {
+    // Map English keys → Spanish keys (the frontend uses Spanish keys everywhere)
+    const engToSpa: Record<string, string> = {
+      street: 'calle', exterior_number: 'numero_exterior',
+      interior_number: 'numero_interior', neighborhood: 'colonia',
+      city: 'ciudad', state: 'estado',
+      postal_code: 'codigo_postal', reference: 'referencia',
+    };
+    for (const [k, v] of Object.entries(rawAddr)) {
+      const spanishKey = engToSpa[k] || k; // if already Spanish, keep as-is
+      if (!normalizedAddr[spanishKey]) {
+        normalizedAddr[spanishKey] = v || '';
+      }
+    }
+  }
+
   return {
     serviceType,
     details: {
@@ -909,7 +928,7 @@ export function buildServiceEditData(opts: {
       ...sd,
     } as ServiceDetailsData,
     deliveryMethod: (opts.deliveryMethod || '') as DeliveryMethod | '',
-    deliveryAddress: opts.deliveryAddress || {},
+    deliveryAddress: normalizedAddr,
     pickupBranch: opts.pickupBranch || '',
     requiredDate: opts.requiredDate || '',
     comments: opts.comments || '',
