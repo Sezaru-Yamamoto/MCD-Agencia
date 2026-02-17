@@ -788,10 +788,15 @@ export default function EditQuotePage() {
 
                                 if (!routes || routes.length === 0) return null;
 
-                                const updateRouteField = (routeIdx: number, field: string, value: unknown) => {
-                                  const updatedRoutes = [...routes];
-                                  updatedRoutes[routeIdx] = { ...updatedRoutes[routeIdx], [field]: value };
-                                  updateItem(item.id, 'serviceDetails', { ...sd, [routeArrayKey!]: updatedRoutes });
+                                // Use functional updater to read latest state (avoids stale closure with batched updates)
+                                const updateRouteField = (routeIdx: number, field: string, val: unknown) => {
+                                  setItems(prev => prev.map(prevItem => {
+                                    if (prevItem.id !== item.id) return prevItem;
+                                    const latestSd = prevItem.serviceDetails!;
+                                    const latestRoutes = [...(latestSd[routeArrayKey!] as Array<ConfigurableRouteEntry | EstablishedRouteEntry>)];
+                                    latestRoutes[routeIdx] = { ...latestRoutes[routeIdx], [field]: val };
+                                    return { ...prevItem, serviceDetails: { ...latestSd, [routeArrayKey!]: latestRoutes } };
+                                  }));
                                 };
 
                                 return (
