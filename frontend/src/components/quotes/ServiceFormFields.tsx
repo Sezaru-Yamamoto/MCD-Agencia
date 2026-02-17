@@ -524,38 +524,6 @@ export function ServiceFormFields({
   /* ── Skip sync on initial mount ────────────────────────────── */
   const isInitialMount = useRef(true);
 
-  /* ── Sync route state from parent when pricing is managed externally ── */
-  // When hideRoutePricing is true, the parent manages route prices.
-  // Keep internal route state in sync so any subsequent onChange from this
-  // component doesn't overwrite the parent's price changes with stale data.
-  const prevPropsRoutesRef = useRef<{
-    vallas: ConfigurableRouteEntry[] | undefined;
-    pub: EstablishedRouteEntry[] | undefined;
-    perifoneo: ConfigurableRouteEntry[] | undefined;
-  }>({
-    vallas: value._vallasRoutes as ConfigurableRouteEntry[] | undefined,
-    pub: value._pubRoutes as EstablishedRouteEntry[] | undefined,
-    perifoneo: value._perifoneoRoutes as ConfigurableRouteEntry[] | undefined,
-  });
-
-  useEffect(() => {
-    if (!hideRoutePricing) return;
-    const propVallas = value._vallasRoutes as ConfigurableRouteEntry[] | undefined;
-    const propPub = value._pubRoutes as EstablishedRouteEntry[] | undefined;
-    const propPerifoneo = value._perifoneoRoutes as ConfigurableRouteEntry[] | undefined;
-
-    if (propVallas && propVallas !== prevPropsRoutesRef.current.vallas) {
-      setVallasRoutes(propVallas);
-    }
-    if (propPub && propPub !== prevPropsRoutesRef.current.pub) {
-      setPubRoutes(propPub);
-    }
-    if (propPerifoneo && propPerifoneo !== prevPropsRoutesRef.current.perifoneo) {
-      setPerifoneoRoutes(propPerifoneo);
-    }
-    prevPropsRoutesRef.current = { vallas: propVallas, pub: propPub, perifoneo: propPerifoneo };
-  }, [hideRoutePricing, value._vallasRoutes, value._pubRoutes, value._perifoneoRoutes]);
-
   /* ── Sync route state → parent ─────────────────────────────── */
   useEffect(() => {
     // Skip initial mount — the route state was just initialized from props
@@ -567,10 +535,22 @@ export function ServiceFormFields({
     if (serviceType !== 'publicidad-movil') return;
 
     if (subtipo === 'vallas-moviles') {
+      // When pricing is managed externally (hideRoutePricing), preserve prices
+      // from parent props to avoid overwriting vendor-set prices with stale
+      // internal state values.
+      const propRoutes = hideRoutePricing
+        ? (value._vallasRoutes as ConfigurableRouteEntry[] | undefined)
+        : undefined;
+      const mergedRoutes = vallasRoutes.map((r, i) =>
+        propRoutes?.[i]
+          ? { ...r, unit_price: propRoutes[i].unit_price, cantidad: propRoutes[i].cantidad }
+          : r
+      );
+
       onChange({
         ...value,
-        _vallasRoutes: vallasRoutes,
-        rutas: vallasRoutes.map((r, i) => ({
+        _vallasRoutes: mergedRoutes,
+        rutas: mergedRoutes.map((r, i) => ({
           numero: i + 1,
           fecha_inicio: r.fechaInicio || null,
           fecha_fin: r.fechaFin || null,
@@ -592,10 +572,19 @@ export function ServiceFormFields({
       });
     } else if (subtipo === 'publibuses') {
       const meses = value.meses_campana as number | undefined;
+      const propRoutes = hideRoutePricing
+        ? (value._pubRoutes as EstablishedRouteEntry[] | undefined)
+        : undefined;
+      const mergedRoutes = pubRoutes.map((r, i) =>
+        propRoutes?.[i]
+          ? { ...r, unit_price: propRoutes[i].unit_price, cantidad: propRoutes[i].cantidad }
+          : r
+      );
+
       onChange({
         ...value,
-        _pubRoutes: pubRoutes,
-        rutas: pubRoutes.map((r, i) => ({
+        _pubRoutes: mergedRoutes,
+        rutas: mergedRoutes.map((r, i) => ({
           numero: i + 1,
           ruta_preestablecida: r.ruta || null,
           fecha_inicio: r.fechaInicio || null,
@@ -609,10 +598,19 @@ export function ServiceFormFields({
         })),
       });
     } else if (subtipo === 'perifoneo') {
+      const propRoutes = hideRoutePricing
+        ? (value._perifoneoRoutes as ConfigurableRouteEntry[] | undefined)
+        : undefined;
+      const mergedRoutes = perifoneoRoutes.map((r, i) =>
+        propRoutes?.[i]
+          ? { ...r, unit_price: propRoutes[i].unit_price, cantidad: propRoutes[i].cantidad }
+          : r
+      );
+
       onChange({
         ...value,
-        _perifoneoRoutes: perifoneoRoutes,
-        rutas: perifoneoRoutes.map((r, i) => ({
+        _perifoneoRoutes: mergedRoutes,
+        rutas: mergedRoutes.map((r, i) => ({
           numero: i + 1,
           fecha_inicio: r.fechaInicio || null,
           fecha_fin: r.fechaFin || null,
