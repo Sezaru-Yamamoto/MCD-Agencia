@@ -11,6 +11,7 @@ import {
   CalendarDaysIcon,
   PaperClipIcon,
   ChatBubbleLeftIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 import { ServiceFormFields, type ServiceDetailsData, cleanServiceDetailsForApi, type ConfigurableRouteEntry, type EstablishedRouteEntry } from './ServiceFormFields';
@@ -53,6 +54,131 @@ const getMinDateForService = (service: string): string => {
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.ai', '.cdr', '.dxf', '.svg', '.mp3', '.wav', '.ogg', '.m4a'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/* ---------- validation ---------- */
+
+/**
+ * Validate a ServiceEditData object. Returns an array of human-readable error messages.
+ * Empty array = valid.
+ */
+export function validateServiceEditData(
+  data: ServiceEditData,
+  opts?: { useNewAddress?: boolean; selectedAddressId?: string; savedAddressCount?: number }
+): string[] {
+  const errors: string[] = [];
+  const st = data.serviceType;
+  const d = data.details;
+  const subtipo = d.subtipo as string | undefined;
+
+  // 1. Service type is always required
+  if (!st) {
+    errors.push('Selecciona un tipo de servicio.');
+    return errors; // can't validate further
+  }
+
+  // 2. Service-specific required fields
+  if (st === 'espectaculares' && !d.tipo) {
+    errors.push('Selecciona el tipo de espectacular.');
+  }
+  if (st === 'fabricacion-anuncios' && !d.tipo_anuncio) {
+    errors.push('Selecciona el tipo de anuncio.');
+  }
+  if (st === 'publicidad-movil') {
+    if (!subtipo) {
+      errors.push('Selecciona el subtipo de publicidad móvil.');
+    } else if (['vallas-moviles', 'publibuses', 'perifoneo'].includes(subtipo)) {
+      // Route-based: check that at least the existing routes have basic data
+      const rutas = d.rutas as unknown[] | undefined;
+      const internalVallas = d._vallasRoutes as ConfigurableRouteEntry[] | undefined;
+      const internalPub = d._pubRoutes as EstablishedRouteEntry[] | undefined;
+      const internalPeri = d._perifoneoRoutes as ConfigurableRouteEntry[] | undefined;
+
+      if (subtipo === 'vallas-moviles') {
+        const routes = internalVallas || [];
+        if (routes.length === 0 && (!rutas || rutas.length === 0)) {
+          errors.push('Agrega al menos una ruta para vallas móviles.');
+        } else {
+          routes.forEach((r, i) => {
+            if (!r.fechaInicio) errors.push(`Ruta ${i + 1}: falta la fecha de inicio.`);
+            if (!r.fechaFin) errors.push(`Ruta ${i + 1}: falta la fecha de fin.`);
+          });
+        }
+      } else if (subtipo === 'publibuses') {
+        const routes = internalPub || [];
+        if (routes.length === 0 && (!rutas || rutas.length === 0)) {
+          errors.push('Agrega al menos una ruta para publibuses.');
+        } else {
+          routes.forEach((r, i) => {
+            if (!r.ruta) errors.push(`Ruta ${i + 1}: selecciona una ruta preestablecida.`);
+            if (!r.fechaInicio) errors.push(`Ruta ${i + 1}: falta la fecha de inicio.`);
+          });
+        }
+      } else if (subtipo === 'perifoneo') {
+        const routes = internalPeri || [];
+        if (routes.length === 0 && (!rutas || rutas.length === 0)) {
+          errors.push('Agrega al menos una ruta para perifoneo.');
+        } else {
+          routes.forEach((r, i) => {
+            if (!r.fechaInicio) errors.push(`Ruta ${i + 1}: falta la fecha de inicio.`);
+            if (!r.fechaFin) errors.push(`Ruta ${i + 1}: falta la fecha de fin.`);
+          });
+        }
+      }
+    }
+  }
+  if (st === 'impresion-gran-formato' && !d.material) {
+    errors.push('Selecciona el material de impresión.');
+  }
+  if (st === 'senalizacion' && !d.tipo_senalizacion) {
+    errors.push('Selecciona el tipo de señalización.');
+  }
+  if (st === 'rotulacion-vehicular' && !d.tipo_rotulacion) {
+    errors.push('Selecciona el tipo de rotulación.');
+  }
+  if (st === 'corte-grabado-cnc-laser' && !d.tipo_proceso) {
+    errors.push('Selecciona el tipo de proceso CNC/Láser.');
+  }
+  if (st === 'diseno-grafico' && !d.tipo_diseno) {
+    errors.push('Selecciona el tipo de diseño gráfico.');
+  }
+  if (st === 'impresion-offset-serigrafia' && !d.producto) {
+    errors.push('Selecciona el tipo de producto de impresión.');
+  }
+
+  // 3. Delivery method validation (skip for not_applicable services)
+  const methods = getDeliveryMethodsForService(st, subtipo);
+  const isSingleNA = methods.length === 1 && methods[0] === 'not_applicable';
+  if (!isSingleNA) {
+    if (!data.deliveryMethod) {
+      errors.push('Selecciona un método de entrega.');
+    } else if (data.deliveryMethod === 'installation' || data.deliveryMethod === 'shipping') {
+      // Check address
+      const useNew = opts?.useNewAddress ?? true;
+      const hasSavedSelected = !useNew && !!(opts?.selectedAddressId) && (opts?.savedAddressCount ?? 0) > 0;
+      if (!hasSavedSelected) {
+        // Validate manual address fields
+        const addr = data.deliveryAddress;
+        if (!addr.calle?.trim()) errors.push('Ingresa la calle de la dirección de entrega.');
+        if (!addr.numero_exterior?.trim()) errors.push('Ingresa el número exterior.');
+        if (!addr.colonia?.trim()) errors.push('Ingresa la colonia.');
+        if (!addr.ciudad?.trim()) errors.push('Ingresa la ciudad.');
+        if (!addr.estado?.trim()) errors.push('Ingresa el estado.');
+        if (!addr.codigo_postal?.trim()) errors.push('Ingresa el código postal.');
+      }
+    } else if (data.deliveryMethod === 'pickup' && !data.pickupBranch) {
+      errors.push('Selecciona una sucursal para recoger.');
+    }
+  }
+
+  // 4. Required date (non-route-based services)
+  const isRouteBasedPM = st === 'publicidad-movil' &&
+    ['vallas-moviles', 'publibuses', 'perifoneo'].includes(subtipo || '');
+  if (!isRouteBasedPM && !data.requiredDate) {
+    errors.push('Selecciona una fecha requerida.');
+  }
+
+  return errors;
+}
 
 /* ---------- types ---------- */
 
@@ -136,6 +262,7 @@ export function InlineServiceEditor({
     }
   }, [initial]);
   const [isDragging, setIsDragging] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ---- fetch branches on mount ---- */
@@ -604,11 +731,26 @@ export function InlineServiceEditor({
         </div>
       </div>
 
+      {/* ---- Validation errors ---- */}
+      {validationErrors.length > 0 && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 space-y-1">
+          <p className="text-sm font-semibold text-red-400 flex items-center gap-2">
+            <ExclamationTriangleIcon className="h-4 w-4" />
+            Corrige los siguientes errores:
+          </p>
+          <ul className="list-disc list-inside space-y-0.5">
+            {validationErrors.map((err, i) => (
+              <li key={i} className="text-sm text-red-300">{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* ---- Action buttons ---- */}
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-neutral-700">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={() => { setValidationErrors([]); onCancel(); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700 border border-neutral-600 transition-colors"
         >
           <XMarkIcon className="h-4 w-4" />
@@ -617,7 +759,7 @@ export function InlineServiceEditor({
         <button
           type="button"
           onClick={() => {
-            // If using a saved address, resolve it into deliveryAddress before saving
+            // Resolve saved address before validation
             const resolvedData = { ...data };
             if (
               (data.deliveryMethod === 'installation' || data.deliveryMethod === 'shipping') &&
@@ -637,6 +779,18 @@ export function InlineServiceEditor({
                 };
               }
             }
+
+            // Validate before saving
+            const errs = validateServiceEditData(resolvedData, {
+              useNewAddress,
+              selectedAddressId,
+              savedAddressCount: savedAddresses.length,
+            });
+            if (errs.length > 0) {
+              setValidationErrors(errs);
+              return;
+            }
+            setValidationErrors([]);
             onSave(resolvedData);
           }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white bg-cmyk-cyan hover:bg-cmyk-cyan/80 transition-colors"

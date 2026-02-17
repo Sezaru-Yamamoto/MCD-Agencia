@@ -54,7 +54,7 @@ import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod, SER
 import SignaturePad from '@/components/ui/SignaturePad';
 import QuoteChangeEditor from '@/components/quotes/QuoteChangeEditor';
 import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
-import { InlineServiceEditor, buildServiceEditData, type ServiceEditData } from '@/components/quotes/InlineServiceEditor';
+import { InlineServiceEditor, buildServiceEditData, validateServiceEditData, type ServiceEditData } from '@/components/quotes/InlineServiceEditor';
 import { cleanServiceDetailsForApi } from '@/components/quotes/ServiceFormFields';
 
 export default function CustomerQuoteDetailPage() {
@@ -447,6 +447,20 @@ export default function CustomerQuoteDetailPage() {
     setIsSubmitting(true);
 
     try {
+      // ── Pre-submit validation: ensure all non-deleted services are valid ──
+      for (const [key, svcData] of Object.entries(editDataMap)) {
+        if (deletedServiceKeys.has(key)) continue;
+        const errs = validateServiceEditData(svcData);
+        if (errs.length > 0) {
+          const svcLabel = svcData.serviceType
+            ? (SERVICE_LABELS[svcData.serviceType as keyof typeof SERVICE_LABELS] || svcData.serviceType)
+            : key;
+          toast.error(`${svcLabel}: ${errs[0]}`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const proposed_lines: ProposedLine[] = [];
       const initialMap = buildInitialEditMap();
 
