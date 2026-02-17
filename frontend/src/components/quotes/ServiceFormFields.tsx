@@ -512,7 +512,7 @@ export function ServiceFormFields({
 
   /* ── Helpers ─────────────────────────────────────────────────── */
   const set = (key: string, v: unknown) => {
-    onChange({ ...value, [key]: v });
+    onChangeRef.current({ ...valueRef.current, [key]: v });
   };
 
   const formatCurrency = (n: number) =>
@@ -520,6 +520,12 @@ export function ServiceFormFields({
       style: 'currency',
       currency: 'MXN',
     }).format(n);
+
+  /* ── Keep latest value & onChange accessible inside effects ── */
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   /* ── Skip sync on initial mount ────────────────────────────── */
   const isInitialMount = useRef(true);
@@ -531,7 +537,11 @@ export function ServiceFormFields({
       isInitialMount.current = false;
       return;
     }
-    const subtipo = value.subtipo as string | undefined;
+    // Always read latest value & onChange from refs to avoid stale closures
+    const val = valueRef.current;
+    const fire = onChangeRef.current;
+
+    const subtipo = val.subtipo as string | undefined;
     if (serviceType !== 'publicidad-movil') return;
 
     if (subtipo === 'vallas-moviles') {
@@ -539,7 +549,7 @@ export function ServiceFormFields({
       // from parent props to avoid overwriting vendor-set prices with stale
       // internal state values.
       const propRoutes = hideRoutePricing
-        ? (value._vallasRoutes as ConfigurableRouteEntry[] | undefined)
+        ? (val._vallasRoutes as ConfigurableRouteEntry[] | undefined)
         : undefined;
       const mergedRoutes = vallasRoutes.map((r, i) =>
         propRoutes?.[i]
@@ -547,8 +557,8 @@ export function ServiceFormFields({
           : r
       );
 
-      onChange({
-        ...value,
+      fire({
+        ...val,
         _vallasRoutes: mergedRoutes,
         rutas: mergedRoutes.map((r, i) => ({
           numero: i + 1,
@@ -571,9 +581,9 @@ export function ServiceFormFields({
         })),
       });
     } else if (subtipo === 'publibuses') {
-      const meses = value.meses_campana as number | undefined;
+      const meses = val.meses_campana as number | undefined;
       const propRoutes = hideRoutePricing
-        ? (value._pubRoutes as EstablishedRouteEntry[] | undefined)
+        ? (val._pubRoutes as EstablishedRouteEntry[] | undefined)
         : undefined;
       const mergedRoutes = pubRoutes.map((r, i) =>
         propRoutes?.[i]
@@ -581,8 +591,8 @@ export function ServiceFormFields({
           : r
       );
 
-      onChange({
-        ...value,
+      fire({
+        ...val,
         _pubRoutes: mergedRoutes,
         rutas: mergedRoutes.map((r, i) => ({
           numero: i + 1,
@@ -599,7 +609,7 @@ export function ServiceFormFields({
       });
     } else if (subtipo === 'perifoneo') {
       const propRoutes = hideRoutePricing
-        ? (value._perifoneoRoutes as ConfigurableRouteEntry[] | undefined)
+        ? (val._perifoneoRoutes as ConfigurableRouteEntry[] | undefined)
         : undefined;
       const mergedRoutes = perifoneoRoutes.map((r, i) =>
         propRoutes?.[i]
@@ -607,8 +617,8 @@ export function ServiceFormFields({
           : r
       );
 
-      onChange({
-        ...value,
+      fire({
+        ...val,
         _perifoneoRoutes: mergedRoutes,
         rutas: mergedRoutes.map((r, i) => ({
           numero: i + 1,
