@@ -667,6 +667,10 @@ export default function QuoteDetailPage() {
                             <ServiceDetailsDisplay
                               serviceType={quote.quote_request.service_type}
                               serviceDetails={quote.quote_request.service_details as Record<string, unknown>}
+                              routePrices={matchedLines && matchedLines.length > 1
+                                ? matchedLines.reduce((acc, ml, mlIdx) => ({ ...acc, [mlIdx]: formatCurrency(ml.line_total) }), {} as Record<number, string>)
+                                : undefined
+                              }
                             />
                           )}
                           {(!quote.quote_request.service_details || Object.keys(quote.quote_request.service_details).length === 0) && (
@@ -824,6 +828,10 @@ export default function QuoteDetailPage() {
                                 <ServiceDetailsDisplay
                                   serviceType={svc.service_type}
                                   serviceDetails={svc.service_details as Record<string, unknown>}
+                                  routePrices={matchedLines && matchedLines.length > 1
+                                    ? matchedLines.reduce((acc, ml, mlIdx) => ({ ...acc, [mlIdx]: formatCurrency(ml.line_total) }), {} as Record<number, string>)
+                                    : undefined
+                                  }
                                 />
                               )}
                               {svc.description && (
