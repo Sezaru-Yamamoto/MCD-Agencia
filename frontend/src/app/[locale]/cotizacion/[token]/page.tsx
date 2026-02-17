@@ -30,6 +30,8 @@ import {
   TruckIcon,
   MapPinIcon,
   ChevronDownIcon,
+  DocumentDuplicateIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +44,7 @@ import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay
 import {
   viewQuoteByToken,
   acceptQuote,
+  duplicateQuote,
   downloadQuotePdfByToken,
   rejectQuoteByToken,
   requestQuoteChanges,
@@ -78,6 +81,10 @@ export default function QuoteViewPage() {
   const [responses, setResponses] = useState<QuoteResponseType[]>([]);
   const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
+  const [isDuplicating, setIsDuplicating] = useState(false);
+
+  // Detect if the logged-in user is staff (admin/sales)
+  const isStaff = isAuthenticated && user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
   const toggleService = (key: string) => {
     setExpandedServices(prev => {
@@ -422,8 +429,8 @@ export default function QuoteViewPage() {
           </div>
         )}
 
-        {/* Account Registration Banner — only for pending quotes when not logged in */}
-        {canRespond && !isAuthenticated && (
+        {/* Account Registration Banner — only for pending quotes when not logged in (hide for staff) */}
+        {canRespond && !isAuthenticated && !isStaff && (
           <div className="p-4 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -451,7 +458,7 @@ export default function QuoteViewPage() {
           </div>
         )}
 
-        {canRespond && isAuthenticated && user?.email === quote.customer_email && (
+        {canRespond && isAuthenticated && !isStaff && user?.email === quote.customer_email && (
           <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-3">
             <ShieldCheckIcon className="h-6 w-6 text-green-400" />
             <div>
@@ -1602,44 +1609,84 @@ export default function QuoteViewPage() {
                     {isDownloading ? 'Descargando...' : 'Descargar PDF'}
                   </Button>
 
-                  {canRespond && (
+                  {isStaff ? (
+                    /* Staff actions: Duplicate + link to dashboard */
                     <>
                       <Button
-                        onClick={handleAcceptClick}
-                        className="w-full bg-green-600 hover:bg-green-700"
-                        leftIcon={<CheckCircleIcon className="h-5 w-5" />}
-                      >
-                        Aceptar Cotización
-                      </Button>
-                      <Button
-                        onClick={() => setResponseAction('reject')}
-                        variant="outline"
-                        className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
-                        leftIcon={<XCircleIcon className="h-5 w-5" />}
-                      >
-                        Rechazar
-                      </Button>
-                      <Button
-                        onClick={() => setShowChangeEditor(true)}
+                        onClick={async () => {
+                          if (!quote) return;
+                          setIsDuplicating(true);
+                          try {
+                            const newQuote = await duplicateQuote(quote.id);
+                            toast.success('Cotización duplicada');
+                            router.push(`/${locale}/dashboard/cotizaciones/${newQuote.id}/editar`);
+                          } catch {
+                            toast.error('No se pudo duplicar la cotización');
+                          } finally {
+                            setIsDuplicating(false);
+                          }
+                        }}
+                        disabled={isDuplicating}
+                        isLoading={isDuplicating}
                         variant="outline"
                         className="w-full"
-                        leftIcon={<ChatBubbleLeftRightIcon className="h-5 w-5" />}
+                        leftIcon={<DocumentDuplicateIcon className="h-4 w-4" />}
                       >
-                        Solicitar Cambios
+                        Duplicar Cotización
                       </Button>
+                      <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}`} className="block">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          leftIcon={<ArrowTopRightOnSquareIcon className="h-4 w-4" />}
+                        >
+                          Ver en Panel de Control
+                        </Button>
+                      </Link>
                     </>
-                  )}
+                  ) : (
+                    /* Client actions */
+                    <>
+                      {canRespond && (
+                        <>
+                          <Button
+                            onClick={handleAcceptClick}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                            leftIcon={<CheckCircleIcon className="h-5 w-5" />}
+                          >
+                            Aceptar Cotización
+                          </Button>
+                          <Button
+                            onClick={() => setResponseAction('reject')}
+                            variant="outline"
+                            className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
+                            leftIcon={<XCircleIcon className="h-5 w-5" />}
+                          >
+                            Rechazar
+                          </Button>
+                          <Button
+                            onClick={() => setShowChangeEditor(true)}
+                            variant="outline"
+                            className="w-full"
+                            leftIcon={<ChatBubbleLeftRightIcon className="h-5 w-5" />}
+                          >
+                            Solicitar Cambios
+                          </Button>
+                        </>
+                      )}
 
-                  {isRejected && (
-                    <Link href={`/${locale}/#cotizar`} className="block">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        leftIcon={<PlusCircleIcon className="h-5 w-5" />}
-                      >
-                        Solicitar Nueva Cotización
-                      </Button>
-                    </Link>
+                      {isRejected && (
+                        <Link href={`/${locale}/#cotizar`} className="block">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            leftIcon={<PlusCircleIcon className="h-5 w-5" />}
+                          >
+                            Solicitar Nueva Cotización
+                          </Button>
+                        </Link>
+                      )}
+                    </>
                   )}
                 </div>
               </Card>
