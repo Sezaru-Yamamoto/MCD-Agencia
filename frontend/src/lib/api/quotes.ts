@@ -490,16 +490,24 @@ export async function requestQuoteChanges(
     });
   }
 
-  const response = await fetch(`${apiUrl}/quotes/view/${token}/change-request/`, {
-    method: 'POST',
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/quotes/view/${token}/change-request/`, {
+      method: 'POST',
+      body: formData,
+    });
+  } catch {
+    // Network error (CORS blocked, server down, timeout, etc.)
+    throw new Error('No se pudo conectar con el servidor. Por favor intenta de nuevo en unos segundos.');
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     // Handle DRF validation errors which can be objects
     let errorMessage = 'Error al enviar la solicitud';
-    if (typeof errorData.error === 'string') {
+    if (response.status === 503) {
+      errorMessage = 'El servidor está temporalmente no disponible. Por favor intenta de nuevo en unos segundos.';
+    } else if (typeof errorData.error === 'string') {
       errorMessage = errorData.error;
     } else if (typeof errorData.detail === 'string') {
       errorMessage = errorData.detail;

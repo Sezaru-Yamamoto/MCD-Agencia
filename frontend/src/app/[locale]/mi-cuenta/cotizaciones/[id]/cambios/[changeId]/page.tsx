@@ -18,11 +18,15 @@ import {
   PhotoIcon,
   ArrowTopRightOnSquareIcon,
   DocumentArrowDownIcon,
+  ChevronDownIcon,
+  CalendarIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 import { Card, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { ServiceDetailsDisplay } from '@/components/quotes';
+import { SERVICE_LABELS, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type ServiceId, type DeliveryMethod } from '@/lib/service-ids';
 import {
   getQuoteById,
   getQuoteChangeRequests,
@@ -50,6 +54,16 @@ export default function CustomerChangeRequestDetailPage() {
   const changeId = params.changeId as string;
 
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [expandedAddedServices, setExpandedAddedServices] = useState<Set<number>>(new Set());
+
+  const toggleAddedService = (idx: number) => {
+    setExpandedAddedServices(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
 
   // Fetch quote + change requests together
   const { data, isLoading, error } = useQuery({
@@ -291,26 +305,141 @@ export default function CustomerChangeRequestDetailPage() {
                           </span>
                         </div>
 
-                        {line.action === 'add' ? (
-                          <div>
-                            <p className="text-white font-medium">{line.concept}</p>
-                            {line.description && (
-                              <p className="text-neutral-400 text-sm">{line.description}</p>
-                            )}
-                            <p className="text-neutral-300 text-sm mt-1">
-                              Cantidad: {line.quantity} {line.unit}
-                            </p>
-                            {line.service_details && Object.keys(line.service_details).length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-green-500/20">
-                                <p className="text-xs text-neutral-400 font-medium mb-2">Detalle del servicio solicitado:</p>
-                                <ServiceDetailsDisplay
-                                  serviceType={String(line.service_details.service_type || '')}
-                                  serviceDetails={line.service_details}
-                                />
+                        {line.action === 'add' ? (() => {
+                            const sd = line.service_details as Record<string, unknown> | undefined;
+                            const serviceType = sd?.service_type as string | undefined;
+                            const svcLabel = serviceType
+                              ? (SERVICE_LABELS[serviceType as ServiceId] || serviceType)
+                              : line.concept;
+                            const isOpen = expandedAddedServices.has(index);
+                            const deliveryMethod = sd?.delivery_method as string | undefined;
+                            const requiredDate = sd?.required_date as string | undefined;
+                            const deliveryAddress = sd?.delivery_address as Record<string, string> | undefined;
+                            const pickupBranch = sd?.pickup_branch_detail as Record<string, string> | undefined;
+                            const hasRouteDates = sd && Array.isArray(sd.rutas) &&
+                              (sd.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                            const routeCount = sd && Array.isArray(sd.rutas) ? (sd.rutas as unknown[]).length : 0;
+
+                            return (
+                              <div className="w-full">
+                                {/* Accordion-style service display */}
+                                <div className="rounded-lg border border-neutral-700/50 overflow-hidden mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleAddedService(index)}
+                                    className="w-full flex items-center gap-3 p-4 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
+                                  >
+                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-500/20 text-green-400 text-sm font-bold flex-shrink-0">
+                                      <PlusIcon className="h-4 w-4" />
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="text-white font-semibold text-sm truncate">
+                                          {svcLabel}
+                                          {routeCount > 1 && (
+                                            <span className="ml-2 text-xs font-normal text-neutral-400">({routeCount} rutas)</span>
+                                          )}
+                                        </p>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/30">
+                                          <UserIcon className="h-3 w-3" />
+                                          Agregado por el cliente
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                        <span className="text-neutral-400 text-xs">
+                                          {line.quantity} {line.unit}
+                                        </span>
+                                        {deliveryMethod && (
+                                          <span className="text-neutral-500 text-xs flex items-center gap-1">
+                                            <span className="text-xs">{DELIVERY_METHOD_ICONS[deliveryMethod as DeliveryMethod]}</span>
+                                            {DELIVERY_METHOD_LABELS[deliveryMethod as DeliveryMethod]?.es || deliveryMethod}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <ChevronDownIcon className={`h-5 w-5 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                                  </button>
+
+                                  {isOpen && (
+                                    <div className="p-4 border-t border-neutral-700 space-y-3">
+                                      {line.concept && serviceType && line.concept !== svcLabel && (
+                                        <div>
+                                          <p className="text-white font-medium">{line.concept}</p>
+                                        </div>
+                                      )}
+                                      {line.description && (
+                                        <p className="text-neutral-400 text-sm">{line.description}</p>
+                                      )}
+
+                                      {/* Service-specific parameters */}
+                                      {sd && Object.keys(sd).length > 0 && serviceType && (
+                                        <div>
+                                          <ServiceDetailsDisplay
+                                            serviceType={serviceType}
+                                            serviceDetails={sd}
+                                          />
+                                        </div>
+                                      )}
+
+                                      {/* Delivery Method */}
+                                      {deliveryMethod && (
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                          <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                            <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                                            <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                                              <span>{DELIVERY_METHOD_ICONS[deliveryMethod as DeliveryMethod]}</span>
+                                              {DELIVERY_METHOD_LABELS[deliveryMethod as DeliveryMethod]?.es || deliveryMethod}
+                                            </p>
+                                          </div>
+                                          {pickupBranch && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                                              <p className="text-white font-medium mt-auto">{pickupBranch.name}</p>
+                                            </div>
+                                          )}
+                                          {deliveryAddress && Object.keys(deliveryAddress).length > 0 && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">
+                                                {deliveryMethod === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                                              </p>
+                                              <p className="text-white font-medium mt-auto">
+                                                {[deliveryAddress.street || deliveryAddress.calle, deliveryAddress.exterior_number || deliveryAddress.numero_exterior, deliveryAddress.neighborhood || deliveryAddress.colonia, deliveryAddress.city || deliveryAddress.ciudad, deliveryAddress.state || deliveryAddress.estado, deliveryAddress.postal_code || deliveryAddress.codigo_postal].filter(Boolean).join(', ')}
+                                              </p>
+                                            </div>
+                                          )}
+                                          {requiredDate && !hasRouteDates && (
+                                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                                              <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                                              <p className="text-white font-medium mt-auto">
+                                                {new Date(requiredDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                                                  year: 'numeric', month: 'short', day: 'numeric',
+                                                })}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Required Date (when no delivery method) */}
+                                      {!deliveryMethod && requiredDate && !hasRouteDates && (
+                                        <div className="p-3 bg-neutral-900/50 rounded-lg flex items-center gap-3">
+                                          <CalendarIcon className="h-5 w-5 text-neutral-400" />
+                                          <div>
+                                            <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                                            <p className="text-white">
+                                              {new Date(requiredDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                                                year: 'numeric', month: 'long', day: 'numeric',
+                                              })}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        ) : line.action === 'delete' ? (
+                            );
+                          })() : line.action === 'delete' ? (
                           <div>
                             <p className="text-white font-medium line-through">
                               {originalLine?.concept}

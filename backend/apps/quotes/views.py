@@ -1741,24 +1741,32 @@ class QuoteChangeRequestView(APIView):
             except Exception:
                 pass
 
-        # Send notification email to sales team
+        # Prepare response before sending email (to avoid timeout on Render)
+        response_data = {
+            'message': _('Your change request has been submitted. We will review it and contact you soon.'),
+            'change_request': QuoteChangeRequestSerializer(change_request).data,
+        }
+
+        # Send notification email to sales team in a background thread
+        import threading
         from django.core.mail import send_mail
         from django.conf import settings
 
-        try:
-            sales_email = quote.created_by.email if quote.created_by else settings.DEFAULT_FROM_EMAIL
-            changes = change_request.get_changes_summary()
-            changes_text = []
-            if changes.get('added'):
-                changes_text.append(f"- {changes['added']} elemento(s) agregado(s)")
-            if changes.get('modified'):
-                changes_text.append(f"- {changes['modified']} elemento(s) modificado(s)")
-            if changes.get('deleted'):
-                changes_text.append(f"- {changes['deleted']} elemento(s) eliminado(s)")
+        def _send_change_request_email():
+            try:
+                sales_email = quote.created_by.email if quote.created_by else settings.DEFAULT_FROM_EMAIL
+                changes = change_request.get_changes_summary()
+                changes_text = []
+                if changes.get('added'):
+                    changes_text.append(f"- {changes['added']} elemento(s) agregado(s)")
+                if changes.get('modified'):
+                    changes_text.append(f"- {changes['modified']} elemento(s) modificado(s)")
+                if changes.get('deleted'):
+                    changes_text.append(f"- {changes['deleted']} elemento(s) eliminado(s)")
 
-            send_mail(
-                subject=f'Solicitud de cambios en cotización #{quote.quote_number}',
-                message=f'''
+                send_mail(
+                    subject=f'Solicitud de cambios en cotización #{quote.quote_number}',
+                    message=f'''
 El cliente ha solicitado cambios en la cotización #{quote.quote_number}:
 
 Cliente: {quote.customer_name}
@@ -1774,17 +1782,16 @@ Comentarios del cliente:
 ---
 Revisar solicitud: {settings.FRONTEND_URL}/es/ventas/cotizaciones/{quote.id}/cambios/{change_request.id}
 ''',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[sales_email],
-                fail_silently=True,
-            )
-        except Exception:
-            pass  # Don't fail the request if email fails
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[sales_email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
 
-        return Response({
-            'message': _('Your change request has been submitted. We will review it and contact you soon.'),
-            'change_request': QuoteChangeRequestSerializer(change_request).data,
-        }, status=status.HTTP_201_CREATED)
+        threading.Thread(target=_send_change_request_email, daemon=True).start()
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class QuotePublicPdfView(APIView):
@@ -1922,38 +1929,52 @@ class QuotePublicRejectView(APIView):
             except Exception:
                 pass
 
-        # Notify sales team
+        # Prepare response before sending email
+        response_data = {
+            'message': _('Quote rejected. Thank you for your response.'),
+            'status': quote.status,
+        }
+
+        # Notify sales team in background thread
+        import threading
         from django.core.mail import send_mail
         from django.conf import settings
 
-        try:
-            sales_email = quote.created_by.email if quote.created_by else settings.DEFAULT_FROM_EMAIL
-            send_mail(
-                subject=f'Cotización #{quote.quote_number} rechazada',
-                message=f'''
-El cliente ha rechazado la cotización #{quote.quote_number}:
+        _quote_number = quote.quote_number
+        _customer_name = quote.customer_name
+        _customer_email = quote.customer_email
+        _customer_company = quote.customer_company
+        _quote_id = quote.id
+        _created_by_email = quote.created_by.email if quote.created_by else settings.DEFAULT_FROM_EMAIL
+        _reason = reason
 
-Cliente: {quote.customer_name}
-Email: {quote.customer_email}
-Empresa: {quote.customer_company or 'N/A'}
+        def _send_reject_email():
+            try:
+                send_mail(
+                    subject=f'Cotización #{_quote_number} rechazada',
+                    message=f'''
+El cliente ha rechazado la cotización #{_quote_number}:
+
+Cliente: {_customer_name}
+Email: {_customer_email}
+Empresa: {_customer_company or 'N/A'}
 
 Motivo del rechazo:
-{reason}
+{_reason}
 
 ---
-Ver cotización: {settings.FRONTEND_URL}/es/ventas/cotizaciones/{quote.id}
+Ver cotización: {settings.FRONTEND_URL}/es/ventas/cotizaciones/{_quote_id}
 ''',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[sales_email],
-                fail_silently=True,
-            )
-        except Exception:
-            pass
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[_created_by_email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
 
-        return Response({
-            'message': _('Quote rejected. Thank you for your response.'),
-            'status': quote.status,
-        })
+        threading.Thread(target=_send_reject_email, daemon=True).start()
+
+        return Response(response_data)
 
 
 class QuoteChangeRequestViewSet(viewsets.ReadOnlyModelViewSet):
@@ -2041,36 +2062,50 @@ class QuoteChangeRequestViewSet(viewsets.ReadOnlyModelViewSet):
                 metadata={'type': 'change_request_review'}
             )
 
-        # Send notification to customer
+        # Prepare response before sending email
+        response_data = {
+            'message': message,
+            'change_request': QuoteChangeRequestSerializer(change_request).data,
+        }
+
+        # Send notification to customer in background thread
+        import threading
         from django.core.mail import send_mail
         from django.conf import settings
 
-        try:
-            quote = change_request.quote
-            if action_type == 'approve':
-                subject = f'Solicitud de cambios aprobada - Cotización #{quote.quote_number}'
-                body = f'''
-Estimado/a {quote.customer_name},
+        _quote = change_request.quote
+        _customer_name = _quote.customer_name
+        _customer_email = _quote.customer_email
+        _quote_number = _quote.quote_number
+        _action_type = action_type
+        _notes = notes
 
-Su solicitud de cambios para la cotización #{quote.quote_number} ha sido aprobada.
+        def _send_review_email():
+            try:
+                if _action_type == 'approve':
+                    subject = f'Solicitud de cambios aprobada - Cotización #{_quote_number}'
+                    body = f'''
+Estimado/a {_customer_name},
+
+Su solicitud de cambios para la cotización #{_quote_number} ha sido aprobada.
 
 Nuestro equipo está trabajando en actualizar su cotización y le enviaremos una nueva versión pronto.
 
-{f"Notas del equipo: {notes}" if notes else ""}
+{f"Notas del equipo: {_notes}" if _notes else ""}
 
 Gracias por su preferencia.
 
 Atentamente,
 Agencia MCD
 '''
-            else:
-                subject = f'Solicitud de cambios no aprobada - Cotización #{quote.quote_number}'
-                body = f'''
-Estimado/a {quote.customer_name},
+                else:
+                    subject = f'Solicitud de cambios no aprobada - Cotización #{_quote_number}'
+                    body = f'''
+Estimado/a {_customer_name},
 
-Lamentamos informarle que su solicitud de cambios para la cotización #{quote.quote_number} no pudo ser aprobada.
+Lamentamos informarle que su solicitud de cambios para la cotización #{_quote_number} no pudo ser aprobada.
 
-{f"Motivo: {notes}" if notes else ""}
+{f"Motivo: {_notes}" if _notes else ""}
 
 Si tiene alguna pregunta, no dude en contactarnos.
 
@@ -2078,20 +2113,19 @@ Atentamente,
 Agencia MCD
 '''
 
-            send_mail(
-                subject=subject,
-                message=body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[quote.customer_email],
-                fail_silently=True,
-            )
-        except Exception:
-            pass
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[_customer_email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
 
-        return Response({
-            'message': message,
-            'change_request': QuoteChangeRequestSerializer(change_request).data,
-        })
+        threading.Thread(target=_send_review_email, daemon=True).start()
+
+        return Response(response_data)
 
     @action(detail=False, methods=['get'])
     def pending(self, request):
