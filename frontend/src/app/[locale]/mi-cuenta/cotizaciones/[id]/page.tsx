@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale } from 'next-intl';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import {
@@ -30,6 +30,7 @@ import {
   TruckIcon,
   MapPinIcon,
   ChevronDownIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 import {
@@ -45,6 +46,7 @@ import {
   QuoteLine,
   QuoteChangeRequest,
   SubmitChangeRequestData,
+  ProposedLine,
 } from '@/lib/api/quotes';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, cn } from '@/lib/utils';
@@ -52,6 +54,8 @@ import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod, SER
 import SignaturePad from '@/components/ui/SignaturePad';
 import QuoteChangeEditor from '@/components/quotes/QuoteChangeEditor';
 import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
+import { InlineServiceEditor, buildServiceEditData, type ServiceEditData } from '@/components/quotes/InlineServiceEditor';
+import { cleanServiceDetailsForApi } from '@/components/quotes/ServiceFormFields';
 
 export default function CustomerQuoteDetailPage() {
   const params = useParams();
@@ -67,6 +71,19 @@ export default function CustomerQuoteDetailPage() {
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [signatureName, setSignatureName] = useState('');
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
+
+  // ── Edit mode state ──
+  const [editMode, setEditMode] = useState(false);
+  /** Per-service edit state, keyed by service index ("single-0", "multi-0", "vendor-0") */
+  const [editDataMap, setEditDataMap] = useState<Record<string, ServiceEditData>>({});
+  /** Services marked for deletion */
+  const [deletedServiceKeys, setDeletedServiceKeys] = useState<Set<string>>(new Set());
+  /** Global comments for the change request */
+  const [editGlobalComments, setEditGlobalComments] = useState('');
+  /** Global attachments for the change request */
+  const [editGlobalFiles, setEditGlobalFiles] = useState<File[]>([]);
+  /** Confirmation dialog type */
+  const [confirmDialog, setConfirmDialog] = useState<'save' | 'cancel' | null>(null);
 
   const toggleService = (key: string) => {
     setExpandedServices(prev => {
@@ -307,6 +324,224 @@ export default function CustomerQuoteDetailPage() {
     return groups;
   }, [vendorAddedLines]);
 
+  // ── Edit mode helpers ──
+
+  /** Build initial ServiceEditData from the quote's services/lines */
+  const buildInitialEditMap = useCallback((): Record<string, ServiceEditData> => {
+    if (!quote) return {};
+    const map: Record<string, ServiceEditData> = {};
+
+    const qr = quote.quote_request;
+    if (!qr) return map;
+
+    if (qr.services && qr.services.length > 0) {
+      qr.services.forEach((svc, idx) => {
+        const key = `multi-${idx}`;
+        map[key] = buildServiceEditData({
+          serviceType: svc.service_type || '',
+          serviceDetails: svc.service_details as Record<string, unknown> | undefined,
+          deliveryMethod: svc.delivery_method,
+          deliveryAddress: svc.delivery_address as Record<string, string> | undefined,
+          pickupBranch: svc.pickup_branch,
+          requiredDate: svc.required_date,
+          comments: svc.description || '',
+          attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
+        });
+      });
+    } else if (qr.service_type) {
+      const lineWithDetails = quote.lines?.find(
+        l => l.service_details && Object.keys(l.service_details).length > 0
+      );
+      const effectiveSD = lineWithDetails?.service_details as Record<string, unknown> | undefined
+        ?? (qr.service_details as Record<string, unknown> | undefined);
+      map['single-0'] = buildServiceEditData({
+        serviceType: qr.service_type || '',
+        serviceDetails: effectiveSD,
+        deliveryMethod: qr.delivery_method,
+        deliveryAddress: qr.delivery_address as Record<string, string> | undefined,
+        pickupBranch: qr.pickup_branch,
+        requiredDate: qr.required_date,
+        comments: qr.description || '',
+        attachments: qr.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
+      });
+    }
+
+    vendorLineGroups.forEach((vGroup, gIdx) => {
+      const key = `vendor-${gIdx}`;
+      const vSD = vGroup.lines[0]?.service_details as Record<string, unknown> | undefined;
+      map[key] = buildServiceEditData({
+        serviceType: vGroup.serviceType || '',
+        serviceDetails: vSD,
+        deliveryMethod: vGroup.lines[0]?.delivery_method,
+        deliveryAddress: vGroup.lines[0]?.delivery_address as Record<string, string> | undefined,
+        pickupBranch: vGroup.lines[0]?.pickup_branch,
+        requiredDate: '',
+        comments: '',
+        attachments: [],
+      });
+    });
+
+    return map;
+  }, [quote, vendorLineGroups]);
+
+  const enterEditMode = useCallback(() => {
+    if (!quote) return;
+    const initialMap = buildInitialEditMap();
+    setEditDataMap(initialMap);
+    setDeletedServiceKeys(new Set());
+    setEditGlobalComments('');
+    setEditGlobalFiles([]);
+    const allKeys = Object.keys(initialMap);
+    setExpandedServices(new Set(allKeys));
+    setEditMode(true);
+  }, [quote, buildInitialEditMap]);
+
+  const exitEditMode = useCallback(() => {
+    setEditMode(false);
+    setEditDataMap({});
+    setDeletedServiceKeys(new Set());
+    setEditGlobalComments('');
+    setEditGlobalFiles([]);
+    setConfirmDialog(null);
+  }, []);
+
+  const handleEditServiceSave = useCallback((key: string, data: ServiceEditData) => {
+    setEditDataMap(prev => ({ ...prev, [key]: data }));
+    toast.success('Cambios guardados localmente');
+  }, []);
+
+  const handleDeleteService = useCallback((key: string) => {
+    setDeletedServiceKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    toast.success('Servicio marcado para eliminación');
+  }, []);
+
+  const handleUndoDeleteService = useCallback((key: string) => {
+    setDeletedServiceKeys(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const handleSubmitEditChanges = useCallback(async () => {
+    if (!quote?.token) return;
+    setConfirmDialog(null);
+    setIsSubmitting(true);
+
+    try {
+      const proposed_lines: ProposedLine[] = [];
+      const initialMap = buildInitialEditMap();
+
+      for (const [key, currentData] of Object.entries(editDataMap)) {
+        if (deletedServiceKeys.has(key)) {
+          let matchedLines: QuoteLine[] = [];
+          if (key.startsWith('single-')) {
+            matchedLines = serviceToLinesMap.get(0) || [];
+          } else if (key.startsWith('multi-')) {
+            const idx = parseInt(key.split('-')[1], 10);
+            matchedLines = serviceToLinesMap.get(idx) || [];
+          } else if (key.startsWith('vendor-')) {
+            const gIdx = parseInt(key.split('-')[1], 10);
+            matchedLines = vendorLineGroups[gIdx]?.lines || [];
+          }
+          for (const line of matchedLines) {
+            proposed_lines.push({
+              id: line.id,
+              action: 'delete',
+              concept: line.concept,
+              quantity: line.quantity,
+            });
+          }
+          continue;
+        }
+
+        const initialData = initialMap[key];
+        if (!initialData) continue;
+
+        let matchedLines: QuoteLine[] = [];
+        if (key.startsWith('single-')) {
+          matchedLines = serviceToLinesMap.get(0) || [];
+        } else if (key.startsWith('multi-')) {
+          const idx = parseInt(key.split('-')[1], 10);
+          matchedLines = serviceToLinesMap.get(idx) || [];
+        } else if (key.startsWith('vendor-')) {
+          const gIdx = parseInt(key.split('-')[1], 10);
+          matchedLines = vendorLineGroups[gIdx]?.lines || [];
+        }
+
+        const detailsChanged = JSON.stringify(currentData.details) !== JSON.stringify(initialData.details);
+        const deliveryChanged = currentData.deliveryMethod !== initialData.deliveryMethod
+          || JSON.stringify(currentData.deliveryAddress) !== JSON.stringify(initialData.deliveryAddress)
+          || currentData.pickupBranch !== initialData.pickupBranch;
+        const dateChanged = currentData.requiredDate !== initialData.requiredDate;
+        const hasChanges = detailsChanged || deliveryChanged || dateChanged
+          || currentData.comments.trim() !== initialData.comments.trim()
+          || currentData.newFiles.length > 0
+          || currentData.removedAttachmentIds.length > 0;
+
+        if (hasChanges && matchedLines.length > 0) {
+          const firstLine = matchedLines[0];
+          proposed_lines.push({
+            id: firstLine.id,
+            action: 'modify',
+            concept: firstLine.concept,
+            description: currentData.comments || firstLine.description,
+            quantity: firstLine.quantity,
+            unit: firstLine.unit,
+            service_details: {
+              ...cleanServiceDetailsForApi(currentData.details),
+              delivery_method: currentData.deliveryMethod || undefined,
+              delivery_address: Object.keys(currentData.deliveryAddress).length > 0 ? currentData.deliveryAddress : undefined,
+              pickup_branch: currentData.pickupBranch || undefined,
+              required_date: currentData.requiredDate || undefined,
+            },
+          });
+        }
+      }
+
+      // Handle deleted vendor services that weren't in editDataMap
+      const deletedKeysArr = Array.from(deletedServiceKeys);
+      for (const key of deletedKeysArr) {
+        if (!editDataMap[key]) {
+          let matchedLines: QuoteLine[] = [];
+          if (key.startsWith('vendor-')) {
+            const gIdx = parseInt(key.split('-')[1], 10);
+            matchedLines = vendorLineGroups[gIdx]?.lines || [];
+          }
+          for (const line of matchedLines) {
+            proposed_lines.push({ id: line.id, action: 'delete', concept: line.concept });
+          }
+        }
+      }
+
+      if (proposed_lines.length === 0 && !editGlobalComments.trim() && editGlobalFiles.length === 0) {
+        toast.error('No se detectaron cambios. Modifica al menos un campo antes de enviar.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const submitData: SubmitChangeRequestData = {
+        proposed_lines: proposed_lines.length > 0 ? proposed_lines : [],
+        customer_comments: editGlobalComments || undefined,
+        attachments: editGlobalFiles.length > 0 ? editGlobalFiles : undefined,
+      };
+
+      await requestQuoteChanges(quote.token, submitData);
+      exitEditMode();
+      toast.success('Tu solicitud de cambios ha sido enviada. Te contactaremos pronto.');
+      refetch();
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Error al enviar la solicitud');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [quote, editDataMap, deletedServiceKeys, editGlobalComments, editGlobalFiles, buildInitialEditMap, serviceToLinesMap, vendorLineGroups, exitEditMode, refetch]);
+
   if (isLoading) {
     return <LoadingPage message="Cargando cotización..." />;
   }
@@ -409,6 +644,41 @@ export default function CustomerQuoteDetailPage() {
                 Esta cotización venció el {formatDate(quote.valid_until)}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Mode Banner */}
+      {editMode && (
+        <div className="p-4 bg-cmyk-cyan/10 border-2 border-cmyk-cyan/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <PencilIcon className="h-6 w-6 text-cmyk-cyan flex-shrink-0" />
+            <div>
+              <p className="text-cmyk-cyan font-semibold">Modo de edición activo</p>
+              <p className="text-neutral-400 text-sm">
+                Modifica los servicios que necesites. Al terminar, envía tu solicitud de cambios.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDialog('cancel')}
+              leftIcon={<XCircleIcon className="h-4 w-4" />}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setConfirmDialog('save')}
+              disabled={isSubmitting}
+              isLoading={isSubmitting}
+              className="bg-cmyk-cyan hover:bg-cmyk-cyan/80"
+              leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+            >
+              Enviar solicitud de cambios
+            </Button>
           </div>
         </div>
       )}
@@ -576,6 +846,45 @@ export default function CustomerQuoteDetailPage() {
                     </button>
                     {isOpen && (
                       <div className="p-4 border-t border-neutral-700 space-y-4">
+                        {/* ── Edit mode: inline editor ── */}
+                        {editMode && !deletedServiceKeys.has(singleKey) ? (
+                          <InlineServiceEditor
+                            key={singleKey}
+                            initial={editDataMap[singleKey] || buildServiceEditData({
+                              serviceType: quote.quote_request!.service_type || '',
+                              serviceDetails: quote.quote_request?.service_details as Record<string, unknown> | undefined,
+                              deliveryMethod: quote.quote_request?.delivery_method,
+                              deliveryAddress: quote.quote_request?.delivery_address as Record<string, string> | undefined,
+                              pickupBranch: quote.quote_request?.pickup_branch,
+                              requiredDate: quote.quote_request?.required_date,
+                              comments: '',
+                              attachments: quote.quote_request?.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
+                            })}
+                            label={svcLabel}
+                            onSave={(data) => handleEditServiceSave(singleKey, data)}
+                            onCancel={() => setConfirmDialog('cancel')}
+                            onDelete={() => handleDeleteService(singleKey)}
+                            vendorEstimatedDate={firstEstDate}
+                          />
+                        ) : editMode && deletedServiceKeys.has(singleKey) ? (
+                          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                              <div>
+                                <p className="text-red-400 font-medium text-sm">Servicio marcado para eliminación</p>
+                                <p className="text-neutral-400 text-xs">Se eliminará al enviar la solicitud de cambios</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleUndoDeleteService(singleKey)}
+                              className="text-sm text-cmyk-cyan hover:underline"
+                            >
+                              Deshacer
+                            </button>
+                          </div>
+                        ) : (
+                        <>
                         {/* Service Details */}
                         {(() => {
                           const lineWithDetails = quote.lines?.find(
@@ -701,6 +1010,8 @@ export default function CustomerQuoteDetailPage() {
                             </div>
                           );
                         })()}
+                        </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -718,6 +1029,7 @@ export default function CustomerQuoteDetailPage() {
                 const firstEstDate = vGroup.lines.find(l => l.estimated_delivery_date)?.estimated_delivery_date;
                 const routeCount = vGroup.lines.length;
                 const vGroupSD = vGroup.lines[0]?.service_details as Record<string, unknown> | undefined;
+                const isDeletedVendor = editMode && deletedServiceKeys.has(vendorKey);
 
                 return (
                   <div key={`vendor-${gIdx}`} className="rounded-lg border border-neutral-700 overflow-hidden mt-3">
@@ -782,6 +1094,39 @@ export default function CustomerQuoteDetailPage() {
 
                     {isOpen && (
                       <div className="p-4 border-t border-neutral-700 space-y-3">
+                        {editMode && !isDeletedVendor ? (
+                          <InlineServiceEditor
+                            key={vendorKey}
+                            initial={editDataMap[vendorKey] || buildServiceEditData({
+                              serviceType: vGroup.serviceType || '',
+                              serviceDetails: vGroupSD,
+                              deliveryMethod: vGroup.lines[0]?.delivery_method,
+                              deliveryAddress: vGroup.lines[0]?.delivery_address as Record<string, string> | undefined,
+                              pickupBranch: vGroup.lines[0]?.pickup_branch,
+                              requiredDate: '',
+                              comments: '',
+                              attachments: [],
+                            })}
+                            label={svcLabel}
+                            onSave={(data) => handleEditServiceSave(vendorKey, data)}
+                            onCancel={() => setConfirmDialog('cancel')}
+                            onDelete={() => handleDeleteService(vendorKey)}
+                            isVendorAdded
+                            vendorEstimatedDate={firstEstDate}
+                          />
+                        ) : editMode && isDeletedVendor ? (
+                          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                              <div>
+                                <p className="text-red-400 font-medium text-sm">Servicio marcado para eliminación</p>
+                                <p className="text-neutral-400 text-xs">Se eliminará al enviar la solicitud de cambios</p>
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => handleUndoDeleteService(vendorKey)} className="text-sm text-cmyk-cyan hover:underline">Deshacer</button>
+                          </div>
+                        ) : (
+                        <>
                         {vGroupSD && Object.keys(vGroupSD).length > 0 && vGroup.serviceType && (
                           <div>
                             <ServiceDetailsDisplay
@@ -861,6 +1206,8 @@ export default function CustomerQuoteDetailPage() {
                             </div>
                           );
                         })()}
+                        </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -950,6 +1297,39 @@ export default function CustomerQuoteDetailPage() {
                         {/* Accordion content */}
                         {isOpen && (
                           <div className="p-4 border-t border-neutral-700 space-y-3">
+                            {/* ── Edit mode: inline editor ── */}
+                            {editMode && !deletedServiceKeys.has(multiKey) ? (
+                              <InlineServiceEditor
+                                key={multiKey}
+                                initial={editDataMap[multiKey] || buildServiceEditData({
+                                  serviceType: svc.service_type || '',
+                                  serviceDetails: svc.service_details as Record<string, unknown> | undefined,
+                                  deliveryMethod: svc.delivery_method,
+                                  deliveryAddress: svc.delivery_address as Record<string, string> | undefined,
+                                  pickupBranch: svc.pickup_branch,
+                                  requiredDate: svc.required_date,
+                                  comments: svc.description || '',
+                                  attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
+                                })}
+                                label={svcLabel}
+                                onSave={(data) => handleEditServiceSave(multiKey, data)}
+                                onCancel={() => setConfirmDialog('cancel')}
+                                onDelete={() => handleDeleteService(multiKey)}
+                                vendorEstimatedDate={firstEstDate}
+                              />
+                            ) : editMode && deletedServiceKeys.has(multiKey) ? (
+                              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                                  <div>
+                                    <p className="text-red-400 font-medium text-sm">Servicio marcado para eliminación</p>
+                                    <p className="text-neutral-400 text-xs">Se eliminará al enviar la solicitud de cambios</p>
+                                  </div>
+                                </div>
+                                <button type="button" onClick={() => handleUndoDeleteService(multiKey)} className="text-sm text-cmyk-cyan hover:underline">Deshacer</button>
+                              </div>
+                            ) : (
+                            <>
                             {/* Service-specific parameters */}
                             {svc.service_details && Object.keys(svc.service_details).length > 0 && (
                               <div>
@@ -1078,6 +1458,8 @@ export default function CustomerQuoteDetailPage() {
                                 </div>
                               </div>
                             )}
+                            </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1095,6 +1477,7 @@ export default function CustomerQuoteDetailPage() {
                     const firstEstDate = vGroup.lines.find(l => l.estimated_delivery_date)?.estimated_delivery_date;
                     const routeCount = vGroup.lines.length;
                     const vGroupSD = vGroup.lines[0]?.service_details as Record<string, unknown> | undefined;
+                    const isDeletedVendorMulti = editMode && deletedServiceKeys.has(vendorKey);
 
                     return (
                       <div key={`vendor-${gIdx}`} className="rounded-lg border border-neutral-700 overflow-hidden">
@@ -1159,6 +1542,39 @@ export default function CustomerQuoteDetailPage() {
 
                         {isOpen && (
                           <div className="p-4 border-t border-neutral-700 space-y-3">
+                            {editMode && !isDeletedVendorMulti ? (
+                              <InlineServiceEditor
+                                key={vendorKey}
+                                initial={editDataMap[vendorKey] || buildServiceEditData({
+                                  serviceType: vGroup.serviceType || '',
+                                  serviceDetails: vGroupSD,
+                                  deliveryMethod: vGroup.lines[0]?.delivery_method,
+                                  deliveryAddress: vGroup.lines[0]?.delivery_address as Record<string, string> | undefined,
+                                  pickupBranch: vGroup.lines[0]?.pickup_branch,
+                                  requiredDate: '',
+                                  comments: '',
+                                  attachments: [],
+                                })}
+                                label={svcLabel}
+                                onSave={(data) => handleEditServiceSave(vendorKey, data)}
+                                onCancel={() => setConfirmDialog('cancel')}
+                                onDelete={() => handleDeleteService(vendorKey)}
+                                isVendorAdded
+                                vendorEstimatedDate={firstEstDate}
+                              />
+                            ) : editMode && isDeletedVendorMulti ? (
+                              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                                  <div>
+                                    <p className="text-red-400 font-medium text-sm">Servicio marcado para eliminación</p>
+                                    <p className="text-neutral-400 text-xs">Se eliminará al enviar la solicitud de cambios</p>
+                                  </div>
+                                </div>
+                                <button type="button" onClick={() => handleUndoDeleteService(vendorKey)} className="text-sm text-cmyk-cyan hover:underline">Deshacer</button>
+                              </div>
+                            ) : (
+                            <>
                             {vGroupSD && Object.keys(vGroupSD).length > 0 && vGroup.serviceType && (
                               <div>
                                 <ServiceDetailsDisplay
@@ -1238,11 +1654,31 @@ export default function CustomerQuoteDetailPage() {
                                 </div>
                               );
                             })()}
+                            </>
+                            )}
                           </div>
                         )}
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* ── Edit mode: Global comments for change request ── */}
+              {editMode && (
+                <div className="mt-4 pt-4 border-t border-neutral-700 space-y-3">
+                  <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <ChatBubbleLeftRightIcon className="h-4 w-4 text-cmyk-cyan" />
+                    Comentarios generales para la solicitud
+                  </h4>
+                  <textarea
+                    value={editGlobalComments}
+                    onChange={(e) => setEditGlobalComments(e.target.value)}
+                    rows={3}
+                    maxLength={2000}
+                    className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
+                    placeholder="Comentarios o instrucciones adicionales para toda la cotización…"
+                  />
                 </div>
               )}
 
@@ -1412,8 +1848,8 @@ export default function CustomerQuoteDetailPage() {
           <Card className="p-4">
             <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
             <div className="space-y-2">
-              {/* Download PDF */}
-              {(quote.pdf_file || quote.token) && (
+              {/* Download PDF — hidden in edit mode */}
+              {!editMode && (quote.pdf_file || quote.token) && (
                 <Button
                   variant="outline"
                   className="w-full"
@@ -1426,8 +1862,8 @@ export default function CustomerQuoteDetailPage() {
                 </Button>
               )}
 
-              {/* Accept / Reject / Request Changes */}
-              {canRespond && (
+              {/* Accept / Reject / Request Changes — hidden in edit mode */}
+              {canRespond && !editMode && (
                 <>
                   <Button
                     onClick={() => setResponseAction('accept')}
@@ -1445,14 +1881,50 @@ export default function CustomerQuoteDetailPage() {
                     Rechazar
                   </Button>
                   <Button
-                    onClick={() => setShowChangeEditor(true)}
+                    onClick={enterEditMode}
                     variant="outline"
                     className="w-full"
-                    leftIcon={<ChatBubbleLeftRightIcon className="h-5 w-5" />}
+                    leftIcon={<PencilIcon className="h-5 w-5" />}
                   >
                     Solicitar Cambios
                   </Button>
                 </>
+              )}
+
+              {/* Edit mode sidebar actions */}
+              {editMode && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+                    <p className="text-cmyk-cyan text-xs font-medium mb-1">✏️ Modo de edición</p>
+                    <p className="text-neutral-400 text-[11px]">
+                      Modifica los servicios en cada acordeón. Al terminar, haz clic en &quot;Guardar&quot; dentro de cada servicio y luego envía tu solicitud.
+                    </p>
+                  </div>
+                  {deletedServiceKeys.size > 0 && (
+                    <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                      <p className="text-red-400 text-xs font-medium">
+                        🗑️ {deletedServiceKeys.size} servicio{deletedServiceKeys.size > 1 ? 's' : ''} para eliminar
+                      </p>
+                    </div>
+                  )}
+                  <Button
+                    onClick={() => setConfirmDialog('save')}
+                    disabled={isSubmitting}
+                    isLoading={isSubmitting}
+                    className="w-full bg-cmyk-cyan hover:bg-cmyk-cyan/80"
+                    leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+                  >
+                    Enviar solicitud de cambios
+                  </Button>
+                  <Button
+                    onClick={() => setConfirmDialog('cancel')}
+                    variant="outline"
+                    className="w-full"
+                    leftIcon={<XCircleIcon className="h-4 w-4" />}
+                  >
+                    Cancelar edición
+                  </Button>
+                </div>
               )}
 
               {/* Request new quote if rejected */}
@@ -1585,6 +2057,50 @@ export default function CustomerQuoteDetailPage() {
               />
             </Card>
           </div>
+        </div>
+      )}
+
+      {/* ── Confirmation Dialog ── */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[80] p-4" style={{ overscrollBehavior: 'contain' }}>
+          <Card className="p-6 w-full max-w-md">
+            <div className="text-center mb-6">
+              {confirmDialog === 'save' ? (
+                <>
+                  <PaperAirplaneIcon className="h-12 w-12 text-cmyk-cyan mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-white mb-2">¿Enviar solicitud de cambios?</h3>
+                  <p className="text-neutral-400 text-sm">
+                    Se enviará tu solicitud con los cambios realizados. El vendedor revisará los cambios y te enviará una cotización actualizada.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <ExclamationTriangleIcon className="h-12 w-12 text-yellow-400 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-white mb-2">¿Cancelar edición?</h3>
+                  <p className="text-neutral-400 text-sm">
+                    Se perderán todos los cambios que hayas realizado. ¿Estás seguro?
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setConfirmDialog(null)}
+              >
+                Volver
+              </Button>
+              <Button
+                className={`flex-1 ${confirmDialog === 'save' ? 'bg-cmyk-cyan hover:bg-cmyk-cyan/80' : 'bg-yellow-600 hover:bg-yellow-700'}`}
+                onClick={confirmDialog === 'save' ? handleSubmitEditChanges : exitEditMode}
+                disabled={confirmDialog === 'save' && isSubmitting}
+                isLoading={confirmDialog === 'save' && isSubmitting}
+              >
+                {confirmDialog === 'save' ? 'Enviar cambios' : 'Sí, cancelar'}
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
 
