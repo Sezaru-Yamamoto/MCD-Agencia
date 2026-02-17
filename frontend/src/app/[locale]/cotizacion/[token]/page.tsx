@@ -130,20 +130,16 @@ export default function QuoteViewPage() {
     fetchQuote();
   }, [token]);
 
-  // ── Group quote lines by service_type ──
+  // ── Group quote lines by service (same logic as client page) ──
   const lineGroups = useMemo(() => {
     if (!quote?.lines) return [];
     const groups: { serviceType: string | undefined; lines: QuoteLine[] }[] = [];
     for (const line of quote.lines) {
-      const st = (line.service_details as Record<string, unknown> | undefined)?.service_type as string | undefined;
-      if (st) {
-        const existing = groups.find(g => g.serviceType === st);
-        if (existing) {
-          existing.lines.push(line);
-        } else {
-          groups.push({ serviceType: st, lines: [line] });
-        }
-      } else if (groups.length > 0) {
+      const sd = line.service_details as Record<string, unknown> | undefined;
+      const lineServiceType = sd?.service_type as string | undefined;
+      if (lineServiceType) {
+        groups.push({ serviceType: lineServiceType, lines: [line] });
+      } else if (groups.length > 0 && groups[groups.length - 1].serviceType) {
         const prevGroup = groups[groups.length - 1];
         const prevConcept = prevGroup.lines[0].concept;
         const baseConcept = prevConcept.split(' — Ruta ')[0];
