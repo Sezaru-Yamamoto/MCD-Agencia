@@ -372,7 +372,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                 if request_service.description:
                     lbl_comments = 'Customer comments' if is_en else 'Comentarios del cliente'
                     parts.append(f"{lbl_comments}: {request_service.description}")
-            return ', '.join(parts)
+            return '<br/>'.join(parts)
 
         def build_route_description(route, route_index):
             """Build description for a single publicidad-movil route."""
@@ -431,7 +431,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             if route.get('fecha_fin'):
                 lbl = 'End date' if is_en else 'Fecha fin'
                 parts.append(f"{lbl}: {route['fecha_fin']}")
-            return ', '.join(parts)
+            return '<br/>'.join(parts)
 
         def find_matching_request_service(line):
             """Find the QuoteRequestService that matches a quote line's service_details."""
@@ -624,7 +624,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                     details_text = build_description_from_details(line.service_details, req_svc)
                     if details_text:
                         if desc_text:
-                            desc_text = f"{desc_text}\n{details_text}"
+                            desc_text = f"{desc_text}<br/>{details_text}"
                         else:
                             desc_text = details_text
                 concept = Paragraph(concept_text or '', cell_style)
@@ -707,10 +707,10 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
 
                 desc_text = (line.description_en or line.description) if is_en else line.description
                 # Always enrich description with route + service details
-                route_details_text = ', '.join(route_desc_parts) if route_desc_parts else ''
+                route_details_text = '<br/>'.join(route_desc_parts) if route_desc_parts else ''
                 if route_details_text:
                     if desc_text:
-                        desc_text = f"{desc_text}\n{route_details_text}"
+                        desc_text = f"{desc_text}<br/>{route_details_text}"
                     else:
                         desc_text = route_details_text
                 if not desc_text:
