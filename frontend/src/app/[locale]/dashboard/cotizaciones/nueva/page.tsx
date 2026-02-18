@@ -447,9 +447,30 @@ export default function NewQuotePage() {
       } else {
         setModal({ open: true, title: 'Borrador guardado', message: 'La cotización se guardó como borrador.', variant: 'success', redirectTo: `/${locale}/dashboard/cotizaciones/${quote.id}` });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating quote:', error);
-      setModal({ open: true, title: 'Error', message: 'No se pudo crear la cotización. Intenta de nuevo.', variant: 'error' });
+
+      let errorMessage = 'No se pudo crear la cotización. Intenta de nuevo.';
+      if (error && typeof error === 'object') {
+        const apiError = error as { message?: string; data?: Record<string, unknown> };
+        if (apiError.message) {
+          errorMessage = apiError.message;
+        }
+        // Append field-level details if present
+        if (apiError.data && typeof apiError.data === 'object') {
+          const fieldMessages = Object.entries(apiError.data)
+            .map(([field, msgs]) => {
+              const msgStr = Array.isArray(msgs) ? msgs.join(', ') : String(msgs);
+              return `• ${field}: ${msgStr}`;
+            })
+            .join('\n');
+          if (fieldMessages) {
+            errorMessage += '\n\n' + fieldMessages;
+          }
+        }
+      }
+
+      setModal({ open: true, title: 'Error', message: errorMessage, variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }

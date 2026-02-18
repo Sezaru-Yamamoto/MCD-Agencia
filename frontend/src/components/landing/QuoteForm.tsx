@@ -930,7 +930,10 @@ export function QuoteForm() {
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
         console.error('Server response error:', response.status, errorBody);
-        throw new Error(errorBody?.error || errorBody?.detail || 'Error al enviar el formulario');
+        const errorMsg = typeof errorBody?.error === 'string'
+          ? errorBody.error
+          : (errorBody?.detail || 'Error al enviar el formulario');
+        throw new Error(errorMsg);
       }
 
       setFormStatus('success');

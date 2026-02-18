@@ -114,19 +114,39 @@ export async function POST(request: NextRequest) {
       }
       console.error('Backend error:', response.status, errorData);
 
-      // DRF validation errors come as { field: [errors] } or { detail: "..." }
+      // Backend uses a custom envelope: { success: false, error: { code, message, details } }
       let errorMessage = 'Error al procesar la solicitud';
-      if (errorData.detail) {
+      const envelope = errorData?.error as Record<string, unknown> | undefined;
+
+      if (typeof envelope === 'object' && envelope !== null && 'message' in envelope) {
+        // Custom envelope format
+        errorMessage = String(envelope.message || 'Error de validación');
+        const details = envelope.details as Record<string, unknown> | undefined;
+        if (details && typeof details === 'object') {
+          const fieldErrors = Object.entries(details)
+            .map(([field, msgs]) => {
+              const messages = Array.isArray(msgs) ? msgs.join(', ') : String(msgs);
+              return `${field}: ${messages}`;
+            })
+            .join('; ');
+          if (fieldErrors) {
+            errorMessage += ` (${fieldErrors})`;
+          }
+        }
+      } else if (typeof errorData?.error === 'string') {
+        errorMessage = errorData.error;
+      } else if (errorData.detail) {
         errorMessage = String(errorData.detail);
       } else if (typeof errorData === 'object' && Object.keys(errorData).length > 0) {
-        // Flatten DRF field errors into readable message
+        // Fallback: raw DRF field errors { field: [errors] }
         const fieldErrors = Object.entries(errorData)
+          .filter(([key]) => key !== 'success')  // skip envelope keys
           .map(([field, msgs]) => {
             const messages = Array.isArray(msgs) ? msgs.join(', ') : String(msgs);
             return `${field}: ${messages}`;
           })
           .join('; ');
-        errorMessage = fieldErrors;
+        errorMessage = fieldErrors || errorMessage;
       }
 
       return NextResponse.json(
