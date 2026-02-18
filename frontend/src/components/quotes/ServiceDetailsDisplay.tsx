@@ -7,6 +7,8 @@ import {
   PrinterIcon,
   WrenchScrewdriverIcon,
   ClockIcon,
+  ChatBubbleLeftIcon,
+  PaperClipIcon,
 } from '@heroicons/react/24/outline';
 
 const RouteMapPreview = dynamic(
@@ -499,6 +501,41 @@ export function ServiceDetailsDisplay({ serviceType, serviceDetails, routePrices
                     })()}
                   </div>
                 )}
+
+                {/* Per-route comments */}
+                {!!ruta.comentarios && (
+                  <div className="p-3 bg-neutral-800/50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <ChatBubbleLeftIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                      <p className="text-neutral-500 text-xs">Comentarios de esta ruta</p>
+                    </div>
+                    <p className="text-neutral-300 text-sm whitespace-pre-wrap">{String(ruta.comentarios)}</p>
+                  </div>
+                )}
+
+                {/* Per-route files */}
+                {(() => {
+                  const archivos = ruta.archivos as Array<{ nombre: string; tamano?: number }> | undefined;
+                  if (!archivos || archivos.length === 0) return null;
+                  return (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <PaperClipIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                        <p className="text-neutral-500 text-xs">Archivos adjuntos de esta ruta</p>
+                      </div>
+                      <div className="space-y-1">
+                        {archivos.map((archivo, ai) => (
+                          <div key={ai} className="flex items-center gap-2 text-sm">
+                            <span className="text-white truncate">{archivo.nombre}</span>
+                            {archivo.tamano && (
+                              <span className="text-neutral-500 text-xs flex-shrink-0">({(archivo.tamano / 1024 / 1024).toFixed(2)} MB)</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
