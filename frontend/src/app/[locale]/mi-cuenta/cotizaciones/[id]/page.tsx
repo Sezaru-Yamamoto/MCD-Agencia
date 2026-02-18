@@ -31,6 +31,8 @@ import {
   MapPinIcon,
   ChevronDownIcon,
   ExclamationTriangleIcon,
+  PhotoIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 import {
@@ -82,6 +84,9 @@ export default function CustomerQuoteDetailPage() {
   const [editGlobalComments, setEditGlobalComments] = useState('');
   /** Global attachments for the change request */
   const [editGlobalFiles, setEditGlobalFiles] = useState<File[]>([]);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
   /** Confirmation dialog type */
   const [confirmDialog, setConfirmDialog] = useState<'save' | 'cancel' | null>(null);
 
@@ -1848,6 +1853,82 @@ export default function CustomerQuoteDetailPage() {
                     className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
                     placeholder="Comentarios o instrucciones adicionales para toda la cotización…"
                   />
+
+                  {/* File upload section */}
+                  <div className="pt-3 border-t border-neutral-700/50">
+                    <p className="text-xs text-neutral-400 mb-2 flex items-center gap-1.5">
+                      <PhotoIcon className="h-3.5 w-3.5" />
+                      Imágenes de referencia (opcional, máx. 10 archivos)
+                    </p>
+                    {editGlobalFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {editGlobalFiles.map((file, index) => (
+                          <div
+                            key={`${file.name}-${index}`}
+                            className="relative group w-16 h-16 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800"
+                          >
+                            {file.type.startsWith('image/') ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center p-1">
+                                <PaperClipIcon className="h-4 w-4 text-neutral-500" />
+                                <span className="text-[9px] text-neutral-500 text-center truncate w-full mt-0.5">{file.name}</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => setEditGlobalFiles(prev => prev.filter((_, i) => i !== index))}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            >
+                              <TrashIcon className="h-4 w-4 text-red-400" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (!files) return;
+                        const valid: File[] = [];
+                        for (let i = 0; i < files.length; i++) {
+                          const f = files[i];
+                          if (!ALLOWED_FILE_TYPES.includes(f.type)) {
+                            toast.error(`${f.name}: tipo de archivo no soportado`);
+                            continue;
+                          }
+                          if (f.size > MAX_FILE_SIZE) {
+                            toast.error(`${f.name}: excede 10MB`);
+                            continue;
+                          }
+                          valid.push(f);
+                        }
+                        if (editGlobalFiles.length + valid.length > 10) {
+                          toast.error('Máximo 10 archivos');
+                          return;
+                        }
+                        setEditGlobalFiles(prev => [...prev, ...valid]);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editFileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-neutral-600 hover:border-cmyk-cyan text-xs text-neutral-400 hover:text-cmyk-cyan transition-colors"
+                    >
+                      <PlusCircleIcon className="h-4 w-4" />
+                      Agregar archivos
+                    </button>
+                  </div>
                 </div>
               )}
 
