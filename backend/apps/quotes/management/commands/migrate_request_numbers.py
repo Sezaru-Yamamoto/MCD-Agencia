@@ -8,6 +8,7 @@ assigning consecutive numbers ordered by creation time.
 from collections import defaultdict
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from apps.quotes.models import QuoteRequest
 
@@ -21,10 +22,11 @@ class Command(BaseCommand):
         total = all_requests.count()
         self.stdout.write(f"Found {total} quote requests (including deleted)\n")
 
-        # Group by date prefix (YYYYMMDD)
+        # Group by date prefix (YYYYMMDD) using local timezone (CDMX)
         by_date = defaultdict(list)
         for qr in all_requests:
-            date_str = qr.created_at.strftime('%Y%m%d')
+            local_dt = timezone.localtime(qr.created_at)
+            date_str = local_dt.strftime('%Y%m%d')
             by_date[date_str].append(qr)
 
         updated = 0

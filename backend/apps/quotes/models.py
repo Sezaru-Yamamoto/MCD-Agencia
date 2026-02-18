@@ -360,8 +360,8 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
 
     def _generate_request_number(self):
         """Generate a unique sequential request number: YYYYMMDD-NNNN."""
-        import datetime
-        date_str = datetime.datetime.now().strftime('%Y%m%d')
+        from django.utils import timezone
+        date_str = timezone.localtime().strftime('%Y%m%d')
         prefix = f"{date_str}-"
 
         # Find the highest existing number for today
