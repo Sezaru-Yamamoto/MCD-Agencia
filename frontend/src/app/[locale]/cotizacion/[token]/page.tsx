@@ -1648,6 +1648,39 @@ export default function QuoteViewPage() {
                                     &ldquo;{cr.customer_comments}&rdquo;
                                   </p>
                                 )}
+                                {cr.attachments && cr.attachments.length > 0 && (
+                                  <div className="mt-1.5 space-y-1">
+                                    <p className="text-neutral-500 text-xs flex items-center gap-1">
+                                      <PaperClipIcon className="h-3 w-3" />
+                                      {cr.attachments.length} adjunto{cr.attachments.length > 1 ? 's' : ''}
+                                    </p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {cr.attachments.map((att) => {
+                                        const isImage = att.file_type?.startsWith('image/');
+                                        return isImage ? (
+                                          <a key={att.id} href={att.file} target="_blank" rel="noopener noreferrer">
+                                            <img
+                                              src={att.file}
+                                              alt={att.filename}
+                                              className="w-12 h-12 object-cover rounded border border-neutral-600 hover:border-cmyk-cyan transition-colors"
+                                            />
+                                          </a>
+                                        ) : (
+                                          <a
+                                            key={att.id}
+                                            href={att.file}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 px-1.5 py-0.5 bg-neutral-800/50 rounded border border-neutral-700/50 text-[10px] text-cmyk-cyan hover:underline"
+                                          >
+                                            <PaperClipIcon className="h-2.5 w-2.5 text-neutral-400" />
+                                            {att.filename}
+                                          </a>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );

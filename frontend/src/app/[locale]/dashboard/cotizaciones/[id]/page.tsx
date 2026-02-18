@@ -1506,6 +1506,41 @@ export default function QuoteDetailPage() {
                               &ldquo;{cr.customer_comments}&rdquo;
                             </p>
                           )}
+                          {/* Change request attachments */}
+                          {cr.attachments && cr.attachments.length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              <p className="text-neutral-500 text-xs flex items-center gap-1">
+                                <PaperClipIcon className="h-3 w-3" />
+                                {cr.attachments.length} archivo{cr.attachments.length > 1 ? 's' : ''} adjunto{cr.attachments.length > 1 ? 's' : ''}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {cr.attachments.map((att) => {
+                                  const isImage = att.file_type?.startsWith('image/');
+                                  return isImage ? (
+                                    <a key={att.id} href={att.file} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                      <img
+                                        src={att.file}
+                                        alt={att.filename}
+                                        className="w-14 h-14 object-cover rounded border border-neutral-600 hover:border-cmyk-cyan transition-colors"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      key={att.id}
+                                      href={att.file}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex items-center gap-1.5 px-2 py-1 bg-neutral-800/50 rounded border border-neutral-700/50 text-xs text-cmyk-cyan hover:underline"
+                                    >
+                                      <PaperClipIcon className="h-3 w-3 text-neutral-400" />
+                                      {att.filename}
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                           {cr.changes_summary && (
                             <div className="flex gap-3 mt-2 text-xs text-neutral-500">
                               {cr.changes_summary.modified > 0 && (
@@ -1636,6 +1671,12 @@ export default function QuoteDetailPage() {
                               {cr.customer_comments && (
                                 <p className="text-neutral-500 text-xs mt-0.5 line-clamp-1 group-hover:text-neutral-300 transition-colors">
                                   &ldquo;{cr.customer_comments}&rdquo;
+                                </p>
+                              )}
+                              {cr.attachments && cr.attachments.length > 0 && (
+                                <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1">
+                                  <PaperClipIcon className="h-3 w-3" />
+                                  {cr.attachments.length} adjunto{cr.attachments.length > 1 ? 's' : ''}
                                 </p>
                               )}
                             </div>

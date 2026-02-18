@@ -2341,6 +2341,12 @@ export default function CustomerQuoteDetailPage() {
                               )}
                             </p>
                             <p className="text-neutral-500 text-[11px]">{fmtDate(cr.created_at)}</p>
+                            {cr.attachments && cr.attachments.length > 0 && (
+                              <p className="text-neutral-500 text-[11px] mt-0.5 flex items-center gap-1">
+                                <PaperClipIcon className="h-3 w-3" />
+                                {cr.attachments.length} adjunto{cr.attachments.length > 1 ? 's' : ''}
+                              </p>
+                            )}
                           </div>
                         </Link>
                       );
