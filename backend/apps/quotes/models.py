@@ -359,12 +359,29 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         super().save(*args, **kwargs)
 
     def _generate_request_number(self):
-        """Generate a unique request number."""
+        """Generate a unique sequential request number: YYYYMMDD-NNNN."""
         import datetime
-        import random
         date_str = datetime.datetime.now().strftime('%Y%m%d')
-        random_str = ''.join(random.choices('0123456789', k=4))
-        return f"{date_str}-{random_str}"
+        prefix = f"{date_str}-"
+
+        # Find the highest existing number for today
+        last = (
+            QuoteRequest.objects
+            .filter(request_number__startswith=prefix)
+            .order_by('-request_number')
+            .values_list('request_number', flat=True)
+            .first()
+        )
+
+        if last:
+            try:
+                seq = int(last.split('-')[-1]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+
+        return f"{prefix}{seq:04d}"
 
     def calculate_urgency(self):
         """Calculate urgency based on required_date."""
