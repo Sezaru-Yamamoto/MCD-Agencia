@@ -309,7 +309,7 @@ export default function QuoteRequestsListPage() {
                           Cliente
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Servicio
+                          Servicios
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Estado
@@ -377,12 +377,25 @@ export default function QuoteRequestsListPage() {
                             </td>
                             <td className="px-6 py-4">
                               <div className="max-w-xs">
-                                <p className="text-white truncate">
-                                  {request.catalog_item_name ||
-                                   (request.service_type && SERVICE_LABELS[request.service_type as ServiceId]) ||
-                                   request.service_type ||
-                                   'No especificado'}
-                                </p>
+                                {request.services && request.services.length > 0 ? (
+                                  <>
+                                    <p className="text-white truncate">
+                                      {SERVICE_LABELS[request.services[0].service_type as ServiceId] || request.services[0].service_type}
+                                    </p>
+                                    {request.services.length > 1 && (
+                                      <p className="text-cmyk-cyan text-xs mt-0.5">
+                                        +{request.services.length - 1} servicio{request.services.length - 1 > 1 ? 's' : ''} más
+                                      </p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="text-white truncate">
+                                    {request.catalog_item_name ||
+                                     (request.service_type && SERVICE_LABELS[request.service_type as ServiceId]) ||
+                                     request.service_type ||
+                                     'No especificado'}
+                                  </p>
+                                )}
                                 {request.quantity && (
                                   <p className="text-neutral-500 text-sm">
                                     Cantidad: {request.quantity}
