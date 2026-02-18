@@ -96,6 +96,7 @@ export default function QuoteRequestsListPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
   const [ordering, setOrdering] = useState<string>('-created_at');
+  const [sortedRequests, setSortedRequests] = useState<QuoteRequest[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<QuoteRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [servicesPopover, setServicesPopover] = useState<string | null>(null);
@@ -133,9 +134,6 @@ export default function QuoteRequestsListPage() {
       if (searchTerm) {
         filters.search = searchTerm;
       }
-      if (ordering) {
-        filters.ordering = ordering;
-      }
 
       const response: PaginatedResponse<QuoteRequest> = await getAdminQuoteRequests(filters as {
         status?: QuoteRequestStatus;
@@ -157,7 +155,30 @@ export default function QuoteRequestsListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, urgencyFilter, searchTerm, ordering]);
+  }, [statusFilter, urgencyFilter, searchTerm]);
+
+  // Client-side sorting for instant response
+  useEffect(() => {
+    if (requests.length === 0) {
+      setSortedRequests([]);
+      return;
+    }
+    const sorted = [...requests].sort((a, b) => {
+      const desc = ordering.startsWith('-');
+      const field = ordering.replace(/^-/, '');
+      let valA: number, valB: number;
+      if (field === 'urgency') {
+        const urgencyOrder: Record<string, number> = { high: 0, medium: 1, normal: 2 };
+        valA = urgencyOrder[a.urgency] ?? 2;
+        valB = urgencyOrder[b.urgency] ?? 2;
+      } else {
+        valA = new Date(a.created_at).getTime();
+        valB = new Date(b.created_at).getTime();
+      }
+      return desc ? valB - valA : valA - valB;
+    });
+    setSortedRequests(sorted);
+  }, [ordering, requests]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -356,17 +377,13 @@ export default function QuoteRequestsListPage() {
                         </th>
                         <th
                           className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider cursor-pointer select-none hover:text-neutral-200 transition-colors"
-                          onClick={() => setOrdering(prev => prev === '-created_at' ? 'created_at' : prev === 'created_at' ? 'required_date' : prev === 'required_date' ? '-required_date' : '-created_at')}
+                          onClick={() => setOrdering(prev => prev === '-created_at' ? 'created_at' : prev === 'created_at' ? '-created_at' : '-created_at')}
                         >
                           <span className="inline-flex items-center gap-1">
-                            {ordering === 'required_date' || ordering === '-required_date' ? 'Fecha requerida' : 'Fecha'}
-                            {ordering === '-created_at' ? (
-                              <ChevronDownIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                            ) : ordering === 'created_at' ? (
+                            Fecha
+                            {ordering === 'created_at' ? (
                               <ChevronUpIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                            ) : ordering === 'required_date' ? (
-                              <ChevronUpIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                            ) : ordering === '-required_date' ? (
+                            ) : ordering === '-created_at' ? (
                               <ChevronDownIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
                             ) : (
                               <span className="inline-flex flex-col -space-y-1">
@@ -379,7 +396,7 @@ export default function QuoteRequestsListPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800">
-                      {requests.map((request) => {
+                      {sortedRequests.map((request) => {
                         const StatusIcon = statusIcons[request.status];
                         return (
                           <tr key={request.id} className="hover:bg-neutral-800/30">
@@ -542,19 +559,7 @@ export default function QuoteRequestsListPage() {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {ordering === 'required_date' || ordering === '-required_date' ? (
-                                request.required_date ? (
-                                  <span className="text-white">
-                                    {new Date(request.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
-                                      year: 'numeric', month: 'short', day: 'numeric',
-                                    })}
-                                  </span>
-                                ) : (
-                                  <span className="text-neutral-600 italic">Sin fecha</span>
-                                )
-                              ) : (
-                                <span className="text-neutral-400">{formatDate(request.created_at)}</span>
-                              )}
+                              <span className="text-neutral-400">{formatDate(request.created_at)}</span>
                             </td>
                           </tr>
                         );
