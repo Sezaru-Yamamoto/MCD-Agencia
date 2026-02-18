@@ -126,20 +126,42 @@ export function validateServiceEditData(data: ServiceEditData): string[] {
   if (st === 'impresion-gran-formato' && !d.material) {
     errors.push('Selecciona el material de impresión.');
   }
-  if (st === 'senalizacion' && !d.tipo_senalizacion) {
+  if (st === 'senalizacion' && !d.tipo) {
     errors.push('Selecciona el tipo de señalización.');
   }
   if (st === 'rotulacion-vehicular' && !d.tipo_rotulacion) {
     errors.push('Selecciona el tipo de rotulación.');
   }
-  if (st === 'corte-grabado-cnc-laser' && !d.tipo_proceso) {
+  if (st === 'corte-grabado-cnc-laser' && !d.tipo) {
     errors.push('Selecciona el tipo de proceso CNC/Láser.');
   }
-  if (st === 'diseno-grafico' && !d.tipo_diseno) {
+  if (st === 'diseno-grafico' && !d.tipo) {
     errors.push('Selecciona el tipo de diseño gráfico.');
   }
   if (st === 'impresion-offset-serigrafia' && !d.producto) {
     errors.push('Selecciona el tipo de producto de impresión.');
+  }
+
+  // 2b. Medidas required for services that have a medidas field
+  const needsMedidas = [
+    'impresion-gran-formato',
+    'fabricacion-anuncios',
+    'senalizacion',
+    'corte-grabado-cnc-laser',
+  ];
+  if (needsMedidas.includes(st) && !((d.medidas as string) || '').trim()) {
+    errors.push('Ingresa las medidas.');
+  }
+
+  // 2c. Cantidad required for services with a cantidad field (non-route-based)
+  const needsCantidad = [
+    'impresion-gran-formato',
+    'senalizacion',
+    'corte-grabado-cnc-laser',
+    'impresion-offset-serigrafia',
+  ];
+  if (needsCantidad.includes(st) && !(d.cantidad as number)) {
+    errors.push('Ingresa la cantidad.');
   }
 
   // 3. Delivery method validation (skip for not_applicable services)

@@ -343,6 +343,8 @@ export default function CustomerQuoteDetailPage() {
         const effectiveSD = lineSD ?? (svc.service_details as Record<string, unknown> | undefined);
         // Delivery info: prefer line-level (vendor may have set it), fall back to service-level
         const firstLine = matchedLines[0];
+        // Comments: prefer line description (carries prior change-request comments) → original request description
+        const lineComments = firstLine?.description || '';
         map[key] = buildServiceEditData({
           serviceType: svc.service_type || '',
           serviceDetails: effectiveSD,
@@ -350,7 +352,7 @@ export default function CustomerQuoteDetailPage() {
           deliveryAddress: (firstLine?.delivery_address || svc.delivery_address) as Record<string, string> | undefined,
           pickupBranch: firstLine?.pickup_branch || svc.pickup_branch,
           requiredDate: svc.required_date,
-          comments: svc.description || '',
+          comments: lineComments || svc.description || '',
           attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
         });
       });
@@ -368,6 +370,8 @@ export default function CustomerQuoteDetailPage() {
         ?? (qr.service_details as Record<string, unknown> | undefined);
       // Delivery info: prefer line-level → quote-level → request-level
       const firstLine = allNonVendorLines[0] || quote.lines?.[0];
+      // Comments: prefer line description (carries prior change-request comments) → original request description
+      const lineComments = firstLine?.description || '';
       map['single-0'] = buildServiceEditData({
         serviceType: qr.service_type || '',
         serviceDetails: effectiveSD,
@@ -375,7 +379,7 @@ export default function CustomerQuoteDetailPage() {
         deliveryAddress: (firstLine?.delivery_address || quote.delivery_address || qr.delivery_address) as Record<string, string> | undefined,
         pickupBranch: firstLine?.pickup_branch || quote.pickup_branch || qr.pickup_branch,
         requiredDate: qr.required_date,
-        comments: qr.description || '',
+        comments: lineComments || qr.description || '',
         attachments: qr.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
       });
     }
@@ -900,7 +904,7 @@ export default function CustomerQuoteDetailPage() {
                                 deliveryAddress: (_fl?.delivery_address || quote.delivery_address || quote.quote_request?.delivery_address) as Record<string, string> | undefined,
                                 pickupBranch: _fl?.pickup_branch || quote.pickup_branch || quote.quote_request?.pickup_branch,
                                 requiredDate: quote.quote_request?.required_date,
-                                comments: '',
+                                comments: _fl?.description || quote.quote_request?.description || '',
                                 attachments: quote.quote_request?.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
                               });
                             })()}
@@ -1361,7 +1365,7 @@ export default function CustomerQuoteDetailPage() {
                                     deliveryAddress: (_fl?.delivery_address || svc.delivery_address) as Record<string, string> | undefined,
                                     pickupBranch: _fl?.pickup_branch || svc.pickup_branch,
                                     requiredDate: svc.required_date,
-                                    comments: svc.description || '',
+                                    comments: _fl?.description || svc.description || '',
                                     attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
                                   });
                                 })()}
