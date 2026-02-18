@@ -586,6 +586,7 @@ export default function QuoteDetailPage() {
                       <th className="pb-3 pr-4 text-right">Cant.</th>
                       <th className="pb-3 pr-4">Unidad</th>
                       <th className="pb-3 pr-4 text-right">P. Unit.</th>
+                      <th className="pb-3 pr-4 text-right">Envío</th>
                       <th className="pb-3 text-right">Total</th>
                     </tr>
                   </thead>
@@ -597,10 +598,43 @@ export default function QuoteDetailPage() {
                           {line.description && (
                             <p className="text-neutral-500 text-sm">{line.description}</p>
                           )}
+                          {line.delivery_method && line.delivery_method !== 'not_applicable' && (
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                              <span className="inline-flex items-center gap-1">
+                                <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
+                              </span>
+                              {line.estimated_delivery_date && (
+                                <span className="inline-flex items-center gap-1">
+                                  <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                  {new Date(line.estimated_delivery_date).toLocaleDateString('es-MX')}
+                                </span>
+                              )}
+                              {line.delivery_address && Object.keys(line.delivery_address).length > 0 && (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPinIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                  <span className="truncate max-w-[200px]">
+                                    {[line.delivery_address.street || line.delivery_address.calle, line.delivery_address.city || line.delivery_address.ciudad, line.delivery_address.state || line.delivery_address.estado].filter(Boolean).join(', ')}
+                                  </span>
+                                </span>
+                              )}
+                              {line.pickup_branch_detail && (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPinIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                  {line.pickup_branch_detail.name}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 pr-4 text-right text-white">{line.quantity}</td>
                         <td className="py-3 pr-4 text-neutral-400">{line.unit}</td>
                         <td className="py-3 pr-4 text-right text-white">{formatCurrency(line.unit_price)}</td>
+                        <td className="py-3 pr-4 text-right text-neutral-400">
+                          {parseFloat(line.shipping_cost || '0') > 0
+                            ? formatCurrency(line.shipping_cost || '0')
+                            : '—'}
+                        </td>
                         <td className="py-3 text-right text-white font-medium">{formatCurrency(line.line_total)}</td>
                       </tr>
                     ))}
