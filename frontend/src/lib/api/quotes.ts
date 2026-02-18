@@ -722,6 +722,24 @@ export async function regenerateQuotePdf(id: string): Promise<{ message: string 
   return apiClient.post<{ message: string }>(`/quotes/${id}/regenerate-pdf/`);
 }
 
+/**
+ * Restore delivery/shipping data on quote lines from the original request.
+ * Works on any quote status (including sent).
+ */
+export async function fixDeliveryData(
+  id: string,
+  data?: { shipping_costs?: Record<string, string>; regenerate_pdf?: boolean }
+): Promise<{
+  message: string;
+  lines_updated: number;
+  changes: Array<{ line_position: number; concept: string; updated: string[] }>;
+  total_recalculated: boolean;
+  new_total: string;
+  shipping_total: string;
+}> {
+  return apiClient.post(`/quotes/${id}/fix-delivery-data/`, data || {});
+}
+
 // ==========================================
 // Sales Rep / Admin API Functions
 // ==========================================

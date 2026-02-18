@@ -1386,6 +1386,144 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         return Response({'message': _('PDF regenerated successfully.')})
 
+    @action(detail=True, methods=['post'], url_path='fix-delivery-data')
+    def fix_delivery_data(self, request, pk=None):
+        """
+        Restore delivery/shipping data on quote lines from the original
+        QuoteRequest services.  Also accepts explicit shipping_cost overrides.
+
+        Admin/sales only — works on ANY quote status so already-sent quotes
+        can be fixed without having to re-edit.
+
+        Body (all optional):
+            {
+                "shipping_costs": { "<line_position>": "350.00", ... },
+                "regenerate_pdf": true
+            }
+        """
+        if not _is_internal_user(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        from decimal import Decimal, InvalidOperation
+
+        quote = self.get_object()
+        qr = quote.quote_request
+
+        # Parse optional explicit shipping costs {position: amount}
+        raw_shipping = request.data.get('shipping_costs', {})
+        shipping_overrides = {}
+        for pos_str, amount_str in raw_shipping.items():
+            try:
+                shipping_overrides[int(pos_str)] = Decimal(str(amount_str))
+            except (ValueError, InvalidOperation):
+                return Response(
+                    {'error': _(f'Invalid shipping_cost value: {pos_str}:{amount_str}')},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        lines = list(quote.lines.all().order_by('position'))
+
+        # Gather source delivery data from request services
+        services = []
+        request_delivery = {}
+        if qr:
+            services = list(qr.services.all().order_by('position'))
+            request_delivery = {
+                'delivery_method': qr.delivery_method,
+                'delivery_address': qr.delivery_address,
+                'pickup_branch_id': qr.pickup_branch_id,
+                'required_date': qr.required_date,
+            }
+
+        changes_log = []
+        shipping_total = Decimal('0.00')
+
+        for line in lines:
+            updated_fields = []
+            sd = line.service_details or {}
+            line_svc_type = sd.get('service_type', '')
+
+            # Match line to request service
+            matched_svc = None
+            if line_svc_type and services:
+                matching = [s for s in services if s.service_type == line_svc_type]
+                if len(matching) == 1:
+                    matched_svc = matching[0]
+                elif len(matching) > 1:
+                    same_type_lines = [
+                        l for l in lines
+                        if (l.service_details or {}).get('service_type') == line_svc_type
+                    ]
+                    line_idx = next((i for i, l in enumerate(same_type_lines) if l.id == line.id), 0)
+                    matched_svc = matching[line_idx] if line_idx < len(matching) else matching[0]
+
+            # Determine source
+            if matched_svc:
+                src_dm = matched_svc.delivery_method
+                src_addr = matched_svc.delivery_address
+                src_pickup = matched_svc.pickup_branch_id
+                src_date = matched_svc.required_date
+            elif request_delivery.get('delivery_method'):
+                src_dm = request_delivery['delivery_method']
+                src_addr = request_delivery['delivery_address']
+                src_pickup = request_delivery['pickup_branch_id']
+                src_date = request_delivery['required_date']
+            else:
+                src_dm = src_addr = src_pickup = src_date = None
+
+            # Restore missing delivery data
+            if src_dm and not line.delivery_method:
+                line.delivery_method = src_dm
+                updated_fields.append('delivery_method')
+            if src_addr and not line.delivery_address:
+                line.delivery_address = src_addr
+                updated_fields.append('delivery_address')
+            if src_pickup and not line.pickup_branch_id:
+                line.pickup_branch_id = src_pickup
+                updated_fields.append('pickup_branch_id')
+            if src_date and not line.estimated_delivery_date:
+                line.estimated_delivery_date = src_date
+                updated_fields.append('estimated_delivery_date')
+
+            # Explicit shipping_cost override
+            if line.position in shipping_overrides:
+                new_cost = shipping_overrides[line.position]
+                if line.shipping_cost != new_cost:
+                    line.shipping_cost = new_cost
+                    updated_fields.append('shipping_cost')
+
+            if updated_fields:
+                line.save(update_fields=updated_fields + ['updated_at'])
+                changes_log.append({
+                    'line_position': line.position,
+                    'concept': line.concept,
+                    'updated': updated_fields,
+                })
+
+            shipping_total += line.shipping_cost or Decimal('0.00')
+
+        # Recalculate total
+        expected_total = quote.subtotal + quote.tax_amount + shipping_total
+        total_changed = False
+        if quote.total != expected_total:
+            quote.total = expected_total
+            quote.save(update_fields=['total', 'updated_at'])
+            total_changed = True
+
+        # Optionally regenerate PDF
+        if request.data.get('regenerate_pdf', True):
+            from apps.quotes.tasks import generate_quote_pdf
+            generate_quote_pdf(str(quote.id))
+
+        return Response({
+            'message': _('Delivery data restored successfully.'),
+            'lines_updated': len(changes_log),
+            'changes': changes_log,
+            'total_recalculated': total_changed,
+            'new_total': str(quote.total),
+            'shipping_total': str(shipping_total),
+        })
+
     @action(detail=True, methods=['post'], url_path='upload-attachment')
     def upload_attachment(self, request, pk=None):
         """Upload a file attachment to a quote (seller/admin)."""

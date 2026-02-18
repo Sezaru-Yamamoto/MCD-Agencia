@@ -28,6 +28,7 @@ import {
   TruckIcon,
   MapPinIcon,
   ChevronDownIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -42,6 +43,7 @@ import {
   duplicateQuote,
   downloadQuotePdf,
   regenerateQuotePdf,
+  fixDeliveryData,
   getQuoteResponses,
   getAdminChangeRequests,
   updateQuoteInternalNotes,
@@ -133,6 +135,9 @@ export default function QuoteDetailPage() {
   const [isConverting, setIsConverting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isRegeneratingPdf, setIsRegeneratingPdf] = useState(false);
+  const [isFixingDelivery, setIsFixingDelivery] = useState(false);
+  const [editingShippingCosts, setEditingShippingCosts] = useState(false);
+  const [shippingInputs, setShippingInputs] = useState<Record<number, string>>({});
   const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [responses, setResponses] = useState<QuoteResponse[]>([]);
   const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
@@ -330,6 +335,49 @@ export default function QuoteDetailPage() {
     } finally {
       setIsRegeneratingPdf(false);
     }
+  };
+
+  const handleFixDeliveryData = async (withShippingCosts = false) => {
+    if (!quote) return;
+    setIsFixingDelivery(true);
+    try {
+      const payload: { shipping_costs?: Record<string, string>; regenerate_pdf: boolean } = { regenerate_pdf: true };
+      if (withShippingCosts && Object.keys(shippingInputs).length > 0) {
+        payload.shipping_costs = {};
+        for (const [pos, val] of Object.entries(shippingInputs)) {
+          if (val && parseFloat(val) >= 0) {
+            payload.shipping_costs[pos] = val;
+          }
+        }
+      }
+      const result = await fixDeliveryData(quote.id, payload);
+      // Refresh quote data
+      const updated = await getAdminQuoteById(quote.id);
+      setQuote(updated);
+      setEditingShippingCosts(false);
+      setShippingInputs({});
+      if (result.lines_updated > 0) {
+        toast.success(`Datos restaurados (${result.lines_updated} línea(s)). PDF regenerado.`);
+      } else {
+        toast.success('No se encontraron datos faltantes para restaurar.');
+      }
+    } catch (error) {
+      console.error('Error fixing delivery data:', error);
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      setModal({ open: true, title: 'Error al restaurar datos de entrega', message: msg, variant: 'error' });
+    } finally {
+      setIsFixingDelivery(false);
+    }
+  };
+
+  const handleStartEditShipping = () => {
+    if (!quote) return;
+    const initial: Record<number, string> = {};
+    for (const line of quote.lines || []) {
+      initial[line.position] = line.shipping_cost || '0';
+    }
+    setShippingInputs(initial);
+    setEditingShippingCosts(true);
   };
 
   const handleSaveNotes = async () => {
@@ -631,9 +679,20 @@ export default function QuoteDetailPage() {
                         <td className="py-3 pr-4 text-neutral-400">{line.unit}</td>
                         <td className="py-3 pr-4 text-right text-white">{formatCurrency(line.unit_price)}</td>
                         <td className="py-3 pr-4 text-right text-neutral-400">
-                          {parseFloat(line.shipping_cost || '0') > 0
-                            ? formatCurrency(line.shipping_cost || '0')
-                            : '—'}
+                          {editingShippingCosts ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={shippingInputs[line.position] ?? '0'}
+                              onChange={(e) => setShippingInputs(prev => ({ ...prev, [line.position]: e.target.value }))}
+                              className="w-24 bg-neutral-800 border border-neutral-600 text-white text-right text-sm rounded px-2 py-1 focus:outline-none focus:border-cmyk-cyan"
+                            />
+                          ) : (
+                            parseFloat(line.shipping_cost || '0') > 0
+                              ? formatCurrency(line.shipping_cost || '0')
+                              : '—'
+                          )}
                         </td>
                         <td className="py-3 text-right text-white font-medium">{formatCurrency(line.line_total)}</td>
                       </tr>
@@ -641,6 +700,28 @@ export default function QuoteDetailPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Inline shipping cost edit controls */}
+              {editingShippingCosts && (
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setEditingShippingCosts(false); setShippingInputs({}); }}
+                    disabled={isFixingDelivery}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleFixDeliveryData(true)}
+                    disabled={isFixingDelivery}
+                  >
+                    {isFixingDelivery ? 'Guardando...' : 'Guardar precios de envío'}
+                  </Button>
+                </div>
+              )}
 
               {/* Totals */}
               <div className="mt-6 pt-4 border-t border-neutral-700 space-y-2">
@@ -2079,6 +2160,26 @@ export default function QuoteDetailPage() {
                     className="w-full justify-center"
                   >
                     {isRegeneratingPdf ? 'Regenerando...' : 'Regenerar PDF'}
+                  </Button>
+                  {quote.quote_request && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleFixDeliveryData(false)}
+                      disabled={isFixingDelivery}
+                      leftIcon={<WrenchScrewdriverIcon className={`h-4 w-4 ${isFixingDelivery ? 'animate-spin' : ''}`} />}
+                      className="w-full justify-center text-amber-400 border-amber-400/50 hover:bg-amber-400/10"
+                    >
+                      {isFixingDelivery ? 'Restaurando...' : 'Restaurar datos de entrega'}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={handleStartEditShipping}
+                    disabled={editingShippingCosts}
+                    leftIcon={<CurrencyDollarIcon className="h-4 w-4" />}
+                    className="w-full justify-center text-amber-400 border-amber-400/50 hover:bg-amber-400/10"
+                  >
+                    Editar precios de envío
                   </Button>
                   <Button
                     variant="outline"
