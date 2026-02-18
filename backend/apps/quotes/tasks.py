@@ -490,7 +490,7 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         all_lines = list(quote.lines.all())
         shipping_total = sum(line.shipping_cost for line in all_lines)
 
-        # Pre-load request services for matching
+        # Pre-load request services for matching client comments
         request_services = []
         if quote.quote_request:
             try:
@@ -501,15 +501,36 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
         if not request_services and quote.quote_request:
             request_services = [quote.quote_request]  # has .service_type, .required_date, .description
 
+        logger.info(
+            f"[PDF {quote.quote_number}] Loaded {len(request_services)} request services: "
+            + ", ".join(f"{getattr(s, 'service_type', '?')} (desc={'yes' if getattr(s, 'description', '') else 'no'})" for s in request_services)
+        )
+
+        # Build lookup: service_type → list of request services (handles duplicates)
+        _svc_by_type = {}
+        for svc in request_services:
+            st = getattr(svc, 'service_type', '')
+            if st:
+                _svc_by_type.setdefault(st, []).append(svc)
+        _svc_type_used = {}  # track how many times each type has been consumed
+
         def _find_request_svc(service_type):
-            """Find the matching request service for a given service_type."""
+            """Find the matching request service for a given service_type.
+
+            When multiple services share the same type, returns them in order
+            (first call → first service, second call → second service, etc.).
+            """
             if not service_type:
                 return None
-            for svc in request_services:
-                svc_st = getattr(svc, 'service_type', '')
-                if svc_st == service_type:
-                    return svc
-            return None
+            svcs = _svc_by_type.get(service_type)
+            if not svcs:
+                return None
+            idx = _svc_type_used.get(service_type, 0)
+            if idx < len(svcs):
+                _svc_type_used[service_type] = idx + 1
+                return svcs[idx]
+            # All consumed, return last one as fallback
+            return svcs[-1]
 
         # Detect which lines are publicidad-movil route-expanded lines.
         # These have concept like "Publicidad Móvil — Ruta 1" and
@@ -617,11 +638,17 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             table_data = [list(table_header_row)]
             for line in group_lines:
                 concept_text = (line.concept_en or line.concept) if is_en else line.concept
-                # For service-based lines, only show auto-generated details + client comments
-                # (skip vendor description). For manual lines, keep line.description.
+                # For service-based lines, show auto-generated details + client comments.
+                # For manual lines (no service_details), keep line.description as-is.
                 if line.service_details:
-                    req_svc = _find_request_svc((line.service_details or {}).get('service_type', ''))
+                    svc_type = (line.service_details or {}).get('service_type', '')
+                    req_svc = _find_request_svc(svc_type)
                     desc_text = build_description_from_details(line.service_details, req_svc) or ''
+                    logger.info(
+                        f"[PDF {quote.quote_number}] Line '{line.concept}': svc_type='{svc_type}', "
+                        f"req_svc={'found (desc=' + repr(getattr(req_svc, 'description', '')[:50]) + ')' if req_svc else 'NOT FOUND'}, "
+                        f"desc_len={len(desc_text)}"
+                    )
                 else:
                     desc_text = (line.description_en or line.description) if is_en else line.description
                 concept = Paragraph(concept_text or '', cell_style)
