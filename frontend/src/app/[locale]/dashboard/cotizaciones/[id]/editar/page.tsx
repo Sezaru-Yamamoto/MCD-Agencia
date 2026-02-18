@@ -405,6 +405,50 @@ export default function EditQuotePage() {
       toast.error('Todos los conceptos deben tener un precio válido');
       return false;
     }
+    // Validate route-based items have prices > 0 for all routes
+    for (const item of items) {
+      if (isRouteBasedDetails(item.serviceDetails)) {
+        const sd = item.serviceDetails!;
+        const routeArrayKey = sd._vallasRoutes ? '_vallasRoutes'
+          : sd._pubRoutes ? '_pubRoutes'
+          : sd._perifoneoRoutes ? '_perifoneoRoutes'
+          : null;
+        if (routeArrayKey) {
+          const routes = sd[routeArrayKey] as Array<{ unit_price?: number }>;
+          if (routes && routes.some(r => !r.unit_price || r.unit_price <= 0)) {
+            const svcLabel = SERVICE_LABELS[sd.service_type as ServiceId] || sd.service_type;
+            toast.error(`Todas las rutas de "${svcLabel}" deben tener un precio válido`);
+            return false;
+          }
+        }
+      }
+    }
+    // Validate delivery method is specified for each item (except route-based publicidad-movil)
+    for (const item of items) {
+      const isPubMovilRoutes = isRouteBasedDetails(item.serviceDetails)
+        && (item.serviceDetails?.service_type === 'publicidad-movil')
+        && (item.serviceDetails?.subtipo as string) !== 'otro';
+      if (!isPubMovilRoutes && !item.lineDeliveryMethod) {
+        const conceptLabel = item.serviceDetails?.service_type
+          ? (SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type as string)
+          : (item.concept || 'un concepto');
+        toast.error(`Selecciona el método de entrega para "${conceptLabel}"`);
+        return false;
+      }
+    }
+    // Validate estimated delivery date is set for each item (except route-based publicidad-movil which uses route dates)
+    for (const item of items) {
+      const isPubMovilRoutes = isRouteBasedDetails(item.serviceDetails)
+        && (item.serviceDetails?.service_type === 'publicidad-movil')
+        && (item.serviceDetails?.subtipo as string) !== 'otro';
+      if (!isPubMovilRoutes && !item.lineEstimatedDate) {
+        const conceptLabel = item.serviceDetails?.service_type
+          ? (SERVICE_LABELS[item.serviceDetails.service_type as ServiceId] || item.serviceDetails.service_type as string)
+          : (item.concept || 'un concepto');
+        toast.error(`Indica la fecha de entrega estimada para "${conceptLabel}"`);
+        return false;
+      }
+    }
     return true;
   };
 

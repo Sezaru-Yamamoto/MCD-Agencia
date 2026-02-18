@@ -723,10 +723,26 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 quote.lines.all().delete()
 
                 subtotal = Decimal('0.00')
+                shipping_total = Decimal('0.00')
                 for position, line in enumerate(lines_data):
                     quantity = Decimal(str(line.get('quantity', 1)))
                     unit_price = Decimal(str(line.get('unit_price', 0)))
                     line_total = quantity * unit_price
+                    shipping_cost = Decimal(str(line.get('shipping_cost', 0) or 0))
+
+                    # Per-line delivery fields
+                    line_delivery_method = line.get('delivery_method', '')
+                    line_delivery_address = line.get('delivery_address', {})
+                    line_estimated_delivery_date = line.get('estimated_delivery_date')
+                    line_pickup_branch_id = line.get('pickup_branch') or line.get('pickup_branch_id')
+
+                    line_pickup_branch = None
+                    if line_pickup_branch_id:
+                        from apps.content.models import Branch as BranchModel
+                        try:
+                            line_pickup_branch = BranchModel.objects.get(id=line_pickup_branch_id, is_active=True)
+                        except (BranchModel.DoesNotExist, ValueError):
+                            pass
 
                     QuoteLine.objects.create(
                         quote=quote,
@@ -740,13 +756,19 @@ class QuoteViewSet(viewsets.ModelViewSet):
                         line_total=line_total,
                         position=line.get('position', position),
                         service_details=line.get('service_details'),
+                        shipping_cost=shipping_cost,
+                        delivery_method=line_delivery_method,
+                        delivery_address=line_delivery_address or {},
+                        pickup_branch=line_pickup_branch,
+                        estimated_delivery_date=line_estimated_delivery_date,
                     )
                     subtotal += line_total
+                    shipping_total += shipping_cost
 
-                # Recalculate totals
+                # Recalculate totals (shipping has no IVA)
                 quote.subtotal = subtotal
                 quote.tax_amount = subtotal * quote.tax_rate
-                quote.total = subtotal + quote.tax_amount
+                quote.total = subtotal + quote.tax_amount + shipping_total
                 quote.save(update_fields=['subtotal', 'tax_amount', 'total', 'updated_at'])
 
             AuditLog.log(
