@@ -255,6 +255,32 @@ export default function QuoteRequestsListPage() {
           </Link>
         </div>
 
+        {/* Stats Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4">
+            <p className="text-neutral-400 text-sm">Total Solicitudes</p>
+            <p className="text-2xl font-bold text-white">{requestsPagination.totalCount}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-neutral-400 text-sm">Pendientes</p>
+            <p className="text-2xl font-bold text-yellow-400">
+              {requests.filter(r => r.status === 'pending').length}
+            </p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-neutral-400 text-sm">Urgentes</p>
+            <p className="text-2xl font-bold text-red-400">
+              {requests.filter(r => r.urgency === 'high').length}
+            </p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-neutral-400 text-sm">En Revisión</p>
+            <p className="text-2xl font-bold text-purple-400">
+              {requests.filter(r => r.status === 'in_review').length}
+            </p>
+          </Card>
+        </div>
+
         {/* Quote Requests Content */}
           <>
             {/* Filters */}
@@ -581,31 +607,6 @@ export default function QuoteRequestsListPage() {
               </div>
             )}
 
-            {/* Stats Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <Card className="p-4">
-                <p className="text-neutral-400 text-sm">Total Solicitudes</p>
-                <p className="text-2xl font-bold text-white">{requestsPagination.totalCount}</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-neutral-400 text-sm">Pendientes</p>
-                <p className="text-2xl font-bold text-yellow-400">
-                  {requests.filter(r => r.status === 'pending').length}
-                </p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-neutral-400 text-sm">Urgentes</p>
-                <p className="text-2xl font-bold text-red-400">
-                  {requests.filter(r => r.urgency === 'high').length}
-                </p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-neutral-400 text-sm">En Revisión</p>
-                <p className="text-2xl font-bold text-purple-400">
-                  {requests.filter(r => r.status === 'in_review').length}
-                </p>
-              </Card>
-            </div>
           </>
 
       {/* Delete Confirmation Modal */}
