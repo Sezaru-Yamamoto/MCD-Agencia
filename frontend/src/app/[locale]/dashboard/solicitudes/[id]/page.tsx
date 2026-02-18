@@ -430,6 +430,15 @@ export default function QuoteRequestDetailPage() {
               )}
 
               {(() => {
+                // If multi-service request and all services have route dates, skip general date
+                if (request.services && request.services.length > 0) {
+                  const allRoutesBased = request.services.every(svc => {
+                    const sd = svc.service_details as Record<string, unknown> | undefined;
+                    return sd && Array.isArray(sd.rutas) && (sd.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                  });
+                  if (allRoutesBased) return null;
+                }
+
                 let displayDate = request.required_date;
                 const details = request.service_details as Record<string, unknown> | undefined;
                 if (details && Array.isArray(details.rutas)) {
@@ -546,16 +555,22 @@ export default function QuoteRequestDetailPage() {
                             </p>
                           </div>
                         )}
-                        {svc.required_date && (
-                          <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
-                            <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
-                            <p className="text-white font-medium mt-auto">
-                              {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
-                                year: 'numeric', month: 'short', day: 'numeric',
-                              })}
-                            </p>
-                          </div>
-                        )}
+                        {(() => {
+                          const sd = svc.service_details as Record<string, unknown> | undefined;
+                          const hasRouteDates = sd && Array.isArray(sd.rutas) &&
+                            (sd.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                          if (!svc.required_date || hasRouteDates) return null;
+                          return (
+                            <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                              <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                              <p className="text-white font-medium mt-auto">
+                                {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                  year: 'numeric', month: 'short', day: 'numeric',
+                                })}
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Per-service attachments */}

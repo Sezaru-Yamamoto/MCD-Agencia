@@ -273,6 +273,15 @@ export default function CustomerQuoteRequestPage() {
 
             {/* Required date */}
             {(() => {
+              // Skip if all multi-service entries have route dates
+              if (request.services && request.services.length > 0) {
+                const allRoutesBased = request.services.every(svc => {
+                  const sd = svc.service_details as Record<string, unknown> | undefined;
+                  return sd && Array.isArray(sd.rutas) && (sd.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                });
+                if (allRoutesBased) return null;
+              }
+
               let displayDate = request.required_date;
               const details = request.service_details as Record<string, unknown> | undefined;
               if (details && Array.isArray(details.rutas)) {
