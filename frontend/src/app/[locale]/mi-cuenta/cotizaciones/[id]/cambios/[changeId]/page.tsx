@@ -368,7 +368,10 @@ export default function CustomerChangeRequestDetailPage() {
                                         </div>
                                       )}
                                       {line.description && (
-                                        <p className="text-neutral-400 text-sm">{line.description}</p>
+                                        <div className="p-4 bg-neutral-800/50 rounded-lg">
+                                          <p className="text-neutral-500 text-xs mb-2">Comentarios del cliente</p>
+                                          <p className="text-white whitespace-pre-wrap">{line.description}</p>
+                                        </div>
                                       )}
 
                                       {/* Service-specific parameters */}

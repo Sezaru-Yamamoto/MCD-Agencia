@@ -1187,7 +1187,10 @@ export default function CustomerQuoteDetailPage() {
                         )}
 
                         {vGroup.lines[0]?.description && (
-                          <p className="text-neutral-300 text-sm whitespace-pre-wrap">{vGroup.lines[0].description}</p>
+                          <div className="p-4 bg-neutral-800/50 rounded-lg">
+                            <p className="text-neutral-500 text-xs mb-2">Comentarios del cliente</p>
+                            <p className="text-white whitespace-pre-wrap">{vGroup.lines[0].description}</p>
+                          </div>
                         )}
 
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1397,7 +1400,10 @@ export default function CustomerQuoteDetailPage() {
                             )}
 
                             {svc.description && (
-                              <p className="text-neutral-300 text-sm whitespace-pre-wrap">{svc.description}</p>
+                              <div className="p-4 bg-neutral-800/50 rounded-lg">
+                                <p className="text-neutral-500 text-xs mb-2">Comentarios del cliente</p>
+                                <p className="text-white whitespace-pre-wrap">{svc.description}</p>
+                              </div>
                             )}
 
                             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1642,7 +1648,10 @@ export default function CustomerQuoteDetailPage() {
                             )}
 
                             {vGroup.lines[0]?.description && (
-                              <p className="text-neutral-300 text-sm whitespace-pre-wrap">{vGroup.lines[0].description}</p>
+                              <div className="p-4 bg-neutral-800/50 rounded-lg">
+                                <p className="text-neutral-500 text-xs mb-2">Comentarios del cliente</p>
+                                <p className="text-white whitespace-pre-wrap">{vGroup.lines[0].description}</p>
+                              </div>
                             )}
 
                             <div className="grid grid-cols-2 gap-3 text-sm">

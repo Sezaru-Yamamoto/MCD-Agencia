@@ -508,7 +508,10 @@ export default function QuoteRequestDetailPage() {
                       )}
 
                       {svc.description && (
-                        <p className="text-neutral-300 text-sm mb-3 whitespace-pre-wrap">{svc.description}</p>
+                        <div className="p-4 bg-neutral-800/50 rounded-lg mb-3">
+                          <p className="text-neutral-500 text-xs mb-2">Comentarios del cliente</p>
+                          <p className="text-white whitespace-pre-wrap">{svc.description}</p>
+                        </div>
                       )}
 
                       <div className="grid grid-cols-2 gap-3 text-sm">
