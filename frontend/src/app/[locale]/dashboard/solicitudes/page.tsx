@@ -16,6 +16,8 @@ import {
   XCircleIcon,
   TrashIcon,
   InformationCircleIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -93,6 +95,7 @@ export default function QuoteRequestsListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
+  const [ordering, setOrdering] = useState<string>('-created_at');
   const [deleteTarget, setDeleteTarget] = useState<QuoteRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [servicesPopover, setServicesPopover] = useState<string | null>(null);
@@ -130,11 +133,15 @@ export default function QuoteRequestsListPage() {
       if (searchTerm) {
         filters.search = searchTerm;
       }
+      if (ordering) {
+        filters.ordering = ordering;
+      }
 
       const response: PaginatedResponse<QuoteRequest> = await getAdminQuoteRequests(filters as {
         status?: QuoteRequestStatus;
         urgency?: UrgencyLevel;
         search?: string;
+        ordering?: string;
         page?: number;
       });
 
@@ -150,7 +157,7 @@ export default function QuoteRequestsListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, urgencyFilter, searchTerm]);
+  }, [statusFilter, urgencyFilter, searchTerm, ordering]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -329,11 +336,45 @@ export default function QuoteRequestsListPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
                           Estado
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Urgencia
+                        <th
+                          className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider cursor-pointer select-none hover:text-neutral-200 transition-colors"
+                          onClick={() => setOrdering(prev => prev === 'urgency' ? '-urgency' : prev === '-urgency' ? '-created_at' : 'urgency')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Urgencia
+                            {ordering === 'urgency' ? (
+                              <ChevronUpIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            ) : ordering === '-urgency' ? (
+                              <ChevronDownIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            ) : (
+                              <span className="inline-flex flex-col -space-y-1">
+                                <ChevronUpIcon className="h-2.5 w-2.5 text-neutral-600" />
+                                <ChevronDownIcon className="h-2.5 w-2.5 text-neutral-600" />
+                              </span>
+                            )}
+                          </span>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                          Fecha
+                        <th
+                          className="px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider cursor-pointer select-none hover:text-neutral-200 transition-colors"
+                          onClick={() => setOrdering(prev => prev === '-created_at' ? 'created_at' : prev === 'created_at' ? 'required_date' : prev === 'required_date' ? '-required_date' : '-created_at')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {ordering === 'required_date' || ordering === '-required_date' ? 'Fecha requerida' : 'Fecha'}
+                            {ordering === '-created_at' ? (
+                              <ChevronDownIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            ) : ordering === 'created_at' ? (
+                              <ChevronUpIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            ) : ordering === 'required_date' ? (
+                              <ChevronUpIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            ) : ordering === '-required_date' ? (
+                              <ChevronDownIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            ) : (
+                              <span className="inline-flex flex-col -space-y-1">
+                                <ChevronUpIcon className="h-2.5 w-2.5 text-neutral-600" />
+                                <ChevronDownIcon className="h-2.5 w-2.5 text-neutral-600" />
+                              </span>
+                            )}
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -500,8 +541,20 @@ export default function QuoteRequestsListPage() {
                                 </p>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-sm">
-                              {formatDate(request.created_at)}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {ordering === 'required_date' || ordering === '-required_date' ? (
+                                request.required_date ? (
+                                  <span className="text-white">
+                                    {new Date(request.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                      year: 'numeric', month: 'short', day: 'numeric',
+                                    })}
+                                  </span>
+                                ) : (
+                                  <span className="text-neutral-600 italic">Sin fecha</span>
+                                )
+                              ) : (
+                                <span className="text-neutral-400">{formatDate(request.created_at)}</span>
+                              )}
                             </td>
                           </tr>
                         );

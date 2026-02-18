@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
@@ -132,9 +132,11 @@ class QuoteRequestViewSet(viewsets.ModelViewSet):
 
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status', 'assigned_to', 'urgency']
     search_fields = ['request_number', 'customer_name', 'customer_email', 'customer_company', 'catalog_item_name']
+    ordering_fields = ['created_at', 'required_date', 'urgency']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         """Return requests based on user role and visibility rules.

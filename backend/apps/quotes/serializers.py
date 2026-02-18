@@ -338,6 +338,12 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                     quote_request.required_date = earliest
                     quote_request.save(update_fields=['required_date'])
 
+            # Recalculate urgency now that required_date may have changed
+            new_urgency = quote_request.calculate_urgency()
+            if new_urgency != quote_request.urgency:
+                quote_request.urgency = new_urgency
+                quote_request.save(update_fields=['urgency'])
+
         # Link attachments to per-service records using file_service_map
         if created_services and attachment_objects:
             http_request = self.context.get('request')

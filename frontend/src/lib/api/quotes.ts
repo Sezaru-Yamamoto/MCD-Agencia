@@ -741,6 +741,7 @@ export async function getAdminQuoteRequests(filters?: {
   urgency?: UrgencyLevel;
   assigned_to?: string;
   search?: string;
+  ordering?: string;
   page?: number;
 }): Promise<PaginatedResponse<QuoteRequest>> {
   return apiClient.get<PaginatedResponse<QuoteRequest>>('/quotes/requests/', filters);
