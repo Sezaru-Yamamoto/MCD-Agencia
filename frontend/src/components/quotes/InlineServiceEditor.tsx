@@ -444,6 +444,29 @@ export function InlineServiceEditor({
     [branches, data.pickupBranch]
   );
 
+  /* ---- detect if user actually changed anything ---- */
+  const hasChanges = useMemo(() => {
+    const ini = initialRef.current;
+    // Compare key fields — skip internal route arrays (_vallasRoutes etc) since they're derived
+    const stripInternal = (d: ServiceDetailsData): Record<string, unknown> => {
+      const copy = { ...d } as Record<string, unknown>;
+      delete copy._vallasRoutes;
+      delete copy._pubRoutes;
+      delete copy._perifoneoRoutes;
+      return copy;
+    };
+    if (JSON.stringify(stripInternal(data.details)) !== JSON.stringify(stripInternal(ini.details))) return true;
+    if (data.deliveryMethod !== ini.deliveryMethod) return true;
+    if (JSON.stringify(data.deliveryAddress) !== JSON.stringify(ini.deliveryAddress)) return true;
+    if (data.pickupBranch !== ini.pickupBranch) return true;
+    if (data.requiredDate !== ini.requiredDate) return true;
+    if (data.comments !== ini.comments) return true;
+    if (JSON.stringify(data.routeComments) !== JSON.stringify(ini.routeComments)) return true;
+    if (data.newFiles.length > 0) return true;
+    if (data.removedAttachmentIds.length > 0) return true;
+    return false;
+  }, [data]);
+
   /* ================================================================
      RENDER
      ================================================================ */
@@ -806,7 +829,8 @@ export function InlineServiceEditor({
         </div>
       )}
 
-      {/* ---- Action buttons ---- */}
+      {/* ---- Action buttons (only shown when user changed something) ---- */}
+      {hasChanges && (
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-neutral-700">
         <button
           type="button"
@@ -855,6 +879,7 @@ export function InlineServiceEditor({
           Guardar cambios
         </button>
       </div>
+      )}
     </div>
   );
 }

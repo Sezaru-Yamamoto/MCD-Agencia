@@ -350,8 +350,9 @@ export default function CustomerQuoteDetailPage() {
           );
         const routeComments: Record<number, string> = {};
         if (isRouteBased && matchedLines.length > 0) {
+          const rutas = (effectiveSD?.rutas ?? (svc.service_details as Record<string, unknown> | undefined)?.rutas) as Array<Record<string, unknown>> | undefined;
           matchedLines.forEach((ml, rIdx) => {
-            routeComments[rIdx] = ml.description || '';
+            routeComments[rIdx] = ml.description || (rutas?.[rIdx]?.comentarios as string) || '';
           });
         }
         // Comments: for non-route-based services, use line description → original description
@@ -389,8 +390,9 @@ export default function CustomerQuoteDetailPage() {
         );
       const routeComments: Record<number, string> = {};
       if (isRouteBased && allNonVendorLines.length > 0) {
+        const rutas = (effectiveSD?.rutas ?? (qr.service_details as Record<string, unknown> | undefined)?.rutas) as Array<Record<string, unknown>> | undefined;
         allNonVendorLines.forEach((ml, rIdx) => {
-          routeComments[rIdx] = ml.description || '';
+          routeComments[rIdx] = ml.description || (rutas?.[rIdx]?.comentarios as string) || '';
         });
       }
       // Comments: for non-route-based services, use line description → original description
@@ -433,8 +435,7 @@ export default function CustomerQuoteDetailPage() {
     setDeletedServiceKeys(new Set());
     setEditGlobalComments('');
     setEditGlobalFiles([]);
-    const allKeys = Object.keys(initialMap);
-    setExpandedServices(new Set(allKeys));
+    // Don't auto-expand accordions — let user open them manually
     setEditMode(true);
   }, [quote, buildInitialEditMap]);
 
@@ -951,7 +952,10 @@ export default function CustomerQuoteDetailPage() {
                               const _isRouteBased = quote.quote_request!.service_type === 'publicidad-movil' &&
                                 ['vallas-moviles', 'perifoneo', 'publibuses'].includes((_esd?.subtipo as string) || '');
                               const _rc: Record<number, string> = {};
-                              if (_isRouteBased) { _allLines.forEach((ml, ri) => { _rc[ri] = ml.description || ''; }); }
+                              if (_isRouteBased) {
+                                const _rutas = (_esd?.rutas ?? (quote.quote_request?.service_details as Record<string, unknown> | undefined)?.rutas) as Array<Record<string, unknown>> | undefined;
+                                _allLines.forEach((ml, ri) => { _rc[ri] = ml.description || (_rutas?.[ri]?.comentarios as string) || ''; });
+                              }
                               return buildServiceEditData({
                                 serviceType: quote.quote_request!.service_type || '',
                                 serviceDetails: _esd,
@@ -1418,7 +1422,10 @@ export default function CustomerQuoteDetailPage() {
                                   const _isRouteBased = svc.service_type === 'publicidad-movil' &&
                                     ['vallas-moviles', 'perifoneo', 'publibuses'].includes((_effSD?.subtipo as string) || '');
                                   const _rc: Record<number, string> = {};
-                                  if (_isRouteBased) { _ml.forEach((ml, ri) => { _rc[ri] = ml.description || ''; }); }
+                                  if (_isRouteBased) {
+                                    const _rutas = (_effSD?.rutas ?? (svc.service_details as Record<string, unknown> | undefined)?.rutas) as Array<Record<string, unknown>> | undefined;
+                                    _ml.forEach((ml, ri) => { _rc[ri] = ml.description || (_rutas?.[ri]?.comentarios as string) || ''; });
+                                  }
                                   return buildServiceEditData({
                                     serviceType: svc.service_type || '',
                                     serviceDetails: _effSD,
