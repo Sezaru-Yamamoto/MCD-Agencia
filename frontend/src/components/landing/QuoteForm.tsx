@@ -2895,7 +2895,8 @@ export function QuoteForm() {
           })()}
 
           {/* ──── Files & Comments (inside service box) ──── */}
-          {servicioValue && (
+          {/* Hide for route-based pub-movil subtypes (each route has its own comments/files) */}
+          {servicioValue && !(servicioValue === 'publicidad-movil' && ['vallas-moviles', 'publibuses', 'perifoneo'].includes(pubSubtipo || '')) && (
             <div className="space-y-5 pt-4 border-t border-neutral-700/50">
               {/* File upload */}
               <div>
