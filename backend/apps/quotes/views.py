@@ -2295,6 +2295,52 @@ Agencia MCD
 
         return Response(response_data)
 
+    @action(detail=False, methods=['post'], url_path='fix-comments')
+    def fix_comments(self, request):
+        """
+        Back-fill customer_comments on change requests that only have
+        per-line description comments but no global customer_comments.
+        Admin only.
+        """
+        user = request.user
+        if not (hasattr(user, 'role') and user.role and user.role.name == 'admin'):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        fixed = 0
+        for cr in QuoteChangeRequest.objects.filter(customer_comments=''):
+            line_comments = []
+            original_lines = {}
+            if cr.original_snapshot and cr.original_snapshot.get('lines'):
+                for ol in cr.original_snapshot['lines']:
+                    original_lines[str(ol['id'])] = ol
+
+            for pl in (cr.proposed_lines or []):
+                desc = (pl.get('description') or '').strip()
+                if desc and pl.get('action') != 'delete':
+                    line_id = pl.get('id')
+                    orig = original_lines.get(str(line_id)) if line_id else None
+                    if orig and desc == (orig.get('description') or '').strip():
+                        continue
+                    label = ''
+                    if orig:
+                        concept = orig.get('concept', '')
+                        parts = concept.split(' \u2014 ')
+                        label = parts[-1] if parts else concept
+                    elif pl.get('concept'):
+                        parts = pl['concept'].split(' \u2014 ')
+                        label = parts[-1] if parts else pl['concept']
+                    if label:
+                        line_comments.append(f'{label}: {desc}')
+                    else:
+                        line_comments.append(desc)
+
+            if line_comments:
+                cr.customer_comments = ' | '.join(line_comments)
+                cr.save(update_fields=['customer_comments'])
+                fixed += 1
+
+        return Response({'message': f'Fixed {fixed} change requests.'})
+
     @action(detail=False, methods=['get'])
     def pending(self, request):
         """Get all pending change requests."""

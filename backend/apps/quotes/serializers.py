@@ -1027,12 +1027,45 @@ class QuoteChangeRequestCreateSerializer(serializers.Serializer):
             else:
                 ip_address = request.META.get('REMOTE_ADDR')
 
+        # Build customer_comments: use explicit field, or auto-generate from
+        # per-line descriptions so summaries/cards can display something.
+        customer_comments = validated_data.get('customer_comments', '').strip()
+        if not customer_comments:
+            line_comments = []
+            original_lines = {
+                str(ol.id): ol for ol in quote.lines.all()
+            }
+            for pl in proposed_lines_serializable:
+                desc = (pl.get('description') or '').strip()
+                if desc and pl.get('action') != 'delete':
+                    line_id = pl.get('id')
+                    orig = original_lines.get(str(line_id)) if line_id else None
+                    # Only treat it as a customer note if it differs from the
+                    # original description (otherwise it's just the unchanged
+                    # product description being echoed back).
+                    if orig and desc == (orig.description or '').strip():
+                        continue
+                    label = ''
+                    if orig:
+                        concept = orig.concept or ''
+                        parts = concept.split(' \u2014 ')
+                        label = parts[-1] if parts else concept
+                    elif pl.get('concept'):
+                        parts = pl['concept'].split(' \u2014 ')
+                        label = parts[-1] if parts else pl['concept']
+                    if label:
+                        line_comments.append(f'{label}: {desc}')
+                    else:
+                        line_comments.append(desc)
+            if line_comments:
+                customer_comments = ' | '.join(line_comments)
+
         # Create the change request
         change_request = QuoteChangeRequest.objects.create(
             quote=quote,
             customer_name=quote.customer_name,
             customer_email=quote.customer_email,
-            customer_comments=validated_data.get('customer_comments', ''),
+            customer_comments=customer_comments,
             proposed_lines=proposed_lines_serializable,
             original_snapshot=original_snapshot,
             ip_address=ip_address,

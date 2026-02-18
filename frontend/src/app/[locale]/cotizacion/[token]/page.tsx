@@ -1643,11 +1643,19 @@ export default function QuoteViewPage() {
                                   )}
                                 </p>
                                 <p className="text-neutral-500 text-xs">{fmtDate(cr.created_at)}</p>
-                                {cr.customer_comments && (
+                                {cr.customer_comments ? (
                                   <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2">
                                     &ldquo;{cr.customer_comments}&rdquo;
                                   </p>
-                                )}
+                                ) : (() => {
+                                  const comments = (cr.proposed_lines || []).filter(pl => pl.description?.trim() && pl.action !== 'delete');
+                                  return comments.length > 0 ? (
+                                    <p className="text-neutral-500 text-xs mt-0.5 line-clamp-2">
+                                      {comments.map(pl => `"${pl.description?.trim()}"`).slice(0, 2).join(', ')}
+                                      {comments.length > 2 ? ` (+${comments.length - 2})` : ''}
+                                    </p>
+                                  ) : null;
+                                })()}
                                 {cr.attachments && cr.attachments.length > 0 && (
                                   <div className="mt-1.5 space-y-1">
                                     <p className="text-neutral-500 text-xs flex items-center gap-1">

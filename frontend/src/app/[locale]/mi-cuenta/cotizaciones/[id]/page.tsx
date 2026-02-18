@@ -2341,6 +2341,14 @@ export default function CustomerQuoteDetailPage() {
                               )}
                             </p>
                             <p className="text-neutral-500 text-[11px]">{fmtDate(cr.created_at)}</p>
+                            {!cr.customer_comments && (() => {
+                              const comments = (cr.proposed_lines || []).filter(pl => pl.description?.trim() && pl.action !== 'delete');
+                              return comments.length > 0 ? (
+                                <p className="text-neutral-500 text-[11px] mt-0.5">
+                                  {comments.length} comentario{comments.length > 1 ? 's' : ''}
+                                </p>
+                              ) : null;
+                            })()}
                             {cr.attachments && cr.attachments.length > 0 && (
                               <p className="text-neutral-500 text-[11px] mt-0.5 flex items-center gap-1">
                                 <PaperClipIcon className="h-3 w-3" />

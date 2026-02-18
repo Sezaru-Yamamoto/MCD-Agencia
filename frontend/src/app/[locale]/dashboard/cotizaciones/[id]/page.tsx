@@ -1501,11 +1501,31 @@ export default function QuoteDetailPage() {
                               {new Date(cr.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
                             </span>
                           </div>
-                          {cr.customer_comments && (
+                          {cr.customer_comments ? (
                             <p className="text-neutral-300 text-sm mt-1">
                               &ldquo;{cr.customer_comments}&rdquo;
                             </p>
-                          )}
+                          ) : (() => {
+                            const lineComments = (cr.proposed_lines || [])
+                              .filter(pl => pl.description && pl.description.trim() && pl.action !== 'delete')
+                              .map(pl => {
+                                const label = pl.concept || (cr.original_snapshot?.lines?.find(ol => ol.id === pl.id)?.concept) || '';
+                                return { label: label.split(' — ').pop() || label, comment: pl.description!.trim() };
+                              });
+                            return lineComments.length > 0 ? (
+                              <div className="mt-1 space-y-0.5">
+                                {lineComments.slice(0, 3).map((lc, i) => (
+                                  <p key={i} className="text-neutral-400 text-xs">
+                                    <span className="text-neutral-500">{lc.label}:</span>{' '}
+                                    &ldquo;{lc.comment}&rdquo;
+                                  </p>
+                                ))}
+                                {lineComments.length > 3 && (
+                                  <p className="text-neutral-500 text-xs">+{lineComments.length - 3} más...</p>
+                                )}
+                              </div>
+                            ) : null;
+                          })()}
                           {/* Change request attachments */}
                           {cr.attachments && cr.attachments.length > 0 && (
                             <div className="mt-2 space-y-1.5">
@@ -1668,11 +1688,18 @@ export default function QuoteDetailPage() {
                               <p className="text-neutral-500 text-xs">
                                 {cr.customer_name} · {fmtDate(cr.created_at)}
                               </p>
-                              {cr.customer_comments && (
+                              {cr.customer_comments ? (
                                 <p className="text-neutral-500 text-xs mt-0.5 line-clamp-1 group-hover:text-neutral-300 transition-colors">
                                   &ldquo;{cr.customer_comments}&rdquo;
                                 </p>
-                              )}
+                              ) : (() => {
+                                const comments = (cr.proposed_lines || []).filter(pl => pl.description?.trim() && pl.action !== 'delete');
+                                return comments.length > 0 ? (
+                                  <p className="text-neutral-500 text-xs mt-0.5 line-clamp-1 group-hover:text-neutral-300 transition-colors">
+                                    {comments.length} comentario{comments.length > 1 ? 's' : ''} en líneas
+                                  </p>
+                                ) : null;
+                              })()}
                               {cr.attachments && cr.attachments.length > 0 && (
                                 <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1">
                                   <PaperClipIcon className="h-3 w-3" />
