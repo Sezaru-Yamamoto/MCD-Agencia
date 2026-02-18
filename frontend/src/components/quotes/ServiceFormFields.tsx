@@ -6,6 +6,7 @@ import {
   MapPinIcon,
   TruckIcon,
   ClockIcon,
+  ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 import {
   SERVICE_IDS,
@@ -120,6 +121,10 @@ interface ServiceFormFieldsProps {
   disabled?: boolean;
   /** Hide route pricing fields (Cantidad, Unidad, Precio Unit.) — used in client-facing views */
   hideRoutePricing?: boolean;
+  /** Per-route customer comments (route index → comment string) */
+  routeComments?: Record<number, string>;
+  /** Called when a per-route comment changes */
+  onRouteCommentsChange?: (routeComments: Record<number, string>) => void;
 }
 
 /* ─── Shared field styles ──────────────────────────────────────── */
@@ -479,6 +484,8 @@ export function ServiceFormFields({
   onChange,
   disabled,
   hideRoutePricing,
+  routeComments,
+  onRouteCommentsChange,
 }: ServiceFormFieldsProps) {
   const serviceType = value.service_type as ServiceId | '';
 
@@ -1053,6 +1060,24 @@ export function ServiceFormFields({
                       }
                     />
                   </div>
+
+                  {/* Per-route comment */}
+                  {routeComments && onRouteCommentsChange && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg space-y-1">
+                      <div className="flex items-center gap-2">
+                        <ChatBubbleLeftIcon className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                        <label className="text-neutral-500 text-xs">Comentarios de esta ruta</label>
+                      </div>
+                      <textarea
+                        value={routeComments[idx] || ''}
+                        onChange={(e) => onRouteCommentsChange({ ...routeComments, [idx]: e.target.value })}
+                        rows={2}
+                        maxLength={2000}
+                        className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
+                        placeholder={`Comentarios para la ruta ${idx + 1}…`}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -1257,6 +1282,24 @@ export function ServiceFormFields({
                             ? 'Ruta Zócalo Base'
                             : 'Ruta Colosio Zócalo'
                         }
+                      />
+                    </div>
+                  )}
+
+                  {/* Per-route comment */}
+                  {routeComments && onRouteCommentsChange && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg space-y-1">
+                      <div className="flex items-center gap-2">
+                        <ChatBubbleLeftIcon className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                        <label className="text-neutral-500 text-xs">Comentarios de esta ruta</label>
+                      </div>
+                      <textarea
+                        value={routeComments[idx] || ''}
+                        onChange={(e) => onRouteCommentsChange({ ...routeComments, [idx]: e.target.value })}
+                        rows={2}
+                        maxLength={2000}
+                        className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
+                        placeholder={`Comentarios para la ruta ${idx + 1}…`}
                       />
                     </div>
                   )}
@@ -1483,6 +1526,24 @@ export function ServiceFormFields({
                       }
                     />
                   </div>
+
+                  {/* Per-route comment */}
+                  {routeComments && onRouteCommentsChange && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg space-y-1">
+                      <div className="flex items-center gap-2">
+                        <ChatBubbleLeftIcon className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                        <label className="text-neutral-500 text-xs">Comentarios de esta ruta</label>
+                      </div>
+                      <textarea
+                        value={routeComments[idx] || ''}
+                        onChange={(e) => onRouteCommentsChange({ ...routeComments, [idx]: e.target.value })}
+                        rows={2}
+                        maxLength={2000}
+                        className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
+                        placeholder={`Comentarios para la ruta ${idx + 1}…`}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
 
