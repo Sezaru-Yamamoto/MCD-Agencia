@@ -210,187 +210,337 @@ export default function CustomerSentRequestPage() {
             </div>
           </Card>
 
-          {/* Service Details */}
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Detalles del Servicio Solicitado</h2>
+          {/* Multi-Service Details */}
+          {request.services && request.services.length > 0 ? (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">
+                Servicios Solicitados ({request.services.length})
+              </h2>
 
-            {request.catalog_item && (
-              <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
-                {request.catalog_item.image && (
-                  <img
-                    src={request.catalog_item.image}
-                    alt={request.catalog_item.name}
-                    className="w-16 h-16 object-cover rounded-lg"
+              {request.catalog_item && (
+                <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
+                  {request.catalog_item.image && (
+                    <img
+                      src={request.catalog_item.image}
+                      alt={request.catalog_item.name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  )}
+                  <div>
+                    <p className="text-neutral-500 text-xs">Producto/Servicio</p>
+                    <p className="text-white font-medium">{request.catalog_item.name}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {request.services.map((svc, idx) => (
+                  <div key={svc.id} className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-700">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-cmyk-cyan/20 text-cmyk-cyan text-sm font-bold">
+                        {idx + 1}
+                      </span>
+                      <h3 className="text-white font-semibold text-lg">
+                        {SERVICE_LABELS[svc.service_type as ServiceId] || svc.service_type}
+                      </h3>
+                    </div>
+
+                    {/* Service-specific parameters */}
+                    {svc.service_details && Object.keys(svc.service_details).length > 0 && (
+                      <div className="mb-3">
+                        <ServiceDetailsDisplay
+                          serviceType={svc.service_type}
+                          serviceDetails={svc.service_details as Record<string, unknown>}
+                        />
+                      </div>
+                    )}
+
+                    {svc.description && (
+                      <div className="p-4 bg-neutral-800/50 rounded-lg mb-3">
+                        <p className="text-neutral-500 text-xs mb-2">Comentarios</p>
+                        <p className="text-white whitespace-pre-wrap">{svc.description}</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {svc.delivery_method && (
+                        <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                          <p className="text-neutral-500 text-xs mb-1">Método de entrega</p>
+                          <p className="text-white font-medium flex items-center gap-1 mt-auto">
+                            <span>{DELIVERY_METHOD_ICONS[svc.delivery_method as DeliveryMethod]}</span>
+                            {DELIVERY_METHOD_LABELS[svc.delivery_method as DeliveryMethod]?.es || svc.delivery_method}
+                          </p>
+                        </div>
+                      )}
+                      {svc.pickup_branch_detail && (
+                        <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                          <p className="text-neutral-500 text-xs mb-1">Sucursal de recolección</p>
+                          <p className="text-white font-medium mt-auto">{svc.pickup_branch_detail.name}</p>
+                        </div>
+                      )}
+                      {svc.delivery_address && Object.keys(svc.delivery_address).length > 0 && (
+                        <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                          <p className="text-neutral-500 text-xs mb-1">
+                            {svc.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                          </p>
+                          <p className="text-white font-medium mt-auto">
+                            {[svc.delivery_address.street || svc.delivery_address.calle,
+                              svc.delivery_address.exterior_number || svc.delivery_address.numero_exterior,
+                              svc.delivery_address.neighborhood || svc.delivery_address.colonia,
+                              svc.delivery_address.city || svc.delivery_address.ciudad,
+                              svc.delivery_address.state || svc.delivery_address.estado,
+                              svc.delivery_address.postal_code || svc.delivery_address.codigo_postal,
+                            ].filter(Boolean).join(', ')}
+                          </p>
+                        </div>
+                      )}
+                      {(() => {
+                        const sd = svc.service_details as Record<string, unknown> | undefined;
+                        const hasRouteDates = sd && Array.isArray(sd.rutas) &&
+                          (sd.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
+                        if (!svc.required_date || hasRouteDates) return null;
+                        return (
+                          <div className="p-3 bg-neutral-900/50 rounded-lg flex flex-col">
+                            <p className="text-neutral-500 text-xs mb-1">Fecha requerida</p>
+                            <p className="text-white font-medium mt-auto">
+                              {new Date(svc.required_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                year: 'numeric', month: 'short', day: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Per-service attachments */}
+                    {svc.attachments && svc.attachments.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-neutral-700">
+                        <p className="text-neutral-500 text-xs mb-2 flex items-center gap-1">
+                          <PaperClipIcon className="h-3 w-3" />
+                          Archivos adjuntos ({svc.attachments.length})
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {svc.attachments.map((att) => {
+                            const isImage = att.file_type?.startsWith('image/');
+                            return (
+                              <a
+                                key={att.id}
+                                href={att.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block p-2 bg-neutral-900/50 rounded hover:bg-neutral-700 transition-colors group"
+                              >
+                                {isImage && (
+                                  <img
+                                    src={att.file}
+                                    alt={att.filename || 'Archivo'}
+                                    className="w-full h-20 object-cover rounded mb-1"
+                                  />
+                                )}
+                                <p className="text-xs text-cmyk-cyan truncate group-hover:underline flex items-center gap-1">
+                                  {!isImage && <PaperClipIcon className="h-3 w-3 flex-shrink-0" />}
+                                  {att.filename || 'Archivo'}
+                                </p>
+                                {att.file_size > 0 && (
+                                  <p className="text-neutral-500 text-[10px]">{formatFileSize(att.file_size)}</p>
+                                )}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {request.description && (
+                <div className="mt-4 p-4 bg-neutral-800/50 rounded-lg">
+                  <p className="text-neutral-500 text-xs mb-2">Comentarios generales</p>
+                  <p className="text-white whitespace-pre-wrap">{request.description}</p>
+                </div>
+              )}
+            </Card>
+          ) : (
+            /* Single-service fallback */
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Detalles del Servicio Solicitado</h2>
+
+              {request.catalog_item && (
+                <div className="mb-4 p-4 bg-neutral-800/50 rounded-lg flex items-center gap-4">
+                  {request.catalog_item.image && (
+                    <img
+                      src={request.catalog_item.image}
+                      alt={request.catalog_item.name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  )}
+                  <div>
+                    <p className="text-neutral-500 text-xs">Producto/Servicio</p>
+                    <p className="text-white font-medium">{request.catalog_item.name}</p>
+                  </div>
+                </div>
+              )}
+
+              {request.service_type && (
+                <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
+                  <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
+                  <p className="text-cmyk-cyan font-semibold text-lg">
+                    {SERVICE_LABELS[request.service_type as ServiceId] || request.service_type}
+                  </p>
+                </div>
+              )}
+
+              {request.service_details && Object.keys(request.service_details).length > 0 && (
+                <div className="mb-4">
+                  <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
+                  <ServiceDetailsDisplay
+                    serviceType={request.service_type}
+                    serviceDetails={request.service_details as Record<string, unknown>}
                   />
-                )}
-                <div>
-                  <p className="text-neutral-500 text-xs">Producto/Servicio</p>
-                  <p className="text-white font-medium">{request.catalog_item.name}</p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {request.service_type && (
-              <div className="mb-4 p-3 bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg">
-                <p className="text-neutral-500 text-xs">Tipo de Servicio</p>
-                <p className="text-cmyk-cyan font-semibold text-lg">
-                  {SERVICE_LABELS[request.service_type as ServiceId] || request.service_type}
-                </p>
-              </div>
-            )}
-
-            {/* Service-specific details */}
-            {request.service_details && Object.keys(request.service_details).length > 0 && (
-              <div className="mb-4">
-                <p className="text-neutral-400 text-sm mb-3 font-medium">Parámetros del servicio</p>
-                <ServiceDetailsDisplay
-                  serviceType={request.service_type}
-                  serviceDetails={request.service_details as Record<string, unknown>}
-                />
-              </div>
-            )}
-
-            {/* Generic fields - only show if no service_details */}
-            {(!request.service_details || Object.keys(request.service_details).length === 0) && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                {request.quantity && (
+              {(!request.service_details || Object.keys(request.service_details).length === 0) && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  {request.quantity && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Cantidad</p>
+                      <p className="text-white font-medium">{request.quantity}</p>
+                    </div>
+                  )}
+                  {request.dimensions && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Dimensiones</p>
+                      <p className="text-white">{request.dimensions}</p>
+                    </div>
+                  )}
+                  {request.material && (
+                    <div className="p-3 bg-neutral-800/50 rounded-lg">
+                      <p className="text-neutral-500 text-xs">Material</p>
+                      <p className="text-white">{request.material}</p>
+                    </div>
+                  )}
                   <div className="p-3 bg-neutral-800/50 rounded-lg">
-                    <p className="text-neutral-500 text-xs">Cantidad</p>
-                    <p className="text-white font-medium">{request.quantity}</p>
+                    <p className="text-neutral-500 text-xs">Instalación</p>
+                    <p className="text-white">{request.includes_installation ? 'Sí' : 'No'}</p>
                   </div>
-                )}
-                {request.dimensions && (
-                  <div className="p-3 bg-neutral-800/50 rounded-lg">
-                    <p className="text-neutral-500 text-xs">Dimensiones</p>
-                    <p className="text-white">{request.dimensions}</p>
-                  </div>
-                )}
-                {request.material && (
-                  <div className="p-3 bg-neutral-800/50 rounded-lg">
-                    <p className="text-neutral-500 text-xs">Material</p>
-                    <p className="text-white">{request.material}</p>
-                  </div>
-                )}
-                <div className="p-3 bg-neutral-800/50 rounded-lg">
-                  <p className="text-neutral-500 text-xs">Instalación</p>
-                  <p className="text-white">{request.includes_installation ? 'Sí' : 'No'}</p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {request.description && (
-              <div className="p-4 bg-neutral-800/50 rounded-lg">
-                <p className="text-neutral-500 text-xs mb-2">Comentarios adicionales</p>
-                <p className="text-white whitespace-pre-wrap">{request.description}</p>
-              </div>
-            )}
+              {request.description && (
+                <div className="p-4 bg-neutral-800/50 rounded-lg">
+                  <p className="text-neutral-500 text-xs mb-2">Comentarios adicionales</p>
+                  <p className="text-white whitespace-pre-wrap">{request.description}</p>
+                </div>
+              )}
 
-            {/* Delivery Method */}
-            {request.delivery_method && (
-              <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg">
-                <p className="text-neutral-500 text-xs mb-2">Método de entrega preferido</p>
-                <p className="text-white flex items-center gap-2">
-                  <span>{DELIVERY_METHOD_ICONS[request.delivery_method as DeliveryMethod]}</span>
-                  {DELIVERY_METHOD_LABELS[request.delivery_method as DeliveryMethod]?.es || request.delivery_method}
-                </p>
-                {request.pickup_branch_detail && (
-                  <p className="text-neutral-300 text-sm mt-1">
-                    Sucursal: {request.pickup_branch_detail.name} — {request.pickup_branch_detail.city}, {request.pickup_branch_detail.state}
+              {request.delivery_method && (
+                <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg">
+                  <p className="text-neutral-500 text-xs mb-2">Método de entrega preferido</p>
+                  <p className="text-white flex items-center gap-2">
+                    <span>{DELIVERY_METHOD_ICONS[request.delivery_method as DeliveryMethod]}</span>
+                    {DELIVERY_METHOD_LABELS[request.delivery_method as DeliveryMethod]?.es || request.delivery_method}
                   </p>
-                )}
-                {request.delivery_address && typeof request.delivery_address === 'object' && Object.keys(request.delivery_address).length > 0 && (
-                  <p className="text-neutral-300 text-sm mt-1">
-                    {request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
-                    {[request.delivery_address.street || request.delivery_address.calle, request.delivery_address.exterior_number || request.delivery_address.numero_exterior, request.delivery_address.neighborhood || request.delivery_address.colonia, request.delivery_address.city || request.delivery_address.ciudad, request.delivery_address.state || request.delivery_address.estado, request.delivery_address.postal_code || request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
+                  {request.pickup_branch_detail && (
+                    <p className="text-neutral-300 text-sm mt-1">
+                      Sucursal: {request.pickup_branch_detail.name} — {request.pickup_branch_detail.city}, {request.pickup_branch_detail.state}
+                    </p>
+                  )}
+                  {request.delivery_address && typeof request.delivery_address === 'object' && Object.keys(request.delivery_address).length > 0 && (
+                    <p className="text-neutral-300 text-sm mt-1">
+                      {request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
+                      {[request.delivery_address.street || request.delivery_address.calle, request.delivery_address.exterior_number || request.delivery_address.numero_exterior, request.delivery_address.neighborhood || request.delivery_address.colonia, request.delivery_address.city || request.delivery_address.ciudad, request.delivery_address.state || request.delivery_address.estado, request.delivery_address.postal_code || request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
 
-            {/* Required date */}
-            {(() => {
-              // Skip if all multi-service entries have route dates
-              if (request.services && request.services.length > 0) {
-                const allRoutesBased = request.services.every(svc => {
-                  const sd = svc.service_details as Record<string, unknown> | undefined;
-                  return sd && Array.isArray(sd.rutas) && (sd.rutas as Array<Record<string, unknown>>).some(r => !!r.fecha_inicio);
-                });
-                if (allRoutesBased) return null;
-              }
-
-              let displayDate = request.required_date;
-              const details = request.service_details as Record<string, unknown> | undefined;
-              if (details && Array.isArray(details.rutas)) {
-                const routeDates = (details.rutas as Array<Record<string, unknown>>)
-                  .map(r => r.fecha_inicio as string)
-                  .filter(d => !!d)
-                  .sort();
-                if (routeDates.length > 0) {
-                  const earliest = routeDates[0];
-                  if (!displayDate || earliest < displayDate) {
-                    displayDate = earliest;
+              {(() => {
+                let displayDate = request.required_date;
+                const details = request.service_details as Record<string, unknown> | undefined;
+                if (details && Array.isArray(details.rutas)) {
+                  const routeDates = (details.rutas as Array<Record<string, unknown>>)
+                    .map(r => r.fecha_inicio as string)
+                    .filter(d => !!d)
+                    .sort();
+                  if (routeDates.length > 0) {
+                    const earliest = routeDates[0];
+                    if (!displayDate || earliest < displayDate) {
+                      displayDate = earliest;
+                    }
                   }
                 }
-              }
-              if (!displayDate) return null;
-              return (
-                <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
-                  <CalendarIcon className="h-5 w-5 text-neutral-400" />
-                  <div>
-                    <p className="text-neutral-500 text-xs">Fecha Requerida</p>
-                    <p className="text-white">
-                      {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
+                if (!displayDate) return null;
+                return (
+                  <div className="mt-4 p-3 bg-neutral-800/50 rounded-lg flex items-center gap-3">
+                    <CalendarIcon className="h-5 w-5 text-neutral-400" />
+                    <div>
+                      <p className="text-neutral-500 text-xs">Fecha Requerida</p>
+                      <p className="text-white">
+                        {new Date(displayDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
-          </Card>
-
-          {/* Attachments */}
-          {request.attachments && request.attachments.length > 0 && (
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
-                Archivos Adjuntos ({request.attachments.length})
-              </h2>
-              <div className="space-y-2">
-                {request.attachments.map((attachment) => {
-                  const isImage = attachment.file_type?.startsWith('image/');
-                  return (
-                    <a
-                      key={attachment.id}
-                      href={attachment.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg hover:bg-neutral-800 transition-colors border border-neutral-700/50"
-                    >
-                      {isImage ? (
-                        <img
-                          src={attachment.file}
-                          alt={attachment.filename}
-                          className="w-12 h-12 object-cover rounded border border-neutral-600"
-                        />
-                      ) : (
-                        <PaperClipIcon className="h-5 w-5 text-neutral-400 flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-cmyk-cyan hover:underline truncate">{attachment.filename}</p>
-                        <p className="text-neutral-500 text-xs">
-                          {formatFileSize(attachment.file_size)}
-                          {attachment.file_type && ` · ${attachment.file_type}`}
-                        </p>
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
+                );
+              })()}
             </Card>
           )}
+
+          {/* Global Attachments — exclude files already shown per-service */}
+          {(() => {
+            const perServiceAttIds = new Set<string>();
+            if (request.services) {
+              request.services.forEach(svc => {
+                svc.attachments?.forEach(att => perServiceAttIds.add(att.id));
+              });
+            }
+            const globalOnly = (request.attachments || []).filter(a => !perServiceAttIds.has(a.id));
+            if (globalOnly.length === 0) return null;
+            return (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
+                  Archivos Adjuntos ({globalOnly.length})
+                </h2>
+                <div className="space-y-2">
+                  {globalOnly.map((attachment) => {
+                    const isImage = attachment.file_type?.startsWith('image/');
+                    return (
+                      <a
+                        key={attachment.id}
+                        href={attachment.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-neutral-800/50 rounded-lg hover:bg-neutral-800 transition-colors border border-neutral-700/50"
+                      >
+                        {isImage ? (
+                          <img
+                            src={attachment.file}
+                            alt={attachment.filename}
+                            className="w-12 h-12 object-cover rounded border border-neutral-600"
+                          />
+                        ) : (
+                          <PaperClipIcon className="h-5 w-5 text-neutral-400 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-cmyk-cyan hover:underline truncate">{attachment.filename}</p>
+                          <p className="text-neutral-500 text-xs">
+                            {formatFileSize(attachment.file_size)}
+                            {attachment.file_type && ` · ${attachment.file_type}`}
+                          </p>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })()}
         </div>
 
         {/* Sidebar */}
