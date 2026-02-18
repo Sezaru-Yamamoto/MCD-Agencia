@@ -10,7 +10,7 @@ from collections import defaultdict
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from apps.quotes.models import QuoteResponse
+from apps.quotes.models import Quote
 
 
 class Command(BaseCommand):
@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Include soft-deleted records too
-        all_quotes = QuoteResponse.all_objects.all().order_by('created_at')
+        all_quotes = Quote.all_objects.all().order_by('created_at')
         total = all_quotes.count()
         self.stdout.write(f"Found {total} quote responses (including deleted)\n")
 

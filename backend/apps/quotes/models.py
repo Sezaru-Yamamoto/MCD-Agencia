@@ -943,7 +943,7 @@ class Quote(TimeStampedModel, SoftDeleteModel):
 
         # Find the highest existing number for today
         last = (
-            QuoteResponse.objects
+            Quote.all_objects
             .filter(quote_number__startswith=prefix)
             .order_by('-quote_number')
             .values_list('quote_number', flat=True)
