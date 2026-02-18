@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
@@ -95,6 +95,20 @@ export default function QuoteRequestsListPage() {
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
   const [deleteTarget, setDeleteTarget] = useState<QuoteRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [servicesPopover, setServicesPopover] = useState<string | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on click outside
+  useEffect(() => {
+    if (!servicesPopover) return;
+    const handler = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setServicesPopover(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [servicesPopover]);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
   const isAdmin = user?.role?.name === 'admin';
@@ -378,16 +392,52 @@ export default function QuoteRequestsListPage() {
                             <td className="px-6 py-4">
                               <div className="max-w-xs">
                                 {request.services && request.services.length > 0 ? (
-                                  <>
+                                  request.services.length === 1 ? (
+                                    /* ─── Single service: show name directly ─── */
                                     <p className="text-white truncate">
                                       {SERVICE_LABELS[request.services[0].service_type as ServiceId] || request.services[0].service_type}
                                     </p>
-                                    {request.services.length > 1 && (
-                                      <p className="text-cmyk-cyan text-xs mt-0.5">
-                                        +{request.services.length - 1} servicio{request.services.length - 1 > 1 ? 's' : ''} más
-                                      </p>
-                                    )}
-                                  </>
+                                  ) : (
+                                    /* ─── Multiple services: badge + popover ─── */
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setServicesPopover(servicesPopover === request.id ? null : request.id);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cmyk-cyan/15 text-cmyk-cyan border border-cmyk-cyan/30 hover:bg-cmyk-cyan/25 transition-colors cursor-pointer"
+                                      >
+                                        {request.services.length} servicios
+                                      </button>
+                                      {servicesPopover === request.id && (
+                                        <div
+                                          ref={popoverRef}
+                                          className="absolute bottom-full left-0 mb-2 w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 p-3"
+                                        >
+                                          <div className="absolute bottom-0 left-4 translate-y-full">
+                                            <div className="w-2.5 h-2.5 bg-neutral-800 border-r border-b border-neutral-700 rotate-45 -translate-y-1.5" />
+                                          </div>
+                                          <p className="text-neutral-400 text-[10px] uppercase tracking-wider mb-2">Servicios solicitados</p>
+                                          <ul className="space-y-1.5">
+                                            {request.services.map((svc, idx) => {
+                                              const routeCount = svc.service_details?.rutas ? (svc.service_details.rutas as unknown[]).length : 0;
+                                              return (
+                                                <li key={idx} className="flex items-center justify-between gap-2">
+                                                  <span className="text-white text-xs truncate">
+                                                    {SERVICE_LABELS[svc.service_type as ServiceId] || svc.service_type}
+                                                  </span>
+                                                  {routeCount > 1 && (
+                                                    <span className="text-neutral-500 text-[10px] flex-shrink-0">{routeCount} rutas</span>
+                                                  )}
+                                                </li>
+                                              );
+                                            })}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
                                 ) : (
                                   <p className="text-white truncate">
                                     {request.catalog_item_name ||
@@ -396,11 +446,21 @@ export default function QuoteRequestsListPage() {
                                      'No especificado'}
                                   </p>
                                 )}
-                                {request.quantity && (
-                                  <p className="text-neutral-500 text-sm">
-                                    Cantidad: {request.quantity}
-                                  </p>
-                                )}
+                                {/* Total quantity: sum of route counts across all services */}
+                                {(() => {
+                                  if (!request.services || request.services.length === 0) {
+                                    return request.quantity ? (
+                                      <p className="text-neutral-500 text-sm">Cantidad: {request.quantity}</p>
+                                    ) : null;
+                                  }
+                                  const total = request.services.reduce((sum, svc) => {
+                                    const rutas = svc.service_details?.rutas as unknown[] | undefined;
+                                    return sum + (rutas && rutas.length > 0 ? rutas.length : 1);
+                                  }, 0);
+                                  return (
+                                    <p className="text-neutral-500 text-xs mt-1">Cant. total: {total}</p>
+                                  );
+                                })()}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
