@@ -1260,7 +1260,14 @@ export function QuoteForm() {
       newFiles.push(file);
     }
 
-    setSelectedFiles(prev => [...prev, ...newFiles]);
+    setSelectedFiles(prev => {
+      const combined = [...prev, ...newFiles];
+      if (combined.length > 20) {
+        alert('No es posible adjuntar más de 20 archivos en total.');
+        return prev;
+      }
+      return combined;
+    });
   };
 
   const removeFile = (index: number) => {
