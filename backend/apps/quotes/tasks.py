@@ -617,16 +617,13 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
             table_data = [list(table_header_row)]
             for line in group_lines:
                 concept_text = (line.concept_en or line.concept) if is_en else line.concept
-                desc_text = (line.description_en or line.description) if is_en else line.description
-                # Always enrich description with service_details parameters
+                # For service-based lines, only show auto-generated details + client comments
+                # (skip vendor description). For manual lines, keep line.description.
                 if line.service_details:
                     req_svc = _find_request_svc((line.service_details or {}).get('service_type', ''))
-                    details_text = build_description_from_details(line.service_details, req_svc)
-                    if details_text:
-                        if desc_text:
-                            desc_text = f"{desc_text}<br/>{details_text}"
-                        else:
-                            desc_text = details_text
+                    desc_text = build_description_from_details(line.service_details, req_svc) or ''
+                else:
+                    desc_text = (line.description_en or line.description) if is_en else line.description
                 concept = Paragraph(concept_text or '', cell_style)
                 description = Paragraph(desc_text or '', cell_style)
                 qty = Paragraph(str(line.quantity), cell_style_center)
@@ -705,16 +702,9 @@ def generate_quote_pdf(quote_id: str, language: str = 'es') -> str:
                     lbl_comments = 'Customer comments' if is_en else 'Comentarios del cliente'
                     route_desc_parts.append(f"{lbl_comments}: {req_svc.description}")
 
-                desc_text = (line.description_en or line.description) if is_en else line.description
-                # Always enrich description with route + service details
+                # Only show route details + client comments (skip vendor description)
                 route_details_text = '<br/>'.join(route_desc_parts) if route_desc_parts else ''
-                if route_details_text:
-                    if desc_text:
-                        desc_text = f"{desc_text}<br/>{route_details_text}"
-                    else:
-                        desc_text = route_details_text
-                if not desc_text:
-                    desc_text = svc_desc_text
+                desc_text = route_details_text or svc_desc_text or ''
 
                 concept_text = (line.concept_en or line.concept) if is_en else line.concept
                 table_data = [list(table_header_row)]

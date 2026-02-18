@@ -1038,31 +1038,19 @@ export default function NewQuotePage() {
                                             </div>
                                           </div>
 
-                                          {/* Fecha de entrega estimada + Descripción */}
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                              <label className="block text-neutral-500 text-xs mb-1">
-                                                <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />
-                                                Fecha de entrega estimada
-                                              </label>
-                                              <input
-                                                type="date"
-                                                value={route.estimated_date || ''}
-                                                onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
-                                                min={route.fechaInicio && route.fechaInicio >= today ? route.fechaInicio : today}
-                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
-                                              />
-                                            </div>
-                                            <div>
-                                              <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas</label>
-                                              <input
-                                                type="text"
-                                                value={route.vendorDescription || ''}
-                                                onChange={(e) => updateRouteField(rIdx, 'vendorDescription', e.target.value)}
-                                                placeholder="Notas para esta ruta..."
-                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
-                                              />
-                                            </div>
+                                          {/* Fecha de entrega estimada */}
+                                          <div>
+                                            <label className="block text-neutral-500 text-xs mb-1">
+                                              <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />
+                                              Fecha de entrega estimada
+                                            </label>
+                                            <input
+                                              type="date"
+                                              value={route.estimated_date || ''}
+                                              onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
+                                              min={route.fechaInicio && route.fechaInicio >= today ? route.fechaInicio : today}
+                                              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                            />
                                           </div>
                                         </div>
                                       );
@@ -1170,19 +1158,7 @@ export default function NewQuotePage() {
                               </div>
                               )}
 
-                              {/* Description (optional, for vendor notes on this line) */}
-                              {!itemIsRouteBased && (
-                              <div className="mt-3">
-                                <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas del concepto</label>
-                                <textarea
-                                  value={item.description || ''}
-                                  onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                  placeholder="Descripción o notas adicionales para este concepto..."
-                                  rows={2}
-                                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
-                                />
-                              </div>
-                              )}
+
                             </div>
                           </div>
                         </div>
@@ -1310,25 +1286,15 @@ export default function NewQuotePage() {
                                               </div>
                                             </div>
                                           </div>
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                              <label className="block text-neutral-500 text-xs mb-1">
-                                                <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha de entrega estimada
-                                              </label>
-                                              <input type="date" value={route.estimated_date || ''}
-                                                onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
-                                                min={route.fechaInicio && route.fechaInicio >= today ? route.fechaInicio : today}
-                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
-                                              />
-                                            </div>
-                                            <div>
-                                              <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas</label>
-                                              <input type="text" value={route.vendorDescription || ''}
-                                                onChange={(e) => updateRouteField(rIdx, 'vendorDescription', e.target.value)}
-                                                placeholder="Notas para esta ruta..."
-                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm"
-                                              />
-                                            </div>
+                                          <div>
+                                            <label className="block text-neutral-500 text-xs mb-1">
+                                              <CalendarIcon className="h-3.5 w-3.5 inline mr-1" />Fecha de entrega estimada
+                                            </label>
+                                            <input type="date" value={route.estimated_date || ''}
+                                              onChange={(e) => updateRouteField(rIdx, 'estimated_date', e.target.value)}
+                                              min={route.fechaInicio && route.fechaInicio >= today ? route.fechaInicio : today}
+                                              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
+                                            />
                                           </div>
                                         </div>
                                       );
@@ -1440,15 +1406,6 @@ export default function NewQuotePage() {
                                         className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-cmyk-cyan text-sm [color-scheme:dark]"
                                       />
                                     </div>
-                                  </div>
-                                  <div>
-                                    <label className="block text-neutral-500 text-xs mb-1">Descripción / Notas del concepto</label>
-                                    <textarea value={item.description || ''}
-                                      onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                      placeholder="Descripción o notas adicionales para este concepto..."
-                                      rows={2}
-                                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan text-sm resize-none"
-                                    />
                                   </div>
                                 </>
                               )}
