@@ -27,6 +27,12 @@ python manage.py collectstatic --noinput
 echo "=== Running database migrations ==="
 python manage.py migrate --noinput
 
+echo "=== Migrating request numbers to sequential format ==="
+python manage.py migrate_request_numbers
+
+echo "=== Recalculating urgency ==="
+python manage.py recalculate_urgency
+
 echo "=== Creating default roles ==="
 python manage.py shell -c "
 from apps.users.models import Role
