@@ -343,8 +343,19 @@ export default function CustomerQuoteDetailPage() {
         const effectiveSD = lineSD ?? (svc.service_details as Record<string, unknown> | undefined);
         // Delivery info: prefer line-level (vendor may have set it), fall back to service-level
         const firstLine = matchedLines[0];
-        // Comments: prefer line description (carries prior change-request comments) → original request description
-        const lineComments = firstLine?.description || '';
+        // Per-route comments for route-based publicidad móvil (each line = one route)
+        const isRouteBased = svc.service_type === 'publicidad-movil' &&
+          ['vallas-moviles', 'perifoneo', 'publibuses'].includes(
+            (effectiveSD?.subtipo as string) || (svc.service_details as Record<string, unknown> | undefined)?.subtipo as string || ''
+          );
+        const routeComments: Record<number, string> = {};
+        if (isRouteBased && matchedLines.length > 0) {
+          matchedLines.forEach((ml, rIdx) => {
+            routeComments[rIdx] = ml.description || '';
+          });
+        }
+        // Comments: for non-route-based services, use line description → original description
+        const lineComments = (!isRouteBased && firstLine?.description) || '';
         map[key] = buildServiceEditData({
           serviceType: svc.service_type || '',
           serviceDetails: effectiveSD,
@@ -352,7 +363,8 @@ export default function CustomerQuoteDetailPage() {
           deliveryAddress: (firstLine?.delivery_address || svc.delivery_address) as Record<string, string> | undefined,
           pickupBranch: firstLine?.pickup_branch || svc.pickup_branch,
           requiredDate: svc.required_date,
-          comments: lineComments || svc.description || '',
+          comments: lineComments || (!isRouteBased ? svc.description || '' : ''),
+          routeComments: isRouteBased ? routeComments : undefined,
           attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
         });
       });
@@ -370,8 +382,19 @@ export default function CustomerQuoteDetailPage() {
         ?? (qr.service_details as Record<string, unknown> | undefined);
       // Delivery info: prefer line-level → quote-level → request-level
       const firstLine = allNonVendorLines[0] || quote.lines?.[0];
-      // Comments: prefer line description (carries prior change-request comments) → original request description
-      const lineComments = firstLine?.description || '';
+      // Per-route comments for route-based publicidad móvil
+      const isRouteBased = qr.service_type === 'publicidad-movil' &&
+        ['vallas-moviles', 'perifoneo', 'publibuses'].includes(
+          (effectiveSD?.subtipo as string) || (qr.service_details as Record<string, unknown> | undefined)?.subtipo as string || ''
+        );
+      const routeComments: Record<number, string> = {};
+      if (isRouteBased && allNonVendorLines.length > 0) {
+        allNonVendorLines.forEach((ml, rIdx) => {
+          routeComments[rIdx] = ml.description || '';
+        });
+      }
+      // Comments: for non-route-based services, use line description → original description
+      const lineComments = (!isRouteBased && firstLine?.description) || '';
       map['single-0'] = buildServiceEditData({
         serviceType: qr.service_type || '',
         serviceDetails: effectiveSD,
@@ -379,7 +402,8 @@ export default function CustomerQuoteDetailPage() {
         deliveryAddress: (firstLine?.delivery_address || quote.delivery_address || qr.delivery_address) as Record<string, string> | undefined,
         pickupBranch: firstLine?.pickup_branch || quote.pickup_branch || qr.pickup_branch,
         requiredDate: qr.required_date,
-        comments: lineComments || qr.description || '',
+        comments: lineComments || (!isRouteBased ? qr.description || '' : ''),
+        routeComments: isRouteBased ? routeComments : undefined,
         attachments: qr.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
       });
     }
@@ -515,33 +539,59 @@ export default function CustomerQuoteDetailPage() {
           || JSON.stringify(currentData.deliveryAddress) !== JSON.stringify(initialData.deliveryAddress)
           || currentData.pickupBranch !== initialData.pickupBranch;
         const dateChanged = currentData.requiredDate !== initialData.requiredDate;
+        const routeCommentsChanged = JSON.stringify(currentData.routeComments) !== JSON.stringify(initialData.routeComments);
         const hasChanges = detailsChanged || deliveryChanged || dateChanged
           || currentData.comments.trim() !== initialData.comments.trim()
+          || routeCommentsChanged
           || currentData.newFiles.length > 0
           || currentData.removedAttachmentIds.length > 0;
 
         if (hasChanges && matchedLines.length > 0) {
-          const firstLine = matchedLines[0];
           // Only include delivery_address for methods that use an address
           const includeAddress = (currentData.deliveryMethod === 'installation' || currentData.deliveryMethod === 'shipping')
             && Object.keys(currentData.deliveryAddress).length > 0;
           // Don't include delivery_method for not_applicable services
           const includeDelivery = currentData.deliveryMethod && currentData.deliveryMethod !== 'not_applicable';
-          proposed_lines.push({
-            id: firstLine.id,
-            action: 'modify',
-            concept: firstLine.concept,
-            description: currentData.comments || firstLine.description,
-            quantity: firstLine.quantity,
-            unit: firstLine.unit,
-            service_details: {
-              ...cleanServiceDetailsForApi(currentData.details),
-              ...(includeDelivery ? { delivery_method: currentData.deliveryMethod } : {}),
-              ...(includeAddress ? { delivery_address: currentData.deliveryAddress } : {}),
-              ...(currentData.deliveryMethod === 'pickup' && currentData.pickupBranch ? { pickup_branch: currentData.pickupBranch } : {}),
-              ...(currentData.requiredDate ? { required_date: currentData.requiredDate } : {}),
-            },
-          });
+
+          // For route-based services: send each line with its own route comment
+          const hasRouteComments = Object.keys(currentData.routeComments).length > 0;
+          if (hasRouteComments && matchedLines.length > 1) {
+            // Each matched line corresponds to a route — send each with its own description
+            matchedLines.forEach((line, rIdx) => {
+              proposed_lines.push({
+                id: line.id,
+                action: 'modify',
+                concept: line.concept,
+                description: currentData.routeComments[rIdx] ?? line.description,
+                quantity: line.quantity,
+                unit: line.unit,
+                service_details: rIdx === 0 ? {
+                  ...cleanServiceDetailsForApi(currentData.details),
+                  ...(includeDelivery ? { delivery_method: currentData.deliveryMethod } : {}),
+                  ...(includeAddress ? { delivery_address: currentData.deliveryAddress } : {}),
+                  ...(currentData.deliveryMethod === 'pickup' && currentData.pickupBranch ? { pickup_branch: currentData.pickupBranch } : {}),
+                } : undefined,
+              });
+            });
+          } else {
+            // Non-route-based: send only the first line with the single comment
+            const firstLine = matchedLines[0];
+            proposed_lines.push({
+              id: firstLine.id,
+              action: 'modify',
+              concept: firstLine.concept,
+              description: currentData.comments || firstLine.description,
+              quantity: firstLine.quantity,
+              unit: firstLine.unit,
+              service_details: {
+                ...cleanServiceDetailsForApi(currentData.details),
+                ...(includeDelivery ? { delivery_method: currentData.deliveryMethod } : {}),
+                ...(includeAddress ? { delivery_address: currentData.deliveryAddress } : {}),
+                ...(currentData.deliveryMethod === 'pickup' && currentData.pickupBranch ? { pickup_branch: currentData.pickupBranch } : {}),
+                ...(currentData.requiredDate ? { required_date: currentData.requiredDate } : {}),
+              },
+            });
+          }
         }
       }
 
@@ -897,6 +947,11 @@ export default function CustomerQuoteDetailPage() {
                               const _esd = _lwd?.service_details as Record<string, unknown> | undefined
                                 ?? (quote.quote_request?.service_details as Record<string, unknown> | undefined);
                               const _fl = quote.lines?.[0];
+                              const _allLines = (serviceToLinesMap.get(0) || []).length > 0 ? serviceToLinesMap.get(0)! : (quote.lines || []);
+                              const _isRouteBased = quote.quote_request!.service_type === 'publicidad-movil' &&
+                                ['vallas-moviles', 'perifoneo', 'publibuses'].includes((_esd?.subtipo as string) || '');
+                              const _rc: Record<number, string> = {};
+                              if (_isRouteBased) { _allLines.forEach((ml, ri) => { _rc[ri] = ml.description || ''; }); }
                               return buildServiceEditData({
                                 serviceType: quote.quote_request!.service_type || '',
                                 serviceDetails: _esd,
@@ -904,7 +959,8 @@ export default function CustomerQuoteDetailPage() {
                                 deliveryAddress: (_fl?.delivery_address || quote.delivery_address || quote.quote_request?.delivery_address) as Record<string, string> | undefined,
                                 pickupBranch: _fl?.pickup_branch || quote.pickup_branch || quote.quote_request?.pickup_branch,
                                 requiredDate: quote.quote_request?.required_date,
-                                comments: _fl?.description || quote.quote_request?.description || '',
+                                comments: !_isRouteBased ? (_fl?.description || quote.quote_request?.description || '') : '',
+                                routeComments: _isRouteBased ? _rc : undefined,
                                 attachments: quote.quote_request?.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
                               });
                             })()}
@@ -1358,14 +1414,20 @@ export default function CustomerQuoteDetailPage() {
                                   const _ml = serviceToLinesMap.get(idx) || [];
                                   const _lineSD = _ml.find(l => l.service_details && Object.keys(l.service_details).length > 0)?.service_details as Record<string, unknown> | undefined;
                                   const _fl = _ml[0];
+                                  const _effSD = _lineSD ?? (svc.service_details as Record<string, unknown> | undefined);
+                                  const _isRouteBased = svc.service_type === 'publicidad-movil' &&
+                                    ['vallas-moviles', 'perifoneo', 'publibuses'].includes((_effSD?.subtipo as string) || '');
+                                  const _rc: Record<number, string> = {};
+                                  if (_isRouteBased) { _ml.forEach((ml, ri) => { _rc[ri] = ml.description || ''; }); }
                                   return buildServiceEditData({
                                     serviceType: svc.service_type || '',
-                                    serviceDetails: _lineSD ?? (svc.service_details as Record<string, unknown> | undefined),
+                                    serviceDetails: _effSD,
                                     deliveryMethod: _fl?.delivery_method || svc.delivery_method,
                                     deliveryAddress: (_fl?.delivery_address || svc.delivery_address) as Record<string, string> | undefined,
                                     pickupBranch: _fl?.pickup_branch || svc.pickup_branch,
                                     requiredDate: svc.required_date,
-                                    comments: _fl?.description || svc.description || '',
+                                    comments: !_isRouteBased ? (_fl?.description || svc.description || '') : '',
+                                    routeComments: _isRouteBased ? _rc : undefined,
                                     attachments: svc.attachments?.map(a => ({ id: a.id, file: a.file, filename: a.filename })) || [],
                                   });
                                 })()}

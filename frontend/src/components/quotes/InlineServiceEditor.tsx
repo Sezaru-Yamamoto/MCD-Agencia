@@ -211,8 +211,10 @@ export interface ServiceEditData {
   pickupBranch: string;
   /** Customer-required date (YYYY-MM-DD) */
   requiredDate: string;
-  /** Customer comments for this service */
+  /** Customer comments for this service (used for non-route-based services) */
   comments: string;
+  /** Per-route comments (route index → comment). Used for route-based publicidad móvil */
+  routeComments: Record<number, string>;
   /** New files attached by customer */
   newFiles: File[];
   /** Existing attachment URLs (from original quote) */
@@ -706,21 +708,50 @@ export function InlineServiceEditor({
       )}
 
       {/* ---- Comments ---- */}
-      <div className="space-y-2 border border-neutral-700 rounded-xl p-4 bg-neutral-800/30">
-        <label className="text-sm font-semibold text-white flex items-center gap-2">
-          <ChatBubbleLeftIcon className="h-4 w-4 text-cmyk-cyan" />
-          Comentarios
-        </label>
-        <textarea
-          value={data.comments}
-          onChange={(e) => update('comments', e.target.value)}
-          rows={3}
-          maxLength={2000}
-          className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
-          placeholder="Describe los cambios o especificaciones adicionales…"
-        />
-        <p className="text-xs text-neutral-500 text-right">{data.comments.length} / 2000</p>
-      </div>
+      {isRouteBasedPubMovil && Object.keys(data.routeComments).length > 0 ? (
+        /* Per-route comments for vallas-moviles / perifoneo / publibuses */
+        <div className="space-y-3 border border-neutral-700 rounded-xl p-4 bg-neutral-800/30">
+          <label className="text-sm font-semibold text-white flex items-center gap-2">
+            <ChatBubbleLeftIcon className="h-4 w-4 text-cmyk-cyan" />
+            Comentarios por ruta
+          </label>
+          {Object.keys(data.routeComments).sort((a, b) => Number(a) - Number(b)).map((idxStr) => {
+            const idx = Number(idxStr);
+            return (
+              <div key={idx} className="space-y-1">
+                <label className="text-xs text-neutral-400 font-medium">Ruta {idx + 1}</label>
+                <textarea
+                  value={data.routeComments[idx] || ''}
+                  onChange={(e) => {
+                    const next = { ...data.routeComments, [idx]: e.target.value };
+                    update('routeComments', next);
+                  }}
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
+                  placeholder={`Comentarios para la ruta ${idx + 1}…`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-2 border border-neutral-700 rounded-xl p-4 bg-neutral-800/30">
+          <label className="text-sm font-semibold text-white flex items-center gap-2">
+            <ChatBubbleLeftIcon className="h-4 w-4 text-cmyk-cyan" />
+            Comentarios
+          </label>
+          <textarea
+            value={data.comments}
+            onChange={(e) => update('comments', e.target.value)}
+            rows={3}
+            maxLength={2000}
+            className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-cmyk-cyan focus:ring-1 focus:ring-cmyk-cyan/50 resize-none"
+            placeholder="Describe los cambios o especificaciones adicionales…"
+          />
+          <p className="text-xs text-neutral-500 text-right">{data.comments.length} / 2000</p>
+        </div>
+      )}
 
       {/* ---- Attachments ---- */}
       <div className="space-y-3 border border-neutral-700 rounded-xl p-4 bg-neutral-800/30">
@@ -944,6 +975,7 @@ export function buildServiceEditData(opts: {
   pickupBranch?: string;
   requiredDate?: string;
   comments?: string;
+  routeComments?: Record<number, string>;
   attachments?: Array<{ id: string; file: string; filename: string }>;
 }): ServiceEditData {
   const sd = { ...((opts.serviceDetails || {}) as Record<string, unknown>) };
@@ -992,6 +1024,7 @@ export function buildServiceEditData(opts: {
     pickupBranch: opts.pickupBranch || '',
     requiredDate: opts.requiredDate || '',
     comments: opts.comments || '',
+    routeComments: opts.routeComments || {},
     newFiles: [],
     existingAttachments: opts.attachments || [],
     removedAttachmentIds: [],
