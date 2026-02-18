@@ -447,15 +447,38 @@ export function InlineServiceEditor({
   /* ---- detect if user actually changed anything ---- */
   const hasChanges = useMemo(() => {
     const ini = initialRef.current;
-    // Compare key fields — skip internal route arrays (_vallasRoutes etc) since they're derived
-    const stripInternal = (d: ServiceDetailsData): Record<string, unknown> => {
+
+    // Helper: build a stable snapshot of details for comparison,
+    // stripping volatile/derived fields that get regenerated on mount.
+    const snapshot = (d: ServiceDetailsData): string => {
       const copy = { ...d } as Record<string, unknown>;
+      // Internal route arrays have random IDs → strip them
       delete copy._vallasRoutes;
       delete copy._pubRoutes;
       delete copy._perifoneoRoutes;
-      return copy;
+      // `rutas` is rebuilt by ServiceFormFields on mount → strip it too
+      delete copy.rutas;
+      return JSON.stringify(copy);
     };
-    if (JSON.stringify(stripInternal(data.details)) !== JSON.stringify(stripInternal(ini.details))) return true;
+
+    // Helper: extract meaningful route data (without random ids) for comparison
+    const routeSnapshot = (d: ServiceDetailsData): string => {
+      const routes =
+        (d._vallasRoutes as Array<Record<string, unknown>> | undefined) ||
+        (d._pubRoutes as Array<Record<string, unknown>> | undefined) ||
+        (d._perifoneoRoutes as Array<Record<string, unknown>> | undefined) ||
+        [];
+      return JSON.stringify(
+        routes.map((r) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id, ...rest } = r;
+          return rest;
+        })
+      );
+    };
+
+    if (snapshot(data.details) !== snapshot(ini.details)) return true;
+    if (routeSnapshot(data.details) !== routeSnapshot(ini.details)) return true;
     if (data.deliveryMethod !== ini.deliveryMethod) return true;
     if (JSON.stringify(data.deliveryAddress) !== JSON.stringify(ini.deliveryAddress)) return true;
     if (data.pickupBranch !== ini.pickupBranch) return true;
@@ -834,7 +857,13 @@ export function InlineServiceEditor({
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-neutral-700">
         <button
           type="button"
-          onClick={() => { setValidationErrors([]); onCancel(); }}
+          onClick={() => {
+            setValidationErrors([]);
+            // Reset data back to initial state and close accordion
+            setData(initialRef.current);
+            onDataChange?.(initialRef.current);
+            onCancel();
+          }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700 border border-neutral-600 transition-colors"
         >
           <XMarkIcon className="h-4 w-4" />

@@ -971,7 +971,7 @@ export default function CustomerQuoteDetailPage() {
                             label={svcLabel}
                             onSave={(data) => handleEditServiceSave(singleKey, data)}
                             onDataChange={(data) => handleEditDataChange(singleKey, data)}
-                            onCancel={() => setConfirmDialog('cancel')}
+                            onCancel={() => toggleService(singleKey)}
                             onDelete={() => handleDeleteService(singleKey)}
                             vendorEstimatedDate={firstEstDate}
                           />
@@ -1219,7 +1219,7 @@ export default function CustomerQuoteDetailPage() {
                             label={svcLabel}
                             onSave={(data) => handleEditServiceSave(vendorKey, data)}
                             onDataChange={(data) => handleEditDataChange(vendorKey, data)}
-                            onCancel={() => setConfirmDialog('cancel')}
+                            onCancel={() => toggleService(vendorKey)}
                             onDelete={() => handleDeleteService(vendorKey)}
                             isVendorAdded
                             vendorEstimatedDate={firstEstDate}
@@ -1441,7 +1441,7 @@ export default function CustomerQuoteDetailPage() {
                                 label={svcLabel}
                                 onSave={(data) => handleEditServiceSave(multiKey, data)}
                                 onDataChange={(data) => handleEditDataChange(multiKey, data)}
-                                onCancel={() => setConfirmDialog('cancel')}
+                                onCancel={() => toggleService(multiKey)}
                                 onDelete={() => handleDeleteService(multiKey)}
                                 vendorEstimatedDate={firstEstDate}
                               />
@@ -1689,7 +1689,7 @@ export default function CustomerQuoteDetailPage() {
                                 label={svcLabel}
                                 onSave={(data) => handleEditServiceSave(vendorKey, data)}
                                 onDataChange={(data) => handleEditDataChange(vendorKey, data)}
-                                onCancel={() => setConfirmDialog('cancel')}
+                                onCancel={() => toggleService(vendorKey)}
                                 onDelete={() => handleDeleteService(vendorKey)}
                                 isVendorAdded
                                 vendorEstimatedDate={firstEstDate}
