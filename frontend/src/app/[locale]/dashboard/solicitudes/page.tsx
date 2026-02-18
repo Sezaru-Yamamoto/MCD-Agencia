@@ -96,6 +96,7 @@ export default function QuoteRequestsListPage() {
   const [deleteTarget, setDeleteTarget] = useState<QuoteRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [servicesPopover, setServicesPopover] = useState<string | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Close popover on click outside
@@ -399,23 +400,39 @@ export default function QuoteRequestsListPage() {
                                     </p>
                                   ) : (
                                     /* ─── Multiple services: badge + popover ─── */
-                                    <div className="relative">
+                                    <div>
                                       <button
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setServicesPopover(servicesPopover === request.id ? null : request.id);
+                                          if (servicesPopover === request.id) {
+                                            setServicesPopover(null);
+                                            setPopoverPos(null);
+                                          } else {
+                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            setPopoverPos({
+                                              top: rect.top,
+                                              left: rect.left + rect.width / 2,
+                                            });
+                                            setServicesPopover(request.id);
+                                          }
                                         }}
                                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cmyk-cyan/15 text-cmyk-cyan border border-cmyk-cyan/30 hover:bg-cmyk-cyan/25 transition-colors cursor-pointer"
                                       >
                                         {request.services.length} servicios
                                       </button>
-                                      {servicesPopover === request.id && (
+                                      {servicesPopover === request.id && popoverPos && (
                                         <div
                                           ref={popoverRef}
-                                          className="absolute bottom-full left-0 mb-2 w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 p-3"
+                                          className="fixed w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl p-3"
+                                          style={{
+                                            zIndex: 9999,
+                                            top: popoverPos.top - 8,
+                                            left: popoverPos.left,
+                                            transform: 'translate(-50%, -100%)',
+                                          }}
                                         >
-                                          <div className="absolute bottom-0 left-4 translate-y-full">
+                                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full">
                                             <div className="w-2.5 h-2.5 bg-neutral-800 border-r border-b border-neutral-700 rotate-45 -translate-y-1.5" />
                                           </div>
                                           <p className="text-neutral-400 text-[10px] uppercase tracking-wider mb-2">Servicios solicitados</p>
