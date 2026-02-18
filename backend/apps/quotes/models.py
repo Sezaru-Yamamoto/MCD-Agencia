@@ -936,12 +936,29 @@ class Quote(TimeStampedModel, SoftDeleteModel):
         super().save(*args, **kwargs)
 
     def _generate_quote_number(self):
-        """Generate a unique quote number."""
-        import datetime
-        import random
-        date_str = datetime.datetime.now().strftime('%Y%m%d')
-        random_str = ''.join(random.choices('0123456789', k=4))
-        return f"COT-{date_str}-{random_str}"
+        """Generate a unique sequential quote number: COT-YYYYMMDD-NNNN."""
+        from django.utils import timezone as tz
+        date_str = tz.localtime().strftime('%Y%m%d')
+        prefix = f"COT-{date_str}-"
+
+        # Find the highest existing number for today
+        last = (
+            QuoteResponse.objects
+            .filter(quote_number__startswith=prefix)
+            .order_by('-quote_number')
+            .values_list('quote_number', flat=True)
+            .first()
+        )
+
+        if last:
+            try:
+                seq = int(last.split('-')[-1]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+
+        return f"{prefix}{seq:04d}"
 
     @property
     def is_expired(self):

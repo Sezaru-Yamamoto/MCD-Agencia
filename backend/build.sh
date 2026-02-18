@@ -30,6 +30,9 @@ python manage.py migrate --noinput
 echo "=== Migrating request numbers to sequential format ==="
 python manage.py migrate_request_numbers
 
+echo "=== Migrating quote numbers to sequential format ==="
+python manage.py migrate_quote_numbers
+
 echo "=== Recalculating urgency ==="
 python manage.py recalculate_urgency
 
