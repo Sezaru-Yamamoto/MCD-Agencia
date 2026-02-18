@@ -77,6 +77,8 @@ interface ConfigurableRouteEntry {
   horarioInicio: string;
   horarioFin: string;
   route: RouteInfo | null;
+  comentarios: string;
+  archivos: File[];
 }
 
 // Multi-route entry for publibuses (established route + schedule)
@@ -84,6 +86,8 @@ interface EstablishedRouteEntry {
   id: string;
   ruta: string;
   fechaInicio: string;
+  comentarios: string;
+  archivos: File[];
 }
 
 const createConfigurableRoute = (): ConfigurableRouteEntry => ({
@@ -93,12 +97,16 @@ const createConfigurableRoute = (): ConfigurableRouteEntry => ({
   horarioInicio: '',
   horarioFin: '',
   route: null,
+  comentarios: '',
+  archivos: [],
 });
 
 const createEstablishedRoute = (): EstablishedRouteEntry => ({
   id: `er-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
   ruta: '',
   fechaInicio: '',
+  comentarios: '',
+  archivos: [],
 });
 
 // Helper: add N months to a date string (YYYY-MM-DD) and return YYYY-MM-DD
@@ -551,11 +559,11 @@ export function QuoteForm() {
         break;
       case 'publicidad-movil':
         if (data.pub_subtipo === 'vallas-moviles') {
-          Object.assign(detalles, { subtipo: 'vallas-moviles', rutas: vallasRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB, distancia_metros: r.route.routeData?.distance, duracion_segundos: r.route.routeData?.duration } : null })) });
+          Object.assign(detalles, { subtipo: 'vallas-moviles', rutas: vallasRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, comentarios: r.comentarios || null, archivos: r.archivos.map(f => ({ nombre: f.name, tamano: f.size })), ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB, distancia_metros: r.route.routeData?.distance, duracion_segundos: r.route.routeData?.duration } : null })) });
         } else if (data.pub_subtipo === 'publibuses') {
-          Object.assign(detalles, { subtipo: 'publibuses', meses_campana: data.pub_mesesCampana, rutas: pubRoutes.map((r, i) => ({ numero: i + 1, ruta_preestablecida: r.ruta, fecha_inicio: r.fechaInicio })) });
+          Object.assign(detalles, { subtipo: 'publibuses', meses_campana: data.pub_mesesCampana, rutas: pubRoutes.map((r, i) => ({ numero: i + 1, ruta_preestablecida: r.ruta, fecha_inicio: r.fechaInicio, comentarios: r.comentarios || null, archivos: r.archivos.map(f => ({ nombre: f.name, tamano: f.size })) })) });
         } else if (data.pub_subtipo === 'perifoneo') {
-          Object.assign(detalles, { subtipo: 'perifoneo', requiere_grabacion: data.pub_requiereGrabacion === 'si', rutas: perifoneoRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB } : null })) });
+          Object.assign(detalles, { subtipo: 'perifoneo', requiere_grabacion: data.pub_requiereGrabacion === 'si', rutas: perifoneoRoutes.map((r, i) => ({ numero: i + 1, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, horario_inicio: r.horarioInicio, horario_fin: r.horarioFin, comentarios: r.comentarios || null, archivos: r.archivos.map(f => ({ nombre: f.name, tamano: f.size })), ruta: r.route ? { punto_a: r.route.pointA, punto_b: r.route.pointB } : null })) });
         } else if (data.pub_subtipo === 'otro') {
           Object.assign(detalles, { subtipo: data.pub_subtipoOtro, descripcion: data.pub_otroDescripcion });
         }
@@ -862,24 +870,56 @@ export function QuoteForm() {
       // Add files from current service (with per-service tracking)
       // Build file_service_map: array where index = file index, value = service index
       const fileServiceMap: number[] = [];
+      // Also build route_file_map: array where index = file index, value = { service: svcIdx, route: routeIdx } or null
+      const routeFileMap: Array<{ service: number; route: number } | null> = [];
+
       selectedFiles.forEach((file, index) => {
         formData.append(`archivo_${index}`, file);
         // Current service is always the last one in allServices
         fileServiceMap.push(savedServices.length);
+        routeFileMap.push(null);
       });
-      // Add files from saved services
+
+      // Add per-route files from current active service
+      const currentSvcIdx = savedServices.length;
+      const addRouteFiles = (routes: Array<{ archivos: File[] }>, svcIdx: number) => {
+        routes.forEach((route, routeIdx) => {
+          route.archivos.forEach((file) => {
+            formData.append(`archivo_${fileOffset}`, file);
+            fileServiceMap.push(svcIdx);
+            routeFileMap.push({ service: svcIdx, route: routeIdx });
+            fileOffset++;
+          });
+        });
+      };
       let fileOffset = selectedFiles.length;
+      if (data.servicio === 'publicidad-movil') {
+        if (data.pub_subtipo === 'vallas-moviles') addRouteFiles(vallasRoutes, currentSvcIdx);
+        else if (data.pub_subtipo === 'publibuses') addRouteFiles(pubRoutes, currentSvcIdx);
+        else if (data.pub_subtipo === 'perifoneo') addRouteFiles(perifoneoRoutes, currentSvcIdx);
+      }
+
+      // Add files from saved services
       savedServices.forEach((svc, svcIdx) => {
         svc.files.forEach((file) => {
           formData.append(`archivo_${fileOffset}`, file);
           fileServiceMap.push(svcIdx);
+          routeFileMap.push(null);
           fileOffset++;
         });
+        // Add per-route files from saved services
+        if (svc.vallasRoutes) addRouteFiles(svc.vallasRoutes, svcIdx);
+        if (svc.pubRoutes) addRouteFiles(svc.pubRoutes, svcIdx);
+        if (svc.perifoneoRoutes) addRouteFiles(svc.perifoneoRoutes, svcIdx);
       });
 
       // Send file-to-service mapping so backend can link attachments per service
       if (fileServiceMap.length > 0) {
         formData.append('file_service_map', JSON.stringify(fileServiceMap));
+        // Send route-level file mapping for per-route attachments
+        if (routeFileMap.some(m => m !== null)) {
+          formData.append('route_file_map', JSON.stringify(routeFileMap));
+        }
       }
 
       const response = await fetch('/api/leads', {
@@ -1032,6 +1072,8 @@ export function QuoteForm() {
               fecha_fin: r.fechaFin || null,
               horario_inicio: r.horarioInicio || null,
               horario_fin: r.horarioFin || null,
+              comentarios: r.comentarios || null,
+              archivos: r.archivos.map(f => ({ nombre: f.name, tamano: f.size })),
               ruta: r.route ? {
                 punto_a: r.route.pointA,
                 punto_b: r.route.pointB,
@@ -1050,6 +1092,8 @@ export function QuoteForm() {
               ruta_preestablecida: r.ruta || null,
               fecha_inicio: r.fechaInicio || null,
               fecha_fin: r.fechaInicio && data.pub_mesesCampana ? addMonths(r.fechaInicio, Number(data.pub_mesesCampana)) : null,
+              comentarios: r.comentarios || null,
+              archivos: r.archivos.map(f => ({ nombre: f.name, tamano: f.size })),
             })),
           };
         } else if (data.pub_subtipo === 'perifoneo') {
@@ -1063,6 +1107,8 @@ export function QuoteForm() {
               fecha_fin: r.fechaFin || null,
               horario_inicio: r.horarioInicio || null,
               horario_fin: r.horarioFin || null,
+              comentarios: r.comentarios || null,
+              archivos: r.archivos.map(f => ({ nombre: f.name, tamano: f.size })),
               ruta: r.route ? {
                 punto_a: r.route.pointA,
                 punto_b: r.route.pointB,
@@ -1911,6 +1957,47 @@ export function QuoteForm() {
                                 <p className="text-xs text-amber-400 mt-1">⚠️ Debes trazar la ruta en el mapa</p>
                               )}
                             </div>
+                            {/* Per-route comments */}
+                            <div>
+                              <label className="label-field text-xs">Comentarios adicionales <span className="text-gray-500">(opcional)</span></label>
+                              <textarea
+                                className="input-field text-sm resize-none"
+                                rows={2}
+                                placeholder="Instrucciones o detalles específicos para esta ruta"
+                                value={entry.comentarios}
+                                onChange={(e) => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, comentarios: e.target.value } : r))}
+                                disabled={formStatus === 'submitting'}
+                                maxLength={1000}
+                              />
+                            </div>
+                            {/* Per-route files */}
+                            <div>
+                              <label className="label-field text-xs">Adjuntar archivos <span className="text-gray-500">(opcional)</span></label>
+                              <label className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-cmyk-cyan/50 cursor-pointer transition-colors text-xs text-gray-400 hover:text-gray-300">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                Seleccionar archivos
+                                <input type="file" multiple className="hidden" disabled={formStatus === 'submitting'}
+                                  accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg,.mp3,.wav,.ogg,.m4a"
+                                  onChange={(e) => {
+                                    if (!e.target.files) return;
+                                    const files = Array.from(e.target.files).filter(f => f.size <= 10 * 1024 * 1024);
+                                    setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, archivos: [...r.archivos, ...files] } : r));
+                                    e.target.value = '';
+                                  }} />
+                              </label>
+                              {entry.archivos.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {entry.archivos.map((file, fi) => (
+                                    <div key={fi} className="flex items-center justify-between bg-neutral-800 rounded px-2 py-1">
+                                      <span className="text-xs text-white truncate">{file.name}</span>
+                                      <button type="button" onClick={() => setVallasRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, archivos: r.archivos.filter((_, j) => j !== fi) } : r))} className="text-red-400 hover:text-red-300 p-0.5">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
 
@@ -2019,6 +2106,47 @@ export function QuoteForm() {
                                 />
                               </div>
                             )}
+                            {/* Per-route comments */}
+                            <div>
+                              <label className="label-field text-xs">Comentarios adicionales <span className="text-gray-500">(opcional)</span></label>
+                              <textarea
+                                className="input-field text-sm resize-none"
+                                rows={2}
+                                placeholder="Instrucciones o detalles específicos para esta ruta"
+                                value={entry.comentarios}
+                                onChange={(e) => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, comentarios: e.target.value } : r))}
+                                disabled={formStatus === 'submitting'}
+                                maxLength={1000}
+                              />
+                            </div>
+                            {/* Per-route files */}
+                            <div>
+                              <label className="label-field text-xs">Adjuntar archivos <span className="text-gray-500">(opcional)</span></label>
+                              <label className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-cmyk-cyan/50 cursor-pointer transition-colors text-xs text-gray-400 hover:text-gray-300">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                Seleccionar archivos
+                                <input type="file" multiple className="hidden" disabled={formStatus === 'submitting'}
+                                  accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg,.mp3,.wav,.ogg,.m4a"
+                                  onChange={(e) => {
+                                    if (!e.target.files) return;
+                                    const files = Array.from(e.target.files).filter(f => f.size <= 10 * 1024 * 1024);
+                                    setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, archivos: [...r.archivos, ...files] } : r));
+                                    e.target.value = '';
+                                  }} />
+                              </label>
+                              {entry.archivos.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {entry.archivos.map((file, fi) => (
+                                    <div key={fi} className="flex items-center justify-between bg-neutral-800 rounded px-2 py-1">
+                                      <span className="text-xs text-white truncate">{file.name}</span>
+                                      <button type="button" onClick={() => setPubRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, archivos: r.archivos.filter((_, j) => j !== fi) } : r))} className="text-red-400 hover:text-red-300 p-0.5">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
 
@@ -2136,6 +2264,47 @@ export function QuoteForm() {
                               <RouteSelector onChange={(route) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, route } : r))} />
                               {!entry.route?.routeData && (
                                 <p className="text-xs text-amber-400 mt-1">⚠️ Debes trazar la ruta en el mapa</p>
+                              )}
+                            </div>
+                            {/* Per-route comments */}
+                            <div>
+                              <label className="label-field text-xs">Comentarios adicionales <span className="text-gray-500">(opcional)</span></label>
+                              <textarea
+                                className="input-field text-sm resize-none"
+                                rows={2}
+                                placeholder="Instrucciones o detalles específicos para esta ruta"
+                                value={entry.comentarios}
+                                onChange={(e) => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, comentarios: e.target.value } : r))}
+                                disabled={formStatus === 'submitting'}
+                                maxLength={1000}
+                              />
+                            </div>
+                            {/* Per-route files */}
+                            <div>
+                              <label className="label-field text-xs">Adjuntar archivos <span className="text-gray-500">(opcional)</span></label>
+                              <label className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-dashed border-neutral-600 hover:border-cmyk-cyan/50 cursor-pointer transition-colors text-xs text-gray-400 hover:text-gray-300">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                Seleccionar archivos
+                                <input type="file" multiple className="hidden" disabled={formStatus === 'submitting'}
+                                  accept=".pdf,.jpg,.jpeg,.png,.ai,.cdr,.dxf,.svg,.mp3,.wav,.ogg,.m4a"
+                                  onChange={(e) => {
+                                    if (!e.target.files) return;
+                                    const files = Array.from(e.target.files).filter(f => f.size <= 10 * 1024 * 1024);
+                                    setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, archivos: [...r.archivos, ...files] } : r));
+                                    e.target.value = '';
+                                  }} />
+                              </label>
+                              {entry.archivos.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {entry.archivos.map((file, fi) => (
+                                    <div key={fi} className="flex items-center justify-between bg-neutral-800 rounded px-2 py-1">
+                                      <span className="text-xs text-white truncate">{file.name}</span>
+                                      <button type="button" onClick={() => setPerifoneoRoutes(prev => prev.map(r => r.id === entry.id ? { ...r, archivos: r.archivos.filter((_, j) => j !== fi) } : r))} className="text-red-400 hover:text-red-300 p-0.5">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           </div>
