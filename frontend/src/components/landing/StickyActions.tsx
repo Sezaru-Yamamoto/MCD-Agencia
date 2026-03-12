@@ -50,7 +50,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
           border: 2.5px solid transparent;
           border-top-color: #00e5ff;
           border-right-color: #00e5ff;
-          animation: spin-border 1.4s linear infinite;
+          animation: spin-border 3s linear infinite;
           filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.6));
         }
         .spinner-wrap .spinner-ring-blur {
@@ -60,7 +60,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
           border: 2.5px solid transparent;
           border-top-color: #00e5ff;
           border-right-color: #00b8d4;
-          animation: spin-border 1.4s linear infinite;
+          animation: spin-border 3s linear infinite;
           filter: blur(4px);
           opacity: 0.45;
         }
