@@ -32,8 +32,8 @@ export const LOCATIONS = [
     phone2: '+52 744 443 2745',
     phone2Display: '744 443 2745',
     email: 'ventas3@agenciamcd.mx',
-    latitude: 16.86275,
-    longitude: -99.87741,
+    latitude: 16.8512984,
+    longitude: -99.8497261,
   },
   {
     id: 'tecoanapa',
