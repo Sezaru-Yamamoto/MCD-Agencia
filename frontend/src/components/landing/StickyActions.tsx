@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { CONTACT_INFO } from '@/lib/constants';
 import { trackCTA } from '@/lib/tracking';
 
@@ -96,13 +97,14 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
               aria-label="Cotizar"
               title="Cotizar ahora"
             >
-              {/* RFQ / solicitud de cotización icon (filled document + $ cutout) */}
-              <svg className="w-7 h-7 sm:w-8 sm:h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-                <path d="M12 10v1m0 6v1" />
-                <path d="M9.5 13c0-1.1 1.12-2 2.5-2s2.5.9 2.5 2-1.12 2-2.5 2-2.5.9-2.5 2 1.12 2 2.5 2 2.5-.9 2.5-2" />
-              </svg>
+              {/* Flaticon: solicitud de cotización */}
+              <Image
+                src="/images/quote-icon.png"
+                alt="Cotizar"
+                width={32}
+                height={32}
+                className="w-7 h-7 sm:w-8 sm:h-8 brightness-0 invert"
+              />
             </a>
           </div>
         </div>
