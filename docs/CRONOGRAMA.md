@@ -1,7 +1,7 @@
 # Cronograma de Actividades — MCD-Agencia
 
 **Proyecto**: Sistema Web para Agencia de Publicidad MCD  
-**Periodo**: 12 de febrero – 27 de mayo de 2026 (15 semanas)  
+**Periodo**: 12 de enero – 24 de abril de 2026 (15 semanas)  
 **Metodología**: Desarrollo iterativo incremental  
 **Responsable**: Desarrollo full-stack
 
@@ -33,21 +33,21 @@
 
 | Semana | Periodo | Fase |
 |--------|---------|------|
-| S1 | 12 – 18 Feb | Análisis |
-| S2 | 19 – 25 Feb | Análisis / Planeación |
-| S3 | 26 Feb – 4 Mar | Planeación / Diseño |
-| S4 | 5 – 11 Mar | Diseño |
-| S5 | 12 – 18 Mar | Diseño / Desarrollo |
-| S6 | 19 – 25 Mar | Desarrollo |
-| S7 | 26 Mar – 1 Abr | Desarrollo |
-| S8 | 2 – 8 Abr | Desarrollo |
-| S9 | 9 – 15 Abr | Desarrollo |
-| S10 | 16 – 22 Abr | Desarrollo / Documentación |
-| S11 | 23 – 29 Abr | Documentación |
-| S12 | 30 Abr – 6 May | Documentación / Pruebas |
-| S13 | 7 – 13 May | Pruebas / Despliegue |
-| S14 | 14 – 20 May | Despliegue / Entrega |
-| S15 | 21 – 27 May | Entrega / Capacitación |
+| S1 | 12 – 18 Ene | Análisis |
+| S2 | 19 – 25 Ene | Análisis / Planeación |
+| S3 | 26 Ene – 1 Feb | Planeación / Diseño |
+| S4 | 2 – 8 Feb | Diseño |
+| S5 | 9 – 15 Feb | Diseño / Desarrollo |
+| S6 | 16 – 22 Feb | Desarrollo |
+| S7 | 23 Feb – 1 Mar | Desarrollo |
+| S8 | 2 – 8 Mar | Desarrollo |
+| S9 | 9 – 15 Mar | Desarrollo |
+| S10 | 16 – 22 Mar | Desarrollo / Documentación |
+| S11 | 23 – 29 Mar | Documentación |
+| S12 | 30 Mar – 5 Abr | Documentación / Pruebas |
+| S13 | 6 – 12 Abr | Pruebas / Despliegue |
+| S14 | 13 – 19 Abr | Despliegue / Entrega |
+| S15 | 20 – 24 Abr | Entrega / Capacitación |
 
 ---
 

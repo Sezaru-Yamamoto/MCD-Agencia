@@ -2,9 +2,9 @@
 
 **Proyecto**: Sistema Web para Agencia de Publicidad MCD  
 **Metodología**: Scrum (adaptado)  
-**Duración del Sprint**: 2 semanas (excepto Sprint 7: 3 semanas)  
+**Duración del Sprint**: 2 semanas (excepto Sprint 7: ~3 semanas)  
 **Total de Sprints**: 7  
-**Periodo**: 12 de febrero – 27 de mayo de 2026  
+**Periodo**: 12 de enero – 24 de abril de 2026 (15 semanas)  
 **Product Owner**: Agencia MCD  
 **Scrum Master / Developer**: César Alejandro Yamamoto Herrera  
 
@@ -14,13 +14,13 @@
 
 | Sprint | Periodo | Semanas | Objetivo | Estado | Story Points |
 |--------|---------|---------|----------|--------|:------------:|
-| Sprint 1 | 12 – 25 Feb | S1–S2 | Análisis y Requerimientos | ✅ Completado | 21 |
-| Sprint 2 | 26 Feb – 11 Mar | S3–S4 | Arquitectura y Diseño Técnico | ✅ Completado | 26 |
-| Sprint 3 | 12 – 25 Mar | S5–S6 | UI/UX y Sitio Público | 🔄 En progreso | 34 |
-| Sprint 4 | 26 Mar – 8 Abr | S7–S8 | Cotizaciones y Catálogo | 📋 Pendiente | 34 |
-| Sprint 5 | 9 – 22 Abr | S9–S10 | E-Commerce y Módulos Complementarios | 📋 Pendiente | 34 |
-| Sprint 6 | 23 Abr – 6 May | S11–S12 | Documentación y Pruebas | 📋 Pendiente | 26 |
-| Sprint 7 | 7 – 27 May | S13–S15 | Despliegue, Entrega y Capacitación | 📋 Pendiente | 21 |
+| Sprint 1 | 12 – 25 Ene | S1–S2 | Análisis y Requerimientos | ✅ Completado | 21 |
+| Sprint 2 | 26 Ene – 8 Feb | S3–S4 | Arquitectura y Diseño Técnico | ✅ Completado | 26 |
+| Sprint 3 | 9 – 22 Feb | S5–S6 | UI/UX y Sitio Público | ✅ Completado | 34 |
+| Sprint 4 | 23 Feb – 8 Mar | S7–S8 | Cotizaciones y Catálogo | ✅ Completado | 34 |
+| Sprint 5 | 9 – 22 Mar | S9–S10 | E-Commerce y Módulos Complementarios | 🔄 En progreso | 34 |
+| Sprint 6 | 23 Mar – 5 Abr | S11–S12 | Documentación y Pruebas | 📋 Pendiente | 26 |
+| Sprint 7 | 6 – 24 Abr | S13–S15 | Despliegue, Entrega y Capacitación | 📋 Pendiente | 21 |
 | | | | **Total** | | **196** |
 
 ---
@@ -47,7 +47,7 @@
 
 ## Sprint 1 — Análisis y Requerimientos
 
-**Periodo**: 12 – 25 de febrero de 2026 (S1–S2)  
+**Periodo**: 12 – 25 de enero de 2026 (S1–S2)  
 **Sprint Goal**: Comprender los procesos actuales de la agencia MCD y definir los requerimientos del sistema para establecer un alcance claro del proyecto.  
 **Estado**: ✅ Completado  
 **Velocidad**: 21 SP
@@ -70,14 +70,14 @@
 - [x] Alcance del proyecto definido y acordado
 
 ### Sprint Review
-**Fecha**: 25 de febrero de 2026  
+**Fecha**: 25 de enero de 2026  
 **Resultado**: Se completaron todas las historias planificadas. Se identificaron 11 módulos necesarios y se documentaron los requerimientos funcionales y no funcionales del sistema completo.
 
 ---
 
 ## Sprint 2 — Arquitectura y Diseño Técnico
 
-**Periodo**: 26 de febrero – 11 de marzo de 2026 (S3–S4)  
+**Periodo**: 26 de enero – 8 de febrero de 2026 (S3–S4)  
 **Sprint Goal**: Definir la arquitectura técnica, seleccionar las herramientas de desarrollo y diseñar la base de datos y las integraciones con servicios externos.  
 **Estado**: ✅ Completado  
 **Velocidad**: 26 SP
@@ -109,15 +109,97 @@
 - [x] Entornos de despliegue configurados (Render + Vercel)
 
 ### Sprint Review
-**Fecha**: 11 de marzo de 2026  
+**Fecha**: 8 de febrero de 2026  
 **Resultado**: Arquitectura completa definida. Stack seleccionado: Next.js 14 + Django 5 + PostgreSQL. 11 apps Django modeladas. Repositorio funcional con Docker, CI/CD configurado en Render y Vercel. Integraciones documentadas con diagramas de secuencia.
 
 ---
 
 ## Sprint 3 — UI/UX y Sitio Público
 
-**Periodo**: 12 – 25 de marzo de 2026 (S5–S6)  
+**Periodo**: 9 – 22 de febrero de 2026 (S5–S6)  
 **Sprint Goal**: Diseñar las interfaces de usuario del sistema e implementar el sitio web público (landing page) y el sistema de autenticación con roles.  
+**Estado**: ✅ Completado  
+**Velocidad**: 34 SP
+
+### Sprint Backlog
+
+| ID | Tipo | Historia / Tarea | SP | Estado |
+|----|------|-------------------|:--:|--------|
+| MCD-22 | 📖 Story | Como visitante, quiero ver una landing page profesional para conocer los servicios de la agencia | 8 | ✅ Done |
+| MCD-23 | 📋 Task | Diseñar wireframes de interfaces principales | 3 | ✅ Done |
+| MCD-24 | 📋 Task | Implementar Hero section con carrusel de servicios | 3 | ✅ Done |
+| MCD-25 | 📋 Task | Implementar sección de portafolio (coverflow) | 2 | ✅ Done |
+| MCD-26 | 📋 Task | Implementar sección de clientes y testimonios | 2 | ✅ Done |
+| MCD-27 | 📋 Task | Implementar formulario de cotización en landing | 2 | ✅ Done |
+| MCD-28 | 📋 Task | Implementar mapa de ubicaciones y footer | 1 | ✅ Done |
+| MCD-29 | 📋 Task | Implementar header flotante con glass morphism | 2 | ✅ Done |
+| MCD-30 | 📋 Task | Agregar animaciones de scroll (parallax, reveal) | 2 | ✅ Done |
+| MCD-31 | 📋 Task | Implementar botones sticky (Cotizar, WhatsApp, Chat) | 1 | ✅ Done |
+| MCD-32 | 📖 Story | Como visitante, quiero registrarme y verificar mi correo para acceder al sistema | 5 | ✅ Done |
+| MCD-33 | 📋 Task | Implementar registro con validación y verificación email | 3 | ✅ Done |
+| MCD-34 | 📋 Task | Implementar login JWT con refresh + Google OAuth | 3 | ✅ Done |
+| MCD-35 | 📖 Story | Como admin, quiero gestionar roles (admin/vendedor/cliente) para controlar accesos | 3 | ✅ Done |
+| MCD-36 | 📋 Task | Implementar RBAC con permisos por endpoint | 2 | ✅ Done |
+| MCD-37 | 📋 Task | Implementar perfil de usuario editable | 1 | ✅ Done |
+| MCD-38 | 📋 Task | Soporte de internacionalización español/inglés | 2 | ✅ Done |
+
+### Definition of Done
+- [x] Landing page desplegada y responsiva en todos los dispositivos
+- [x] Sistema de registro + verificación de correo funcional
+- [x] Login con JWT y Google OAuth operativo
+- [x] Roles admin/vendedor/cliente con permisos correctos
+- [x] Middleware de auditoría registrando acciones
+
+### Sprint Review
+**Fecha**: 22 de febrero de 2026  
+**Resultado**: Landing page completa con hero carousel, portafolio, clientes, formulario de cotización, ubicaciones, footer, header flotante, animaciones de scroll y botones sticky. Sistema de autenticación JWT + Google OAuth funcional con roles RBAC. Internacionalización es/en implementada.
+
+---
+
+## Sprint 4 — Cotizaciones y Catálogo
+
+**Periodo**: 23 de febrero – 8 de marzo de 2026 (S7–S8)  
+**Sprint Goal**: Implementar el sistema completo de cotizaciones con generación de PDF y el catálogo de productos con gestión de inventario.  
+**Estado**: ✅ Completado  
+**Velocidad**: 34 SP
+
+### Sprint Backlog
+
+| ID | Tipo | Historia / Tarea | SP | Estado |
+|----|------|-------------------|:--:|--------|
+| MCD-39 | 📖 Story | Como cliente, quiero solicitar una cotización en línea para recibir una propuesta de servicios | 8 | ✅ Done |
+| MCD-40 | 📋 Task | Formulario de solicitud con adjuntos y tipo de servicio | 3 | ✅ Done |
+| MCD-41 | 📋 Task | Panel de gestión de cotizaciones para vendedor/admin | 3 | ✅ Done |
+| MCD-42 | 📋 Task | Versionamiento de cotizaciones y solicitudes de cambio | 3 | ✅ Done |
+| MCD-43 | 📋 Task | Generación de PDF profesional con ReportLab | 3 | ✅ Done |
+| MCD-44 | 📋 Task | URL pública firmada para vista/aprobación sin login | 2 | ✅ Done |
+| MCD-45 | 📋 Task | Notificaciones email en cada cambio de estado | 1 | ✅ Done |
+| MCD-46 | 📖 Story | Como visitante, quiero explorar un catálogo de productos con filtros para encontrar lo que necesito | 8 | ✅ Done |
+| MCD-47 | 📋 Task | CRUD de productos con categorías, variantes e imágenes | 3 | ✅ Done |
+| MCD-48 | 📋 Task | Procesamiento de imágenes (WebP, thumbnails, R2) | 2 | ✅ Done |
+| MCD-49 | 📋 Task | Vista pública con filtros, búsqueda y paginación | 2 | ✅ Done |
+| MCD-50 | 📖 Story | Como admin, quiero controlar el inventario para evitar vender productos sin stock | 5 | ✅ Done |
+| MCD-51 | 📋 Task | Movimientos de stock (entrada/salida/ajuste/devolución) | 2 | ✅ Done |
+| MCD-52 | 📋 Task | Alertas de stock bajo con umbrales configurables | 1 | ✅ Done |
+| MCD-53 | 📋 Task | Dashboard de inventario con filtros | 1 | ✅ Done |
+
+### Definition of Done
+- [x] Cotizaciones: flujo completo solicitud → creación → aprobación/rechazo
+- [x] PDF generado correctamente con datos de la cotización
+- [x] Catálogo público con filtros y búsqueda funcional
+- [x] Inventario con trazabilidad de movimientos
+- [x] Alertas de stock bajo enviadas correctamente
+
+### Sprint Review
+**Fecha**: 8 de marzo de 2026  
+**Resultado**: Sistema de cotizaciones completo con versionamiento, solicitudes de cambio, generación de PDF y URL pública firmada. Catálogo con imágenes optimizadas en WebP, filtros y búsqueda. Inventario con movimientos de stock y alertas configurables.
+
+---
+
+## Sprint 5 — E-Commerce y Módulos Complementarios
+
+**Periodo**: 9 – 22 de marzo de 2026 (S9–S10)  
+**Sprint Goal**: Implementar el flujo de compra completo (carrito → pedido → pago) con MercadoPago/PayPal, junto con el CMS, chatbot y sistema de notificaciones.  
 **Estado**: 🔄 En progreso  
 **Velocidad planificada**: 34 SP
 
@@ -125,98 +207,21 @@
 
 | ID | Tipo | Historia / Tarea | SP | Estado |
 |----|------|-------------------|:--:|--------|
-| MCD-22 | 📖 Story | Como visitante, quiero ver una landing page profesional para conocer los servicios de la agencia | 8 | 🔄 In Progress |
-| MCD-23 | 📋 Task | Diseñar wireframes de interfaces principales | 3 | ✅ Done |
-| MCD-24 | 📋 Task | Implementar Hero section con carrusel de servicios | 3 | ✅ Done |
-| MCD-25 | 📋 Task | Implementar sección de portafolio (coverflow) | 2 | ✅ Done |
-| MCD-26 | 📋 Task | Implementar sección de clientes y testimonios | 2 | ✅ Done |
-| MCD-27 | 📋 Task | Implementar formulario de cotización en landing | 2 | 🔄 In Progress |
-| MCD-28 | 📋 Task | Implementar mapa de ubicaciones y footer | 1 | ✅ Done |
-| MCD-29 | 📋 Task | Implementar header flotante con glass morphism | 2 | ✅ Done |
-| MCD-30 | 📋 Task | Agregar animaciones de scroll (parallax, reveal) | 2 | ✅ Done |
-| MCD-31 | 📋 Task | Implementar botones sticky (Cotizar, WhatsApp, Chat) | 1 | ✅ Done |
-| MCD-32 | 📖 Story | Como visitante, quiero registrarme y verificar mi correo para acceder al sistema | 5 | 📋 To Do |
-| MCD-33 | 📋 Task | Implementar registro con validación y verificación email | 3 | 📋 To Do |
-| MCD-34 | 📋 Task | Implementar login JWT con refresh + Google OAuth | 3 | 📋 To Do |
-| MCD-35 | 📖 Story | Como admin, quiero gestionar roles (admin/vendedor/cliente) para controlar accesos | 3 | 📋 To Do |
-| MCD-36 | 📋 Task | Implementar RBAC con permisos por endpoint | 2 | 📋 To Do |
-| MCD-37 | 📋 Task | Implementar perfil de usuario editable | 1 | 📋 To Do |
-| MCD-38 | 📋 Task | Soporte de internacionalización español/inglés | 2 | ✅ Done |
-
-### Definition of Done
-- [ ] Landing page desplegada y responsiva en todos los dispositivos
-- [ ] Sistema de registro + verificación de correo funcional
-- [ ] Login con JWT y Google OAuth operativo
-- [ ] Roles admin/vendedor/cliente con permisos correctos
-- [ ] Middleware de auditoría registrando acciones
-
-### Sprint Review
-**Fecha**: 25 de marzo de 2026 (pendiente)
-
----
-
-## Sprint 4 — Cotizaciones y Catálogo
-
-**Periodo**: 26 de marzo – 8 de abril de 2026 (S7–S8)  
-**Sprint Goal**: Implementar el sistema completo de cotizaciones con generación de PDF y el catálogo de productos con gestión de inventario.  
-**Estado**: 📋 Pendiente  
-**Velocidad planificada**: 34 SP
-
-### Sprint Backlog
-
-| ID | Tipo | Historia / Tarea | SP | Estado |
-|----|------|-------------------|:--:|--------|
-| MCD-39 | 📖 Story | Como cliente, quiero solicitar una cotización en línea para recibir una propuesta de servicios | 8 | 📋 To Do |
-| MCD-40 | 📋 Task | Formulario de solicitud con adjuntos y tipo de servicio | 3 | 📋 To Do |
-| MCD-41 | 📋 Task | Panel de gestión de cotizaciones para vendedor/admin | 3 | 📋 To Do |
-| MCD-42 | 📋 Task | Versionamiento de cotizaciones y solicitudes de cambio | 3 | 📋 To Do |
-| MCD-43 | 📋 Task | Generación de PDF profesional con ReportLab | 3 | 📋 To Do |
-| MCD-44 | 📋 Task | URL pública firmada para vista/aprobación sin login | 2 | 📋 To Do |
-| MCD-45 | 📋 Task | Notificaciones email en cada cambio de estado | 1 | 📋 To Do |
-| MCD-46 | 📖 Story | Como visitante, quiero explorar un catálogo de productos con filtros para encontrar lo que necesito | 8 | 📋 To Do |
-| MCD-47 | 📋 Task | CRUD de productos con categorías, variantes e imágenes | 3 | 📋 To Do |
-| MCD-48 | 📋 Task | Procesamiento de imágenes (WebP, thumbnails, R2) | 2 | 📋 To Do |
-| MCD-49 | 📋 Task | Vista pública con filtros, búsqueda y paginación | 2 | 📋 To Do |
-| MCD-50 | 📖 Story | Como admin, quiero controlar el inventario para evitar vender productos sin stock | 5 | 📋 To Do |
-| MCD-51 | 📋 Task | Movimientos de stock (entrada/salida/ajuste/devolución) | 2 | 📋 To Do |
-| MCD-52 | 📋 Task | Alertas de stock bajo con umbrales configurables | 1 | 📋 To Do |
-| MCD-53 | 📋 Task | Dashboard de inventario con filtros | 1 | 📋 To Do |
-
-### Definition of Done
-- [ ] Cotizaciones: flujo completo solicitud → creación → aprobación/rechazo
-- [ ] PDF generado correctamente con datos de la cotización
-- [ ] Catálogo público con filtros y búsqueda funcional
-- [ ] Inventario con trazabilidad de movimientos
-- [ ] Alertas de stock bajo enviadas correctamente
-
----
-
-## Sprint 5 — E-Commerce y Módulos Complementarios
-
-**Periodo**: 9 – 22 de abril de 2026 (S9–S10)  
-**Sprint Goal**: Implementar el flujo de compra completo (carrito → pedido → pago) con MercadoPago/PayPal, junto con el CMS, chatbot y sistema de notificaciones.  
-**Estado**: 📋 Pendiente  
-**Velocidad planificada**: 34 SP
-
-### Sprint Backlog
-
-| ID | Tipo | Historia / Tarea | SP | Estado |
-|----|------|-------------------|:--:|--------|
-| MCD-54 | 📖 Story | Como cliente, quiero agregar productos al carrito y completar una compra en línea | 8 | 📋 To Do |
-| MCD-55 | 📋 Task | Carrito de compras persistente por usuario/sesión | 2 | 📋 To Do |
-| MCD-56 | 📋 Task | Checkout con dirección de envío y resumen | 2 | 📋 To Do |
-| MCD-57 | 📋 Task | Integración MercadoPago (preferencias + webhooks) | 3 | 📋 To Do |
-| MCD-58 | 📋 Task | Integración PayPal (órdenes + captura + IPN) | 3 | 📋 To Do |
-| MCD-59 | 📋 Task | Gestión de pedidos con estados y deducción de inventario | 2 | 📋 To Do |
-| MCD-60 | 📋 Task | Emails transaccionales de confirmación | 1 | 📋 To Do |
-| MCD-61 | 📖 Story | Como admin, quiero gestionar el contenido del sitio sin tocar código | 5 | 📋 To Do |
-| MCD-62 | 📋 Task | CMS para secciones dinámicas (hero, servicios, FAQ) | 3 | 📋 To Do |
-| MCD-63 | 📖 Story | Como visitante, quiero un chatbot que responda mis dudas automáticamente | 5 | 📋 To Do |
-| MCD-64 | 📋 Task | Motor de chatbot con intents y respuestas contextuales | 3 | 📋 To Do |
-| MCD-65 | 📋 Task | Captura de leads desde chatbot | 1 | 📋 To Do |
-| MCD-66 | 📖 Story | Como usuario, quiero recibir notificaciones de eventos importantes del sistema | 3 | 📋 To Do |
-| MCD-67 | 📋 Task | Notificaciones in-app con lectura/no leído | 2 | 📋 To Do |
-| MCD-68 | 📋 Task | Dashboard de analytics (cotizaciones, pedidos, ingresos) | 3 | 📋 To Do |
+| MCD-54 | 📖 Story | Como cliente, quiero agregar productos al carrito y completar una compra en línea | 8 | � In Progress |
+| MCD-55 | 📋 Task | Carrito de compras persistente por usuario/sesión | 2 | ✅ Done |
+| MCD-56 | 📋 Task | Checkout con dirección de envío y resumen | 2 | ✅ Done |
+| MCD-57 | 📋 Task | Integración MercadoPago (preferencias + webhooks) | 3 | ✅ Done |
+| MCD-58 | 📋 Task | Integración PayPal (órdenes + captura + IPN) | 3 | ✅ Done |
+| MCD-59 | 📋 Task | Gestión de pedidos con estados y deducción de inventario | 2 | 🔄 In Progress |
+| MCD-60 | 📋 Task | Emails transaccionales de confirmación | 1 | ✅ Done |
+| MCD-61 | 📖 Story | Como admin, quiero gestionar el contenido del sitio sin tocar código | 5 | 🔄 In Progress |
+| MCD-62 | 📋 Task | CMS para secciones dinámicas (hero, servicios, FAQ) | 3 | 🔄 In Progress |
+| MCD-63 | 📖 Story | Como visitante, quiero un chatbot que responda mis dudas automáticamente | 5 | ✅ Done |
+| MCD-64 | 📋 Task | Motor de chatbot con intents y respuestas contextuales | 3 | ✅ Done |
+| MCD-65 | 📋 Task | Captura de leads desde chatbot | 1 | ✅ Done |
+| MCD-66 | 📖 Story | Como usuario, quiero recibir notificaciones de eventos importantes del sistema | 3 | 🔄 In Progress |
+| MCD-67 | 📋 Task | Notificaciones in-app con lectura/no leído | 2 | ✅ Done |
+| MCD-68 | 📋 Task | Dashboard de analytics (cotizaciones, pedidos, ingresos) | 3 | 🔄 In Progress |
 
 ### Definition of Done
 - [ ] Flujo carrito → checkout → pago funcional (sandbox)
@@ -229,7 +234,7 @@
 
 ## Sprint 6 — Documentación y Pruebas
 
-**Periodo**: 23 de abril – 6 de mayo de 2026 (S11–S12)  
+**Periodo**: 23 de marzo – 5 de abril de 2026 (S11–S12)  
 **Sprint Goal**: Completar la documentación técnica/funcional del sistema y ejecutar pruebas unitarias, de integración, seguridad y rendimiento.  
 **Estado**: 📋 Pendiente  
 **Velocidad planificada**: 26 SP
@@ -266,7 +271,7 @@
 
 ## Sprint 7 — Despliegue, Entrega y Capacitación
 
-**Periodo**: 7 – 27 de mayo de 2026 (S13–S15, 3 semanas)  
+**Periodo**: 6 – 24 de abril de 2026 (S13–S15, ~3 semanas)  
 **Sprint Goal**: Desplegar el sistema en producción con configuración completa, realizar la entrega formal y capacitar al equipo de la agencia.  
 **Estado**: 📋 Pendiente  
 **Velocidad planificada**: 21 SP
@@ -308,8 +313,8 @@
 |--------|:---------------:|:--------------:|:------------:|
 | Sprint 1 | 21 | 21 | 175 |
 | Sprint 2 | 26 | 26 | 149 |
-| Sprint 3 | 34 | — | — |
-| Sprint 4 | 34 | — | — |
+| Sprint 3 | 34 | 34 | 115 |
+| Sprint 4 | 34 | 34 | 81 |
 | Sprint 5 | 34 | — | — |
 | Sprint 6 | 26 | — | — |
 | Sprint 7 | 21 | — | — |
@@ -317,7 +322,9 @@
 ### Velocidad Promedio
 - Sprint 1: 21 SP
 - Sprint 2: 26 SP
-- **Promedio**: 23.5 SP/sprint
+- Sprint 3: 34 SP
+- Sprint 4: 34 SP
+- **Promedio**: 28.75 SP/sprint
 
 ---
 
