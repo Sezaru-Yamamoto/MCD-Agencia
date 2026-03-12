@@ -1,90 +1,117 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { CONTACT_INFO } from '@/lib/constants';
 import { trackCTA } from '@/lib/tracking';
 
 /**
  * StickyActions — Fixed right-side action buttons
- * Quote (with cyan neon border + "Cotiza ya" popup) + WhatsApp + Chat toggle
+ * Quote (with clean spinning cyan border + "Cotiza ya" label) + WhatsApp + Chat toggle
  * Always visible, stacked vertically on the right edge
  */
 export function StickyActions({ onChatToggle, isChatOpen }: {
   onChatToggle: () => void;
   isChatOpen: boolean;
 }) {
+  const [showLabel, setShowLabel] = useState(true);
   const handleQuoteClick = () => { trackCTA('quote', 'sticky-actions'); };
   const handleWhatsAppClick = () => { trackCTA('whatsapp', 'sticky-actions'); };
 
+  // Hide "Cotiza ya" label after scrolling past the hero
+  useEffect(() => {
+    const onScroll = () => setShowLabel(window.scrollY < 600);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
     <>
-      {/* Neon animation styles */}
+      {/* Spinner border animation */}
       <style jsx>{`
-        @property --angle {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
+        @keyframes spin-border {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
-        @keyframes spinGlow {
-          0%   { --angle: 0deg; }
-          100% { --angle: 360deg; }
+        @keyframes float-gentle {
+          0%, 100% { transform: translateX(0); }
+          50%      { transform: translateX(-4px); }
         }
-        @keyframes floatBounce {
-          0%, 100% { transform: translateY(0); }
-          50%      { transform: translateY(-8px); }
-        }
-        .neon-ring {
+        .spinner-wrap {
           position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-        .neon-ring::before,
-        .neon-ring::after {
-          content: '';
+        .spinner-wrap .spinner-ring {
           position: absolute;
+          inset: -4px;
           border-radius: 9999px;
-          background: conic-gradient(from var(--angle), #00e5ff 0%, #00b8d4 25%, transparent 50%, #00b8d4 75%, #00e5ff 100%);
-          animation: spinGlow 2s linear infinite;
+          border: 3px solid transparent;
+          border-top-color: #00e5ff;
+          border-right-color: #00e5ff;
+          animation: spin-border 1.5s linear infinite;
+          filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.5));
         }
-        .neon-ring::before {
+        .spinner-wrap .spinner-ring-blur {
+          position: absolute;
           inset: -6px;
-          opacity: 0.6;
-          filter: blur(8px);
-          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 6px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 6px));
-        }
-        .neon-ring::after {
-          inset: -3px;
-          opacity: 1;
-          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #fff calc(100% - 4px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #fff calc(100% - 4px));
+          border-radius: 9999px;
+          border: 3px solid transparent;
+          border-top-color: #00e5ff;
+          border-right-color: #00b8d4;
+          animation: spin-border 1.5s linear infinite;
+          filter: blur(6px);
+          opacity: 0.5;
         }
       `}</style>
 
       {/* Container — fixed right side */}
       <div className="fixed right-4 sm:right-6 bottom-6 z-[55] flex flex-col items-center gap-4 sm:gap-5">
 
-        {/* ─── Quote button with "Cotiza ya" popup ───────────────────── */}
-        <div className="relative flex flex-col items-center">
-          {/* Floating "Cotiza ya" popup */}
-          <div className="absolute -top-14 sm:-top-16 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none" style={{ animation: 'floatBounce 2s ease-in-out infinite' }}>
-            <div className="bg-cmyk-cyan text-cmyk-black text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-cmyk-cyan/30">
+        {/* ─── Quote button with spinner border ──────────────────────── */}
+        <div className="relative flex items-center">
+          {/* "Cotiza ya" label — LEFT of button, hides on scroll */}
+          <div
+            className={`absolute right-full mr-3 whitespace-nowrap pointer-events-none transition-all duration-500 ${
+              showLabel ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+            }`}
+            style={{ animation: showLabel ? 'float-gentle 2.5s ease-in-out infinite' : 'none' }}
+          >
+            <div className="bg-cmyk-cyan text-cmyk-black text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-cmyk-cyan/30 flex items-center gap-1">
               ¡Cotiza ya!
-              {/* Arrow pointing down */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-cmyk-cyan" />
+              {/* Arrow pointing right toward button */}
+              <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[6px] border-transparent border-l-cmyk-cyan" />
             </div>
           </div>
 
-          {/* Button */}
-          <a
-            href="#cotizar"
-            onClick={handleQuoteClick}
-            className="neon-ring w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-cyan text-white flex items-center justify-center shadow-2xl shadow-cmyk-cyan/50 hover:scale-110 transition-transform duration-300 relative z-10"
-            aria-label="Cotizar"
-            title="Cotizar ahora"
-          >
-            {/* Calculator/estimate icon — cleaner */}
-            <svg className="w-8 h-8 sm:w-9 sm:h-9" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm2.25-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H12.75v-.008zm0 2.25h.008v.008H12.75v-.008zm2.25-6.75h.008v.008H15v-.008zm0 2.25h.008v.008H15v-.008zM6 6.75A.75.75 0 016.75 6h10.5a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75H6.75a.75.75 0 01-.75-.75V6.75z" />
-            </svg>
-          </a>
+          {/* Spinner border wrapper */}
+          <div className="spinner-wrap">
+            <div className="spinner-ring" />
+            <div className="spinner-ring-blur" />
+            {/* Button */}
+            <a
+              href="#cotizar"
+              onClick={handleQuoteClick}
+              className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-cyan text-white flex items-center justify-center shadow-2xl shadow-cmyk-cyan/50 hover:scale-110 transition-transform duration-300 relative z-10"
+              aria-label="Cotizar"
+              title="Cotizar ahora"
+            >
+              {/* Document + $ + pen icon (matches the provided icon) */}
+              <svg className="w-8 h-8 sm:w-9 sm:h-9" viewBox="0 0 24 24" fill="currentColor">
+                {/* Document body */}
+                <path d="M3 2.5A1.5 1.5 0 014.5 1h10A1.5 1.5 0 0116 2.5v16a1.5 1.5 0 01-1.5 1.5h-10A1.5 1.5 0 013 18.5v-16z" opacity="0.15"/>
+                <path d="M4.5 1A1.5 1.5 0 003 2.5v16A1.5 1.5 0 004.5 20h10a1.5 1.5 0 001.5-1.5v-16A1.5 1.5 0 0014.5 1h-10z" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                {/* Dollar sign */}
+                <path d="M9.5 6.5v-.75m0 6.5v.75m0-7.25a1.75 1.75 0 011.75 1.75c0 .966-.784 1.75-1.75 1.75S7.75 8.216 7.75 7.25 8.534 5.75 9.5 5.75zm0 3.5a1.75 1.75 0 011.75 1.75c0 .966-.784 1.75-1.75 1.75s-1.75-.784-1.75-1.75A1.75 1.75 0 019.5 9.25z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                {/* Lines */}
+                <line x1="6" y1="15" x2="13" y2="15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                <line x1="6" y1="17" x2="11" y2="17" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                {/* Pen */}
+                <path d="M18.5 3.5l2 2-6 6H12.5v-2l6-6z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                <path d="M17 5l2 2" fill="none" stroke="currentColor" strokeWidth="1.3"/>
+              </svg>
+            </a>
+          </div>
         </div>
 
         {/* ─── WhatsApp button ───────────────────────────────────────── */}
@@ -112,11 +139,9 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
             aria-label="Abrir chat"
             title="Chat en línea"
           >
-            {/* Chat icon */}
             <svg className="w-8 h-8 sm:w-9 sm:h-9" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
             </svg>
-            {/* Green dot */}
             <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white" />

@@ -149,7 +149,7 @@ export function Hero() {
   return (
     <section
       id="servicios"
-      className="sticky top-0 w-full h-screen min-h-[600px] max-h-[1000px] overflow-hidden z-0"
+      className="relative w-full h-screen min-h-[600px] max-h-[1000px] overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
