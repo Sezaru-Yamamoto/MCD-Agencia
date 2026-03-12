@@ -26,7 +26,10 @@ interface PortfolioItem {
 
 const FALLBACK_ITEMS: PortfolioItem[] = [
   { id: 'v1', type: 'video', videoId: 'sqOb-gSSQq8', label: 'Proyecto 1', orientation: 'vertical' },
+  { id: 'img1', type: 'image', imageUrl: 'https://images.unsplash.com/photo-1588412079929-790b9f593d8e?w=800&q=80', label: 'Impresión Gran Formato' },
   { id: 'v2', type: 'video', videoId: 'b33fwbyZRQM', label: 'Proyecto 2', orientation: 'vertical' },
+  { id: 'img2', type: 'image', imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&q=80', label: 'Señalización Exterior' },
+  { id: 'img3', type: 'image', imageUrl: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=800&q=80', label: 'Rotulación Vehicular' },
 ];
 
 /**
@@ -242,8 +245,11 @@ export function Portfolio() {
   }, [t]);
 
   return (
-    <section id="portafolio" className="section py-10 sm:py-14 md:py-18 lg:py-24">
-      <div className="container-custom">
+    <section id="portafolio" className="section relative py-10 sm:py-14 md:py-18 lg:py-24">
+      {/* Decorative top glow that blends with hero transition */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-32 bg-cmyk-cyan/5 blur-3xl rounded-full pointer-events-none" />
+
+      <div className="container-custom relative">
         <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 md:mb-14">
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
           <p className="text-base sm:text-lg md:text-xl text-gray-300">{t('subtitle')}</p>

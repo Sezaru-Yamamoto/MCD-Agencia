@@ -62,12 +62,6 @@ function MarqueeRow({ items, reverse = false, speed = 40 }: {
 
   return (
     <div className="relative overflow-hidden py-4 sm:py-6 group">
-      {/* Fade edges */}
-      <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-24 md:w-32
-                      bg-gradient-to-r from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-24 md:w-32
-                      bg-gradient-to-l from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
-
       <div
         className="flex items-center w-max group-hover:[animation-play-state:paused]"
         style={{
@@ -119,14 +113,9 @@ export function Clients() {
       `}</style>
 
       {/* Title block */}
-      <div className="container-custom text-center mb-8 sm:mb-12 md:mb-16">
-        <p className="text-xs sm:text-sm tracking-[0.25em] uppercase text-cmyk-cyan font-medium mb-3">
-          {t('subtitle')}
-        </p>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight
-                       uppercase text-white leading-tight">
-          {t('title')}
-        </h2>
+      <div className="container-custom text-center mb-6 sm:mb-10 md:mb-12">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
+        <p className="text-base sm:text-lg md:text-xl text-gray-300">{t('subtitle')}</p>
       </div>
 
       {/* Double-row marquee */}
@@ -137,9 +126,7 @@ export function Clients() {
 
       {/* Counter */}
       <div className="container-custom mt-8 sm:mt-12 text-center">
-        <p className="text-gray-500 text-xs sm:text-sm tracking-wide uppercase">
-          {t('satisfied', { count: String(clients.length) })}
-        </p>
+        <p className="text-gray-400 italic text-sm">{t('satisfied', { count: String(clients.length) })}</p>
       </div>
     </section>
   );

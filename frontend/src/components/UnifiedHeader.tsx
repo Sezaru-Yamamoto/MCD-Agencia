@@ -120,14 +120,19 @@ export function UnifiedHeader() {
   return (
     <>
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled
-          ? 'bg-cmyk-black shadow-lg py-3 border-b border-cmyk-cyan/20'
-          : 'bg-cmyk-black/95 backdrop-blur-sm py-4 border-b border-cmyk-cyan/10'
+          ? 'py-2'
+          : 'py-3 sm:py-4'
       }`}
     >
-      <div className="container-custom px-4 sm:px-6">
-        <div className="flex items-center justify-between">
+      {/* Inner container — floating pill shape */}
+      <div className={`container-custom px-4 sm:px-6 transition-all duration-500 ${
+        isScrolled
+          ? 'bg-black/70 backdrop-blur-xl shadow-2xl shadow-cmyk-cyan/5 rounded-2xl border border-white/10 mx-4 sm:mx-6 lg:mx-auto'
+          : 'bg-black/30 backdrop-blur-md rounded-2xl border border-white/5 mx-4 sm:mx-6 lg:mx-auto'
+      }`}>
+        <div className="flex items-center justify-between py-2.5 sm:py-3 px-2 sm:px-4">
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center space-x-2 lg:space-x-3 mr-4 flex-shrink-0">
             <div className="w-28 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
