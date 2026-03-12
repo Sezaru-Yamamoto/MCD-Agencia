@@ -26,6 +26,7 @@ import { LegalModal } from '@/components/LegalModal';
 import { AnalyticsScripts } from '@/components/AnalyticsScripts';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import '@/styles/globals.css';
 
 // =============================================================================
@@ -221,6 +222,9 @@ export default async function RootLayout({
 
             {/* Legal modals (privacy + terms) — available from any page */}
             <LegalModal />
+
+            {/* Vercel Speed Insights */}
+            <SpeedInsights />
           </Providers>
           </LegalModalProvider>
           </CookieConsentProvider>
