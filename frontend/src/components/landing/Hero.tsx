@@ -187,73 +187,130 @@ export function Hero() {
         );
       })}
 
+      {/* ─── Neon snake animation keyframes ─────────────────────────── */}
+      <style jsx>{`
+        @keyframes neonSnake {
+          0%   { background-position: 0% 0%; }
+          25%  { background-position: 100% 0%; }
+          50%  { background-position: 100% 100%; }
+          75%  { background-position: 0% 100%; }
+          100% { background-position: 0% 0%; }
+        }
+        .neon-border {
+          position: relative;
+          z-index: 1;
+        }
+        .neon-border::before {
+          content: '';
+          position: absolute;
+          inset: -3px;
+          border-radius: 9999px;
+          background: conic-gradient(from var(--angle, 0deg), #00e5ff, #ff00aa, #ffe600, #00e5ff);
+          animation: spinGlow 2.5s linear infinite;
+          z-index: -1;
+          opacity: 0.85;
+          filter: blur(3px);
+        }
+        .neon-border::after {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          border-radius: 9999px;
+          background: conic-gradient(from var(--angle, 0deg), #00e5ff, #ff00aa, #ffe600, #00e5ff);
+          animation: spinGlow 2.5s linear infinite;
+          z-index: -1;
+          opacity: 1;
+        }
+        @keyframes spinGlow {
+          0%   { --angle: 0deg; transform: rotate(0deg); }
+          100% { --angle: 360deg; transform: rotate(360deg); }
+        }
+        @property --angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+      `}</style>
+
       {/* ─── Content overlay ────────────────────────────────────────────── */}
-      <div className="relative z-10 h-full flex flex-col justify-between">
-        {/* Top-right area — CTA buttons (where users look first) */}
-        <div className="flex justify-end pt-24 sm:pt-28 md:pt-32 px-4 sm:px-8 md:px-12">
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <a
-              href={slides[currentIndex]?.cta?.href || '#cotizar'}
-              onClick={handleQuoteClick}
-              className="btn-primary text-xs sm:text-sm px-5 sm:px-6 py-2.5 sm:py-3 inline-flex items-center justify-center rounded-full shadow-lg shadow-cmyk-cyan/20"
-            >
-              {slides[currentIndex]?.cta?.label || t('cta')}
-            </a>
-            <a
-              href={CONTACT_INFO.whatsapp.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleWhatsAppClick}
-              className="btn-whatsapp text-xs sm:text-sm px-5 sm:px-6 py-2.5 sm:py-3 inline-flex items-center justify-center rounded-full shadow-lg"
-            >
-              <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-              </svg>
-              {t('ctaWhatsapp')}
-            </a>
+      <div className="relative z-10 h-full flex flex-col">
+        {/* Center area — service title + subtitle */}
+        <div className="flex-1 flex items-center">
+          <div className="container-custom px-4 sm:px-6 w-full">
+            <div className="max-w-3xl space-y-3 sm:space-y-4">
+              {/* Service title — large uppercase */}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white uppercase leading-tight tracking-wide">
+                {slides[currentIndex]?.title || t('title')}
+              </h1>
+
+              {/* Subtitle */}
+              {slides[currentIndex]?.subtitle && (
+                <p className="text-sm sm:text-base md:text-lg text-white/50 max-w-xl line-clamp-2">
+                  {slides[currentIndex].subtitle}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Bottom section — logo left, text center/left, service badge */}
-        <div className="px-4 sm:px-8 md:px-12 pb-24 sm:pb-28 md:pb-32">
-          {/* Service name badge */}
-          <div className="mb-3 sm:mb-4">
-            <span className="inline-block bg-black/50 backdrop-blur-sm text-white text-sm sm:text-base md:text-lg font-semibold px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-white/10">
-              {slides[currentIndex]?.title || t('title')}
-            </span>
-          </div>
-
-          {/* Subtitle — smaller and muted */}
-          {slides[currentIndex]?.subtitle && (
-            <p className="text-xs sm:text-sm md:text-base text-white/60 max-w-md line-clamp-2 mb-4 sm:mb-5">
-              {slides[currentIndex].subtitle}
-            </p>
-          )}
-
-          {/* Logo — bottom left */}
+        {/* Bottom section — logo left + trust badges */}
+        <div className="px-4 sm:px-8 md:px-12 pb-28 sm:pb-32 md:pb-36">
+          {/* Logo */}
           <img
             src="/logo-hero.png"
             alt="Agencia MCD"
-            className="w-20 sm:w-28 md:w-36 h-auto drop-shadow-xl opacity-90"
+            className="w-24 sm:w-32 md:w-40 h-auto drop-shadow-xl opacity-90 mb-3"
             style={{ maxWidth: '40vw' }}
           />
 
-          {/* Trust badges — inline, subtle */}
-          <div className="flex flex-wrap gap-3 sm:gap-4 mt-3">
-            <span className="text-white/40 text-[10px] sm:text-xs flex items-center gap-1">
-              <svg className="w-3 h-3 text-cmyk-cyan" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+          {/* Trust badges — slightly bigger */}
+          <div className="flex flex-wrap gap-4 sm:gap-5">
+            <span className="text-white/60 text-xs sm:text-sm flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cmyk-cyan" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
               {t('trustBadges.fastDelivery')}
             </span>
-            <span className="text-white/40 text-[10px] sm:text-xs flex items-center gap-1">
-              <svg className="w-3 h-3 text-cmyk-magenta" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+            <span className="text-white/60 text-xs sm:text-sm flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cmyk-magenta" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
               {t('trustBadges.qualityGuaranteed')}
             </span>
-            <span className="text-white/40 text-[10px] sm:text-xs flex items-center gap-1">
-              <svg className="w-3 h-3 text-cmyk-yellow" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+            <span className="text-white/60 text-xs sm:text-sm flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cmyk-yellow" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
               {t('trustBadges.businessHours', { hours: CONTACT_INFO.businessHours })}
             </span>
           </div>
         </div>
+      </div>
+
+      {/* ─── Floating icon-only CTA buttons — right side, stacked ──────── */}
+      <div className="absolute right-4 sm:right-8 md:right-12 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-5 sm:gap-6">
+        {/* Quote button with neon snake border */}
+        <a
+          href={slides[currentIndex]?.cta?.href || '#cotizar'}
+          onClick={handleQuoteClick}
+          className="neon-border w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full bg-cmyk-cyan text-cmyk-black flex items-center justify-center shadow-2xl shadow-cmyk-cyan/40 hover:scale-110 transition-transform duration-300"
+          aria-label="Cotizar"
+          title="Cotizar ahora"
+        >
+          {/* Clipboard/quote icon */}
+          <svg className="w-7 h-7 sm:w-8 sm:h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+          </svg>
+        </a>
+
+        {/* WhatsApp button */}
+        <a
+          href={CONTACT_INFO.whatsapp.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleWhatsAppClick}
+          className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full bg-green-500 text-white flex items-center justify-center shadow-2xl shadow-green-500/40 hover:scale-110 hover:bg-green-400 transition-all duration-300"
+          aria-label="WhatsApp"
+          title="WhatsApp"
+        >
+          <svg className="w-7 h-7 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+        </a>
       </div>
 
       {/* ─── Navigation arrows ──────────────────────────────────────────── */}
@@ -276,37 +333,28 @@ export function Hero() {
         </>
       )}
 
-      {/* ─── Vertical slide indicators (right side) ─────────────────────── */}
+      {/* ─── Slide indicators (center bottom) ──────────────────────────── */}
       {slides.length > 1 && (
-        <div className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 translate-y-20 sm:translate-y-24">
+        <div className="absolute bottom-8 sm:bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-2">
           {slides.map((_, index) => (
             <button
               key={index}
               onClick={() => goTo(index)}
               aria-label={`Ir a slide ${index + 1}`}
-              className={`rounded-full transition-all duration-300 w-2 sm:w-2.5 ${
+              className={`rounded-full transition-all duration-300 h-2.5 sm:h-3 ${
                 index === currentIndex
-                  ? 'bg-cmyk-cyan h-6 sm:h-8'
-                  : 'bg-white/30 hover:bg-white/50 h-2 sm:h-2.5'
+                  ? 'bg-cmyk-cyan w-8 sm:w-10'
+                  : 'bg-white/40 hover:bg-white/60 w-2.5 sm:w-3'
               }`}
             />
           ))}
         </div>
       )}
 
-      {/* ─── Scroll-down indicator ──────────────────────────────────────── */}
-      <div className="absolute bottom-8 sm:bottom-10 left-1/2 -translate-x-1/2 z-20 animate-bounce">
-        <svg className="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-        </svg>
-      </div>
-
-      {/* ─── Creative bottom transition — angled slice + gradient ───────── */}
+      {/* ─── Professional bottom transition ─────────────────────────── */}
       <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
-        <div className="h-24 sm:h-32 md:h-40 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
-        <svg className="absolute bottom-0 left-0 right-0 w-full" viewBox="0 0 1440 60" preserveAspectRatio="none" style={{ height: '60px' }}>
-          <path d="M0,60 L0,20 Q360,0 720,20 Q1080,40 1440,10 L1440,60 Z" fill="#0a0a0a" />
-        </svg>
+        {/* Multi-layer gradient for depth */}
+        <div className="h-40 sm:h-52 md:h-64 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
       </div>
     </section>
   );

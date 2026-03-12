@@ -246,9 +246,6 @@ export function Portfolio() {
 
   return (
     <section id="portafolio" className="section relative py-10 sm:py-14 md:py-18 lg:py-24">
-      {/* Decorative top glow that blends with hero transition */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-32 bg-cmyk-cyan/5 blur-3xl rounded-full pointer-events-none" />
-
       <div className="container-custom relative">
         <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 md:mb-14">
           <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
