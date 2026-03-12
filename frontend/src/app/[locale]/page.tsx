@@ -96,6 +96,10 @@ export default function HomePage() {
       <Header />
       <main className="relative z-10">
         <Hero />
+        {/* ─── Parallax reveal overlay: content scrolls over the sticky Hero ── */}
+        <div className="relative z-10">
+        {/* Gradient fade from hero into content */}
+        <div className="h-32 sm:h-40 md:h-52 -mt-32 sm:-mt-40 md:-mt-52 bg-gradient-to-b from-transparent via-[#0a0a0a]/80 to-[#0a0a0a] pointer-events-none" />
         <ScrollRevealSection translateY={80}>
           <Portfolio />
         </ScrollRevealSection>
@@ -108,6 +112,7 @@ export default function HomePage() {
         <ScrollRevealSection delay={50}>
           <Locations />
         </ScrollRevealSection>
+        </div>{/* end parallax overlay */}
       </main>
       <ScrollRevealSection translateY={40}>
         <Footer />

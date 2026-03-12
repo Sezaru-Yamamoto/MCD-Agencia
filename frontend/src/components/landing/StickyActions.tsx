@@ -44,13 +44,17 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
           animation: spinGlow 2s linear infinite;
         }
         .neon-ring::before {
-          inset: -4px;
-          opacity: 0.7;
-          filter: blur(6px);
+          inset: -6px;
+          opacity: 0.6;
+          filter: blur(8px);
+          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 6px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 6px));
         }
         .neon-ring::after {
-          inset: -2px;
+          inset: -3px;
           opacity: 1;
+          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #fff calc(100% - 4px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #fff calc(100% - 4px));
         }
       `}</style>
 
@@ -72,7 +76,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
           <a
             href="#cotizar"
             onClick={handleQuoteClick}
-            className="neon-ring w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-cyan text-cmyk-black flex items-center justify-center shadow-2xl shadow-cmyk-cyan/50 hover:scale-110 transition-transform duration-300 relative z-10"
+            className="neon-ring w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-cyan text-white flex items-center justify-center shadow-2xl shadow-cmyk-cyan/50 hover:scale-110 transition-transform duration-300 relative z-10"
             aria-label="Cotizar"
             title="Cotizar ahora"
           >
@@ -104,7 +108,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
         {!isChatOpen && (
           <button
             onClick={onChatToggle}
-            className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-cyan text-white flex items-center justify-center shadow-2xl shadow-cmyk-cyan/30 hover:scale-110 transition-all duration-300 relative"
+            className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-yellow text-cmyk-black flex items-center justify-center shadow-2xl shadow-cmyk-yellow/30 hover:scale-110 transition-all duration-300 relative"
             aria-label="Abrir chat"
             title="Chat en línea"
           >
