@@ -389,10 +389,10 @@ export const LOCATION_DATA: Record<LocationId, {
     phone2Display: '744 443 2745',
     phone2Label: 'TEL',
     email: 'ventas3@agenciamcd.mx',
-    latitude: 16.8566,
-    longitude: -99.8700,
+    latitude: 16.86275,
+    longitude: -99.87741,
     whatsappUrl: 'https://wa.me/522203269670',
-    mapsUrl: 'https://maps.google.com/?q=16.8566,-99.8700',
+    mapsUrl: 'https://maps.google.com/?q=16.86275,-99.87741',
   },
   'tecoanapa': {
     phone: '+52 745 114 7727',
