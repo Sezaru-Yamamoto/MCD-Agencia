@@ -13,6 +13,6 @@ export { FAQ } from './FAQ';
 export { QuoteForm } from './QuoteForm';
 export { Locations } from './Locations';
 export { Footer } from './Footer';
-export { WhatsAppButton } from './WhatsAppButton';
+export { StickyActions } from './StickyActions';
 export { default as ChatWidget } from './ChatWidget';
 export { ImageCarousel } from './ImageCarousel';

@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { trackEvent, trackingEvents } from '@/lib/tracking';
 
 // Landing page components
@@ -26,15 +26,48 @@ import {
   QuoteForm,
   Locations,
   Footer,
-  WhatsAppButton,
   ChatWidget,
 } from '@/components/landing';
+import { StickyActions } from '@/components/landing/StickyActions';
+
+// ─── Scroll-reveal wrapper ─────────────────────────────────────────────────
+function ScrollRevealSection({
+  children,
+  delay = 0,
+  translateY = 60,
+  className = '',
+}: {
+  children: ReactNode;
+  delay?: number;
+  translateY?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.opacity = '0';
+    el.style.transform = `translateY(${translateY}px)`;
+    el.style.transition = `opacity 1s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 1s cubic-bezier(0.16,1,0.3,1) ${delay}ms`;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; obs.unobserve(el); } },
+      { threshold: 0.08 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [delay, translateY]);
+
+  return <div ref={ref} className={className}>{children}</div>;
+}
 
 // =============================================================================
 // Home Page Component
 // =============================================================================
 
 export default function HomePage() {
+  const [chatOpen, setChatOpen] = useState(false);
+
   useEffect(() => {
     // Track page view
     trackEvent(trackingEvents.LP_VIEW, {
@@ -63,14 +96,30 @@ export default function HomePage() {
       <Header />
       <main className="relative z-10">
         <Hero />
-        <Portfolio />
-        <Clients />
-        <QuoteForm />
-        <Locations />
+        <ScrollRevealSection translateY={80}>
+          <Portfolio />
+        </ScrollRevealSection>
+        <ScrollRevealSection delay={100}>
+          <Clients />
+        </ScrollRevealSection>
+        <ScrollRevealSection translateY={60}>
+          <QuoteForm />
+        </ScrollRevealSection>
+        <ScrollRevealSection delay={50}>
+          <Locations />
+        </ScrollRevealSection>
       </main>
-      <Footer />
-      <WhatsAppButton />
-      <ChatWidget />
+      <ScrollRevealSection translateY={40}>
+        <Footer />
+      </ScrollRevealSection>
+      <StickyActions
+        onChatToggle={() => setChatOpen(true)}
+        isChatOpen={chatOpen}
+      />
+      <ChatWidget
+        externalOpen={chatOpen}
+        onOpenChange={setChatOpen}
+      />
     </div>
   );
 }

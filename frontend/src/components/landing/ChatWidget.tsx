@@ -110,10 +110,28 @@ function loadState(): { sessionId: string; messages: Message[] } | null {
   }
 }
 
-export default function ChatWidget() {
+interface ChatWidgetProps {
+  /** When provided, controls open state externally */
+  externalOpen?: boolean;
+  /** Callback when open state changes (for external control) */
+  onOpenChange?: (open: boolean) => void;
+}
+
+export default function ChatWidget({ externalOpen, onOpenChange }: ChatWidgetProps = {}) {
   const [locale, setLocale] = useState('es');
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+
+  // Use external control when props are provided
+  const isExternallyControlled = externalOpen !== undefined;
+  const isOpen = isExternallyControlled ? externalOpen : internalOpen;
+  const setIsOpen = (open: boolean) => {
+    if (isExternallyControlled && onOpenChange) {
+      onOpenChange(open);
+    } else {
+      setInternalOpen(open);
+    }
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -310,18 +328,20 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* Chat Button */}
-      <button
-        onClick={() => { setIsOpen(true); setIsMinimized(false); }}
-        className={`fixed bottom-24 right-6 z-40 w-14 h-14 bg-cmyk-cyan hover:bg-cmyk-cyan rounded-full shadow-2xl transform hover:scale-110 transition-all duration-300 ${isOpen ? 'hidden' : 'flex'} items-center justify-center`}
-        aria-label="Abrir chat"
-      >
-        <ChatBubbleLeftRightIcon className="w-10 h-10 text-white" />
-        <span className="absolute -top-1 -right-1 flex h-4 w-4">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white" />
-        </span>
-      </button>
+      {/* Chat Button — only shown when NOT externally controlled */}
+      {!isExternallyControlled && (
+        <button
+          onClick={() => { setIsOpen(true); setIsMinimized(false); }}
+          className={`fixed bottom-24 right-6 z-40 w-14 h-14 bg-cmyk-cyan hover:bg-cmyk-cyan rounded-full shadow-2xl transform hover:scale-110 transition-all duration-300 ${isOpen ? 'hidden' : 'flex'} items-center justify-center`}
+          aria-label="Abrir chat"
+        >
+          <ChatBubbleLeftRightIcon className="w-10 h-10 text-white" />
+          <span className="absolute -top-1 -right-1 flex h-4 w-4">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white" />
+          </span>
+        </button>
+      )}
 
       {/* Chat Window */}
       {isOpen && (
