@@ -276,6 +276,11 @@ export function Hero() {
         </div>
       )}
 
+      {/* ─── Bottom fade to seamless black ────────────────────────────── */}
+      <div className="absolute bottom-0 left-0 right-0 z-[15] pointer-events-none">
+        <div className="h-28 sm:h-36 md:h-44 bg-gradient-to-t from-cmyk-black via-cmyk-black/70 to-transparent" />
+      </div>
+
     </section>
   );
 }

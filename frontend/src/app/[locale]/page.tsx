@@ -31,6 +31,7 @@ import {
 import { StickyActions } from '@/components/landing/StickyActions';
 
 // ─── Scroll-reveal (fueled.com / oncorps.ai style) ─────────────────────────
+// Observed once, applies smooth translate + fade + optional scale + clip-path
 function ScrollReveal({
   children,
   delay = 0,
@@ -49,20 +50,26 @@ function ScrollReveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const initScale = scale ? 0.97 : 1;
+    const initScale = scale ? 0.95 : 1;
     el.style.opacity = '0';
     el.style.transform = `translateY(${translateY}px) scale(${initScale})`;
-    el.style.willChange = 'transform, opacity';
-    el.style.transition = `opacity 1.1s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 1.1s cubic-bezier(0.16,1,0.3,1) ${delay}ms`;
+    el.style.clipPath = 'inset(8% 0 0 0)';
+    el.style.willChange = 'transform, opacity, clip-path';
+    el.style.transition = [
+      `opacity 1.2s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
+      `transform 1.2s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
+      `clip-path 1.4s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
+    ].join(', ');
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           el.style.opacity = '1';
           el.style.transform = 'translateY(0) scale(1)';
+          el.style.clipPath = 'inset(0 0 0 0)';
           obs.unobserve(el);
         }
       },
-      { threshold: 0.05, rootMargin: '0px 0px -60px 0px' }
+      { threshold: 0.03, rootMargin: '0px 0px -40px 0px' }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -139,30 +146,26 @@ export default function HomePage() {
       <main className="relative z-10">
         <Hero />
 
-        {/* Smooth transition zone: Hero → Portfolio */}
-        <div className="relative z-10 -mt-1">
-          {/* Soft gradient bridge (no hard line) */}
-          <div className="h-24 sm:h-32 md:h-40 bg-gradient-to-b from-transparent to-cmyk-black pointer-events-none" />
-        </div>
 
-        {/* Portfolio — scale-up reveal + subtle parallax shift */}
-        <ParallaxShift speed={0.06}>
-          <ScrollReveal translateY={80} scale>
+
+        {/* Portfolio — clip-path reveal + parallax */}
+        <ScrollReveal translateY={70} scale className="overflow-hidden">
+          <ParallaxShift speed={0.05}>
             <Portfolio />
-          </ScrollReveal>
-        </ParallaxShift>
+          </ParallaxShift>
+        </ScrollReveal>
 
-        {/* Clients — slide up */}
+        {/* Clients — slide up from below */}
         <ScrollReveal translateY={50} delay={80}>
           <Clients />
         </ScrollReveal>
 
         {/* QuoteForm — scale reveal + parallax */}
-        <ParallaxShift speed={0.04}>
-          <ScrollReveal translateY={60} scale>
+        <ScrollReveal translateY={60} scale>
+          <ParallaxShift speed={0.03}>
             <QuoteForm />
-          </ScrollReveal>
-        </ParallaxShift>
+          </ParallaxShift>
+        </ScrollReveal>
 
         {/* Locations — slide up */}
         <ScrollReveal translateY={50} delay={60}>

@@ -44,24 +44,24 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
         }
         .spinner-wrap .spinner-ring {
           position: absolute;
-          inset: -4px;
+          inset: -2px;
           border-radius: 9999px;
-          border: 3px solid transparent;
+          border: 2.5px solid transparent;
           border-top-color: #00e5ff;
           border-right-color: #00e5ff;
-          animation: spin-border 1.5s linear infinite;
-          filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.5));
+          animation: spin-border 1.4s linear infinite;
+          filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.6));
         }
         .spinner-wrap .spinner-ring-blur {
           position: absolute;
-          inset: -6px;
+          inset: -3px;
           border-radius: 9999px;
-          border: 3px solid transparent;
+          border: 2.5px solid transparent;
           border-top-color: #00e5ff;
           border-right-color: #00b8d4;
-          animation: spin-border 1.5s linear infinite;
-          filter: blur(6px);
-          opacity: 0.5;
+          animation: spin-border 1.4s linear infinite;
+          filter: blur(4px);
+          opacity: 0.45;
         }
       `}</style>
 
@@ -77,10 +77,10 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
             }`}
             style={{ animation: showLabel ? 'float-gentle 2.5s ease-in-out infinite' : 'none' }}
           >
-            <div className="bg-cmyk-cyan text-cmyk-black text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-cmyk-cyan/30 flex items-center gap-1">
+            <div className="bg-white text-gray-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-black/20 flex items-center gap-1">
               ¡Cotiza ya!
               {/* Arrow pointing right toward button */}
-              <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[6px] border-transparent border-l-cmyk-cyan" />
+              <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[6px] border-transparent border-l-white" />
             </div>
           </div>
 
@@ -96,19 +96,19 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
               aria-label="Cotizar"
               title="Cotizar ahora"
             >
-              {/* Document + $ + pen icon (matches the provided icon) */}
-              <svg className="w-8 h-8 sm:w-9 sm:h-9" viewBox="0 0 24 24" fill="currentColor">
-                {/* Document body */}
-                <path d="M3 2.5A1.5 1.5 0 014.5 1h10A1.5 1.5 0 0116 2.5v16a1.5 1.5 0 01-1.5 1.5h-10A1.5 1.5 0 013 18.5v-16z" opacity="0.15"/>
-                <path d="M4.5 1A1.5 1.5 0 003 2.5v16A1.5 1.5 0 004.5 20h10a1.5 1.5 0 001.5-1.5v-16A1.5 1.5 0 0014.5 1h-10z" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+              {/* Centered quote/estimate icon */}
+              <svg className="w-7 h-7 sm:w-8 sm:h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                {/* Document */}
+                <rect x="3" y="2" width="14" height="20" rx="2" />
                 {/* Dollar sign */}
-                <path d="M9.5 6.5v-.75m0 6.5v.75m0-7.25a1.75 1.75 0 011.75 1.75c0 .966-.784 1.75-1.75 1.75S7.75 8.216 7.75 7.25 8.534 5.75 9.5 5.75zm0 3.5a1.75 1.75 0 011.75 1.75c0 .966-.784 1.75-1.75 1.75s-1.75-.784-1.75-1.75A1.75 1.75 0 019.5 9.25z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                <path d="M10 7v1m0 6v1" />
+                <path d="M8.5 10.5c0-1.1.67-2 1.5-2s1.5.9 1.5 2c0 .83-.5 1.25-1.5 1.5-1 .25-1.5.67-1.5 1.5 0 1.1.67 2 1.5 2s1.5-.9 1.5-2" />
                 {/* Lines */}
-                <line x1="6" y1="15" x2="13" y2="15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                <line x1="6" y1="17" x2="11" y2="17" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                {/* Pen */}
-                <path d="M18.5 3.5l2 2-6 6H12.5v-2l6-6z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-                <path d="M17 5l2 2" fill="none" stroke="currentColor" strokeWidth="1.3"/>
+                <line x1="6" y1="18" x2="14" y2="18" />
+                {/* Pen overlay */}
+                <path d="M17 2l4 4-3 3-4-4z" fill="currentColor" opacity="0.15" stroke="none" />
+                <path d="M17 2l4 4-3 3-4-4z" />
+                <line x1="14" y1="9" x2="14" y2="9.01" />
               </svg>
             </a>
           </div>
