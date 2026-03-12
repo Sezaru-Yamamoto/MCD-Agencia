@@ -77,10 +77,10 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
             }`}
             style={{ animation: showLabel ? 'float-gentle 2.5s ease-in-out infinite' : 'none' }}
           >
-            <div className="bg-white text-gray-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-black/20 flex items-center gap-1">
+            <div className="bg-cmyk-cyan text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-cmyk-cyan/30 flex items-center gap-1">
               ¡Cotiza ya!
               {/* Arrow pointing right toward button */}
-              <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[6px] border-transparent border-l-white" />
+              <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[6px] border-transparent border-l-cmyk-cyan" />
             </div>
           </div>
 
@@ -96,19 +96,12 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
               aria-label="Cotizar"
               title="Cotizar ahora"
             >
-              {/* Centered quote/estimate icon */}
+              {/* RFQ / solicitud de cotización icon (filled document + $ cutout) */}
               <svg className="w-7 h-7 sm:w-8 sm:h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                {/* Document */}
-                <rect x="3" y="2" width="14" height="20" rx="2" />
-                {/* Dollar sign */}
-                <path d="M10 7v1m0 6v1" />
-                <path d="M8.5 10.5c0-1.1.67-2 1.5-2s1.5.9 1.5 2c0 .83-.5 1.25-1.5 1.5-1 .25-1.5.67-1.5 1.5 0 1.1.67 2 1.5 2s1.5-.9 1.5-2" />
-                {/* Lines */}
-                <line x1="6" y1="18" x2="14" y2="18" />
-                {/* Pen overlay */}
-                <path d="M17 2l4 4-3 3-4-4z" fill="currentColor" opacity="0.15" stroke="none" />
-                <path d="M17 2l4 4-3 3-4-4z" />
-                <line x1="14" y1="9" x2="14" y2="9.01" />
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+                <path d="M12 10v1m0 6v1" />
+                <path d="M9.5 13c0-1.1 1.12-2 2.5-2s2.5.9 2.5 2-1.12 2-2.5 2-2.5.9-2.5 2 1.12 2 2.5 2 2.5-.9 2.5-2" />
               </svg>
             </a>
           </div>
@@ -135,7 +128,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
         {!isChatOpen && (
           <button
             onClick={onChatToggle}
-            className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-cmyk-yellow text-cmyk-black flex items-center justify-center shadow-2xl shadow-cmyk-yellow/30 hover:scale-110 transition-all duration-300 relative"
+            className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-yellow-400 text-neutral-900 flex items-center justify-center shadow-2xl shadow-yellow-400/30 hover:scale-110 transition-all duration-300 relative"
             aria-label="Abrir chat"
             title="Chat en línea"
           >

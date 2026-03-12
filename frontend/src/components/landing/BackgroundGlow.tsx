@@ -8,22 +8,23 @@
  */
 
 const GLOWS = [
-  // Row 1 - Cyan (right)
-  { color: 'bg-cmyk-cyan/20', top: '2%', side: 'right', offset: '3%' },
-  // Row 2 - Magenta (left)
-  { color: 'bg-cmyk-magenta/20', top: '14%', side: 'left', offset: '3%' },
-  // Row 3 - Yellow (right)
-  { color: 'bg-cmyk-yellow/20', top: '26%', side: 'right', offset: '5%' },
-  // Row 4 - Cyan (left)
-  { color: 'bg-cmyk-cyan/20', top: '38%', side: 'left', offset: '2%' },
-  // Row 5 - Magenta (right)
-  { color: 'bg-cmyk-magenta/20', top: '50%', side: 'right', offset: '4%' },
-  // Row 6 - Yellow (left)
-  { color: 'bg-cmyk-yellow/20', top: '62%', side: 'left', offset: '3%' },
-  // Row 7 - Cyan (right)
-  { color: 'bg-cmyk-cyan/20', top: '74%', side: 'right', offset: '5%' },
-  // Row 8 - Magenta (left)
-  { color: 'bg-cmyk-magenta/20', top: '86%', side: 'left', offset: '2%' },
+  // Start glows at ~mid-Portfolio section ("Trabajos que hablan por nosotros")
+  // Row 1 - Magenta (left)
+  { color: 'bg-cmyk-magenta/20', top: '28%', side: 'left', offset: '3%' },
+  // Row 2 - Yellow (right)
+  { color: 'bg-cmyk-yellow/20', top: '36%', side: 'right', offset: '5%' },
+  // Row 3 - Cyan (left)
+  { color: 'bg-cmyk-cyan/20', top: '44%', side: 'left', offset: '2%' },
+  // Row 4 - Magenta (right)
+  { color: 'bg-cmyk-magenta/20', top: '52%', side: 'right', offset: '4%' },
+  // Row 5 - Yellow (left)
+  { color: 'bg-cmyk-yellow/20', top: '60%', side: 'left', offset: '3%' },
+  // Row 6 - Cyan (right)
+  { color: 'bg-cmyk-cyan/20', top: '68%', side: 'right', offset: '5%' },
+  // Row 7 - Magenta (left)
+  { color: 'bg-cmyk-magenta/20', top: '76%', side: 'left', offset: '2%' },
+  // Row 8 - Yellow (right)
+  { color: 'bg-cmyk-yellow/20', top: '84%', side: 'right', offset: '3%' },
 ];
 
 export function BackgroundGlow() {
