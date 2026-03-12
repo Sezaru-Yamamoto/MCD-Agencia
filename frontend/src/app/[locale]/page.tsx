@@ -2,12 +2,9 @@
  * Home Page for MCD-Agencia
  *
  * Landing page with:
- * - Hero carousel
- * - Services section
- * - About us
+ * - Hero full-width carousel (services integrated)
  * - Portfolio
  * - Clients
- * - FAQ
  * - Quote form
  * - Locations
  *
@@ -23,12 +20,9 @@ import { trackEvent, trackingEvents } from '@/lib/tracking';
 import {
   Header,
   Hero,
-  Services,
-  AboutUs,
   BackgroundGlow,
   Portfolio,
   Clients,
-  FAQ,
   QuoteForm,
   Locations,
   Footer,
@@ -69,11 +63,8 @@ export default function HomePage() {
       <Header />
       <main className="relative z-10">
         <Hero />
-        <Services />
-        <AboutUs />
         <Portfolio />
         <Clients />
-        <FAQ />
         <QuoteForm />
         <Locations />
       </main>

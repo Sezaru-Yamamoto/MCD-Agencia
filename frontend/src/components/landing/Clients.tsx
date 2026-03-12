@@ -1,167 +1,145 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { getClientLogos } from '@/lib/api/content';
 import { CLIENTS } from '@/lib/constants';
 
+/* ── Types ── */
 interface ClientItem {
   name: string;
   logo: string;
+  website?: string;
 }
 
-function ClientCard({ client }: { client: ClientItem }) {
-  const [imageError, setImageError] = useState(false);
+/* ── Single logo tile ── */
+function LogoTile({ client }: { client: ClientItem }) {
+  const [err, setErr] = useState(false);
+
+  const inner = (
+    <div className="relative w-24 h-16 sm:w-32 sm:h-20 md:w-36 md:h-24 lg:w-40 lg:h-28
+                    flex items-center justify-center
+                    grayscale opacity-50 hover:grayscale-0 hover:opacity-100
+                    transition-all duration-500 ease-out">
+      {err ? (
+        <span className="text-2xl">🏢</span>
+      ) : (
+        <Image
+          src={client.logo}
+          alt={client.name}
+          fill
+          className="object-contain drop-shadow-lg"
+          title={client.name}
+          onError={() => setErr(true)}
+        />
+      )}
+    </div>
+  );
+
+  if (client.website) {
+    return (
+      <a href={client.website} target="_blank" rel="noopener noreferrer"
+         className="flex-shrink-0 mx-4 sm:mx-6 md:mx-8 lg:mx-10" aria-label={client.name}>
+        {inner}
+      </a>
+    );
+  }
+
+  return <div className="flex-shrink-0 mx-4 sm:mx-6 md:mx-8 lg:mx-10">{inner}</div>;
+}
+
+/* ── Infinite marquee row ── */
+function MarqueeRow({ items, reverse = false, speed = 40 }: {
+  items: ClientItem[];
+  reverse?: boolean;
+  speed?: number;
+}) {
+  // Duplicate 4× for seamless loop
+  const belt = [...items, ...items, ...items, ...items];
+  const duration = items.length * speed;
 
   return (
-    <div className="flex-shrink-0 w-44 sm:w-52 md:w-60 lg:w-72 flex flex-col items-center justify-center p-5 sm:p-6 md:p-8">
-      <div className="relative w-32 h-28 sm:w-40 sm:h-36 md:w-48 md:h-40 lg:w-56 lg:h-44 mb-4 hover:scale-105 transition-transform duration-300">
-        {imageError ? (
-          <div className="flex items-center justify-center h-full w-full text-2xl text-cmyk-cyan">🏢</div>
-        ) : (
-          <Image
-            src={client.logo}
-            alt={client.name}
-            fill
-            className="object-contain"
-            title={client.name}
-            onError={() => setImageError(true)}
-          />
-        )}
+    <div className="relative overflow-hidden py-4 sm:py-6 group">
+      {/* Fade edges */}
+      <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-24 md:w-32
+                      bg-gradient-to-r from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-24 md:w-32
+                      bg-gradient-to-l from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
+
+      <div
+        className="flex items-center w-max group-hover:[animation-play-state:paused]"
+        style={{
+          animation: `${reverse ? 'marqueeRight' : 'marqueeLeft'} ${duration}s linear infinite`,
+        }}
+      >
+        {belt.map((c, i) => (
+          <LogoTile key={`${c.name}-${i}`} client={c} />
+        ))}
       </div>
-      <p className="text-center text-sm sm:text-base md:text-lg font-semibold text-gray-200 line-clamp-1">{client.name}</p>
     </div>
   );
 }
 
+/* ── Main component ── */
 export function Clients() {
   const t = useTranslations('landing.clients');
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const animRef = useRef<number>(0);
-  const scrollPosRef = useRef(0);
-  const isPausedRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragScrollLeftRef = useRef(0);
 
-  // Fetch client logos from API, fallback to constants
   const { data: apiClients } = useQuery({
     queryKey: ['landing-client-logos'],
     queryFn: getClientLogos,
     staleTime: 5 * 60 * 1000,
   });
 
-  const clients: ClientItem[] = (apiClients && apiClients.length > 0)
-    ? apiClients.map((c) => ({ name: c.name, logo: c.logo }))
-    : [...CLIENTS];
-
-  // Only duplicate if more than 1 client
-  const shouldAnimate = clients.length > 1;
-  const items = shouldAnimate ? [...clients, ...clients, ...clients] : clients;
-
-  // Auto-scroll animation (only when > 1 client)
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !shouldAnimate) return;
-
-    const singleSetWidth = el.scrollWidth / 3;
-    scrollPosRef.current = singleSetWidth; // start in the middle copy
-    el.scrollLeft = singleSetWidth;
-
-    const animate = () => {
-      if (!isPausedRef.current && !isDraggingRef.current) {
-        scrollPosRef.current += 0.5;
-        if (scrollPosRef.current >= singleSetWidth * 2) {
-          scrollPosRef.current -= singleSetWidth;
-        }
-        el.scrollLeft = scrollPosRef.current;
-      }
-      animRef.current = requestAnimationFrame(animate);
-    };
-
-    animRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animRef.current);
-  }, [shouldAnimate, clients.length]);
-
-  // Drag / swipe handlers
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    const el = scrollRef.current;
-    if (!el || !shouldAnimate) return;
-    isDraggingRef.current = true;
-    dragStartXRef.current = e.clientX;
-    dragScrollLeftRef.current = el.scrollLeft;
-    el.setPointerCapture(e.pointerId);
-  }, [shouldAnimate]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const dx = e.clientX - dragStartXRef.current;
-    const newPos = dragScrollLeftRef.current - dx;
-    el.scrollLeft = newPos;
-    scrollPosRef.current = newPos;
-  }, []);
-
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    const el = scrollRef.current;
-    if (!el || !shouldAnimate) return;
-    el.releasePointerCapture(e.pointerId);
-    // Reset position if out of bounds
-    const singleSetWidth = el.scrollWidth / 3;
-    if (scrollPosRef.current >= singleSetWidth * 2) {
-      scrollPosRef.current -= singleSetWidth;
-    } else if (scrollPosRef.current < 0) {
-      scrollPosRef.current += singleSetWidth;
+  const clients: ClientItem[] = useMemo(() => {
+    if (apiClients && apiClients.length > 0) {
+      return apiClients.map((c) => ({ name: c.name, logo: c.logo, website: c.website }));
     }
-  }, [shouldAnimate]);
+    return [...CLIENTS];
+  }, [apiClients]);
+
+  // Split into two rows for the double-marquee effect
+  const mid = Math.ceil(clients.length / 2);
+  const row1 = clients.slice(0, mid);
+  const row2 = clients.slice(mid);
 
   return (
-    <section id="clientes" className="section py-10 sm:py-14 md:py-18 lg:py-24">
-      <div className="container-custom">
-        <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-10 md:mb-12">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl mb-4 font-bold text-white">{t('title')}</h2>
-          <p className="text-base sm:text-lg md:text-xl text-gray-300">{t('subtitle')}</p>
-        </div>
+    <section id="clientes" className="section py-12 sm:py-16 md:py-20 lg:py-28 overflow-hidden">
+      {/* CSS keyframes for marquee */}
+      <style jsx>{`
+        @keyframes marqueeLeft {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes marqueeRight {
+          0%   { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+      `}</style>
 
-        {/* Carousel */}
-        <div className="relative">
-          {/* Fade edges (only when animating) */}
-          {shouldAnimate && (
-            <>
-              <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[var(--background,#0a0a0a)] to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[var(--background,#0a0a0a)] to-transparent z-10 pointer-events-none" />
-            </>
-          )}
+      {/* Title block */}
+      <div className="container-custom text-center mb-8 sm:mb-12 md:mb-16">
+        <p className="text-xs sm:text-sm tracking-[0.25em] uppercase text-cmyk-cyan font-medium mb-3">
+          {t('subtitle')}
+        </p>
+        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight
+                       uppercase text-white leading-tight">
+          {t('title')}
+        </h2>
+      </div>
 
-          <div
-            ref={scrollRef}
-            className={`flex gap-2 sm:gap-3 select-none ${
-              shouldAnimate
-                ? 'overflow-hidden cursor-grab active:cursor-grabbing'
-                : 'overflow-x-auto justify-center'
-            }`}
-            style={{ touchAction: shouldAnimate ? 'none' : 'auto' }}
-            onMouseEnter={() => { isPausedRef.current = true; }}
-            onMouseLeave={() => { isPausedRef.current = false; }}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-          >
-            {items.map((client, index) => (
-              <ClientCard key={`${client.name}-${index}`} client={client} />
-            ))}
-          </div>
-        </div>
+      {/* Double-row marquee */}
+      <div className="w-full">
+        <MarqueeRow items={row1} reverse={false} speed={5} />
+        {row2.length > 0 && <MarqueeRow items={row2} reverse={true} speed={6} />}
+      </div>
 
-        <div className="mt-8 sm:mt-12 text-center">
-          <p className="text-gray-400 italic text-sm">{t('satisfied', { count: String(clients.length) })}</p>
-        </div>
+      {/* Counter */}
+      <div className="container-custom mt-8 sm:mt-12 text-center">
+        <p className="text-gray-500 text-xs sm:text-sm tracking-wide uppercase">
+          {t('satisfied', { count: String(clients.length) })}
+        </p>
       </div>
     </section>
   );

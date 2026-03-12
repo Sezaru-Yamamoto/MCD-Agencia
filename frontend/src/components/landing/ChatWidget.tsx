@@ -191,6 +191,11 @@ export default function ChatWidget() {
           { id: 'services', label: locale === 'es' ? '🎨 Servicios' : '🎨 Services', message: locale === 'es' ? '¿Qué servicios ofrecen?' : 'What services do you offer?' },
           { id: 'quote', label: locale === 'es' ? '📋 Cotizar' : '📋 Quote', message: locale === 'es' ? 'Quiero solicitar una cotización' : 'I want to request a quote' },
           { id: 'location', label: locale === 'es' ? '📍 Ubicación' : '📍 Location', message: locale === 'es' ? '¿Dónde están ubicados?' : 'Where are you located?' },
+          { id: 'faq_delivery', label: locale === 'es' ? '🚚 Entregas' : '🚚 Delivery', message: locale === 'es' ? '¿Cuáles son los tiempos de entrega?' : 'What are the delivery times?' },
+          { id: 'faq_payment', label: locale === 'es' ? '💳 Pagos' : '💳 Payment', message: locale === 'es' ? '¿Qué métodos de pago aceptan?' : 'What payment methods do you accept?' },
+          { id: 'faq_formats', label: locale === 'es' ? '📐 Formatos' : '📐 Formats', message: locale === 'es' ? '¿Qué formatos de archivo aceptan?' : 'What file formats do you accept?' },
+          { id: 'faq_warranty', label: locale === 'es' ? '🛡️ Garantía' : '🛡️ Warranty', message: locale === 'es' ? '¿Ofrecen garantía en sus productos?' : 'Do you offer warranty on products?' },
+          { id: 'faq_hours', label: locale === 'es' ? '🕐 Horarios' : '🕐 Hours', message: locale === 'es' ? '¿Cuál es su horario de atención?' : 'What are your business hours?' },
         ],
       });
     };

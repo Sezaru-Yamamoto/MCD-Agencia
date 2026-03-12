@@ -14,9 +14,18 @@ const SOCIAL_LINKS = {
   twitter: 'https://x.com/AgenciaMCD',
 };
 
+const ABOUT_VALUES = [
+  { icon: '👑', key: 'leadership' },
+  { icon: '🤝', key: 'commitment' },
+  { icon: '💡', key: 'innovation' },
+  { icon: '🎯', key: 'customerFocus' },
+  { icon: '⭐', key: 'quality' },
+];
+
 export function Footer() {
   const t = useTranslations('landing.footer');
   const tServices = useTranslations('landing.services');
+  const tAbout = useTranslations('landing.aboutUs');
   const locale = useLocale();
   const { resetConsent } = useCookieConsent();
   const { openPrivacy, openTerms } = useLegalModal();
@@ -24,6 +33,45 @@ export function Footer() {
 
   return (
     <footer className="bg-secondary text-white">
+      {/* ─── About Us compact section ─────────────────────────────────── */}
+      <div className="container-custom pt-10 sm:pt-14 pb-6 sm:pb-8 border-b border-gray-700">
+        <div className="text-center max-w-3xl mx-auto mb-6">
+          <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3">
+            {tAbout('title')}
+          </h3>
+          <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+            {tAbout('description')}
+          </p>
+        </div>
+
+        {/* Mission & Vision inline */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-6">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-neutral-800/40 border border-cmyk-cyan/20">
+            <span className="text-xl flex-shrink-0">🚀</span>
+            <div>
+              <h4 className="text-sm font-bold text-cmyk-cyan mb-1">{tAbout('mission.title')}</h4>
+              <p className="text-xs text-gray-400 leading-relaxed line-clamp-3">{tAbout('mission.description')}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-neutral-800/40 border border-cmyk-magenta/20">
+            <span className="text-xl flex-shrink-0">🌟</span>
+            <div>
+              <h4 className="text-sm font-bold text-cmyk-magenta mb-1">{tAbout('vision.title')}</h4>
+              <p className="text-xs text-gray-400 leading-relaxed line-clamp-3">{tAbout('vision.description')}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Values - compact row */}
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+          {ABOUT_VALUES.map((value) => (
+            <div key={value.key} className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-300">
+              <span>{value.icon}</span>
+              <span>{tAbout(`values.items.${value.key}`)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="container-custom py-8 sm:py-12 md:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
           {/* Brand */}

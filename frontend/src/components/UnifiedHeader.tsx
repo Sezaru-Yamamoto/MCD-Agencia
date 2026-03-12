@@ -109,7 +109,6 @@ export function UnifiedHeader() {
     { href: '/#servicios', label: t('nav.services') },
     { href: '/#portafolio', label: t('nav.portfolio') },
     { href: '/#clientes', label: t('nav.clients') },
-    { href: '/#faq', label: t('nav.faq') },
     { href: '/#ubicaciones', label: t('nav.contact') },
   ];
 
@@ -153,7 +152,7 @@ export function UnifiedHeader() {
               <Link
                 key={link.href}
                 href={`/${locale}${link.href}`}
-                className={`text-sm font-medium transition-colors ${
+                className={`text-base lg:text-lg font-medium transition-colors ${
                   isActive(link.href)
                     ? 'text-cmyk-cyan'
                     : 'text-white hover:text-cmyk-cyan'
