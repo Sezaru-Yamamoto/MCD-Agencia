@@ -78,7 +78,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
             }`}
             style={{ animation: showLabel ? 'float-gentle 2.5s ease-in-out infinite' : 'none' }}
           >
-            <div className="bg-cmyk-cyan text-white text-xs sm:text-sm font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-cmyk-cyan/30 flex items-center gap-1">
+            <div className="bg-cmyk-cyan text-white text-sm sm:text-base font-bold px-4 py-2 rounded-lg shadow-lg shadow-cmyk-cyan/30 flex items-center gap-1">
               ¡Cotiza ya!
               {/* Arrow pointing right toward button */}
               <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[6px] border-transparent border-l-cmyk-cyan" />
