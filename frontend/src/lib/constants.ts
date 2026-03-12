@@ -43,8 +43,8 @@ export const LOCATIONS = [
     phone: '+52 745 114 7727',
     phoneDisplay: '745 114 7727',
     email: 'ventas2@agenciamcd.mx',
-    latitude: 16.9833,
-    longitude: -99.2833,
+    latitude: 16.9855387,
+    longitude: -99.2569781,
   },
 ] as const;
 

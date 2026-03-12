@@ -398,9 +398,9 @@ export const LOCATION_DATA: Record<LocationId, {
     phone: '+52 745 114 7727',
     phoneDisplay: '745 114 7727',
     email: 'ventas2@agenciamcd.mx',
-    latitude: 16.9833,
-    longitude: -99.2833,
+    latitude: 16.9855387,
+    longitude: -99.2569781,
     whatsappUrl: 'https://wa.me/527451147727',
-    mapsUrl: 'https://maps.app.goo.gl/6zj1WJvJ57jb64Ph6',
+    mapsUrl: 'https://maps.google.com/?q=16.9855387,-99.2569781',
   },
 };
