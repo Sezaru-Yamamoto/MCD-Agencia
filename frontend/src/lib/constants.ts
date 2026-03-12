@@ -1,9 +1,9 @@
 // Constantes de la aplicación basadas en el PRD
 export const CONTACT_INFO = {
   whatsapp: {
-    number: '+52 222 805 5700',
-    url: 'https://wa.me/522228055700',
-    displayNumber: '222 805 5700',
+    number: '+52 744 688 7382',
+    url: 'https://wa.me/527446887382',
+    displayNumber: '744 688 7382',
   },
   email: 'ventas@agenciamcd.mx',
   businessHours: '9:00 a 18:00',
@@ -12,26 +12,39 @@ export const CONTACT_INFO = {
 
 export const LOCATIONS = [
   {
-    id: 'acapulco',
-    name: 'Acapulco',
+    id: 'acapulco-diamante',
+    name: 'Acapulco Diamante',
     city: 'Acapulco, Guerrero',
     address: 'Granjas Márquez Plaza Diamante, C.P. 39890',
-    phone: '+52 222 805 5700',
-    phoneDisplay: '222 805 5700',
+    phone: '+52 744 688 7382',
+    phoneDisplay: '744 688 7382',
     email: 'ventas@agenciamcd.mx',
+    latitude: 16.8001189,
+    longitude: -99.8063231,
+  },
+  {
+    id: 'costa-azul',
+    name: 'Acapulco Costa Azul',
+    city: 'Acapulco, Guerrero',
+    address: 'Capitán Vasco de Gama, 2° piso Plaza Yamaha, Costa Azul',
+    phone: '+52 220 326 9670',
+    phoneDisplay: '220 326 9670',
+    phone2: '+52 744 443 2745',
+    phone2Display: '744 443 2745',
+    email: 'ventas3@agenciamcd.mx',
     latitude: 16.8566,
-    longitude: -99.8919,
+    longitude: -99.8700,
   },
   {
     id: 'tecoanapa',
     name: 'Tecoanapa',
     city: 'Tecoanapa, Guerrero',
-    address: 'Calle Principal 456, Tecoanapa',
+    address: 'Carretera Federal Tierra Colorada – Ayutla, Col. San Isidro, frente a los Arcos',
     phone: '+52 745 114 7727',
     phoneDisplay: '745 114 7727',
     email: 'ventas2@agenciamcd.mx',
     latitude: 16.9833,
-    longitude: -101.1667,
+    longitude: -99.2833,
   },
 ] as const;
 

@@ -209,15 +209,20 @@
       "getDirections": "Get directions",
       "whatsappCta": "Message on WhatsApp",
       "items": {
-        "acapulco": {
-          "name": "Acapulco",
+        "acapulco-diamante": {
+          "name": "Acapulco Diamante",
           "city": "Acapulco, Guerrero",
-          "address": "Granjas Márquez Plaza Diamante, C.P. 39890"
+          "address": "Granjas Márquez, Plaza Diamante, C.P. 39890"
+        },
+        "costa-azul": {
+          "name": "Acapulco Costa Azul",
+          "city": "Acapulco, Guerrero",
+          "address": "Capitán Vasco de Gama, 2nd floor Plaza Yamaha, Costa Azul, Acapulco, Gro."
         },
         "tecoanapa": {
           "name": "Tecoanapa",
           "city": "Tecoanapa, Guerrero",
-          "address": "Main Street 456, Tecoanapa"
+          "address": "Tierra Colorada – Ayutla Federal Highway, Col. San Isidro, across from Los Arcos"
         }
       }
     },

@@ -284,7 +284,7 @@ export const FAQ_KEYS = [
 export type FAQKey = typeof FAQ_KEYS[number];
 
 // Location IDs
-export const LOCATION_IDS = ['acapulco', 'tecoanapa'] as const;
+export const LOCATION_IDS = ['acapulco-diamante', 'costa-azul', 'tecoanapa'] as const;
 export type LocationId = typeof LOCATION_IDS[number];
 
 // ===========================================
@@ -364,27 +364,42 @@ export function getDeliveryMethodsForService(
 export const LOCATION_DATA: Record<LocationId, {
   phone: string;
   phoneDisplay: string;
+  phone2?: string;
+  phone2Display?: string;
+  phone2Label?: string;
   email: string;
   latitude: number;
   longitude: number;
   whatsappUrl: string;
   mapsUrl: string;
 }> = {
-  'acapulco': {
-    phone: '+52 222 805 5700',
-    phoneDisplay: '222 805 5700',
+  'acapulco-diamante': {
+    phone: '+52 744 688 7382',
+    phoneDisplay: '744 688 7382',
     email: 'ventas@agenciamcd.mx',
     latitude: 16.8001189,
     longitude: -99.8063231,
-    whatsappUrl: 'https://wa.me/522228055700',
+    whatsappUrl: 'https://wa.me/527446887382',
     mapsUrl: 'https://maps.app.goo.gl/T3pDHZrqm4bVKAJV6',
+  },
+  'costa-azul': {
+    phone: '+52 220 326 9670',
+    phoneDisplay: '220 326 9670',
+    phone2: '+52 744 443 2745',
+    phone2Display: '744 443 2745',
+    phone2Label: 'TEL',
+    email: 'ventas3@agenciamcd.mx',
+    latitude: 16.8566,
+    longitude: -99.8700,
+    whatsappUrl: 'https://wa.me/522203269670',
+    mapsUrl: 'https://maps.google.com/?q=16.8566,-99.8700',
   },
   'tecoanapa': {
     phone: '+52 745 114 7727',
     phoneDisplay: '745 114 7727',
     email: 'ventas2@agenciamcd.mx',
-    latitude: 16.8512082,
-    longitude: -99.84964,
+    latitude: 16.9833,
+    longitude: -99.2833,
     whatsappUrl: 'https://wa.me/527451147727',
     mapsUrl: 'https://maps.app.goo.gl/6zj1WJvJ57jb64Ph6',
   },

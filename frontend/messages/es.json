@@ -209,15 +209,20 @@
       "getDirections": "Cómo llegar",
       "whatsappCta": "Escribir por WhatsApp",
       "items": {
-        "acapulco": {
-          "name": "Acapulco",
+        "acapulco-diamante": {
+          "name": "Acapulco Diamante",
           "city": "Acapulco, Guerrero",
           "address": "Granjas Márquez Plaza Diamante, C.P. 39890"
+        },
+        "costa-azul": {
+          "name": "Acapulco Costa Azul",
+          "city": "Acapulco, Guerrero",
+          "address": "Capitán Vasco de Gama, 2° piso Plaza Yamaha, Costa Azul, Acapulco, Gro."
         },
         "tecoanapa": {
           "name": "Tecoanapa",
           "city": "Tecoanapa, Guerrero",
-          "address": "Calle Principal 456, Tecoanapa"
+          "address": "Carretera Federal Tierra Colorada – Ayutla, Col. San Isidro, frente a los Arcos"
         }
       }
     },
