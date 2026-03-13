@@ -24,6 +24,42 @@ interface PortfolioItem {
   label: string;
 }
 
+function normalizeYouTubeId(input?: string | null): string | null {
+  if (!input) return null;
+  const raw = input.trim();
+  if (!raw) return null;
+
+  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
+
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace('www.', '');
+
+    if (host === 'youtu.be') {
+      const id = url.pathname.split('/').filter(Boolean)[0];
+      return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+    }
+
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (url.pathname === '/watch') {
+        const id = url.searchParams.get('v');
+        return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+      }
+
+      const segments = url.pathname.split('/').filter(Boolean);
+      const markerIndex = segments.findIndex((s) => s === 'shorts' || s === 'embed' || s === 'live');
+      if (markerIndex !== -1 && segments[markerIndex + 1]) {
+        const id = segments[markerIndex + 1];
+        return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 const EXAMPLE_VIDEO_ITEMS: PortfolioItem[] = [
   { id: 'v1', type: 'video', videoId: 'sqOb-gSSQq8', label: 'Proyecto 1', orientation: 'vertical' },
   { id: 'v2', type: 'video', videoId: 'b33fwbyZRQM', label: 'Proyecto 2', orientation: 'vertical' },
@@ -49,6 +85,7 @@ function VideoCard({ videoId, label, playLabel, altText }: {
   videoId: string; label: string; playLabel: string; altText: string;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const handlePlay = useCallback(() => { setIsPlaying(true); trackCTA('video_play', 'portfolio'); }, []);
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hq720.jpg`;
 
@@ -56,7 +93,23 @@ function VideoCard({ videoId, label, playLabel, altText }: {
     <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl border border-cmyk-cyan/20 bg-neutral-900">
       {!isPlaying ? (
         <button onClick={handlePlay} className="group relative w-full h-full cursor-pointer focus:outline-none" aria-label={playLabel}>
-          <img src={thumbnailUrl} alt={altText} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+          {!thumbnailFailed ? (
+            <img
+              src={thumbnailUrl}
+              alt={altText}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+              onError={() => setThumbnailFailed(true)}
+            />
+          ) : (
+            <Image
+              src="/images/carousel/anuncios-iluminados.jfif"
+              alt={altText}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 80vw, 50vw"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 group-hover:from-black/40 transition-all" />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-cmyk-cyan/90 group-hover:bg-cmyk-cyan group-hover:scale-110 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg shadow-cmyk-cyan/30">
@@ -215,13 +268,23 @@ export function Portfolio() {
   // Build portfolio items: API videos + local example images
   const items: PortfolioItem[] = useMemo(() => {
     if (apiVideos && apiVideos.length > 0) {
-      const apiVideoItems = apiVideos.map((v, i) => ({
-        id: v.youtube_id || `item-${i}`,
-        type: 'video' as const,
-        videoId: v.youtube_id,
-        orientation: v.orientation,
-        label: v.title || `Video ${i + 1}`,
-      }));
+      const apiVideoItems: PortfolioItem[] = [];
+      apiVideos.forEach((v, i) => {
+        const normalizedId = normalizeYouTubeId(v.youtube_id);
+        if (!normalizedId) return;
+        apiVideoItems.push({
+          id: normalizedId,
+          type: 'video',
+          videoId: normalizedId,
+          orientation: v.orientation,
+          label: v.title || `Video ${i + 1}`,
+        });
+      });
+
+      if (apiVideoItems.length === 0) {
+        return FALLBACK_ITEMS;
+      }
+
       return [...apiVideoItems, ...EXAMPLE_IMAGE_ITEMS];
     }
     if (videosLoading) return [];
