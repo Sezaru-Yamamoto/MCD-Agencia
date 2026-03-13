@@ -37,11 +37,32 @@ export function Hero() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedImageIndex, setExpandedImageIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [showExpandBtn, setShowExpandBtn] = useState(true);
+  const [heroVisible, setHeroVisible] = useState(true);
+  const sectionRef = useRef<HTMLElement>(null);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
 
   // Mount flag for portal
   useEffect(() => setMounted(true), []);
+
+  // Auto-hide expand button after 5 seconds
+  useEffect(() => {
+    const t = setTimeout(() => setShowExpandBtn(false), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Hide expand button when hero section scrolls out of view
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setHeroVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   // ─── Build slides: only local SERVICE_CAROUSEL_IMAGES (no API) ────────────
   const slides: HeroSlide[] = useMemo(() => {
@@ -135,6 +156,7 @@ export function Hero() {
   return (
     <>
     <section
+      ref={sectionRef}
       id="servicios"
       className="relative w-full h-screen min-h-[600px] max-h-[1000px] overflow-hidden"
       onTouchStart={handleTouchStart}
@@ -309,7 +331,9 @@ export function Hero() {
         <div
           style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999 }}
           className={`transition-all duration-500 ${
-            isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            isExpanding || isExpanded || !showExpandBtn || !heroVisible
+              ? 'opacity-0 pointer-events-none'
+              : 'opacity-100'
           }`}
         >
           <button
