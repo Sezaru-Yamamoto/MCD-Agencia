@@ -219,12 +219,12 @@ export function Hero() {
       {/* ─── Content overlay ────────────────────────────────────────────── */}
       <div className="relative z-10 h-full flex flex-col">
         {/* Expand control */}
-        <div className={`absolute top-5 right-5 sm:top-6 sm:right-6 z-30 transition-all duration-500 ${isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`absolute top-24 right-5 sm:top-28 sm:right-6 z-40 pointer-events-auto transition-all duration-500 ${isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <button
             type="button"
             onClick={handleExpand}
             aria-label="Expandir imagen"
-            className="group relative flex items-center justify-center w-11 h-11 rounded-xl bg-black/35 border border-white/20 text-white/90 hover:bg-black/45 hover:text-white transition-all duration-300 backdrop-blur-[1px]"
+            className="group relative flex items-center justify-center w-11 h-11 rounded-xl bg-black/35 border border-white/20 text-white/90 hover:bg-black/45 hover:text-white transition-all duration-300 backdrop-blur-[1px] cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
