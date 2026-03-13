@@ -109,7 +109,7 @@ export const SERVICES = [
     id: 'vallas-moviles',
     title: 'Vallas Móviles',
     description: 'Publicidad móvil para máxima visibilidad.',
-    image: '/images/carousel/Vallas móviles.jfif',
+    image: '/images/carousel/vallas-moviles.jfif',
     useCases: ['Móvil', 'Publicidad', 'Impacto'],
     icon: '📱',
   },
