@@ -324,9 +324,9 @@ export function Hero() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
             </svg>
           </button>
-          {/* Tooltip — aligned to right edge of button so it doesn't overflow */}
+          {/* Tooltip — to the left of the button, vertically centered */}
           <div
-            className="pointer-events-none absolute right-0 top-full mt-2 whitespace-nowrap rounded-lg bg-black/70 border border-white/20 px-2.5 py-1 text-xs text-white/90"
+            className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-lg bg-black/70 border border-white/20 px-2.5 py-1 text-xs text-white/90"
             style={{ animation: 'hero-float 2.2s ease-in-out infinite' }}
           >
             Expandir

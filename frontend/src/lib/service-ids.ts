@@ -126,49 +126,25 @@ export interface ServiceSubcategory {
 export const SERVICE_CAROUSEL_IMAGES: Record<LandingServiceId, string[]> = {
   'fabricacion-anuncios': [
     '/images/carousel/anuncios-iluminados.jfif',
-    'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=600&q=80',
-    'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
   ],
-  'espectaculares': [
-    'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=600&q=80',
-    'https://images.unsplash.com/photo-1557825835-70d97c4aa567?w=600&q=80',
-    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
-  ],
+  'espectaculares': [],
   'publicidad-movil': [
     '/images/carousel/vallas-moviles.jfif',
-    'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80',
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
   ],
   'impresion-gran-formato': [
     '/images/carousel/vinil-en-vidrio.jfif',
-    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
-    'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
   ],
   'rotulacion-vehicular': [
     '/images/carousel/letras-3d.jfif',
-    'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
-    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
   'senalizacion': [
     '/images/carousel/anuncios-letras-3d.jfif',
-    'https://images.unsplash.com/photo-1557825835-70d97c4aa567?w=600&q=80',
-    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
-  'corte-grabado-cnc-laser': [
-    'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
-    'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
-    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
-  ],
+  'corte-grabado-cnc-laser': [],
   'diseno-grafico': [
     '/images/carousel/letras-neon.jfif',
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
-    'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
   ],
-  'impresion-offset-serigrafia': [
-    'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
-    'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=600&q=80',
-    'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
-  ],
+  'impresion-offset-serigrafia': [],
 };
 
 // Subcategories for each landing service
