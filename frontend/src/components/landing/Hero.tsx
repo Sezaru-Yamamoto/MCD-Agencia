@@ -1,17 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
-import { useQuery } from '@tanstack/react-query';
 import { CONTACT_INFO } from '@/lib/constants';
-import { getCarouselSlides } from '@/lib/api/content';
 import {
   LANDING_SERVICE_IDS,
   SERVICE_CAROUSEL_IMAGES,
   type LandingServiceId,
 } from '@/lib/service-ids';
-import { getLandingPageData } from '@/lib/api/content';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface HeroSlide {
@@ -38,55 +36,19 @@ export function Hero() {
   const [isExpanding, setIsExpanding] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedImageIndex, setExpandedImageIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
 
-  // ─── Fetch carousel slides ─────────────────────────────────────────────────
-  const { data: apiSlides, isLoading: slidesLoading } = useQuery({
-    queryKey: ['carousel-slides'],
-    queryFn: getCarouselSlides,
-    staleTime: 5 * 60 * 1000,
-    retry: 2,
-  });
+  // Mount flag for portal
+  useEffect(() => setMounted(true), []);
 
-  // ─── Fetch service images for integrated service slides ────────────────────
-  const { data: landingData } = useQuery({
-    queryKey: ['landing-data'],
-    queryFn: getLandingPageData,
-    staleTime: 2 * 60 * 1000,
-    retry: 1,
-  });
-
-  // ─── Build slides: API carousel + service highlights ───────────────────────
+  // ─── Build slides: only local SERVICE_CAROUSEL_IMAGES (no API) ────────────
   const slides: HeroSlide[] = useMemo(() => {
     const result: HeroSlide[] = [];
 
-    // API carousel slides
-    if (apiSlides && apiSlides.length > 0) {
-      apiSlides
-        .filter((s) => s.image)
-        .forEach((s) => {
-          result.push({
-            image: s.image,
-            title: s.title || 'Agencia MCD',
-            subtitle: s.subtitle || '',
-            cta: s.cta_url
-              ? { label: s.cta_text || tServices(`items.${s.service_key}.title`), href: s.cta_url }
-              : s.service_key
-                ? { label: tServices(`items.${s.service_key}.title`), href: `#cotizar?servicio=${s.service_key}` }
-                : undefined,
-            serviceKey: s.service_key || undefined,
-          });
-        });
-    }
-
-    // Add service-based slides from API or fallback
     LANDING_SERVICE_IDS.forEach((serviceId: LandingServiceId) => {
-      const serviceData = landingData?.services?.find((s) => s.service_key === serviceId);
-      const images = serviceData?.carousel_images;
-      const img = images && images.length > 0
-        ? images[0].image
-        : SERVICE_CAROUSEL_IMAGES[serviceId]?.[0];
+      const img = SERVICE_CAROUSEL_IMAGES[serviceId]?.[0];
       if (img) {
         result.push({
           image: img,
@@ -98,26 +60,23 @@ export function Hero() {
       }
     });
 
-    // Fallback if nothing
-    if (result.length === 0 && !slidesLoading) {
+    if (result.length === 0) {
       FALLBACK_IMAGES.forEach((src, i) => {
         result.push({
           image: src,
-          title: i === 0 ? t('title') : `Agencia MCD`,
+          title: i === 0 ? t('title') : 'Agencia MCD',
           subtitle: t('subtitle'),
         });
       });
     }
 
     return result;
-  }, [apiSlides, slidesLoading, landingData, tServices, t]);
+  }, [tServices, t]);
 
-  // ─── Auto-play ─────────────────────────────────────────────────────────────
+  // ─── Auto-play (pause while expanded) ────────────────────────────────────
   useEffect(() => {
     if (!isAutoPlaying || slides.length <= 1 || isExpanded) return;
-    const timer = setInterval(() => {
-      setCurrentIndex((p) => (p + 1) % slides.length);
-    }, 6000);
+    const timer = setInterval(() => setCurrentIndex((p) => (p + 1) % slides.length), 6000);
     return () => clearInterval(timer);
   }, [isAutoPlaying, slides.length, isExpanded]);
 
@@ -172,18 +131,6 @@ export function Hero() {
   }, [goNext, goPrev]);
 
 
-
-  // ─── Loading skeleton ──────────────────────────────────────────────────────
-  if (slidesLoading && slides.length === 0) {
-    return (
-      <section className="relative w-full h-screen bg-cmyk-black flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-64 h-8 bg-neutral-800 rounded" />
-          <div className="w-48 h-4 bg-neutral-800 rounded" />
-        </div>
-      </section>
-    );
-  }
 
   return (
     <>
@@ -355,52 +302,63 @@ export function Hero() {
 
     </section>
 
-    {/* ─── Expand button — fixed in document stacking context, above header ── */}
-    <div
-      className={`fixed top-4 right-4 sm:top-5 sm:right-5 z-[65] transition-all duration-500 ${
-        isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}
-    >
-      <button
-        type="button"
-        onClick={handleExpand}
-        aria-label="Expandir imagen"
-        className="flex items-center justify-center w-11 h-11 rounded-xl bg-black/40 border border-white/25 text-white/90 hover:bg-black/55 hover:text-white transition-all duration-300 backdrop-blur-sm cursor-pointer"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
-        </svg>
-      </button>
-      {/* Tooltip — centered below button */}
-      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-lg bg-black/60 border border-white/20 px-2.5 py-1 text-xs text-white/90 animate-[hero-float_2.2s_ease-in-out_infinite]">
-        Expandir
-      </div>
-    </div>
-
-    {/* ─── Fullscreen overlay — fixed, outside section ────────────── */}
-    {isExpanded && (
-      <div
-        className="fixed inset-0 z-[90] bg-black flex items-center justify-center animate-[hero-fade-in_320ms_ease-out]"
-        onClick={() => setIsExpanded(false)}
-      >
-        {/* Image — static, full photo, no animations */}
-        <img
-          src={slides[expandedImageIndex]?.image || FALLBACK_IMAGES[0]}
-          alt={slides[expandedImageIndex]?.title || 'Imagen expandida'}
-          className="max-w-full max-h-full object-contain"
-          onClick={(e) => e.stopPropagation()}
-        />
-        {/* Close button — fixed so it's always top-right regardless of image size */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
-          aria-label="Cerrar imagen expandida"
-          className="fixed top-5 right-5 sm:top-6 sm:right-6 z-[95] w-11 h-11 rounded-xl bg-white/10 border border-white/25 text-white hover:bg-white/20 transition-colors cursor-pointer flex items-center justify-center text-lg"
+    {/* ─── Portals: rendered directly into document.body ─────────────── */}
+    {mounted && createPortal(
+      <>
+        {/* Expand button */}
+        <div
+          style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999 }}
+          className={`transition-all duration-500 ${
+            isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
         >
-          ✕
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={handleExpand}
+            aria-label="Expandir imagen"
+            style={{ cursor: 'pointer' }}
+            className="flex items-center justify-center w-11 h-11 rounded-xl bg-black/40 border border-white/25 text-white/90 hover:bg-black/55 hover:text-white transition-all duration-200 backdrop-blur-sm"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
+            </svg>
+          </button>
+          {/* Tooltip — aligned to right edge of button so it doesn't overflow */}
+          <div
+            className="pointer-events-none absolute right-0 top-full mt-2 whitespace-nowrap rounded-lg bg-black/70 border border-white/20 px-2.5 py-1 text-xs text-white/90"
+            style={{ animation: 'hero-float 2.2s ease-in-out infinite' }}
+          >
+            Expandir
+          </div>
+        </div>
+
+        {/* Fullscreen overlay */}
+        {isExpanded && (
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9998, background: '#000' }}
+            className="flex items-center justify-center"
+            onClick={() => setIsExpanded(false)}
+          >
+            <img
+              src={slides[expandedImageIndex]?.image || FALLBACK_IMAGES[0]}
+              alt={slides[expandedImageIndex]?.title || 'Imagen expandida'}
+              className="max-w-full max-h-full object-contain animate-[hero-fade-in_300ms_ease-out]"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+              aria-label="Cerrar"
+              style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, cursor: 'pointer' }}
+              className="w-11 h-11 rounded-xl bg-white/15 border border-white/30 text-white hover:bg-white/25 transition-colors flex items-center justify-center text-lg"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </>,
+      document.body
     )}
 
     </>
