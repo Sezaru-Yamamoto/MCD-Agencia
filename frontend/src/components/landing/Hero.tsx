@@ -37,8 +37,9 @@ export function Hero() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedImageIndex, setExpandedImageIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
-  const [showExpandBtn, setShowExpandBtn] = useState(true);
+  const [showExpandTooltip, setShowExpandTooltip] = useState(true);
   const [heroVisible, setHeroVisible] = useState(true);
+  const [buttonPosition, setButtonPosition] = useState({ top: 16, right: 16 });
   const sectionRef = useRef<HTMLElement>(null);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
@@ -46,10 +47,40 @@ export function Hero() {
   // Mount flag for portal
   useEffect(() => setMounted(true), []);
 
-  // Auto-hide expand button after 5 seconds
+  // Auto-hide expand tooltip after 5 seconds
   useEffect(() => {
-    const t = setTimeout(() => setShowExpandBtn(false), 5000);
+    const t = setTimeout(() => setShowExpandTooltip(false), 5000);
     return () => clearTimeout(t);
+  }, []);
+
+  // Keep the expand button anchored to the hero corner instead of the viewport
+  useEffect(() => {
+    const updateButtonPosition = () => {
+      const el = sectionRef.current;
+      if (!el || typeof window === 'undefined') return;
+      const rect = el.getBoundingClientRect();
+      setButtonPosition({
+        top: rect.top + 16,
+        right: Math.max(window.innerWidth - rect.right + 16, 16),
+      });
+    };
+
+    updateButtonPosition();
+
+    let raf = 0;
+    const onScrollOrResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(updateButtonPosition);
+    };
+
+    window.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScrollOrResize);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
   }, []);
 
   // Hide expand button when hero section scrolls out of view
@@ -329,9 +360,9 @@ export function Hero() {
       <>
         {/* Expand button */}
         <div
-          style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999 }}
+          style={{ position: 'fixed', top: buttonPosition.top, right: buttonPosition.right, zIndex: 9999 }}
           className={`transition-all duration-500 ${
-            isExpanding || isExpanded || !showExpandBtn || !heroVisible
+            isExpanding || isExpanded || !heroVisible
               ? 'opacity-0 pointer-events-none'
               : 'opacity-100'
           }`}
@@ -350,7 +381,7 @@ export function Hero() {
           </button>
           {/* Tooltip — to the left of the button, vertically centered */}
           <div
-            className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-lg bg-black/70 border border-white/20 px-2.5 py-1 text-xs text-white/90"
+            className={`pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-lg bg-black/70 border border-white/20 px-2.5 py-1 text-xs text-white/90 transition-all duration-300 ${showExpandTooltip ? 'opacity-100' : 'opacity-0'}`}
             style={{ animation: 'hero-float 2.2s ease-in-out infinite' }}
           >
             Expandir
