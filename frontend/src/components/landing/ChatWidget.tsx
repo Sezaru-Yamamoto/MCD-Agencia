@@ -345,7 +345,7 @@ export default function ChatWidget({ externalOpen, onOpenChange }: ChatWidgetPro
 
       {/* Chat Window */}
       {isOpen && (
-        <div className={`fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-48px)] bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300 ${isMinimized ? 'h-auto' : 'h-[550px] max-h-[calc(100vh-100px)]'}`}>
+        <div className={`fixed bottom-6 right-6 z-[58] w-[380px] max-w-[calc(100vw-48px)] bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300 ${isMinimized ? 'h-auto' : 'h-[550px] max-h-[calc(100vh-100px)]'}`}>
 
           {/* Header */}
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex items-center justify-between flex-shrink-0">
