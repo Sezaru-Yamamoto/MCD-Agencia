@@ -37,8 +37,13 @@ RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
+# Fly.io provides FLY_APP_NAME — derive the public hostname automatically
+FLY_APP_NAME = os.getenv('FLY_APP_NAME', '')
+if FLY_APP_NAME:
+    ALLOWED_HOSTS.append(f'{FLY_APP_NAME}.fly.dev')
+
 if not ALLOWED_HOSTS:
-    # Fallback: allow all (safe because Render only routes to your domain)
+    # Fallback: allow all (safe because Render/Fly only route to your domain)
     ALLOWED_HOSTS = ['*']
 
 
