@@ -24,12 +24,20 @@ interface PortfolioItem {
   label: string;
 }
 
-const FALLBACK_ITEMS: PortfolioItem[] = [
+const EXAMPLE_VIDEO_ITEMS: PortfolioItem[] = [
   { id: 'v1', type: 'video', videoId: 'sqOb-gSSQq8', label: 'Proyecto 1', orientation: 'vertical' },
-  { id: 'img1', type: 'image', imageUrl: 'https://images.unsplash.com/photo-1588412079929-790b9f593d8e?w=800&q=80', label: 'Impresión Gran Formato' },
   { id: 'v2', type: 'video', videoId: 'b33fwbyZRQM', label: 'Proyecto 2', orientation: 'vertical' },
-  { id: 'img2', type: 'image', imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&q=80', label: 'Señalización Exterior' },
-  { id: 'img3', type: 'image', imageUrl: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=800&q=80', label: 'Rotulación Vehicular' },
+];
+
+const EXAMPLE_IMAGE_ITEMS: PortfolioItem[] = [
+  { id: 'img1', type: 'image', imageUrl: '/images/carousel/anuncios-iluminados.jfif', label: 'Impresión Gran Formato' },
+  { id: 'img2', type: 'image', imageUrl: '/images/carousel/vinil-en-vidrio.jfif', label: 'Señalización Exterior' },
+  { id: 'img3', type: 'image', imageUrl: '/images/carousel/letras-3d.jfif', label: 'Rotulación Vehicular' },
+];
+
+const FALLBACK_ITEMS: PortfolioItem[] = [
+  ...EXAMPLE_VIDEO_ITEMS,
+  ...EXAMPLE_IMAGE_ITEMS,
 ];
 
 /**
@@ -204,16 +212,17 @@ export function Portfolio() {
     retry: 1,
   });
 
-  // Build portfolio items from API (supports both videos and images)
+  // Build portfolio items: API videos + local example images
   const items: PortfolioItem[] = useMemo(() => {
     if (apiVideos && apiVideos.length > 0) {
-      return apiVideos.map((v, i) => ({
+      const apiVideoItems = apiVideos.map((v, i) => ({
         id: v.youtube_id || `item-${i}`,
         type: 'video' as const,
         videoId: v.youtube_id,
         orientation: v.orientation,
         label: v.title || `Video ${i + 1}`,
       }));
+      return [...apiVideoItems, ...EXAMPLE_IMAGE_ITEMS];
     }
     if (videosLoading) return [];
     return FALLBACK_ITEMS;
