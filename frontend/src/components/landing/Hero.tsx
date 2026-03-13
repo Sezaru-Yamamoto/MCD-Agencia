@@ -186,6 +186,7 @@ export function Hero() {
   }
 
   return (
+    <>
     <section
       id="servicios"
       className="relative w-full h-screen min-h-[600px] max-h-[1000px] overflow-hidden"
@@ -229,23 +230,6 @@ export function Hero() {
 
       {/* ─── Content overlay ────────────────────────────────────────────── */}
       <div className="relative z-10 h-full flex flex-col">
-        {/* Expand control */}
-        <div className={`absolute top-4 right-4 sm:top-5 sm:right-5 z-[65] pointer-events-auto transition-all duration-500 ${isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-          <button
-            type="button"
-            onClick={handleExpand}
-            aria-label="Expandir imagen"
-            className="group relative flex items-center justify-center w-11 h-11 rounded-xl bg-black/35 border border-white/20 text-white/90 hover:bg-black/45 hover:text-white transition-all duration-300 backdrop-blur-[1px] cursor-pointer"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
-            </svg>
-          </button>
-          <div className="pointer-events-none absolute right-0 -bottom-10 whitespace-nowrap rounded-lg bg-black/55 border border-white/20 px-2.5 py-1 text-xs text-white/90 animate-[hero-float_2.2s_ease-in-out_infinite]">
-            Expandir
-          </div>
-        </div>
 
         {/* Center area — service title + subtitle */}
         <div className={`flex-1 flex items-end transition-all duration-500 ${isExpanding || isExpanded ? 'hero-dust-disappear' : ''}`}>
@@ -339,32 +323,6 @@ export function Hero() {
         <div className="h-28 sm:h-36 md:h-44 bg-gradient-to-t from-cmyk-black via-cmyk-black/70 to-transparent" />
       </div>
 
-      {/* ─── Expanded image view ──────────────────────────────────────── */}
-      {isExpanded && (
-        <div
-          className="fixed inset-0 z-[90] bg-black flex items-center justify-center animate-[hero-fade-in_320ms_ease-out]"
-          onClick={() => setIsExpanded(false)}
-        >
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
-            aria-label="Cerrar imagen expandida"
-            className="absolute top-5 right-5 sm:top-6 sm:right-6 z-[95] w-11 h-11 rounded-xl bg-white/10 border border-white/25 text-white hover:bg-white/20 transition-colors cursor-pointer flex items-center justify-center text-lg font-light"
-          >
-            ✕
-          </button>
-
-          {/* Image — static, no animation, contains full photo */}
-          <img
-            src={slides[expandedImageIndex]?.image || FALLBACK_IMAGES[0]}
-            alt={slides[expandedImageIndex]?.title || 'Imagen expandida'}
-            className="max-w-full max-h-full w-full h-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-
       <style jsx global>{`
         @keyframes hero-dust {
           0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
@@ -396,5 +354,55 @@ export function Hero() {
       `}</style>
 
     </section>
+
+    {/* ─── Expand button — fixed in document stacking context, above header ── */}
+    <div
+      className={`fixed top-4 right-4 sm:top-5 sm:right-5 z-[65] transition-all duration-500 ${
+        isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={handleExpand}
+        aria-label="Expandir imagen"
+        className="flex items-center justify-center w-11 h-11 rounded-xl bg-black/40 border border-white/25 text-white/90 hover:bg-black/55 hover:text-white transition-all duration-300 backdrop-blur-sm cursor-pointer"
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
+        </svg>
+      </button>
+      {/* Tooltip — centered below button */}
+      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-lg bg-black/60 border border-white/20 px-2.5 py-1 text-xs text-white/90 animate-[hero-float_2.2s_ease-in-out_infinite]">
+        Expandir
+      </div>
+    </div>
+
+    {/* ─── Fullscreen overlay — fixed, outside section ────────────── */}
+    {isExpanded && (
+      <div
+        className="fixed inset-0 z-[90] bg-black flex items-center justify-center animate-[hero-fade-in_320ms_ease-out]"
+        onClick={() => setIsExpanded(false)}
+      >
+        {/* Image — static, full photo, no animations */}
+        <img
+          src={slides[expandedImageIndex]?.image || FALLBACK_IMAGES[0]}
+          alt={slides[expandedImageIndex]?.title || 'Imagen expandida'}
+          className="max-w-full max-h-full object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+        {/* Close button — fixed so it's always top-right regardless of image size */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+          aria-label="Cerrar imagen expandida"
+          className="fixed top-5 right-5 sm:top-6 sm:right-6 z-[95] w-11 h-11 rounded-xl bg-white/10 border border-white/25 text-white hover:bg-white/20 transition-colors cursor-pointer flex items-center justify-center text-lg"
+        >
+          ✕
+        </button>
+      </div>
+    )}
+
+    </>
   );
 }
