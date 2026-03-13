@@ -191,8 +191,8 @@ export function Hero() {
       {/* ─── Content overlay ────────────────────────────────────────────── */}
       <div className="relative z-10 h-full flex flex-col">
         {/* Center area — service title + subtitle */}
-        <div className="flex-1 flex items-center">
-          <div className="container-custom px-4 sm:px-6 w-full">
+        <div className="flex-1 flex items-end">
+          <div className="container-custom px-4 sm:px-6 w-full pb-6 sm:pb-10 md:pb-12">
             <div className="max-w-3xl rounded-2xl border border-white/10 bg-black/35 backdrop-blur-[1px] shadow-2xl px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7">
               {/* Service title — large uppercase */}
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white uppercase leading-tight tracking-wide">
