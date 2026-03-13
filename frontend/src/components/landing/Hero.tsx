@@ -35,6 +35,8 @@ export function Hero() {
   const tServices = useTranslations('landing.services');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [isExpanding, setIsExpanding] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
 
@@ -118,10 +120,36 @@ export function Hero() {
     return () => clearInterval(timer);
   }, [isAutoPlaying, slides.length]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const active = isExpanding || isExpanded;
+    document.body.dataset.heroExpanding = active ? 'true' : 'false';
+    return () => {
+      delete document.body.dataset.heroExpanding;
+    };
+  }, [isExpanding, isExpanded]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsExpanded(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isExpanded]);
+
   // ─── Navigation ────────────────────────────────────────────────────────────
   const goTo = useCallback((i: number) => { setCurrentIndex(i); setIsAutoPlaying(false); }, []);
   const goNext = useCallback(() => { setCurrentIndex((p) => (p + 1) % slides.length); setIsAutoPlaying(false); }, [slides.length]);
   const goPrev = useCallback(() => { setCurrentIndex((p) => (p - 1 + slides.length) % slides.length); setIsAutoPlaying(false); }, [slides.length]);
+  const handleExpand = useCallback(() => {
+    if (isExpanded || isExpanding) return;
+    setIsExpanding(true);
+    setTimeout(() => setIsExpanded(true), 380);
+    setTimeout(() => setIsExpanding(false), 760);
+  }, [isExpanded, isExpanding]);
 
   // ─── Touch/swipe ───────────────────────────────────────────────────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; touchDeltaX.current = 0; }, []);
@@ -190,8 +218,26 @@ export function Hero() {
 
       {/* ─── Content overlay ────────────────────────────────────────────── */}
       <div className="relative z-10 h-full flex flex-col">
+        {/* Expand control */}
+        <div className={`absolute top-5 right-5 sm:top-6 sm:right-6 z-30 transition-all duration-500 ${isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+          <button
+            type="button"
+            onClick={handleExpand}
+            aria-label="Expandir imagen"
+            className="group relative flex items-center justify-center w-11 h-11 rounded-xl bg-black/35 border border-white/20 text-white/90 hover:bg-black/45 hover:text-white transition-all duration-300 backdrop-blur-[1px]"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
+            </svg>
+          </button>
+          <div className="pointer-events-none absolute right-0 -bottom-10 whitespace-nowrap rounded-lg bg-black/55 border border-white/20 px-2.5 py-1 text-xs text-white/90 animate-[hero-float_2.2s_ease-in-out_infinite]">
+            Expandir
+          </div>
+        </div>
+
         {/* Center area — service title + subtitle */}
-        <div className="flex-1 flex items-end">
+        <div className={`flex-1 flex items-end transition-all duration-500 ${isExpanding || isExpanded ? 'hero-dust-disappear' : ''}`}>
           <div className="container-custom px-4 sm:px-6 w-full pb-6 sm:pb-10 md:pb-12">
             <div className="max-w-3xl rounded-2xl border border-white/10 bg-black/35 backdrop-blur-[1px] shadow-2xl px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7">
               {/* Service title — large uppercase */}
@@ -210,7 +256,7 @@ export function Hero() {
         </div>
 
         {/* Bottom section — logo left + trust badges */}
-        <div className="px-4 sm:px-8 md:px-12 pb-28 sm:pb-32 md:pb-36">
+        <div className={`px-4 sm:px-8 md:px-12 pb-28 sm:pb-32 md:pb-36 transition-all duration-500 ${isExpanding || isExpanded ? 'hero-dust-disappear' : ''}`}>
           {/* Logo */}
           <img
             src="/logo-hero.png"
@@ -281,6 +327,61 @@ export function Hero() {
       <div className="absolute bottom-0 left-0 right-0 z-[15] pointer-events-none">
         <div className="h-28 sm:h-36 md:h-44 bg-gradient-to-t from-cmyk-black via-cmyk-black/70 to-transparent" />
       </div>
+
+      {/* ─── Expanded image view ──────────────────────────────────────── */}
+      {isExpanded && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/90 backdrop-blur-[1px]"
+          onClick={() => setIsExpanded(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setIsExpanded(false)}
+            aria-label="Cerrar imagen expandida"
+            className="absolute top-5 right-5 sm:top-6 sm:right-6 z-[95] w-11 h-11 rounded-xl bg-black/40 border border-white/20 text-white hover:bg-black/55 transition-colors"
+          >
+            ✕
+          </button>
+
+          <div className="absolute inset-0 animate-[hero-fade-in_420ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={slides[currentIndex]?.image || FALLBACK_IMAGES[0]}
+              alt={slides[currentIndex]?.title || 'Imagen expandida'}
+              className="w-full h-full object-cover animate-[hero-zoom-float_8s_ease-in-out_infinite]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/25" />
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        @keyframes hero-dust {
+          0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+          35% { opacity: 0.65; transform: translateY(-2px) scale(0.995); filter: blur(0.6px); }
+          100% { opacity: 0; transform: translateY(-10px) scale(0.985); filter: blur(2px); }
+        }
+        .hero-dust-disappear {
+          animation: hero-dust 420ms ease-out forwards;
+          pointer-events: none;
+        }
+        body[data-hero-expanding='true'] .layout-header {
+          animation: hero-dust 420ms ease-out forwards;
+          pointer-events: none;
+        }
+        @keyframes hero-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes hero-zoom-float {
+          0% { transform: scale(1.02) translateY(0px); }
+          50% { transform: scale(1.08) translateY(-8px); }
+          100% { transform: scale(1.02) translateY(0px); }
+        }
+        @keyframes hero-float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-4px); }
+        }
+      `}</style>
 
     </section>
   );
