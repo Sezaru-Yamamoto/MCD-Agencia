@@ -125,7 +125,7 @@ export interface ServiceSubcategory {
 // Carousel images for each landing service
 export const SERVICE_CAROUSEL_IMAGES: Record<LandingServiceId, string[]> = {
   'fabricacion-anuncios': [
-    'https://images.unsplash.com/photo-1557825835-70d97c4aa567?w=600&q=80',
+    '/images/carousel/Anuncios iluminados.jfif',
     'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=600&q=80',
     'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
   ],
@@ -135,22 +135,22 @@ export const SERVICE_CAROUSEL_IMAGES: Record<LandingServiceId, string[]> = {
     'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
   'publicidad-movil': [
-    'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=600&q=80',
+    '/images/carousel/Vallas móviles.jfif',
     'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80',
     'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
   ],
   'impresion-gran-formato': [
-    'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=600&q=80',
+    '/images/carousel/Vinil en vidrio.jfif',
     'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
     'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
   ],
   'rotulacion-vehicular': [
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+    '/images/carousel/Letras 3D.jfif',
     'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
     'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
   'senalizacion': [
-    'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=600&q=80',
+    '/images/carousel/Anuncios letras 3D.jfif',
     'https://images.unsplash.com/photo-1557825835-70d97c4aa567?w=600&q=80',
     'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
@@ -160,7 +160,7 @@ export const SERVICE_CAROUSEL_IMAGES: Record<LandingServiceId, string[]> = {
     'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=600&q=80',
   ],
   'diseno-grafico': [
-    'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600&q=80',
+    '/images/carousel/Letras neón.jfif',
     'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
     'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
   ],

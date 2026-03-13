@@ -109,7 +109,7 @@ export const SERVICES = [
     id: 'vallas-moviles',
     title: 'Vallas Móviles',
     description: 'Publicidad móvil para máxima visibilidad.',
-    image: '/images/carousel/valla-movil.jpg',
+    image: '/images/carousel/Vallas móviles.jfif',
     useCases: ['Móvil', 'Publicidad', 'Impacto'],
     icon: '📱',
   },
@@ -204,15 +204,15 @@ export const FAQ_ITEMS = [
 ] as const;
 
 export const CLIENTS = [
+  { name: 'BMW', logo: '/images/clients/BMW.png' },
   { name: 'BYD', logo: '/images/clients/byd.png' },
-  { name: 'Sayer', logo: '/images/clients/sayer.png' },
-  { name: 'Nuevo Horizonte', logo: '/images/clients/nuevo-horizonte.png' },
-  { name: 'OMA Aeropuerto', logo: '/images/clients/oma-aeropuerto.png' },
+  { name: 'Carls Jr.', logo: '/images/clients/carls jr.png' },
+  { name: 'OMA Aeropuerto', logo: '/images/clients/OMA Aeropuerto.png' },
   { name: 'Interceramic', logo: '/images/clients/interceramic.png' },
+  { name: 'JAC Motors', logo: '/images/clients/jacmotors.png' },
+  { name: 'Lala', logo: '/images/clients/lala.png' },
   { name: 'Telcel', logo: '/images/clients/telcel.png' },
-  { name: 'Conalep Guerrero', logo: '/images/clients/conalep.png' },
   { name: 'Toyota', logo: '/images/clients/toyota.png' },
   { name: 'Nutrisa', logo: '/images/clients/nutrisa.png' },
-  { name: 'Totalplay', logo: '/images/clients/totalplay.png' },
   { name: 'Comex', logo: '/images/clients/comex.png' },
 ] as const;

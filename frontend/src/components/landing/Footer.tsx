@@ -6,6 +6,7 @@ import { CONTACT_INFO } from '@/lib/constants';
 import { SERVICE_IDS } from '@/lib/service-ids';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import { useLegalModal } from '@/contexts/LegalModalContext';
+import { usePathname } from 'next/navigation';
 
 const SOCIAL_LINKS = {
   facebookAcapulco: 'https://www.facebook.com/AgenciaMCDAcapulco',
@@ -30,10 +31,14 @@ export function Footer() {
   const { resetConsent } = useCookieConsent();
   const { openPrivacy, openTerms } = useLegalModal();
   const currentYear = new Date().getFullYear();
+  const pathname = usePathname();
+  // Show "About Us" section only on the landing page (e.g. /es or /en)
+  const isLanding = /^\/[a-z]{2}\/?$/.test(pathname);
 
   return (
     <footer className="bg-secondary text-white">
-      {/* ─── About Us compact section ─────────────────────────────────── */}
+      {/* ─── About Us compact section (landing page only) ─────────────── */}
+      {isLanding && (
       <div className="container-custom pt-10 sm:pt-14 pb-6 sm:pb-8 border-b border-gray-700">
         <div className="text-center max-w-3xl mx-auto mb-6">
           <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3">
@@ -72,6 +77,7 @@ export function Footer() {
           ))}
         </div>
       </div>
+      )}
       <div className="container-custom py-8 sm:py-12 md:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
           {/* Brand */}

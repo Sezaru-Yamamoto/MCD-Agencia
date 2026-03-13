@@ -24,7 +24,7 @@ interface HeroSlide {
 
 // ─── Fallback slides when API is empty ───────────────────────────────────────
 const FALLBACK_IMAGES = [
-  '/images/carousel/valla-movil.jpg',
+  '/images/carousel/Vallas móviles.jfif',
   'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=1600&q=80',
   'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=1600&q=80',
   'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80',
