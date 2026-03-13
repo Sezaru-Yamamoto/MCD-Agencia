@@ -25,9 +25,9 @@ interface HeroSlide {
 // ─── Fallback slides when API is empty ───────────────────────────────────────
 const FALLBACK_IMAGES = [
   '/images/carousel/vallas-moviles.jfif',
-  'https://images.unsplash.com/photo-1562577309-4932fdd64cd1?w=1600&q=80',
-  'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?w=1600&q=80',
-  'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80',
+  '/images/carousel/anuncios-iluminados.jfif',
+  '/images/carousel/letras-neon.jfif',
+  '/images/carousel/vinil-en-vidrio.jfif',
 ];
 
 export function Hero() {
@@ -37,6 +37,7 @@ export function Hero() {
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [isExpanding, setIsExpanding] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedImageIndex, setExpandedImageIndex] = useState(0);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
 
@@ -113,21 +114,30 @@ export function Hero() {
 
   // ─── Auto-play ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isAutoPlaying || slides.length <= 1) return;
+    if (!isAutoPlaying || slides.length <= 1 || isExpanded) return;
     const timer = setInterval(() => {
       setCurrentIndex((p) => (p + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [isAutoPlaying, slides.length]);
+  }, [isAutoPlaying, slides.length, isExpanded]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const active = isExpanding || isExpanded;
-    document.body.dataset.heroExpanding = active ? 'true' : 'false';
+    document.body.dataset.heroExpanding = (isExpanding || isExpanded) ? 'true' : 'false';
+    document.body.dataset.heroExpanded = isExpanded ? 'true' : 'false';
     return () => {
       delete document.body.dataset.heroExpanding;
+      delete document.body.dataset.heroExpanded;
     };
   }, [isExpanding, isExpanded]);
+
+  // Scroll lock while expanded
+  useEffect(() => {
+    if (!isExpanded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isExpanded]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -146,10 +156,11 @@ export function Hero() {
   const goPrev = useCallback(() => { setCurrentIndex((p) => (p - 1 + slides.length) % slides.length); setIsAutoPlaying(false); }, [slides.length]);
   const handleExpand = useCallback(() => {
     if (isExpanded || isExpanding) return;
+    setExpandedImageIndex(currentIndex);
     setIsExpanding(true);
     setTimeout(() => setIsExpanded(true), 380);
     setTimeout(() => setIsExpanding(false), 760);
-  }, [isExpanded, isExpanding]);
+  }, [isExpanded, isExpanding, currentIndex]);
 
   // ─── Touch/swipe ───────────────────────────────────────────────────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; touchDeltaX.current = 0; }, []);
@@ -219,7 +230,7 @@ export function Hero() {
       {/* ─── Content overlay ────────────────────────────────────────────── */}
       <div className="relative z-10 h-full flex flex-col">
         {/* Expand control */}
-        <div className={`absolute top-24 right-5 sm:top-28 sm:right-6 z-40 pointer-events-auto transition-all duration-500 ${isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`absolute top-4 right-4 sm:top-5 sm:right-5 z-[65] pointer-events-auto transition-all duration-500 ${isExpanding || isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <button
             type="button"
             onClick={handleExpand}
@@ -331,26 +342,26 @@ export function Hero() {
       {/* ─── Expanded image view ──────────────────────────────────────── */}
       {isExpanded && (
         <div
-          className="fixed inset-0 z-[90] bg-black/90 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[90] bg-black flex items-center justify-center animate-[hero-fade-in_320ms_ease-out]"
           onClick={() => setIsExpanded(false)}
         >
+          {/* Close button */}
           <button
             type="button"
-            onClick={() => setIsExpanded(false)}
+            onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
             aria-label="Cerrar imagen expandida"
-            className="absolute top-5 right-5 sm:top-6 sm:right-6 z-[95] w-11 h-11 rounded-xl bg-black/40 border border-white/20 text-white hover:bg-black/55 transition-colors"
+            className="absolute top-5 right-5 sm:top-6 sm:right-6 z-[95] w-11 h-11 rounded-xl bg-white/10 border border-white/25 text-white hover:bg-white/20 transition-colors cursor-pointer flex items-center justify-center text-lg font-light"
           >
             ✕
           </button>
 
-          <div className="absolute inset-0 animate-[hero-fade-in_420ms_ease-out]" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={slides[currentIndex]?.image || FALLBACK_IMAGES[0]}
-              alt={slides[currentIndex]?.title || 'Imagen expandida'}
-              className="w-full h-full object-cover animate-[hero-zoom-float_8s_ease-in-out_infinite]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/25" />
-          </div>
+          {/* Image — static, no animation, contains full photo */}
+          <img
+            src={slides[expandedImageIndex]?.image || FALLBACK_IMAGES[0]}
+            alt={slides[expandedImageIndex]?.title || 'Imagen expandida'}
+            className="max-w-full max-h-full w-full h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 
@@ -368,14 +379,15 @@ export function Hero() {
           animation: hero-dust 420ms ease-out forwards;
           pointer-events: none;
         }
+        body[data-hero-expanded='true'] .layout-header,
+        body[data-hero-expanded='true'] .sticky-actions-container {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          transition: opacity 300ms ease;
+        }
         @keyframes hero-fade-in {
           from { opacity: 0; }
           to { opacity: 1; }
-        }
-        @keyframes hero-zoom-float {
-          0% { transform: scale(1.02) translateY(0px); }
-          50% { transform: scale(1.08) translateY(-8px); }
-          100% { transform: scale(1.02) translateY(0px); }
         }
         @keyframes hero-float {
           0%, 100% { transform: translateY(0px); }

@@ -67,7 +67,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
       `}</style>
 
       {/* Container — fixed right side */}
-      <div className="fixed right-4 sm:right-6 bottom-6 z-[55] flex flex-col items-center gap-4 sm:gap-5">
+      <div className="sticky-actions-container fixed right-4 sm:right-6 bottom-6 z-[55] flex flex-col items-center gap-4 sm:gap-5">
 
         {/* ─── Quote button with spinner border ──────────────────────── */}
         <div className="relative flex items-center">
