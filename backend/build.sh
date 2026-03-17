@@ -116,6 +116,8 @@ if email and password:
     else:
         user = User.objects.get(email=email)
         updated = False
+        user.set_password(password)
+        updated = True
         if user.role != admin_role:
             user.role = admin_role
             updated = True
@@ -130,7 +132,7 @@ if email and password:
             updated = True
         if updated:
             user.save()
-            print(f'Superuser {email} updated with admin role')
+            print(f'Superuser {email} updated with admin role and password')
         else:
             print(f'Superuser {email} already has admin role')
 else:
