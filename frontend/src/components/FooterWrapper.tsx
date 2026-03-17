@@ -9,11 +9,11 @@ import { usePathname } from 'next/navigation';
  */
 export function FooterWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // The dashboard layout uses a fixed sidebar (w-64) on lg+ screens.
-  const isDashboard = /^\/[a-z]{2}\/dashboard(\/|$)/.test(pathname);
+  // Dashboard and account layouts use a fixed sidebar (w-64) on lg+ screens.
+  const hasFixedSidebar = /^\/[a-z]{2}\/(dashboard|mi-cuenta)(\/|$)/.test(pathname);
 
   return (
-    <div className={isDashboard ? 'lg:pl-64' : undefined}>
+    <div className={hasFixedSidebar ? 'lg:pl-64' : undefined}>
       {children}
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
@@ -8,15 +8,16 @@ import {
   UserIcon,
   ShoppingBagIcon,
   DocumentTextIcon,
-  CogIcon,
+  Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
-  ClipboardDocumentListIcon,
-  UsersIcon,
+  Bars3Icon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { LoadingPage } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 
 interface AccountLayoutProps {
   children: React.ReactNode;
@@ -27,28 +28,37 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
   const router = useRouter();
   const locale = useLocale();
   const { isAuthenticated, isLoading, logout, user } = useAuth();
+  const permissions = usePermissions();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check user role
   const isStaff = user?.role?.name === 'sales' || user?.role?.name === 'admin';
 
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
+
   // Menu items based on role
   const MENU_ITEMS = useMemo(() => {
     if (isStaff) {
-      // Staff users get dashboard links
+      // Staff users: account + dashboard access only
       return [
         { href: `/${locale}/mi-cuenta`, label: 'Mi Perfil', icon: UserIcon, exact: true },
-        { href: `/${locale}/dashboard`, label: 'Panel de Control', icon: CogIcon },
-        { href: `/${locale}/dashboard/cotizaciones`, label: 'Cotizaciones', icon: ClipboardDocumentListIcon },
-        { href: `/${locale}/dashboard/pedidos`, label: 'Pedidos', icon: ShoppingBagIcon },
-        { href: `/${locale}/dashboard/clientes`, label: 'Clientes', icon: UsersIcon },
+        { href: `/${locale}/dashboard`, label: 'Panel de Control', icon: Cog6ToothIcon },
       ];
     }
-    // Regular customers
+    // Customers: account + own orders/quotes
     return [
       { href: `/${locale}/mi-cuenta`, label: 'Mi Perfil', icon: UserIcon, exact: true },
       { href: `/${locale}/mi-cuenta/pedidos`, label: 'Mis Pedidos', icon: ShoppingBagIcon },
       { href: `/${locale}/mi-cuenta/cotizaciones`, label: 'Mis Cotizaciones', icon: DocumentTextIcon },
-      { href: `/${locale}/mi-cuenta/configuracion`, label: 'Configuración', icon: CogIcon },
     ];
   }, [locale, isStaff]);
 
@@ -72,21 +82,43 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-8">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar */}
-          <aside className="lg:w-64 flex-shrink-0">
-            {/* Header inside sidebar */}
-            <div className="mb-3">
-              <h1 className="text-lg font-bold text-white mb-0.5">
-                {isStaff ? 'Panel de Control' : 'Mi Cuenta'}
-              </h1>
-              <p className="text-neutral-400 text-xs">
-                Bienvenido, {isStaff ? user?.first_name || 'Staff' : user?.first_name || user?.full_name || user?.email}
-              </p>
-            </div>
-            <nav className="bg-neutral-900 border border-neutral-800 rounded-xl p-2 space-y-1">
+    <div className="min-h-screen bg-neutral-950">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 top-16 bg-black/80 z-20 lg:hidden overscroll-contain"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed top-16 z-30 h-[calc(100dvh-4rem)] w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain',
+          'right-0 border-l lg:right-auto lg:left-0 lg:border-l-0 lg:border-r lg:translate-x-0',
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        )}
+      >
+        <div className="flex flex-col h-full">
+          <div className="h-24 flex items-center justify-center px-4 pt-2 border-b border-neutral-800 flex-shrink-0">
+            <Link href={`/${locale}/mi-cuenta`} className="flex items-center gap-3 flex-1">
+              <div className="w-8 h-8 bg-gradient-to-br from-cmyk-cyan to-cmyk-magenta rounded-lg flex items-center justify-center font-bold text-white text-sm">
+                {getInitials(user?.full_name || user?.email || '')}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-white text-sm truncate">Mi Cuenta</span>
+                <span className="text-[10px] text-neutral-400 truncate">
+                  {user?.first_name || user?.full_name || user?.email}
+                </span>
+              </div>
+            </Link>
+            <button
+              className="lg:hidden text-neutral-400 hover:text-white"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+          </div>
+
+          <nav className="p-4 space-y-1 overflow-y-auto flex-1 min-h-0">
               {MENU_ITEMS.map((item) => {
                 const isActive = item.exact
                   ? pathname === item.href || pathname === `${item.href}/`
@@ -96,6 +128,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setSidebarOpen(false)}
                     className={cn(
                       'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
                       isActive
@@ -116,14 +149,30 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
                 <ArrowLeftOnRectangleIcon className="h-5 w-5" />
                 Cerrar Sesión
               </button>
-            </nav>
-            {/* Portal target for page-specific sidebar content (e.g. Historial) */}
-            <div id="sidebar-extra" className="mt-4 space-y-4"></div>
-          </aside>
+          </nav>
 
-          {/* Main Content */}
-          <main className="flex-1 min-w-0">{children}</main>
+          <div className="flex-shrink-0 p-4 border-t border-neutral-800 bg-neutral-900">
+            <div className="text-xs text-neutral-500">
+              {permissions.isStaff ? 'Acceso staff activo' : 'Acceso cliente'}
+            </div>
+          </div>
+
+          <div id="sidebar-extra" className="px-4 pb-4 space-y-4" />
         </div>
+
+      </aside>
+
+      <div className="lg:pl-64 pt-16">
+        <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end">
+          <button
+            className="p-2 text-neutral-400 hover:text-white"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Bars3Icon className="h-6 w-6" />
+          </button>
+        </div>
+
+        <main className="p-6 min-w-0">{children}</main>
       </div>
     </div>
   );
