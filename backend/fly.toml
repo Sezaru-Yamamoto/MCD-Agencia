@@ -38,7 +38,7 @@ primary_region = "dfw"   # Dallas — closest free region to Mexico
 [http_service]
   internal_port       = 8000
   force_https         = true
-  auto_stop_machines  = "stop"    # sleep when no traffic (free-tier friendly)
+  auto_stop_machines  = "suspend" # wakes faster than "stop" while still idle-friendly
   auto_start_machines = true
   min_machines_running = 0        # 0 = fully stop, saves free allowance
 
