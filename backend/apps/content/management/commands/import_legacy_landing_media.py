@@ -52,10 +52,26 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
+        seed_media_dir = Path(settings.BASE_DIR) / 'seed_media' / 'carousel'
         frontend_public = Path(settings.BASE_DIR).parent / 'frontend' / 'public'
-        if not frontend_public.exists():
-            self.stdout.write(self.style.ERROR(f'No se encontró frontend/public en: {frontend_public}'))
+
+        if not seed_media_dir.exists() and not frontend_public.exists():
+            self.stdout.write(self.style.ERROR(
+                f'No se encontró fuente de imágenes. Revisar {seed_media_dir} o {frontend_public}'
+            ))
             return
+
+        def resolve_image_path(rel_path: str) -> Path | None:
+            filename = Path(rel_path).name
+            seed_path = seed_media_dir / filename
+            if seed_path.exists():
+                return seed_path
+
+            public_path = frontend_public / rel_path.lstrip('/')
+            if public_path.exists():
+                return public_path
+
+            return None
 
         services_created = 0
         service_images_created = 0
@@ -82,9 +98,9 @@ class Command(BaseCommand):
                 services_created += 1
 
             for rel_path in image_paths:
-                source_path = frontend_public / rel_path.lstrip('/')
-                if not source_path.exists():
-                    self.stdout.write(self.style.WARNING(f'Archivo no encontrado: {source_path}'))
+                source_path = resolve_image_path(rel_path)
+                if not source_path:
+                    self.stdout.write(self.style.WARNING(f'Archivo no encontrado: {rel_path}'))
                     continue
 
                 filename = source_path.name
@@ -107,9 +123,9 @@ class Command(BaseCommand):
                 service_images_created += 1
 
         for rel_path in LEGACY_HERO_FALLBACK_IMAGES:
-            source_path = frontend_public / rel_path.lstrip('/')
-            if not source_path.exists():
-                self.stdout.write(self.style.WARNING(f'Archivo no encontrado para hero: {source_path}'))
+            source_path = resolve_image_path(rel_path)
+            if not source_path:
+                self.stdout.write(self.style.WARNING(f'Archivo no encontrado para hero: {rel_path}'))
                 continue
 
             filename = source_path.name
