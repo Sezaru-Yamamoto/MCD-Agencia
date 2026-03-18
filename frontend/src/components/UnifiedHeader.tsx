@@ -55,6 +55,7 @@ export function UnifiedHeader() {
     }, []);
   const { itemCount } = useCart();
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
 
   // Check user role - only 3 roles: admin, sales, customer
   const isAdmin = user?.role?.name === 'admin';
@@ -95,6 +96,32 @@ export function UnifiedHeader() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const height = headerRef.current?.offsetHeight;
+      if (height) {
+        document.documentElement.style.setProperty('--app-header-height', `${height}px`);
+      }
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeaderHeight();
+    });
+
+    if (headerRef.current) {
+      resizeObserver.observe(headerRef.current);
+    }
+
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, []);
+
   const handleWhatsAppClick = () => {
     trackCTA('whatsapp', 'header');
   };
@@ -120,6 +147,7 @@ export function UnifiedHeader() {
   return (
     <>
     <header
+      ref={headerRef}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled
           ? 'py-2'
@@ -371,7 +399,10 @@ export function UnifiedHeader() {
 
     {/* Mobile Menu — rendered outside <header> so it's in the root stacking context */}
     {isMobileMenuOpen && (
-      <div className="lg:hidden fixed inset-x-0 top-16 bottom-0 z-[60] bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain">
+      <div
+        className="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain"
+        style={{ top: 'var(--app-header-height, 4rem)' }}
+      >
         <div className="px-4 py-4 border-t border-cmyk-cyan/10">
             <nav className="space-y-2">
               {navLinks.map((link) => (

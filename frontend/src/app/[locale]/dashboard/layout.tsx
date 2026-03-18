@@ -113,7 +113,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 top-16 bg-black/80 z-20 lg:hidden overscroll-contain"
+          className="fixed inset-0 bg-black/80 z-20 lg:hidden overscroll-contain"
+          style={{ top: 'var(--app-header-height, 4rem)' }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -121,13 +122,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-16 z-30 h-[calc(100dvh-4rem)] w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain',
+          'fixed z-30 w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain',
           // Mobile: slide-in from the right
           'right-0 border-l lg:right-auto lg:border-l-0',
           // Desktop: fixed on the left, always visible
           'lg:left-0 lg:border-r lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         )}
+        style={{
+          top: 'var(--app-header-height, 4rem)',
+          height: 'calc(100dvh - var(--app-header-height, 4rem))',
+        }}
       >
         {/* Sidebar uses flex-col so the nav scrolls and user card stays pinned */}
         <div className="flex flex-col h-full">
@@ -222,9 +227,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 pt-16">
+      <div className="lg:pl-64" style={{ paddingTop: 'var(--app-header-height, 4rem)' }}>
         {/* Mobile sidebar toggle */}
-        <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end">
+        <div
+          className="lg:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"
+          style={{ top: 'var(--app-header-height, 4rem)' }}
+        >
           <button
             className="p-2 text-neutral-400 hover:text-white"
             onClick={() => setSidebarOpen(true)}

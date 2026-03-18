@@ -85,17 +85,22 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
     <div className="min-h-screen bg-neutral-950">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 top-16 bg-black/80 z-20 lg:hidden overscroll-contain"
+          className="fixed inset-0 bg-black/80 z-20 lg:hidden overscroll-contain"
+          style={{ top: 'var(--app-header-height, 4rem)' }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          'fixed top-16 z-30 h-[calc(100dvh-4rem)] w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain',
+          'fixed z-30 w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain',
           'right-0 border-l lg:right-auto lg:left-0 lg:border-l-0 lg:border-r lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         )}
+        style={{
+          top: 'var(--app-header-height, 4rem)',
+          height: 'calc(100dvh - var(--app-header-height, 4rem))',
+        }}
       >
         <div className="flex flex-col h-full">
           <div className="h-24 flex items-center justify-center px-4 pt-2 border-b border-neutral-800 flex-shrink-0">
@@ -162,8 +167,11 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
 
       </aside>
 
-      <div className="lg:pl-64 pt-16">
-        <div className="lg:hidden sticky top-16 z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end">
+      <div className="lg:pl-64" style={{ paddingTop: 'var(--app-header-height, 4rem)' }}>
+        <div
+          className="lg:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"
+          style={{ top: 'var(--app-header-height, 4rem)' }}
+        >
           <button
             className="p-2 text-neutral-400 hover:text-white"
             onClick={() => setSidebarOpen(true)}
