@@ -223,7 +223,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 pt-[var(--app-header-height,4rem)] lg:pt-0">
+      <div className="lg:pl-64 pt-[var(--app-header-height,4rem)]">
         {/* Mobile sidebar toggle */}
         <div
           className="lg:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"

@@ -163,7 +163,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
 
       </aside>
 
-      <div className="lg:pl-64 pt-[var(--app-header-height,4rem)] lg:pt-0">
+      <div className="lg:pl-64 pt-[var(--app-header-height,4rem)]">
         <div
           className="lg:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"
           style={{ top: 'var(--app-header-height, 4rem)' }}
