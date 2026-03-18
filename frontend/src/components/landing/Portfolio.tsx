@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { trackCTA } from '@/lib/tracking';
-import { getPortfolioVideos, type PortfolioVideo } from '@/lib/api/content';
+import { getLandingPageData, getPortfolioVideos, type PortfolioVideo } from '@/lib/api/content';
 
 /**
  * =============================================
@@ -69,11 +69,6 @@ const EXAMPLE_IMAGE_ITEMS: PortfolioItem[] = [
   { id: 'img1', type: 'image', imageUrl: '/images/carousel/anuncios-iluminados.jfif', label: 'Impresión Gran Formato' },
   { id: 'img2', type: 'image', imageUrl: '/images/carousel/vinil-en-vidrio.jfif', label: 'Señalización Exterior' },
   { id: 'img3', type: 'image', imageUrl: '/images/carousel/letras-3d.jfif', label: 'Rotulación Vehicular' },
-];
-
-const FALLBACK_ITEMS: PortfolioItem[] = [
-  ...EXAMPLE_VIDEO_ITEMS,
-  ...EXAMPLE_IMAGE_ITEMS,
 ];
 
 /**
@@ -265,6 +260,49 @@ export function Portfolio() {
     retry: 1,
   });
 
+  const { data: landingData } = useQuery({
+    queryKey: ['portfolio-service-images'],
+    queryFn: getLandingPageData,
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  const managedImageItems: PortfolioItem[] = useMemo(() => {
+    const uniqueUrls = new Set<string>();
+    const fromServices: PortfolioItem[] = [];
+
+    (landingData?.services || []).forEach((service, serviceIndex) => {
+      (service.carousel_images || []).forEach((img, imgIndex) => {
+        if (!img.image || uniqueUrls.has(img.image)) return;
+        uniqueUrls.add(img.image);
+        fromServices.push({
+          id: `svc-${service.id}-${img.id || `${serviceIndex}-${imgIndex}`}`,
+          type: 'image',
+          imageUrl: img.image,
+          label: service.name || `Proyecto ${fromServices.length + 1}`,
+        });
+      });
+    });
+
+    if (fromServices.length >= 3) return fromServices.slice(0, 3);
+
+    const fallback = [...fromServices];
+    EXAMPLE_IMAGE_ITEMS.forEach((item) => {
+      if (fallback.length >= 3) return;
+      if (item.imageUrl && !uniqueUrls.has(item.imageUrl)) {
+        uniqueUrls.add(item.imageUrl);
+        fallback.push(item);
+      }
+    });
+
+    return fallback;
+  }, [landingData]);
+
+  const fallbackItems: PortfolioItem[] = useMemo(
+    () => [...EXAMPLE_VIDEO_ITEMS, ...managedImageItems],
+    [managedImageItems]
+  );
+
   // Build portfolio items: API videos + local example images
   const items: PortfolioItem[] = useMemo(() => {
     if (apiVideos && apiVideos.length > 0) {
@@ -282,14 +320,14 @@ export function Portfolio() {
       });
 
       if (apiVideoItems.length === 0) {
-        return FALLBACK_ITEMS;
+        return fallbackItems;
       }
 
-      return [...apiVideoItems, ...EXAMPLE_IMAGE_ITEMS];
+      return [...apiVideoItems, ...managedImageItems];
     }
     if (videosLoading) return [];
-    return FALLBACK_ITEMS;
-  }, [apiVideos, videosLoading]);
+    return fallbackItems;
+  }, [apiVideos, videosLoading, fallbackItems, managedImageItems]);
 
   const handleQuoteClick = () => { trackCTA('quote', 'portfolio'); };
 

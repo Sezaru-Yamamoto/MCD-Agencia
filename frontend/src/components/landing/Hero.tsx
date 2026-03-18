@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import { CONTACT_INFO } from '@/lib/constants';
+import { getCarouselSlides } from '@/lib/api/content';
 import {
   LANDING_SERVICE_IDS,
   SERVICE_CAROUSEL_IMAGES,
@@ -31,6 +33,12 @@ const FALLBACK_IMAGES = [
 export function Hero() {
   const t = useTranslations('landing.hero');
   const tServices = useTranslations('landing.services');
+  const { data: apiSlides = [] } = useQuery({
+    queryKey: ['hero-carousel-slides'],
+    queryFn: getCarouselSlides,
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [isExpanding, setIsExpanding] = useState(false);
@@ -95,8 +103,30 @@ export function Hero() {
     return () => obs.disconnect();
   }, []);
 
-  // ─── Build slides: only local SERVICE_CAROUSEL_IMAGES (no API) ────────────
+  // ─── Build slides: API (admin) first, then local fallback ─────────────────
   const slides: HeroSlide[] = useMemo(() => {
+    if (apiSlides.length > 0) {
+      const adminSlides = [...apiSlides]
+        .sort((a, b) => a.position - b.position)
+        .filter((slide) => Boolean(slide.image))
+        .map((slide) => ({
+          image: slide.image,
+          title: slide.title || t('title'),
+          subtitle: slide.subtitle || t('subtitle'),
+          cta: slide.cta_url
+            ? {
+                label: slide.cta_text || t('cta'),
+                href: slide.cta_url,
+              }
+            : undefined,
+          serviceKey: slide.service_key || undefined,
+        }));
+
+      if (adminSlides.length > 0) {
+        return adminSlides;
+      }
+    }
+
     const result: HeroSlide[] = [];
 
     LANDING_SERVICE_IDS.forEach((serviceId: LandingServiceId) => {
@@ -123,7 +153,7 @@ export function Hero() {
     }
 
     return result;
-  }, [tServices, t]);
+  }, [apiSlides, tServices, t]);
 
   // ─── Auto-play (pause while expanded) ────────────────────────────────────
   useEffect(() => {
