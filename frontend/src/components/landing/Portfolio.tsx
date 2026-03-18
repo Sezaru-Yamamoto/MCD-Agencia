@@ -60,16 +60,7 @@ function normalizeYouTubeId(input?: string | null): string | null {
   return null;
 }
 
-const EXAMPLE_VIDEO_ITEMS: PortfolioItem[] = [
-  { id: 'v1', type: 'video', videoId: 'sqOb-gSSQq8', label: 'Proyecto 1', orientation: 'vertical' },
-  { id: 'v2', type: 'video', videoId: 'b33fwbyZRQM', label: 'Proyecto 2', orientation: 'vertical' },
-];
 
-const EXAMPLE_IMAGE_ITEMS: PortfolioItem[] = [
-  { id: 'img1', type: 'image', imageUrl: '/images/carousel/anuncios-iluminados.jfif', label: 'Impresión Gran Formato' },
-  { id: 'img2', type: 'image', imageUrl: '/images/carousel/vinil-en-vidrio.jfif', label: 'Señalización Exterior' },
-  { id: 'img3', type: 'image', imageUrl: '/images/carousel/letras-3d.jfif', label: 'Rotulación Vehicular' },
-];
 
 /**
  * =============================================
@@ -284,32 +275,16 @@ export function Portfolio() {
       });
     });
 
-    if (fromServices.length >= 3) return fromServices.slice(0, 3);
-
-    const fallback = [...fromServices];
-    EXAMPLE_IMAGE_ITEMS.forEach((item) => {
-      if (fallback.length >= 3) return;
-      if (item.imageUrl && !uniqueUrls.has(item.imageUrl)) {
-        uniqueUrls.add(item.imageUrl);
-        fallback.push(item);
-      }
-    });
-
-    return fallback;
+    return fromServices;
   }, [landingData]);
 
-  const fallbackItems: PortfolioItem[] = useMemo(
-    () => [...EXAMPLE_VIDEO_ITEMS, ...managedImageItems],
-    [managedImageItems]
-  );
-
-  // Build portfolio items: API videos + local example images
+  // Build portfolio items: 100% from admin panel (videos + service images)
   const items: PortfolioItem[] = useMemo(() => {
-    if (apiVideos && apiVideos.length > 0) {
-      const apiVideoItems: PortfolioItem[] = [];
-      apiVideos.forEach((v, i) => {
-        const normalizedId = normalizeYouTubeId(v.youtube_id);
-        if (!normalizedId) return;
+    const apiVideoItems: PortfolioItem[] = [];
+    
+    (apiVideos || []).forEach((v, i) => {
+      const normalizedId = normalizeYouTubeId(v.youtube_id);
+      if (normalizedId) {
         apiVideoItems.push({
           id: normalizedId,
           type: 'video',
@@ -317,17 +292,11 @@ export function Portfolio() {
           orientation: v.orientation,
           label: v.title || `Video ${i + 1}`,
         });
-      });
-
-      if (apiVideoItems.length === 0) {
-        return fallbackItems;
       }
+    });
 
-      return [...apiVideoItems, ...managedImageItems];
-    }
-    if (videosLoading) return [];
-    return fallbackItems;
-  }, [apiVideos, videosLoading, fallbackItems, managedImageItems]);
+    return [...apiVideoItems, ...managedImageItems];
+  }, [apiVideos, managedImageItems]);
 
   const handleQuoteClick = () => { trackCTA('quote', 'portfolio'); };
 

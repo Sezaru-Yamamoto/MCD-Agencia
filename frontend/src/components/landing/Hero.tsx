@@ -7,11 +7,6 @@ import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { CONTACT_INFO } from '@/lib/constants';
 import { getCarouselSlides } from '@/lib/api/content';
-import {
-  LANDING_SERVICE_IDS,
-  SERVICE_CAROUSEL_IMAGES,
-  type LandingServiceId,
-} from '@/lib/service-ids';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface HeroSlide {
@@ -22,13 +17,7 @@ interface HeroSlide {
   serviceKey?: string;
 }
 
-// ─── Fallback slides when API is empty ───────────────────────────────────────
-const FALLBACK_IMAGES = [
-  '/images/carousel/vallas-moviles.jfif',
-  '/images/carousel/anuncios-iluminados.jfif',
-  '/images/carousel/letras-neon.jfif',
-  '/images/carousel/vinil-en-vidrio.jfif',
-];
+
 
 export function Hero() {
   const t = useTranslations('landing.hero');
@@ -103,57 +92,26 @@ export function Hero() {
     return () => obs.disconnect();
   }, []);
 
-  // ─── Build slides: API (admin) first, then local fallback ─────────────────
+  // ─── Build slides: 100% from admin panel ────────────────────────────────────
   const slides: HeroSlide[] = useMemo(() => {
-    if (apiSlides.length > 0) {
-      const adminSlides = [...apiSlides]
-        .sort((a, b) => a.position - b.position)
-        .filter((slide) => Boolean(slide.image))
-        .map((slide) => ({
-          image: slide.image,
-          title: slide.title || t('title'),
-          subtitle: slide.subtitle || t('subtitle'),
-          cta: slide.cta_url
-            ? {
-                label: slide.cta_text || t('cta'),
-                href: slide.cta_url,
-              }
-            : undefined,
-          serviceKey: slide.service_key || undefined,
-        }));
-
-      if (adminSlides.length > 0) {
-        return adminSlides;
-      }
-    }
-
-    const result: HeroSlide[] = [];
-
-    LANDING_SERVICE_IDS.forEach((serviceId: LandingServiceId) => {
-      const img = SERVICE_CAROUSEL_IMAGES[serviceId]?.[0];
-      if (img) {
-        result.push({
-          image: img,
-          title: tServices(`items.${serviceId}.title`),
-          subtitle: tServices(`items.${serviceId}.description`),
-          cta: { label: t('cta'), href: `#cotizar?servicio=${serviceId}` },
-          serviceKey: serviceId,
-        });
-      }
-    });
-
-    if (result.length === 0) {
-      FALLBACK_IMAGES.forEach((src, i) => {
-        result.push({
-          image: src,
-          title: i === 0 ? t('title') : 'Agencia MCD',
-          subtitle: t('subtitle'),
-        });
-      });
-    }
-
-    return result;
-  }, [apiSlides, tServices, t]);
+    if (!apiSlides || apiSlides.length === 0) return [];
+    
+    return [...apiSlides]
+      .sort((a, b) => a.position - b.position)
+      .filter((slide) => Boolean(slide.image))
+      .map((slide) => ({
+        image: slide.image,
+        title: slide.title || t('title'),
+        subtitle: slide.subtitle || t('subtitle'),
+        cta: slide.cta_url
+          ? {
+              label: slide.cta_text || t('cta'),
+              href: slide.cta_url,
+            }
+          : undefined,
+        serviceKey: slide.service_key || undefined,
+      }));
+  }, [apiSlides, t]);
 
   // ─── Auto-play (pause while expanded) ────────────────────────────────────
   useEffect(() => {
