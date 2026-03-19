@@ -384,7 +384,7 @@ export function Hero() {
             onClick={() => setIsExpanded(false)}
           >
             <img
-              src={slides[expandedImageIndex]?.image || FALLBACK_IMAGES[0]}
+              src={slides[expandedImageIndex]?.image || ''}
               alt={slides[expandedImageIndex]?.title || 'Imagen expandida'}
               className="max-w-full max-h-full object-contain animate-[hero-fade-in_300ms_ease-out]"
               onClick={(e) => e.stopPropagation()}
