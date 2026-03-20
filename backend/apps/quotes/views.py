@@ -1019,6 +1019,12 @@ class QuoteViewSet(viewsets.ModelViewSet):
                     line_total=line.line_total,
                     metadata={
                         'quote_line_id': str(line.id),
+                        'quote_line_description': line.description or '',
+                        'quote_line_description_en': line.description_en or '',
+                        'service_details': line.service_details or {},
+                        'delivery_method': line.delivery_method or quote.delivery_method or '',
+                        'delivery_address': line.delivery_address or quote.delivery_address or {},
+                        'pickup_branch_id': str(line.pickup_branch_id) if line.pickup_branch_id else '',
                         'unit': line.unit,
                         'original_quantity': str(line.quantity),
                     }

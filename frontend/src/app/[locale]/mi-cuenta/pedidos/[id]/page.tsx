@@ -33,6 +33,13 @@ const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
   refunded: XCircleIcon,
 };
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  mercadopago: 'Mercado Pago',
+  paypal: 'PayPal',
+  bank_transfer: 'Transferencia',
+  cash: 'Efectivo',
+};
+
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
@@ -98,7 +105,33 @@ export default function OrderDetailPage() {
   const orderLines = Array.isArray(order.lines) ? order.lines : [];
   const statusHistory = Array.isArray(order.status_history) ? order.status_history : [];
   const shippingAddressText = formatAddress(order.shipping_address);
+  const deliveryAddressText = formatAddress(order.delivery_address);
+  const deliveryMethod = toSafeText(order.delivery_method);
+  const pickupBranchText = [
+    toSafeText(order.pickup_branch_detail?.name),
+    toSafeText(order.pickup_branch_detail?.full_address) || [
+      toSafeText(order.pickup_branch_detail?.city),
+      toSafeText(order.pickup_branch_detail?.state),
+    ].filter(Boolean).join(', '),
+  ].filter(Boolean).join(' — ');
+  const paymentMethodText = toSafeText(order.payment_method);
+  const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethodText] || paymentMethodText;
   const canPay = ['pending_payment', 'partially_paid'].includes(order.status) && Number(order.balance_due) > 0;
+  const shouldShowSelectedPaymentMethod = Boolean(paymentMethodText) && !canPay;
+
+  let deliveryAddressLabel = 'Dirección de envío';
+  let resolvedDeliveryAddress = shippingAddressText;
+
+  if (deliveryMethod === 'installation') {
+    deliveryAddressLabel = 'Dirección de instalación';
+    resolvedDeliveryAddress = deliveryAddressText || shippingAddressText;
+  } else if (deliveryMethod === 'shipping') {
+    deliveryAddressLabel = 'Dirección de envío';
+    resolvedDeliveryAddress = deliveryAddressText || shippingAddressText;
+  } else if (deliveryMethod === 'pickup') {
+    deliveryAddressLabel = 'Sucursal de recolección';
+    resolvedDeliveryAddress = pickupBranchText || shippingAddressText;
+  }
 
   const handlePayment = async () => {
     if (!canPay || isPaying) return;
@@ -190,7 +223,18 @@ export default function OrderDetailPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium">{toSafeText(line.name)}</p>
-                    <p className="text-sm text-neutral-400">{toSafeText(line.variant_name)}</p>
+                    {(() => {
+                      const metadata = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
+                        ? (line.metadata as Record<string, unknown>)
+                        : null;
+                      const fullDescription =
+                        toSafeText(metadata?.quote_line_description) ||
+                        toSafeText(metadata?.description) ||
+                        toSafeText(line.variant_name);
+
+                      if (!fullDescription) return null;
+                      return <p className="text-sm text-neutral-400">{fullDescription}</p>;
+                    })()}
                     <p className="text-sm text-neutral-400">SKU: {toSafeText(line.sku)}</p>
                   </div>
                   <div className="text-right">
@@ -270,10 +314,10 @@ export default function OrderDetailPage() {
               )}
             </div>
 
-            {order.payment_method && (
+            {shouldShowSelectedPaymentMethod && (
               <div className="mt-4 pt-4 border-t border-neutral-800">
                 <p className="text-sm text-neutral-400">Método de pago</p>
-                <p className="text-white capitalize">{toSafeText(order.payment_method)}</p>
+                <p className="text-white">{paymentMethodLabel}</p>
               </div>
             )}
           </Card>
@@ -346,8 +390,8 @@ export default function OrderDetailPage() {
           )}
 
           <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">Dirección de envío</h3>
-            <p className="text-neutral-300 whitespace-pre-line">{shippingAddressText || 'Sin dirección registrada'}</p>
+            <h3 className="text-lg font-semibold text-white mb-4">{deliveryAddressLabel}</h3>
+            <p className="text-neutral-300 whitespace-pre-line">{resolvedDeliveryAddress || 'Sin dirección registrada'}</p>
           </Card>
 
           {order.tracking_number && (
