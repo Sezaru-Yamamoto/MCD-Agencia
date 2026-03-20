@@ -85,7 +85,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
     <div className="min-h-screen bg-neutral-950">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/80 z-20 lg:hidden overscroll-contain"
+          className="fixed inset-0 bg-black/80 z-20 xl:hidden overscroll-contain"
           style={{ top: 'var(--app-header-height, 4rem)' }}
           onClick={() => setSidebarOpen(false)}
         />
@@ -93,9 +93,9 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
 
       <aside
         className={cn(
-          'fixed z-30 w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain top-[var(--app-header-height,4rem)] h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-screen',
-          'right-0 border-l lg:right-auto lg:left-0 lg:border-l-0 lg:border-r lg:translate-x-0',
-          sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+          'fixed z-30 w-64 bg-neutral-900 border-neutral-800 transform transition-transform duration-300 overscroll-contain top-[var(--app-header-height,4rem)] h-[calc(100dvh-var(--app-header-height,4rem))] xl:top-0 xl:h-screen',
+          'right-0 border-l xl:right-auto xl:left-0 xl:border-l-0 xl:border-r xl:translate-x-0',
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full xl:translate-x-0'
         )}
       >
         <div className="flex flex-col h-full">
@@ -112,7 +112,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
               </div>
             </Link>
             <button
-              className="lg:hidden text-neutral-400 hover:text-white"
+              className="xl:hidden text-neutral-400 hover:text-white"
               onClick={() => setSidebarOpen(false)}
             >
               <XMarkIcon className="h-6 w-6" />
@@ -163,9 +163,9 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
 
       </aside>
 
-      <div className="lg:pl-64 pt-[var(--app-header-height,4rem)]">
+      <div className="xl:pl-64 pt-[var(--app-header-height,4rem)]">
         <div
-          className="lg:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"
+          className="xl:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"
           style={{ top: 'var(--app-header-height, 4rem)' }}
         >
           <button
