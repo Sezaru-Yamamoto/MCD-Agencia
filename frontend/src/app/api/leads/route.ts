@@ -5,6 +5,10 @@ export const maxDuration = 60;
 const REQUEST_TIMEOUT_MS = 7000;
 const MAX_BACKEND_ATTEMPTS = 2;
 
+function getPrimaryApiBase(request: NextRequest): string {
+  return `${request.nextUrl.origin.replace(/\/$/, '')}/api/v1`;
+}
+
 function normalizeApiBase(input: string): string {
   const value = input.trim().replace(/\/$/, '');
   if (!value) return '';
@@ -13,7 +17,7 @@ function normalizeApiBase(input: string): string {
 }
 
 function buildBackendCandidates(request: NextRequest): string[] {
-  const candidates: string[] = [];
+  const candidates: string[] = [getPrimaryApiBase(request)];
 
   const backendUrl = process.env.BACKEND_URL;
   const internalApiUrl = process.env.INTERNAL_API_URL;
@@ -31,8 +35,8 @@ function buildBackendCandidates(request: NextRequest): string[] {
 
   const filtered = candidates.filter((candidate) => {
     if (!candidate || seen.has(candidate)) return false;
-    // Prevent self-referential loops on Vercel (can cause 504)
-    if (candidate.startsWith(origin)) return false;
+    // Keep only /api/v1 same-origin target as primary; avoid other same-origin paths.
+    if (candidate.startsWith(origin) && candidate !== `${origin}/api/v1`) return false;
     seen.add(candidate);
     return true;
   });
@@ -200,6 +204,7 @@ export async function POST(request: NextRequest) {
 
     // Send to Django backend (try multiple configured backends)
     const backendCandidates = buildBackendCandidates(request);
+    const primaryApiBase = getPrimaryApiBase(request);
     if (backendCandidates.length === 0) {
       return NextResponse.json(
         { error: 'Configuración de backend faltante en el servidor.' },
@@ -210,7 +215,9 @@ export async function POST(request: NextRequest) {
     let response: Response | null = null;
     let lastFetchError: unknown = null;
 
-    for (const apiBase of backendCandidates) {
+    // Strict consistency rule: create quote requests only through primary API source
+    // (same source used by dashboard/solicitudes), so "enviado" is always visible there.
+    for (const apiBase of [primaryApiBase]) {
       try {
         const attempt = await fetchWithTimeout(`${apiBase}/quotes/request/`, {
           method: 'POST',
@@ -234,7 +241,7 @@ export async function POST(request: NextRequest) {
     if (!response) {
       console.error('No backend candidate reachable for /quotes/request/', lastFetchError);
 
-      const minimalQuoteSaved = await submitMinimalQuoteFallback(backendCandidates, payload);
+      const minimalQuoteSaved = await submitMinimalQuoteFallback([primaryApiBase], payload);
       if (minimalQuoteSaved) {
         return NextResponse.json(
           {
@@ -250,11 +257,9 @@ export async function POST(request: NextRequest) {
       if (fallbackSaved) {
         return NextResponse.json(
           {
-            success: true,
-            request_number: 'LEAD-FALLBACK',
-            message: 'Recibimos tu solicitud. Nuestro equipo te contactará en breve.',
+            error: 'Tu solicitud se guardó como contacto, pero no pudo registrarse en Solicitudes. Intenta de nuevo en unos minutos.',
           },
-          { status: 202 }
+          { status: 503 }
         );
       }
 
@@ -314,7 +319,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (response.status >= 500) {
-        const minimalQuoteSaved = await submitMinimalQuoteFallback(backendCandidates, payload);
+        const minimalQuoteSaved = await submitMinimalQuoteFallback([primaryApiBase], payload);
         if (minimalQuoteSaved) {
           return NextResponse.json(
             {
@@ -330,11 +335,9 @@ export async function POST(request: NextRequest) {
         if (fallbackSaved) {
           return NextResponse.json(
             {
-              success: true,
-              request_number: 'LEAD-FALLBACK',
-              message: 'Recibimos tu solicitud. Nuestro equipo te contactará en breve.',
+              error: 'Tu solicitud se guardó como contacto, pero no pudo registrarse en Solicitudes. Intenta de nuevo en unos minutos.',
             },
-            { status: 202 }
+            { status: 503 }
           );
         }
       }
