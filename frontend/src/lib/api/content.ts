@@ -299,8 +299,23 @@ export interface ClientLogoAdmin extends ClientLogo {
  * Get all client logos (admin — includes inactive).
  */
 export async function getAdminClientLogos(): Promise<ClientLogoAdmin[]> {
-  const response = await apiClient.get<{ results: ClientLogoAdmin[] } | ClientLogoAdmin[]>('/content/clients/');
-  return Array.isArray(response) ? response : response.results;
+  try {
+    const response = await apiClient.get<{ results: ClientLogoAdmin[] } | ClientLogoAdmin[]>('/content/clients/');
+    const logos = Array.isArray(response) ? response : response.results;
+    if (logos.length > 0) return logos;
+  } catch {
+    // Admin clients endpoint may be unavailable in this deployment; use landing fallback.
+  }
+
+  const landing = await getLandingPageData();
+  return (landing.clients || []).map((client, index) => ({
+    id: client.id,
+    name: client.name,
+    logo: client.logo,
+    website: client.website,
+    position: client.position ?? index,
+    is_active: true,
+  }));
 }
 
 /**

@@ -13,7 +13,7 @@ import {
   getAdminCarouselSlides, createCarouselSlideWithFile, updateCarouselSlideWithFile,
   updateCarouselSlide, deleteCarouselSlide, CarouselSlideAdmin,
   getAdminServices, syncServices, updateService, ServiceAdmin,
-  getAdminServiceImages, createServiceImage, deleteServiceImage, ServiceImageAdmin,
+  getAdminServiceImages, createServiceImage, deleteServiceImage, updateServiceImageWithFile, ServiceImageAdmin,
   getAdminPortfolioVideos, createPortfolioVideo, updatePortfolioVideo,
   deletePortfolioVideo, PortfolioVideoAdmin,
   getAdminPortfolioItems, createPortfolioItem, updatePortfolioItem,
@@ -881,6 +881,11 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
   });
 
   const isLegacyItem = (itemId: string) => itemId.startsWith('legacy-');
+  const getLegacySource = (itemId: string): { kind: 'video' | 'image'; id: string } | null => {
+    if (itemId.startsWith('legacy-video-')) return { kind: 'video', id: itemId.replace('legacy-video-', '') };
+    if (itemId.startsWith('legacy-image-')) return { kind: 'image', id: itemId.replace('legacy-image-', '') };
+    return null;
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -898,10 +903,6 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
   };
 
   const openEdit = (item: PortfolioItemAdmin) => {
-    if (isLegacyItem(item.id)) {
-      toast.error('Este elemento proviene del landing legacy. Edítalo desde su módulo original por ahora.');
-      return;
-    }
     setEditing(item);
     setMediaFile(null);
     setForm({
@@ -922,7 +923,7 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
     setMediaFile(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (form.media_type === 'image' && !mediaFile && !editing?.image) {
@@ -936,6 +937,41 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
     }
 
     if (editing) {
+      const legacy = getLegacySource(editing.id);
+      if (legacy) {
+        try {
+          if (legacy.kind === 'video') {
+            await updatePortfolioVideo(legacy.id, {
+              youtube_id: form.youtube_id || '',
+              title: form.title,
+              title_en: form.title_en,
+              orientation: form.aspect_ratio === 'portrait_reel_9_16' ? 'vertical' : 'horizontal',
+              position: form.position,
+              is_active: form.is_active,
+            });
+          } else {
+            await updateServiceImageWithFile(
+              legacy.id,
+              {
+                alt_text: form.title,
+                alt_text_en: form.title_en,
+                display_format: form.aspect_ratio === 'portrait_reel_9_16' ? 'reel' : 'landscape',
+                position: form.position,
+                is_active: form.is_active,
+              } as Partial<ServiceImageAdmin>,
+              mediaFile || undefined,
+            );
+          }
+          toast.success('Trabajo actualizado');
+          queryClient.invalidateQueries({ queryKey: ['admin-portfolio-items'] });
+          closeModal();
+          return;
+        } catch (err) {
+          toast.error(getApiErrorMessage(err, 'Error al actualizar trabajo legacy'));
+          return;
+        }
+      }
+
       updateMut.mutate({
         id: editing.id,
         data: form,
@@ -955,11 +991,26 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
     }
   };
 
-  const toggleActive = (item: PortfolioItemAdmin) => {
-    if (isLegacyItem(item.id)) {
-      toast.error('Este elemento proviene del landing legacy. Actívalo/ocúltalo desde su módulo original.');
-      return;
+  const toggleActive = async (item: PortfolioItemAdmin) => {
+    const legacy = getLegacySource(item.id);
+    if (legacy) {
+      try {
+        if (legacy.kind === 'video') {
+          await updatePortfolioVideo(legacy.id, { is_active: !item.is_active });
+        } else {
+          await updateServiceImageWithFile(
+            legacy.id,
+            { is_active: !item.is_active } as Partial<ServiceImageAdmin>,
+          );
+        }
+        queryClient.invalidateQueries({ queryKey: ['admin-portfolio-items'] });
+        return;
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Error al actualizar estado legacy'));
+        return;
+      }
     }
+
     updateMut.mutate({
       id: item.id,
       data: { is_active: !item.is_active },
@@ -1035,12 +1086,26 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      if (isLegacyItem(item.id)) {
-                        toast.error('Este elemento proviene del landing legacy. Elimínalo desde su módulo original.');
+                    onClick={async () => {
+                      if (!confirm('¿Eliminar?')) return;
+
+                      const legacy = getLegacySource(item.id);
+                      if (legacy) {
+                        try {
+                          if (legacy.kind === 'video') {
+                            await deletePortfolioVideo(legacy.id);
+                          } else {
+                            await deleteServiceImage(legacy.id);
+                          }
+                          toast.success('Trabajo eliminado');
+                          queryClient.invalidateQueries({ queryKey: ['admin-portfolio-items'] });
+                        } catch (err) {
+                          toast.error(getApiErrorMessage(err, 'Error al eliminar trabajo legacy'));
+                        }
                         return;
                       }
-                      if (confirm('¿Eliminar?')) deleteMut.mutate(item.id);
+
+                      deleteMut.mutate(item.id);
                     }}
                   >
                     <TrashIcon className="h-5 w-5 text-red-400" />
