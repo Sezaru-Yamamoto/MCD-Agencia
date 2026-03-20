@@ -499,9 +499,9 @@ export default function QuoteViewPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="xl:col-span-2 space-y-4">
             {/* Customer Info */}
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Tus datos</h3>
@@ -1488,7 +1488,7 @@ export default function QuoteViewPage() {
           <div>
             <div className="space-y-4">
               {/* Sticky Actions */}
-              <div className="lg:sticky lg:top-20 z-10">
+              <div className="xl:sticky xl:top-20 z-10">
                 <Card className="p-4">
                   <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
                   <div className="space-y-2">
