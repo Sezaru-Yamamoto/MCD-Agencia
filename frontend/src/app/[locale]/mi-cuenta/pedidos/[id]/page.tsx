@@ -108,11 +108,6 @@ export default function OrderDetailPage() {
       setIsPaying(false);
     }
   };
-      toast.error(err.message || 'No se pudo iniciar el pago');
-    } finally {
-      setIsPaying(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
