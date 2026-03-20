@@ -64,6 +64,7 @@ export default function CustomerQuoteDetailPage() {
   const router = useRouter();
   const locale = useLocale();
   const quoteId = params.id as string;
+  const isMountedRef = useRef(true);
 
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [responseAction, setResponseAction] = useState<'accept' | 'reject' | null>(null);
@@ -101,6 +102,13 @@ export default function CustomerQuoteDetailPage() {
 
   // Portal target for rendering Historial in the layout sidebar
   const [sidebarPortal, setSidebarPortal] = useState<HTMLElement | null>(null);
+  
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  
   useEffect(() => {
     const el = document.getElementById('sidebar-extra');
     if (el) setSidebarPortal(el);
@@ -158,6 +166,9 @@ export default function CustomerQuoteDetailPage() {
     setIsSubmitting(true);
     try {
       const accepted = await acceptQuote(quote.id, responseComment, signatureData, signatureName);
+      
+      if (!isMountedRef.current) return;
+      
       setResponseAction(null);
       setResponseComment('');
       toast.success('¡Cotización aceptada exitosamente!');
@@ -167,11 +178,15 @@ export default function CustomerQuoteDetailPage() {
       }
       refetch();
     } catch (error) {
+      if (!isMountedRef.current) return;
+      
       const err = error as { message?: string; response?: { data?: { error?: string } } };
       const errorMessage = err.response?.data?.error || err.message || 'Error al aceptar la cotización';
       toast.error(errorMessage);
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) {
+        setIsSubmitting(false);
+      }
     }
   };
 

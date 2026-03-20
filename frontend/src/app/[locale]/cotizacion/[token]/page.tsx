@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
@@ -65,6 +65,7 @@ export default function QuoteViewPage() {
   const token = params.token as string;
   const locale = useLocale();
   const { isAuthenticated, user } = useAuth();
+  const isMountedRef = useRef(true);
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +97,12 @@ export default function QuoteViewPage() {
   };
 
   // Lock body scroll when change editor modal is open
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (showChangeEditor) {
       document.body.style.overflow = 'hidden';
@@ -288,16 +295,21 @@ export default function QuoteViewPage() {
     setIsSubmitting(true);
     try {
       const accepted = await acceptQuote(quote.id, responseComment, signatureData, signatureName);
+      
+      if (!isMountedRef.current) return;
+      
       setResponseAction(null);
       toast.success('¡Cotización aceptada!');
-      setTimeout(() => {
-        if (accepted.order_id) {
-          router.push(`/${locale}/mi-cuenta/pedidos/${accepted.order_id}`);
-        } else {
-          router.push(`/${locale}/mi-cuenta/cotizaciones`);
-        }
-      }, 1000);
+      
+      // Redirect immediately without setTimeout to avoid component unmount issues
+      if (accepted.order_id) {
+        router.push(`/${locale}/mi-cuenta/pedidos/${accepted.order_id}`);
+      } else {
+        router.push(`/${locale}/mi-cuenta/cotizaciones`);
+      }
     } catch (error) {
+      if (!isMountedRef.current) return;
+      
       const err = error as { message?: string; response?: { data?: { error?: string } } };
       const errorMessage = err.response?.data?.error || err.message || 'Error al aceptar la cotización';
       toast.error(errorMessage);
@@ -314,10 +326,15 @@ export default function QuoteViewPage() {
     setIsSubmitting(true);
     try {
       await rejectQuoteByToken(token, responseComment);
+      
+      if (!isMountedRef.current) return;
+      
       setResponseAction(null);
       toast.success('Cotización rechazada. Gracias por tu respuesta.');
-      window.location.reload();
+      router.push(`/${locale}`);
     } catch (error) {
+      if (!isMountedRef.current) return;
+      
       const err = error as { message?: string };
       toast.error(err.message || 'Error al rechazar la cotización');
       setIsSubmitting(false);
