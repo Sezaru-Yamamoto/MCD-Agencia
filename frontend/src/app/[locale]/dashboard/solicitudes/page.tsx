@@ -31,7 +31,19 @@ import {
   QuoteRequestStatus,
   UrgencyLevel,
 } from '@/lib/api/quotes';
+import { apiClient } from '@/lib/api/client';
 import { PaginatedResponse } from '@/lib/api/catalog';
+
+interface ContingencyLead {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  source?: string;
+  status?: string;
+  created_at: string;
+}
 
 const statusColors: Record<QuoteRequestStatus, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400',
@@ -92,6 +104,7 @@ export default function QuoteRequestsListPage() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [contingencyLeads, setContingencyLeads] = useState<ContingencyLead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
@@ -149,9 +162,18 @@ export default function QuoteRequestsListPage() {
         totalPages: response.total_pages || Math.ceil((response.count || 0) / 10),
         totalCount: response.count || 0,
       });
+
+      try {
+        const leadsResponse = await apiClient.get<PaginatedResponse<ContingencyLead>>('/chatbot/leads/', { page: 1 });
+        const leads = leadsResponse.results || [];
+        setContingencyLeads(leads.slice(0, 8));
+      } catch {
+        setContingencyLeads([]);
+      }
     } catch (error) {
       console.error('Error fetching quote requests:', error);
       setRequests([]);
+      setContingencyLeads([]);
     } finally {
       setIsLoading(false);
     }
@@ -605,6 +627,24 @@ export default function QuoteRequestsListPage() {
                   onPageChange={(page) => fetchRequests(page)}
                 />
               </div>
+            )}
+
+            {/* Contingency leads shown when quote creation is degraded */}
+            {!isLoading && contingencyLeads.length > 0 && (
+              <Card className="mt-6 p-4">
+                <h3 className="text-white font-semibold mb-2">Registros de contingencia</h3>
+                <p className="text-neutral-400 text-sm mb-3">
+                  Estas entradas se recibieron por el canal alterno cuando Solicitudes tuvo intermitencias.
+                </p>
+                <div className="space-y-2">
+                  {contingencyLeads.map((lead) => (
+                    <div key={lead.id} className="rounded-lg border border-neutral-800 p-3">
+                      <p className="text-white text-sm font-medium">{lead.name} · {lead.email}</p>
+                      <p className="text-neutral-500 text-xs">{formatDate(lead.created_at)} · Fuente: {lead.source || 'n/a'}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             )}
 
           </>
