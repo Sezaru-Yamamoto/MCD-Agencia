@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import {
-  PlusIcon,
   MagnifyingGlassIcon,
   EyeIcon,
   PencilIcon,
@@ -15,104 +15,16 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, Button, LoadingPage } from '@/components/ui';
-
-// Types
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company?: string;
-  address?: string;
-  city?: string;
-  total_orders: number;
-  total_quotes: number;
-  total_spent: number;
-  last_order_date?: string;
-  created_at: string;
-}
-
-// Mock data
-const mockClients: Client[] = [
-  {
-    id: '1',
-    name: 'Juan Pérez',
-    email: 'juan@example.com',
-    phone: '+52 55 1234 5678',
-    company: 'Empresa ABC',
-    address: 'Av. Reforma 123',
-    city: 'Ciudad de México',
-    total_orders: 5,
-    total_quotes: 8,
-    total_spent: 45000,
-    last_order_date: '2024-01-15T10:00:00Z',
-    created_at: '2023-06-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'María García',
-    email: 'maria@example.com',
-    phone: '+52 55 8765 4321',
-    company: 'Distribuidora XYZ',
-    address: 'Calle Principal 456',
-    city: 'Guadalajara',
-    total_orders: 12,
-    total_quotes: 15,
-    total_spent: 120000,
-    last_order_date: '2024-01-16T14:30:00Z',
-    created_at: '2023-03-10T09:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'Carlos López',
-    email: 'carlos@example.com',
-    phone: '+52 81 2345 6789',
-    address: 'Av. Constitución 789',
-    city: 'Monterrey',
-    total_orders: 3,
-    total_quotes: 5,
-    total_spent: 28000,
-    last_order_date: '2024-01-10T16:45:00Z',
-    created_at: '2023-09-20T14:00:00Z',
-  },
-  {
-    id: '4',
-    name: 'Ana Martínez',
-    email: 'ana@example.com',
-    phone: '+52 33 9876 5432',
-    company: 'Publicidad Creativa',
-    address: 'Blvd. Independencia 321',
-    city: 'Querétaro',
-    total_orders: 8,
-    total_quotes: 10,
-    total_spent: 85000,
-    last_order_date: '2024-01-14T11:20:00Z',
-    created_at: '2023-04-05T08:30:00Z',
-  },
-  {
-    id: '5',
-    name: 'Roberto Sánchez',
-    email: 'roberto@example.com',
-    phone: '+52 55 5555 1234',
-    company: 'Eventos del Valle',
-    address: 'Calle Morelos 567',
-    city: 'Puebla',
-    total_orders: 2,
-    total_quotes: 4,
-    total_spent: 15000,
-    created_at: '2023-11-12T10:45:00Z',
-  },
-];
+import { Card, Button, LoadingPage, Pagination } from '@/components/ui';
+import { getAdminClients, type AdminClient } from '@/lib/api/admin';
 
 export default function ClientsListPage() {
   const router = useRouter();
   const locale = useLocale();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const [clients, setClients] = useState<Client[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
 
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
 
@@ -126,19 +38,14 @@ export default function ClientsListPage() {
     }
   }, [authLoading, isAuthenticated, isSalesOrAdmin, router, locale]);
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      setIsLoading(true);
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setClients(mockClients);
-      setIsLoading(false);
-    };
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-clients', searchTerm, page],
+    queryFn: () => getAdminClients({ search: searchTerm || undefined, page }),
+    enabled: isAuthenticated && Boolean(isSalesOrAdmin),
+  });
 
-    if (isAuthenticated && isSalesOrAdmin) {
-      fetchClients();
-    }
-  }, [isAuthenticated, isSalesOrAdmin]);
+  const clients = data?.results || [];
+  const totalPages = data?.total_pages || Math.ceil((data?.count || 0) / 10);
 
   if (authLoading) {
     return <LoadingPage message="Cargando..." />;
@@ -148,21 +55,11 @@ export default function ClientsListPage() {
     return null;
   }
 
-  const filteredClients = clients.filter(client => {
-    const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm) ||
-      (client.company?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-
-    return matchesSearch;
-  });
-
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'MXN',
-    }).format(amount);
+    }).format(Number(amount || 0));
   };
 
   const formatDate = (dateString: string) => {
@@ -174,10 +71,11 @@ export default function ClientsListPage() {
   };
 
   // Stats
-  const totalClients = clients.length;
+  const totalClients = data?.count || clients.length;
   const activeClients = clients.filter(c => c.total_orders > 0).length;
-  const totalRevenue = clients.reduce((sum, c) => sum + c.total_spent, 0);
-  const avgOrderValue = totalRevenue / clients.reduce((sum, c) => sum + c.total_orders, 0) || 0;
+  const totalRevenue = clients.reduce((sum, c) => sum + Number(c.total_spent || 0), 0);
+  const totalOrders = clients.reduce((sum, c) => sum + Number(c.total_orders || 0), 0);
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   return (
     <div>
@@ -189,9 +87,6 @@ export default function ClientsListPage() {
               Gestiona tus clientes y su información
             </p>
           </div>
-          <Button className="mt-4 sm:mt-0" leftIcon={<PlusIcon className="h-5 w-5" />}>
-            Nuevo Cliente
-          </Button>
         </div>
 
         {/* Stats */}
@@ -222,7 +117,10 @@ export default function ClientsListPage() {
               type="text"
               placeholder="Buscar por nombre, email, teléfono o empresa..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
             />
           </div>
@@ -234,12 +132,15 @@ export default function ClientsListPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cmyk-cyan mx-auto"></div>
             <p className="mt-4 text-neutral-400">Cargando clientes...</p>
           </Card>
-        ) : filteredClients.length === 0 ? (
+        ) : clients.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-neutral-400">No se encontraron clientes</p>
             {searchTerm && (
               <button
-                onClick={() => setSearchTerm('')}
+                onClick={() => {
+                  setSearchTerm('');
+                  setPage(1);
+                }}
                 className="mt-2 text-cyan-400 hover:text-cyan-300"
               >
                 Limpiar búsqueda
@@ -247,8 +148,9 @@ export default function ClientsListPage() {
             )}
           </Card>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredClients.map((client) => (
+            {clients.map((client: AdminClient) => (
               <Card key={client.id} className="p-6 hover:border-cmyk-cyan/50 transition-colors">
                 {/* Client Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -334,6 +236,14 @@ export default function ClientsListPage() {
               </Card>
             ))}
           </div>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          )}
+          </>
         )}
     </div>
   );

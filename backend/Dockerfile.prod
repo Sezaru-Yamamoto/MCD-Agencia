@@ -95,4 +95,5 @@ USER appuser
 EXPOSE 8000
 
 # Production command with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "config.wsgi:application"]
+# Keep concurrency conservative for 512MB Fly machines to prevent OOM worker kills.
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "2", "--timeout", "120", "config.wsgi:application"]

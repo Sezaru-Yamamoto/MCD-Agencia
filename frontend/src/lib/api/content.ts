@@ -148,6 +148,7 @@ export interface LandingPageData {
   faqs: FAQ[];
   branches: Branch[];
   portfolio_videos: PortfolioVideo[];
+  portfolio_items: PortfolioItem[];
   config: SiteConfig;
 }
 
@@ -167,6 +168,7 @@ export interface ServiceImage {
   alt_text: string;
   alt_text_en: string;
   subtype_key: string;
+  display_format: 'landscape' | 'reel';
   position: number;
 }
 
@@ -188,6 +190,24 @@ export interface PortfolioVideo {
 
 export interface PortfolioVideoAdmin extends PortfolioVideo {
   is_active: boolean;
+}
+
+// ── Portfolio Item (unified image + video gallery) ─────────────────────
+export interface PortfolioItem {
+  id: string;
+  media_type: 'image' | 'video';
+  image?: string; // For image type
+  youtube_id?: string; // For video type
+  title: string;
+  title_en: string;
+  aspect_ratio: 'landscape_16_9' | 'portrait_reel_9_16';
+  position: number;
+}
+
+export interface PortfolioItemAdmin extends PortfolioItem {
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // API Functions
@@ -454,6 +474,7 @@ export async function createServiceImage(data: {
   alt_text?: string;
   alt_text_en?: string;
   subtype_key?: string;
+  display_format?: 'landscape' | 'reel';
   position?: number;
 }): Promise<ServiceImageAdmin> {
   const formData = new FormData();
@@ -462,6 +483,7 @@ export async function createServiceImage(data: {
   if (data.alt_text) formData.append('alt_text', data.alt_text);
   if (data.alt_text_en) formData.append('alt_text_en', data.alt_text_en);
   if (data.subtype_key) formData.append('subtype_key', data.subtype_key);
+  formData.append('display_format', data.display_format || 'landscape');
   formData.append('position', String(data.position ?? 0));
   formData.append('is_active', 'true');
   return apiClient.upload<ServiceImageAdmin>('/content/service-images/', formData);
@@ -475,6 +497,26 @@ export async function updateServiceImage(
   data: Partial<ServiceImageAdmin>
 ): Promise<ServiceImageAdmin> {
   return apiClient.patch<ServiceImageAdmin>(`/content/service-images/${id}/`, data);
+}
+
+export async function updateServiceImageWithFile(
+  id: string,
+  data: Partial<ServiceImageAdmin>,
+  imageFile?: File,
+): Promise<ServiceImageAdmin> {
+  if (!imageFile) {
+    return updateServiceImage(id, data);
+  }
+
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+  formData.append('image', imageFile);
+
+  return apiClient.uploadPatch<ServiceImageAdmin>(`/content/service-images/${id}/`, formData);
 }
 
 /**
@@ -532,6 +574,89 @@ export async function updatePortfolioVideo(
  */
 export async function deletePortfolioVideo(id: string): Promise<void> {
   return apiClient.delete(`/content/portfolio-videos/${id}/`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Portfolio Items (Unified Image + Video Gallery)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get portfolio items (public).
+ */
+export async function getPortfolioItems(): Promise<PortfolioItem[]> {
+  const response = await apiClient.get<{ results: PortfolioItem[] } | PortfolioItem[]>(
+    '/content/portfolio-items/'
+  );
+  return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Get portfolio items (admin — includes inactive).
+ */
+export async function getAdminPortfolioItems(): Promise<PortfolioItemAdmin[]> {
+  const response = await apiClient.get<{ results: PortfolioItemAdmin[] } | PortfolioItemAdmin[]>(
+    '/content/portfolio-items/'
+  );
+  return Array.isArray(response) ? response : response.results;
+}
+
+/**
+ * Create portfolio item with media file upload (admin).
+ */
+export async function createPortfolioItem(data: {
+  media_type: 'image' | 'video';
+  image?: File; // For image type
+  youtube_id?: string; // For video type
+  title?: string;
+  title_en?: string;
+  aspect_ratio: 'landscape_16_9' | 'portrait_reel_9_16';
+  position?: number;
+  is_active?: boolean;
+}): Promise<PortfolioItemAdmin> {
+  const formData = new FormData();
+  formData.append('media_type', data.media_type);
+  if (data.image) formData.append('image', data.image);
+  if (data.youtube_id) formData.append('youtube_id', data.youtube_id);
+  if (data.title) formData.append('title', data.title);
+  if (data.title_en) formData.append('title_en', data.title_en);
+  formData.append('aspect_ratio', data.aspect_ratio);
+  formData.append('position', String(data.position ?? 0));
+  formData.append('is_active', String(data.is_active ?? true));
+  return apiClient.upload<PortfolioItemAdmin>('/content/portfolio-items/', formData);
+}
+
+/**
+ * Update portfolio item with optional media file (admin).
+ */
+export async function updatePortfolioItem(
+  id: string,
+  data: Partial<PortfolioItemAdmin>,
+  mediaFile?: File,
+): Promise<PortfolioItemAdmin> {
+  if (!mediaFile) {
+    return apiClient.patch<PortfolioItemAdmin>(`/content/portfolio-items/${id}/`, data);
+  }
+
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && key !== 'image' && key !== 'youtube_id') {
+      formData.append(key, String(value));
+    }
+  });
+  if (mediaFile) {
+    if (data.media_type === 'image') {
+      formData.append('image', mediaFile);
+    }
+  }
+
+  return apiClient.uploadPatch<PortfolioItemAdmin>(`/content/portfolio-items/${id}/`, formData);
+}
+
+/**
+ * Delete portfolio item (admin).
+ */
+export async function deletePortfolioItem(id: string): Promise<void> {
+  return apiClient.delete(`/content/portfolio-items/${id}/`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

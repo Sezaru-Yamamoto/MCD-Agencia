@@ -16,6 +16,8 @@ import {
   getAdminServiceImages, createServiceImage, deleteServiceImage, ServiceImageAdmin,
   getAdminPortfolioVideos, createPortfolioVideo, updatePortfolioVideo,
   deletePortfolioVideo, PortfolioVideoAdmin,
+  getAdminPortfolioItems, createPortfolioItem, updatePortfolioItem,
+  deletePortfolioItem, PortfolioItemAdmin,
   getAdminClientLogos, createClientLogo, updateClientLogo, deleteClientLogo, ClientLogoAdmin,
 } from '@/lib/api/content';
 import { Card, Button, Input, Textarea, Modal, Badge, LoadingPage } from '@/components/ui';
@@ -50,8 +52,6 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
-
-type ContentTab = 'carousel' | 'services' | 'videos' | 'clients';
 
 // ═══════════════════════════════════════════════════════════════════════════
 function ImageUploadInput({ label, required, hint, currentUrl, onChange }: {
@@ -98,6 +98,8 @@ function ImageUploadInput({ label, required, hint, currentUrl, onChange }: {
   );
 }
 
+type ContentTab = 'carousel' | 'portfolio' | 'clients';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -106,16 +108,14 @@ export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState<ContentTab>('carousel');
 
   const { data: slides = [], isLoading: l1 } = useQuery({ queryKey: ['admin-carousel'], queryFn: getAdminCarouselSlides });
-  const { data: services = [], isLoading: l2 } = useQuery({ queryKey: ['admin-services'], queryFn: getAdminServices });
-  const { data: videos = [], isLoading: l3 } = useQuery({ queryKey: ['admin-portfolio-videos'], queryFn: getAdminPortfolioVideos });
-  const { data: clientLogos = [], isLoading: l4 } = useQuery({ queryKey: ['admin-client-logos'], queryFn: getAdminClientLogos });
+  const { data: portfolios = [], isLoading: l2 } = useQuery({ queryKey: ['admin-portfolio-items'], queryFn: getAdminPortfolioItems });
+  const { data: clientLogos = [], isLoading: l3 } = useQuery({ queryKey: ['admin-client-logos'], queryFn: getAdminClientLogos });
 
-  if (l1 || l2 || l3 || l4) return <LoadingPage message="Cargando contenido..." />;
+  if (l1 || l2 || l3) return <LoadingPage message="Cargando contenido..." />;
 
   const tabs: { id: ContentTab; label: string; count: number }[] = [
     { id: 'carousel', label: '🖼️ Hero Carrusel', count: slides.length },
-    { id: 'services', label: '🔧 Servicios', count: services.length },
-    { id: 'videos', label: '🎬 Videos Portafolio', count: videos.length },
+    { id: 'portfolio', label: '📷 Trabajos que hablan por nosotros', count: portfolios.length },
     { id: 'clients', label: '🏢 Logos Clientes', count: clientLogos.length },
   ];
 
@@ -123,7 +123,7 @@ export default function AdminContentPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Contenido del Landing</h1>
-        <p className="text-neutral-400 text-sm">Gestiona imágenes del carrusel, servicios, videos del portafolio y logos de clientes</p>
+        <p className="text-neutral-400 text-sm">Gestiona Hero Carrusel, Trabajos (imágenes y videos unificados) y Logos de Clientes</p>
       </div>
 
       {/* Info banner */}
@@ -144,8 +144,7 @@ export default function AdminContentPage() {
       </div>
 
       {activeTab === 'carousel' && <CarouselTab slides={slides} queryClient={queryClient} />}
-      {activeTab === 'services' && <ServicesTab services={services} queryClient={queryClient} />}
-      {activeTab === 'videos' && <VideosTab videos={videos} queryClient={queryClient} />}
+      {activeTab === 'portfolio' && <PortfolioTab portfolios={portfolios} queryClient={queryClient} />}
       {activeTab === 'clients' && <ClientLogosTab logos={clientLogos} queryClient={queryClient} />}
     </div>
   );
@@ -819,6 +818,270 @@ function ClientLogosTab({ logos, queryClient }: { logos: ClientLogoAdmin[]; quer
             <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>
               {editing ? 'Guardar' : 'Agregar'}
             </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PORTFOLIO TAB — Unified image + video gallery "Trabajos que hablan por nosotros"
+// ═══════════════════════════════════════════════════════════════════════════
+function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAdmin[]; queryClient: ReturnType<typeof useQueryClient> }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<PortfolioItemAdmin | null>(null);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [form, setForm] = useState<{
+    media_type: 'image' | 'video';
+    youtube_id?: string;
+    title: string;
+    title_en: string;
+    aspect_ratio: 'landscape_16_9' | 'portrait_reel_9_16';
+    position: number;
+    is_active: boolean;
+  }>({
+    media_type: 'image',
+    youtube_id: '',
+    title: '',
+    title_en: '',
+    aspect_ratio: 'landscape_16_9',
+    position: 0,
+    is_active: true,
+  });
+
+  const createMut = useMutation({
+    mutationFn: createPortfolioItem,
+    onSuccess: () => {
+      toast.success('Trabajo agregado');
+      queryClient.invalidateQueries({ queryKey: ['admin-portfolio-items'] });
+      closeModal();
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al crear')),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data, file }: { id: string; data: Partial<PortfolioItemAdmin>; file?: File }) =>
+      updatePortfolioItem(id, data, file),
+    onSuccess: () => {
+      toast.success('Trabajo actualizado');
+      queryClient.invalidateQueries({ queryKey: ['admin-portfolio-items'] });
+      closeModal();
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al actualizar')),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: deletePortfolioItem,
+    onSuccess: () => {
+      toast.success('Trabajo eliminado');
+      queryClient.invalidateQueries({ queryKey: ['admin-portfolio-items'] });
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
+  });
+
+  const openCreate = () => {
+    setEditing(null);
+    setMediaFile(null);
+    setForm({
+      media_type: 'image',
+      youtube_id: '',
+      title: '',
+      title_en: '',
+      aspect_ratio: 'landscape_16_9',
+      position: portfolios.length,
+      is_active: true,
+    });
+    setShowModal(true);
+  };
+
+  const openEdit = (item: PortfolioItemAdmin) => {
+    setEditing(item);
+    setMediaFile(null);
+    setForm({
+      media_type: item.media_type,
+      youtube_id: item.youtube_id || '',
+      title: item.title,
+      title_en: item.title_en,
+      aspect_ratio: item.aspect_ratio,
+      position: item.position,
+      is_active: item.is_active,
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditing(null);
+    setMediaFile(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (form.media_type === 'image' && !mediaFile && !editing?.image) {
+      toast.error('Debes seleccionar una imagen');
+      return;
+    }
+
+    if (form.media_type === 'video' && !form.youtube_id) {
+      toast.error('YouTube ID es requerido para videos');
+      return;
+    }
+
+    if (editing) {
+      updateMut.mutate({
+        id: editing.id,
+        data: form,
+        file: mediaFile || undefined,
+      });
+    } else {
+      createMut.mutate({
+        media_type: form.media_type,
+        youtube_id: form.media_type === 'video' ? form.youtube_id : undefined,
+        title: form.title,
+        title_en: form.title_en,
+        aspect_ratio: form.aspect_ratio,
+        position: form.position,
+        is_active: form.is_active,
+        image: form.media_type === 'image' ? mediaFile || undefined : undefined,
+      } as any);
+    }
+  };
+
+  const toggleActive = (item: PortfolioItemAdmin) => {
+    updateMut.mutate({
+      id: item.id,
+      data: { is_active: !item.is_active },
+    });
+  };
+
+  const sorted = [...portfolios].sort((a, b) => a.position - b.position);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <p className="text-sm text-neutral-400">Galería unificada de imágenes y videos para &quot;Trabajos que hablan por nosotros&quot;.</p>
+          <p className="text-xs text-neutral-500 mt-1">
+            Mezcla imágenes (16:9 landscape o 9:16 reel) con videos de YouTube. Las transiciones en el landing serán suaves.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="gap-2">
+          <PlusIcon className="h-4 w-4" /> Agregar
+        </Button>
+      </div>
+
+      {sorted.length === 0 ? (
+        <Card className="text-center py-12">
+          <PhotoIcon className="h-12 w-12 mx-auto text-neutral-600 mb-4" />
+          <p className="text-neutral-400">Sin trabajos aún. ¡Comienza agregando tus primeros trabajos!</p>
+        </Card>
+      ) : (
+        <div className="grid gap-3">
+          {sorted.map((item) => (
+            <Card key={item.id} className="p-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                <div className="w-20 h-14 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0 border border-neutral-700">
+                  {item.media_type === 'image' && item.image ? (
+                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                  ) : item.media_type === 'video' ? (
+                    <div className="w-full h-full flex items-center justify-center bg-neutral-700">
+                      <FilmIcon className="h-6 w-6 text-cyan-400" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <PhotoIcon className="h-6 w-6 text-neutral-600" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                    <Badge variant={item.media_type === 'image' ? 'success' : 'cyan'}>
+                      {item.media_type === 'image' ? '🖼️ Imagen' : '🎥 Video'}
+                    </Badge>
+                    <Badge variant={item.is_active ? 'success' : 'default'}>
+                      {item.is_active ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                    <Badge variant="default">
+                      {item.aspect_ratio === 'landscape_16_9' ? '16:9 Land' : '9:16 Reel'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-white font-medium truncate">{item.title || '(Sin título)'}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">Pos: {item.position}</p>
+                </div>
+
+                <div className="flex items-center gap-1 w-full sm:w-auto justify-end border-t sm:border-t-0 border-neutral-800 pt-2 sm:pt-0 mt-1 sm:mt-0">
+                  <Button variant="ghost" size="sm" onClick={() => toggleActive(item)}>
+                    {item.is_active ? <EyeIcon className="h-5 w-5" /> : <EyeSlashIcon className="h-5 w-5" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+                    <PencilIcon className="h-5 w-5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar?')) deleteMut.mutate(item.id); }}>
+                    <TrashIcon className="h-5 w-5 text-red-400" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={showModal} onClose={closeModal} title={editing ? 'Editar Trabajo' : 'Agregar Trabajo'} size="lg">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">Tipo <span className="text-red-400">*</span></label>
+            <div className="flex gap-4">
+              <button type="button" onClick={() => setForm((f) => ({ ...f, media_type: 'image' }))}
+                className={cn('flex-1 px-4 py-3 rounded-lg border-2 transition-all',
+                  form.media_type === 'image' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-neutral-700 bg-neutral-800 text-neutral-400')}>
+                <PhotoIcon className="h-5 w-5 inline mr-2" />
+                Imagen
+              </button>
+              <button type="button" onClick={() => setForm((f) => ({ ...f, media_type: 'video' }))}
+                className={cn('flex-1 px-4 py-3 rounded-lg border-2 transition-all',
+                  form.media_type === 'video' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-neutral-700 bg-neutral-800 text-neutral-400')}>
+                <FilmIcon className="h-5 w-5 inline mr-2" />
+                Video
+              </button>
+            </div>
+          </div>
+
+          {form.media_type === 'image' && (
+            <ImageUploadInput label="Imagen" required={!editing} hint="Máx 5 MB." currentUrl={editing?.image} onChange={setMediaFile} />
+          )}
+
+          {form.media_type === 'video' && (
+            <Input label="YouTube ID" placeholder="e.g., sqOb-gSSQq8" value={form.youtube_id || ''} onChange={(e) => setForm((f) => ({ ...f, youtube_id: e.target.value }))} required />
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Título (ES)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+            <Input label="Título (EN)" value={form.title_en} onChange={(e) => setForm((f) => ({ ...f, title_en: e.target.value }))} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">Formato <span className="text-red-400">*</span></label>
+            <select value={form.aspect_ratio} onChange={(e) => setForm((f) => ({ ...f, aspect_ratio: e.target.value as any }))}
+              className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm">
+              <option value="landscape_16_9">📺 Landscape 16:9</option>
+              <option value="portrait_reel_9_16">📱 Portrait Reel 9:16</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input type="number" label="Posición" value={form.position.toString()} onChange={(e) => setForm((f) => ({ ...f, position: parseInt(e.target.value) || 0 }))} />
+            <div className="flex items-center gap-2 pt-8">
+              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="rounded border-neutral-700 bg-neutral-800 text-cyan-500" />
+              <label className="text-sm text-white">Activo</label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={closeModal}>Cancelar</Button>
+            <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>{editing ? 'Guardar' : 'Agregar'}</Button>
           </div>
         </form>
       </Modal>

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { trackCTA } from '@/lib/tracking';
-import { getLandingPageData, getPortfolioVideos, type PortfolioVideo } from '@/lib/api/content';
+import { getLandingPageData, getPortfolioVideos, type PortfolioVideo, type PortfolioItem as APIPortfolioItem } from '@/lib/api/content';
 
 /**
  * =============================================
@@ -178,6 +178,9 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
   const prevIdx = (currentIndex - 1 + items.length) % items.length;
   const nextIdx = (currentIndex + 1) % items.length;
 
+  const currentItem = items[currentIndex];
+  const isReel = currentItem?.orientation === 'vertical';
+
   return (
     <div
       className="relative flex items-center justify-center w-full overflow-hidden py-4"
@@ -189,7 +192,7 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
       {/* Previous item */}
       {items.length > 1 && (
         <div
-          className="absolute left-0 sm:left-[2%] md:left-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] aspect-[9/16] sm:aspect-[3/4] opacity-40 scale-[0.85] blur-[1px] transition-all duration-500 cursor-pointer hover:opacity-60"
+          className={`absolute left-0 sm:left-[2%] md:left-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] ${isReel ? 'aspect-[9/16] sm:aspect-[3/4]' : 'aspect-video'} opacity-40 scale-[0.85] blur-[1px] transition-all duration-1000 cursor-pointer hover:opacity-60`}
           onClick={() => onIndexChange(prevIdx)}
         >
           {renderItem(items[prevIdx], false)}
@@ -197,14 +200,14 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
       )}
 
       {/* Center (active) item */}
-      <div className="relative z-10 w-[65%] sm:w-[50%] md:w-[40%] lg:w-[35%] aspect-[9/16] sm:aspect-[3/4] transition-all duration-500 transform">
+      <div className={`relative z-10 ${isReel ? 'w-[65%] sm:w-[50%] md:w-[40%] lg:w-[35%] aspect-[9/16] sm:aspect-[3/4]' : 'w-[85%] sm:w-[75%] md:w-[65%] lg:w-[60%] aspect-video'} transition-all duration-1000 transform`}>
         {renderItem(items[currentIndex], true)}
       </div>
 
       {/* Next item */}
       {items.length > 1 && (
         <div
-          className="absolute right-0 sm:right-[2%] md:right-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] aspect-[9/16] sm:aspect-[3/4] opacity-40 scale-[0.85] blur-[1px] transition-all duration-500 cursor-pointer hover:opacity-60"
+          className={`absolute right-0 sm:right-[2%] md:right-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] ${isReel ? 'aspect-[9/16] sm:aspect-[3/4]' : 'aspect-video'} opacity-40 scale-[0.85] blur-[1px] transition-all duration-1000 cursor-pointer hover:opacity-60`}
           onClick={() => onIndexChange(nextIdx)}
         >
           {renderItem(items[nextIdx], false)}
@@ -260,26 +263,59 @@ export function Portfolio() {
 
   const managedImageItems: PortfolioItem[] = useMemo(() => {
     const uniqueUrls = new Set<string>();
-    const fromServices: PortfolioItem[] = [];
+    const allItems: PortfolioItem[] = [];
 
-    (landingData?.services || []).forEach((service, serviceIndex) => {
-      (service.carousel_images || []).forEach((img, imgIndex) => {
-        if (!img.image || uniqueUrls.has(img.image)) return;
-        uniqueUrls.add(img.image);
-        fromServices.push({
-          id: `svc-${service.id}-${img.id || `${serviceIndex}-${imgIndex}`}`,
-          type: 'image',
-          imageUrl: img.image,
-          label: service.name || `Proyecto ${fromServices.length + 1}`,
+    // First: Add new unified portfolio_items (prioritized)
+    (landingData?.portfolio_items || []).forEach((apiItem, index) => {
+      if (apiItem.media_type === 'image' && apiItem.image) {
+        if (!uniqueUrls.has(apiItem.image)) {
+          uniqueUrls.add(apiItem.image);
+          allItems.push({
+            id: apiItem.id,
+            type: 'image',
+            imageUrl: apiItem.image,
+            orientation: apiItem.aspect_ratio === 'portrait_reel_9_16' ? 'vertical' : 'horizontal',
+            label: apiItem.title || `Proyecto ${allItems.length + 1}`,
+          });
+        }
+      } else if (apiItem.media_type === 'video' && apiItem.youtube_id) {
+        allItems.push({
+          id: apiItem.id,
+          type: 'video',
+          videoId: apiItem.youtube_id,
+          orientation: apiItem.aspect_ratio === 'portrait_reel_9_16' ? 'vertical' : 'horizontal',
+          label: apiItem.title || `Video ${index + 1}`,
         });
-      });
+      }
     });
 
-    return fromServices;
+    // Fallback: Add legacy service images if no portfolio_items exist
+    if (allItems.length === 0) {
+      (landingData?.services || []).forEach((service, serviceIndex) => {
+        (service.carousel_images || []).forEach((img, imgIndex) => {
+          if (!img.image || uniqueUrls.has(img.image)) return;
+          uniqueUrls.add(img.image);
+          allItems.push({
+            id: `svc-${service.id}-${img.id || `${serviceIndex}-${imgIndex}`}`,
+            type: 'image',
+            imageUrl: img.image,
+            label: service.name || `Proyecto ${allItems.length + 1}`,
+          });
+        });
+      });
+    }
+
+    return allItems;
   }, [landingData]);
 
   // Build portfolio items: 100% from admin panel (videos + service images)
   const items: PortfolioItem[] = useMemo(() => {
+    // If new unified portfolio items exist, use them exclusively.
+    // This avoids duplicates with legacy portfolio_videos.
+    if ((landingData?.portfolio_items || []).length > 0) {
+      return managedImageItems;
+    }
+
     const apiVideoItems: PortfolioItem[] = [];
     
     (apiVideos || []).forEach((v, i) => {

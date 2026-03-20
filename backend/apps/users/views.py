@@ -15,6 +15,8 @@ import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Count, Max, Q, Sum, Value, DecimalField
+from django.db.models.functions import Coalesce
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status, viewsets, permissions
@@ -39,11 +41,17 @@ from .serializers import (
     FiscalDataSerializer,
     UserAdminSerializer,
     UserAddressSerializer,
+    ClientSummarySerializer,
 )
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+
+def _is_internal_user(user) -> bool:
+    role_name = getattr(getattr(user, 'role', None), 'name', None)
+    return bool(getattr(user, 'is_superuser', False) or role_name in ['admin', 'superadmin', 'sales'])
 
 
 class UserRegistrationView(APIView):
@@ -486,14 +494,39 @@ class UserAdminViewSet(viewsets.ModelViewSet):
     DELETE /api/v1/admin/users/{id}/
     """
 
-    queryset = User.objects.all()
     serializer_class = UserAdminSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     filterset_fields = ['role', 'is_active', 'is_staff', 'is_email_verified']
     search_fields = ['email', 'first_name', 'last_name', 'phone']
     ordering_fields = ['created_at', 'last_login', 'email']
     ordering = ['-created_at']
+
+    def check_permissions(self, request):
+        """Restrict actions: clients for internal users, rest for admins only."""
+        super().check_permissions(request)
+
+        if self.action == 'clients':
+            if not _is_internal_user(request.user):
+                self.permission_denied(request)
+            return
+
+        role_name = getattr(getattr(request.user, 'role', None), 'name', None)
+        is_admin = bool(request.user.is_superuser or role_name in [Role.ADMIN, Role.SUPERADMIN])
+        if not is_admin:
+            self.permission_denied(request)
+
+    def get_queryset(self):
+        return User.objects.select_related('role').annotate(
+            orders_count=Count('orders', filter=Q(orders__is_deleted=False), distinct=True),
+            quotes_count=Count('quote_requests', filter=Q(quote_requests__is_deleted=False), distinct=True),
+            total_spent=Coalesce(
+                Sum('orders__amount_paid', filter=Q(orders__is_deleted=False)),
+                Value(0),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+            last_order_date=Max('orders__created_at', filter=Q(orders__is_deleted=False)),
+        )
 
     def perform_update(self, serializer):
         """Log user update by admin."""
@@ -596,6 +629,33 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         )
 
         return Response(UserAdminSerializer(user).data)
+
+    @action(detail=False, methods=['get'])
+    def clients(self, request):
+        """List customer users with commercial metrics for dashboard/clients."""
+        queryset = self.get_queryset().filter(
+            Q(role__name=Role.CUSTOMER) | Q(role__isnull=True)
+        )
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search)
+                | Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(company__icontains=search)
+            )
+
+        queryset = queryset.order_by('-created_at')
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = ClientSummarySerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = ClientSummarySerializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class SalesRepsView(APIView):

@@ -22,6 +22,7 @@ import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { useRecaptcha } from '@/hooks';
+import { getBackendOrigin } from '@/lib/api/base-url';
 
 const registerSchema = z
   .object({
@@ -338,8 +339,7 @@ export default function RegisterPage() {
         variant="outline"
         className="w-full"
         onClick={() => {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-          const backendUrl = apiUrl.replace('/api/v1', '');
+          const backendUrl = getBackendOrigin();
           // Store redirect in sessionStorage for the callback page
           sessionStorage.setItem('oauth_redirect', `/${locale}`);
           // Tell allauth to redirect to our JWT callback endpoint (same as login page)

@@ -636,6 +636,12 @@ class ServiceImage(TimeStampedModel, OrderedModel):
     """
 
     MAX_IMAGES_PER_SERVICE = 10
+    DISPLAY_FORMAT_LANDSCAPE = 'landscape'
+    DISPLAY_FORMAT_REEL = 'reel'
+    DISPLAY_FORMAT_CHOICES = [
+        (DISPLAY_FORMAT_LANDSCAPE, _('Landscape (16:9)')),
+        (DISPLAY_FORMAT_REEL, _('Reel (9:16)')),
+    ]
 
     id = models.UUIDField(
         primary_key=True,
@@ -671,6 +677,13 @@ class ServiceImage(TimeStampedModel, OrderedModel):
         blank=True,
         help_text=_('Service subtype key for quote form linking (e.g. "letras-3d").')
     )
+    display_format = models.CharField(
+        _('display format'),
+        max_length=20,
+        choices=DISPLAY_FORMAT_CHOICES,
+        default=DISPLAY_FORMAT_LANDSCAPE,
+        help_text=_('Visual format for landing display.')
+    )
     is_active = models.BooleanField(
         _('is active'),
         default=True,
@@ -701,7 +714,7 @@ class PortfolioVideo(TimeStampedModel, OrderedModel):
         is_active: Whether video is visible
     """
 
-    MAX_VIDEOS = 2
+    MAX_VIDEOS = 20
 
     ORIENTATION_CHOICES = [
         ('vertical', _('Vertical (9:16) — Shorts/Reels')),
@@ -930,3 +943,105 @@ class SiteConfiguration(TimeStampedModel):
             defaults={'contact_email': 'info@agenciamcd.mx', 'contact_phone': '+52 744 000 0000'}
         )
         return config
+
+
+class PortfolioItem(TimeStampedModel, OrderedModel):
+    """
+    Unified portfolio item for "Trabajos que hablan por nosotros" section.
+
+    Supports both images (landscape 16:9 and portrait reel 9:16) and
+    YouTube videos, allowing mixed media galleries without service-specific
+    subtypes or linking.
+
+    Attributes:
+        media_type: 'image' or 'video'
+        image: Uploaded image (required for image type)
+        youtube_id: YouTube video ID (required for video type)
+        title: Item title/label (Spanish)
+        title_en: Item title/label (English)
+        aspect_ratio: Display format ('landscape_16_9' or 'portrait_reel_9_16')
+        is_active: Whether item is visible on the landing page
+    """
+
+    MEDIA_TYPE_IMAGE = 'image'
+    MEDIA_TYPE_VIDEO = 'video'
+    MEDIA_TYPE_CHOICES = [
+        (MEDIA_TYPE_IMAGE, _('Image')),
+        (MEDIA_TYPE_VIDEO, _('YouTube Video')),
+    ]
+
+    ASPECT_RATIO_LANDSCAPE_16_9 = 'landscape_16_9'
+    ASPECT_RATIO_PORTRAIT_REEL_9_16 = 'portrait_reel_9_16'
+    ASPECT_RATIO_CHOICES = [
+        (ASPECT_RATIO_LANDSCAPE_16_9, _('Landscape (16:9)')),
+        (ASPECT_RATIO_PORTRAIT_REEL_9_16, _('Portrait Reel (9:16)')),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    media_type = models.CharField(
+        _('media type'),
+        max_length=20,
+        choices=MEDIA_TYPE_CHOICES,
+        default=MEDIA_TYPE_IMAGE,
+        help_text=_('Whether this item is an image or video.')
+    )
+    image = models.ImageField(
+        _('image'),
+        upload_to='content/portfolio/',
+        blank=True,
+        null=True,
+        help_text=_('Uploaded image. Required for image type items. Max 5 MB.')
+    )
+    youtube_id = models.CharField(
+        _('YouTube video ID'),
+        max_length=20,
+        blank=True,
+        help_text=_('YouTube video ID (e.g., "sqOb-gSSQq8"). Required for video type items.')
+    )
+    title = models.CharField(
+        _('title'),
+        max_length=255,
+        blank=True,
+        help_text=_('Item title/label in Spanish.')
+    )
+    title_en = models.CharField(
+        _('title (English)'),
+        max_length=255,
+        blank=True,
+        help_text=_('Item title/label in English.')
+    )
+    aspect_ratio = models.CharField(
+        _('aspect ratio'),
+        max_length=20,
+        choices=ASPECT_RATIO_CHOICES,
+        default=ASPECT_RATIO_LANDSCAPE_16_9,
+        help_text=_('Display aspect ratio on landing page.')
+    )
+    is_active = models.BooleanField(
+        _('is active'),
+        default=True,
+        help_text=_('Whether this item is visible on the landing page.')
+    )
+
+    class Meta:
+        verbose_name = _('portfolio item')
+        verbose_name_plural = _('portfolio items')
+        ordering = ['position']
+
+    def __str__(self):
+        if self.media_type == self.MEDIA_TYPE_IMAGE:
+            return f"[IMG] {self.title or f'Image {self.position + 1}'}"
+        else:
+            return f"[VIDEO] {self.title or self.youtube_id}"
+
+    def clean(self):
+        """Validate that required fields are present for media type."""
+        from django.core.exceptions import ValidationError
+        if self.media_type == self.MEDIA_TYPE_IMAGE and not self.image:
+            raise ValidationError(_('Image is required for image type items.'))
+        if self.media_type == self.MEDIA_TYPE_VIDEO and not self.youtube_id:
+            raise ValidationError(_('YouTube video ID is required for video type items.'))

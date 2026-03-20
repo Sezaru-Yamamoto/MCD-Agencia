@@ -337,6 +337,10 @@ class UserAdminSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
+    orders_count = serializers.IntegerField(read_only=True)
+    quotes_count = serializers.IntegerField(read_only=True)
+    total_spent = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    last_order_date = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = User
@@ -356,10 +360,66 @@ class UserAdminSerializer(serializers.ModelSerializer):
             'marketing_consent',
             'last_login',
             'last_login_ip',
+            'orders_count',
+            'quotes_count',
+            'total_spent',
+            'last_order_date',
             'created_at',
             'updated_at',
         ]
         read_only_fields = ['id', 'last_login', 'last_login_ip', 'created_at', 'updated_at']
+
+
+class ClientSummarySerializer(serializers.ModelSerializer):
+    """Serializer for admin clients dashboard list."""
+
+    name = serializers.CharField(source='full_name', read_only=True)
+    total_orders = serializers.IntegerField(source='orders_count', read_only=True)
+    total_quotes = serializers.IntegerField(source='quotes_count', read_only=True)
+    total_spent = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    last_order_date = serializers.DateTimeField(read_only=True)
+    address = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'name',
+            'email',
+            'phone',
+            'company',
+            'address',
+            'city',
+            'total_orders',
+            'total_quotes',
+            'total_spent',
+            'last_order_date',
+            'created_at',
+        ]
+
+    def get_address(self, obj):
+        address = obj.default_delivery_address or {}
+        if not isinstance(address, dict):
+            return ''
+
+        calle = address.get('calle', '')
+        numero_exterior = address.get('numero_exterior', '')
+        numero_interior = address.get('numero_interior', '')
+        colonia = address.get('colonia', '')
+
+        line = ' '.join(part for part in [calle, numero_exterior] if part).strip()
+        if numero_interior:
+            line = f"{line} Int. {numero_interior}".strip()
+        if colonia:
+            line = f"{line}, {colonia}".strip(', ')
+        return line
+
+    def get_city(self, obj):
+        address = obj.default_delivery_address or {}
+        if isinstance(address, dict):
+            return address.get('ciudad', '')
+        return ''
 
 
 # =============================================================================

@@ -1,725 +1,415 @@
-# Marco Teórico — Plataforma Digital para la Agencia MCD
+# CAPÍTULO III. MARCO TEÓRICO
 
-> **Estructura conceptual de la información utilizada en el proyecto**
->
-> Período: 12 de enero – 24 de abril de 2026
-
----
-
-## Índice
-
-1. [Bases de Datos](#1-bases-de-datos)
-2. [Frameworks](#2-frameworks)
-3. [Frontend](#3-frontend)
-4. [Backend](#4-backend)
-5. [Librerías](#5-librerías)
-6. [APIs](#6-apis)
-7. [Chatbot](#7-chatbot)
-8. [Publicidad](#8-publicidad)
+**Proyecto:** Plataforma digital para la Agencia MCD  
+**Período del proyecto:** 12 de enero – 24 de abril de 2026
 
 ---
 
-## 1. Bases de Datos
+## 1. Introducción del marco teórico
 
-Una base de datos es una colección organizada de datos estructurados que permite su almacenamiento, manipulación y recuperación eficiente. Según Silberschatz et al. (2020), un sistema de gestión de bases de datos (SGBD) proporciona un entorno tanto conveniente como eficiente para almacenar y recuperar información, constituyendo la columna vertebral de cualquier sistema de información moderno. En el contexto de aplicaciones web, Elmasri y Navathe (2016) señalan que la correcta selección del modelo de datos y del motor de base de datos impacta directamente en el rendimiento, la escalabilidad y la integridad de la información del sistema.
+El marco teórico de esta investigación define los conceptos centrales, revisa enfoques previos aplicables y justifica la selección tecnológica del sistema desarrollado para la Agencia MCD. Su función no es solo reunir citas, sino explicar por qué determinadas decisiones técnicas y de negocio son coherentes con el problema planteado: digitalizar una agencia de publicidad e impresión, mejorar la captación de clientes y optimizar la operación comercial mediante una plataforma web.
 
-Para el presente proyecto se emplea un esquema de múltiples motores de almacenamiento, combinando una base de datos relacional como almacén principal, un almacén en memoria para caché y colas de mensajes, y un motor ligero para desarrollo local. Esta arquitectura poliglota de persistencia permite optimizar cada capa del sistema según sus requerimientos particulares de velocidad, consistencia y volumen de datos (Sadalage & Fowler, 2013).
-
-### 1.1 PostgreSQL (Base de datos principal)
-
-PostgreSQL es un sistema de gestión de bases de datos objeto-relacional de código abierto (ORDBMS) con más de 35 años de desarrollo activo. Fue originalmente concebido en la Universidad de California, Berkeley, como sucesor del proyecto Ingres, con el objetivo de resolver las limitaciones de los sistemas relacionales de la época al incorporar soporte para tipos de datos complejos y extensibilidad (Stonebraker & Rowe, 1986). Según The PostgreSQL Global Development Group (2024), PostgreSQL se distingue por su conformidad con los estándares SQL (ISO/IEC 9075), su robusta integridad transaccional ACID (Atomicidad, Consistencia, Aislamiento, Durabilidad) y su arquitectura extensible que permite la definición de tipos de datos, operadores e índices personalizados.
-
-Obe y Hsu (2017) destacan que PostgreSQL ofrece capacidades avanzadas que lo posicionan como la opción preferida para aplicaciones empresariales: soporte nativo para JSON/JSONB, búsqueda de texto completo (*full-text search*), índices especializados (GIN, GiST, BRIN), triggers, funciones almacenadas y vistas materializadas. En el ámbito del comercio electrónico, Momjian (2001) argumenta que la capacidad de PostgreSQL para manejar consultas concurrentes complejas mediante su sistema de control de concurrencia multiversión (MVCC) lo hace especialmente adecuado para escenarios donde las operaciones de lectura y escritura ocurren simultáneamente, como en catálogos de productos, carritos de compras y procesamiento de pedidos.
-
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | PostgreSQL 16+ |
-| **Proveedor** | Render Managed PostgreSQL (Oregon, US) |
-| **Uso en el proyecto** | Almacenamiento de catálogo de productos, usuarios, cotizaciones, pedidos, pagos, conversaciones del chatbot, analíticas y contenido CMS |
-| **Driver Python** | `psycopg2-binary` — adaptador de alto rendimiento para conexiones Django↔PostgreSQL |
-| **Ventajas** | Soporte JSON nativo, full-text search, índices GIN/GiST, triggers, vistas materializadas |
-
-**Justificación:** Se eligió PostgreSQL sobre otros motores relacionales por su soporte nativo de tipos JSONB —utilizado para metadata de eventos analíticos, datos de pago y configuración del chatbot—, sus índices parciales que optimizan consultas frecuentes sobre subconjuntos de datos, y su superior manejo de consultas concurrentes en escenarios de lectura/escritura mixta propios del comercio electrónico (Juba & Volkov, 2019).
-
-### 1.2 Redis (Caché y cola de mensajes)
-
-Redis (*Remote Dictionary Server*) es un almacén de estructuras de datos en memoria de código abierto que funciona como base de datos, caché y broker de mensajes. Carlson (2013) lo define como un servidor de estructuras de datos que almacena pares clave-valor en memoria RAM, ofreciendo latencia sub-milisegundo que lo hace ideal para escenarios donde el rendimiento es crítico. A diferencia de los sistemas de caché simples, Redis soporta estructuras de datos complejas como listas, conjuntos, conjuntos ordenados y hashes, lo que amplía significativamente sus casos de uso (DaCosta, 2015).
-
-En el contexto de aplicaciones web modernas, Redis desempeña un papel dual: como capa de caché para reducir la carga sobre la base de datos principal, y como broker de mensajes para el procesamiento asíncrono de tareas (Macedo & Oliveira, 2020). Según Seguin (2012), la capacidad de Redis para configurar tiempos de expiración (TTL) por clave permite implementar estrategias de invalidación de caché adaptadas a la frecuencia de cambio de cada tipo de dato.
-
-| Aspecto | Detalle |
-|---|---|
-| **Uso en el proyecto** | 1) Caché de respuestas frecuentes (catálogo, contexto del chatbot) vía `django-redis` — 2) Broker de tareas asíncronas con Celery (envío de emails, generación de PDFs, procesamiento de imágenes) |
-| **TTL del caché** | 3600 s (contexto chatbot), configurable por tipo de dato |
-| **Ventajas** | Latencia sub-milisegundo, soporte pub/sub, estructuras de datos ricas |
-
-### 1.3 SQLite (Desarrollo local)
-
-SQLite es un motor de base de datos relacional embebido que almacena toda la base de datos en un único archivo de disco. A diferencia de los SGBD cliente-servidor como PostgreSQL, SQLite no requiere un proceso servidor independiente, lo que lo convierte en la opción ideal para desarrollo local, prototipado y testing (Owens & Allen, 2010). Según Kreibich (2010), su diseño *serverless* y su configuración cero lo hacen particularmente útil en entornos de desarrollo donde la simplicidad operativa es prioritaria sobre la escalabilidad.
-
-En el presente proyecto, SQLite se utiliza exclusivamente en el entorno de desarrollo local (`db.sqlite3`), mientras que PostgreSQL se emplea en producción. Django facilita esta transición mediante su capa de abstracción de base de datos (ORM), que permite cambiar el motor subyacente sin modificar el código de la aplicación (Django Software Foundation, 2024).
+Siguiendo el enfoque metodológico de Hernández-Sampieri y Mendoza (2018), el capítulo integra tres dimensiones: (a) **definición conceptual del fenómeno**, (b) **comparación con alternativas similares**, y (c) **marco legal aplicable en México**. En consecuencia, se presentan fundamentos sobre arquitectura web moderna, comercio electrónico, analítica digital y automatización conversacional, vinculándolos con herramientas concretas implementadas en el proyecto.
 
 ---
 
-## 2. Frameworks
+## 2. Definición conceptual del fenómeno en estudio
 
-Un framework de desarrollo web es una estructura de software reutilizable que proporciona una arquitectura predefinida y un conjunto de herramientas para la construcción de aplicaciones. Según Sommerville (2016), los frameworks aceleran el desarrollo al ofrecer soluciones probadas para problemas recurrentes como el enrutamiento de solicitudes, la gestión de sesiones, el acceso a bases de datos y la seguridad. Pressman y Maxim (2020) añaden que la selección apropiada de un framework reduce significativamente el tiempo de desarrollo y mejora la mantenibilidad del código al imponer convenciones y patrones de diseño consistentes.
+### 2.1 Transformación digital en pymes de servicios
 
-El presente proyecto emplea una arquitectura de frameworks separados para frontend y backend, conectados mediante una API REST. Este enfoque, conocido como *decoupled architecture* o arquitectura desacoplada, permite que cada capa evolucione independientemente, facilitando la escalabilidad horizontal y la especialización de los equipos de desarrollo (Fowler, 2015).
+La transformación digital implica integrar tecnologías digitales en procesos operativos, comerciales y de relación con clientes para generar nuevo valor (Porter & Heppelmann, 2014). En una agencia de publicidad, esto se traduce en pasar de una operación predominantemente presencial (ventas por recomendación, cotización manual, seguimiento por mensajería) a un modelo híbrido u omnicanal con catálogo en línea, formularios de cotización, trazabilidad de pedidos y atención automatizada.
 
-### 2.1 Django 5.x (Backend)
+Desde la perspectiva de marketing digital, el valor principal de la digitalización está en la capacidad de medir y optimizar el embudo comercial en tiempo real (Chaffey & Ellis-Chadwick, 2019; Kaushik, 2010). Por ello, el fenómeno estudiado no es únicamente “crear una web”, sino construir una plataforma que conecte captación, conversión, operación y análisis.
 
-Django es un framework web de alto nivel para Python que fomenta el desarrollo rápido y el diseño limpio y pragmático, siguiendo el patrón arquitectónico **MTV** (Model-Template-View), una variación del patrón MVC (Model-View-Controller) descrito por Gamma et al. (1994). Según Holovaty y Kaplan-Moss (2009), Django fue diseñado originalmente en un entorno periodístico donde la velocidad de desarrollo era crítica, lo que resultó en un framework que enfatiza la convención sobre la configuración, el principio DRY (*Don't Repeat Yourself*) y la reutilización de componentes.
+### 2.2 Arquitectura web desacoplada
 
-La Django Software Foundation (2024) describe como características distintivas del framework su ORM (*Object-Relational Mapping*) integrado para el acceso a datos, su sistema de migraciones automáticas, su panel de administración generado automáticamente, y sus mecanismos de seguridad incorporados contra las vulnerabilidades web más comunes identificadas por la OWASP (2021): inyección SQL, cross-site scripting (XSS), cross-site request forgery (CSRF) y clickjacking. Según Vincent (2022), Django ha madurado como una de las opciones más robustas para el desarrollo de APIs empresariales cuando se combina con Django REST Framework.
+El sistema adopta una arquitectura desacoplada: backend API (Django + DRF) y frontend web (Next.js + React). Este enfoque permite evolución independiente de capas, escalabilidad y mejor mantenibilidad (Fowler, 2015). Además, favorece la internacionalización, el SEO técnico y la integración con servicios externos.
 
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | Django ≥ 5.0, < 6.0 |
-| **Arquitectura** | MTV (Model-Template-View) |
-| **Módulos del proyecto** | `users`, `catalog`, `quotes`, `orders`, `payments`, `chatbot`, `content`, `analytics`, `audit`, `notifications`, `inventory`, `core` (12 apps Django) |
-| **ORM** | Django ORM con migraciones automáticas |
-| **Administración** | Django Admin integrado para gestión de back-office |
+En términos de persistencia, se aplica un modelo de **polyglot persistence** (Sadalage & Fowler, 2013):
+- **PostgreSQL** para datos transaccionales y de negocio.
+- **Redis** para caché y mensajería asíncrona.
+- **SQLite** para desarrollo local.
 
-**Justificación:** Django fue seleccionado por: a) su ORM maduro que simplifica las migraciones de esquema (Greenfeld & Greenfeld, 2020), b) su ecosistema de paquetes (DRF, allauth, storages), c) su panel de administración built-in que elimina la necesidad de construir un CMS desde cero, y d) sus mecanismos de seguridad integrados contra las vulnerabilidades identificadas por la OWASP (2021).
+Esta combinación responde a necesidades distintas de consistencia, velocidad y simplicidad operativa.
 
-### 2.2 Django REST Framework (DRF)
+### 2.3 Modelo conceptual de la solución
 
-Django REST Framework es una extensión de Django para construir APIs Web robustas y bien documentadas. Christie (2024) lo describe como un toolkit poderoso y flexible que simplifica la construcción de APIs RESTful al proporcionar serializers para la transformación bidireccional de datos, viewsets que encapsulan la lógica CRUD, y routers que generan automáticamente las URLs de la API. Según Hillar (2019), DRF implementa los principios REST (*Representational State Transfer*) propuestos originalmente por Fielding (2000) en su tesis doctoral, donde define un estilo arquitectónico basado en recursos, representaciones y transferencias de estado sin estado (*stateless*).
+Para delimitar el fenómeno de estudio, la plataforma puede entenderse como un **sistema sociotécnico de conversión comercial digital**. Esto significa que la tecnología no actúa de forma aislada, sino en interacción con procesos de negocio, decisiones de marketing y experiencia del cliente. En términos operativos, el modelo conceptual integra cinco bloques funcionales:
 
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | ≥ 3.14 |
-| **Uso** | Todas las APIs del backend (catálogo, cotizaciones, pagos, chatbot, analytics) |
-| **Documentación** | Generada automáticamente via `drf-spectacular` (OpenAPI 3.0 / Swagger) |
-| **Autenticación** | JWT via `djangorestframework-simplejwt` |
-| **Paginación** | `StandardPagination` personalizada (cursor + offset) |
+1. **Atracción:** visibilidad en buscadores, contenido optimizado y canales de contacto.
+2. **Interacción:** navegación de catálogo, consultas por chatbot y CTAs.
+3. **Conversión:** formulario de cotización, validación de datos, seguimiento de estado.
+4. **Operación:** gestión interna de cotizaciones, pedidos, inventario y notificaciones.
+5. **Aprendizaje:** analítica de eventos para mejora continua de campañas y UX.
 
-### 2.3 Next.js 14 (Frontend)
+Este encadenamiento es coherente con la literatura de marketing digital orientada a métricas, donde cada etapa del embudo debe tener indicadores observables y acciones de optimización (Chaffey & Ellis-Chadwick, 2019; Kaushik, 2010).
 
-Next.js es un framework de React que habilita renderizado del lado del servidor (SSR), generación estática (SSG) y rutas API. Desarrollado por Vercel (2024), Next.js extiende las capacidades de React al ofrecer una solución completa para la construcción de aplicaciones web modernas. Según Wieruch (2023), Next.js resuelve problemas fundamentales del desarrollo con React como el enrutamiento, la optimización del rendimiento y el SEO mediante su sistema de renderizado híbrido que permite elegir entre SSR, SSG e ISR (*Incremental Static Regeneration*) por cada ruta.
+### 2.4 Variables conceptuales y criterios de calidad
 
-La versión 14 introdujo el *App Router*, un nuevo sistema de enrutamiento basado en el sistema de archivos que aprovecha los React Server Components propuestos por Abramov y Cataldo (2023) para ejecutar componentes en el servidor, reduciendo la cantidad de JavaScript enviada al cliente. Según Vercel (2024), esta arquitectura permite que las páginas se rendericen más rápidamente y con menor consumo de recursos en el navegador del usuario.
+Desde ingeniería de software, la calidad del sistema no se evalúa solo por “funcionar”, sino por atributos como mantenibilidad, seguridad, rendimiento y escalabilidad (Fowler, 2015). En la investigación, estos atributos se traducen en criterios medibles:
 
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | 14.1.0 |
-| **Routing** | App Router (file-system based) con `[locale]` para i18n |
-| **Renderizado** | Hybrid: SSR para SEO, CSR para interactividad |
-| **Deploy** | Vercel (CDN global, edge functions) |
-| **Optimización** | Image optimization vía `next/image` + `sharp`, code splitting automático |
+- **Rendimiento percibido:** tiempos de respuesta en vistas críticas y reducción de consultas repetitivas mediante caché.
+- **Confiabilidad operativa:** estabilidad de APIs, control de errores y trazabilidad de eventos.
+- **Seguridad aplicada:** autenticación, validación de entradas, controles antiabuso y manejo de sesiones.
+- **Evolutividad:** capacidad de incorporar nuevos módulos sin reescribir la arquitectura.
+- **Usabilidad comercial:** facilidad para que un visitante pase de interés a cotización.
 
-**Justificación:** Next.js fue elegido sobre Create React App por: a) SSR/SSG nativo que mejora el SEO —factor crítico para una agencia de publicidad cuya presencia en motores de búsqueda es esencial (Enge et al., 2015)—, b) optimización automática de imágenes del catálogo que reduce los tiempos de carga (Google Developers, 2024), c) rutas internacionalizadas (`/es/`, `/en/`) built-in con `next-intl`, y d) deploy con zero-config en Vercel.
+Estos criterios conectan directamente con el objetivo del proyecto: aumentar eficiencia comercial sin comprometer calidad técnica.
 
-### 2.4 React 18
+### 2.5 Relación entre teoría y problema de investigación
 
-React es una biblioteca de JavaScript para la construcción de interfaces de usuario mediante componentes declarativos y un DOM virtual. Desarrollada originalmente por Facebook (Meta Platforms, 2024), React introdujo un paradigma de programación de interfaces donde la UI se describe como una función del estado de la aplicación (Gackenheimer, 2015). Según Banks y Porcello (2020), el modelo de componentes de React promueve la reutilización, la composibilidad y la separación de responsabilidades.
+El problema de investigación se centra en cómo una agencia tradicional puede mejorar resultados comerciales mediante una plataforma digital integrada. La teoría revisada justifica que la respuesta no es una sola tecnología, sino la **orquestación de arquitectura, datos, automatización y medición**.
 
-La versión 18 introdujo características de renderizado concurrente (*Concurrent Rendering*), incluyendo Suspense para la carga diferida de componentes y Transitions para distinguir entre actualizaciones urgentes y no urgentes de la interfaz (Meta Platforms, 2024). Según Dodds (2021), el paradigma de Hooks introducido en React 16.8 transformó fundamentalmente la forma de manejar el estado y los efectos secundarios, reemplazando los componentes de clase por funciones más simples y componibles.
-
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | 18.2.0 |
-| **Paradigma** | Funcional con Hooks (`useState`, `useEffect`, `useRef`, custom hooks) |
-| **Concurrent features** | Suspense, Transitions (React 18) |
-| **Uso** | Base de todos los componentes del frontend |
-
-### 2.5 Celery (Task Queue)
-
-Celery es un framework de procesamiento distribuido de tareas para Python, basado en mensajería asíncrona. Según Ask Solem (2024), Celery permite ejecutar tareas de forma asíncrona y distribuida, desacoplando las operaciones costosas en tiempo del ciclo solicitud-respuesta HTTP. Fowler (2015) argumenta que este patrón de *message-driven architecture* es fundamental para la escalabilidad de aplicaciones web, ya que permite procesar operaciones como envío de correos, generación de reportes y procesamiento de imágenes sin bloquear al usuario.
-
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | ≥ 5.3 |
-| **Broker** | Redis |
-| **Scheduler** | `django-celery-beat` (tareas periódicas) |
-| **Tareas** | Envío de emails de confirmación, generación de PDFs de cotización, procesamiento de imágenes de catálogo, alertas de inventario bajo |
+Por ello, el marco teórico no se limita a describir herramientas; establece una cadena causal: una arquitectura modular permite integrar APIs y automatizar tareas; la automatización reduce tiempos operativos; y la analítica convierte interacciones en decisiones de negocio más precisas. Esta lógica de trazabilidad entre teoría y práctica fortalece la validez del estudio (Hernández-Sampieri & Mendoza, 2018).
 
 ---
 
-## 3. Frontend
+## 3. Fundamentos tecnológicos del proyecto
 
-El frontend, o capa de presentación, es la parte de una aplicación web con la que el usuario interactúa directamente. Según Flanagan (2020), el desarrollo frontend moderno se basa en tres pilares tecnológicos: HTML para la estructura, CSS para la presentación y JavaScript para la interactividad. Sin embargo, la complejidad creciente de las aplicaciones web ha impulsado la adopción de lenguajes tipados como TypeScript, frameworks de estilos utilitarios como Tailwind CSS, y soluciones de internacionalización que permiten servir contenido en múltiples idiomas (Freeman, 2022).
+### 3.1 Backend: Django, DRF y Celery
 
-Duckett (2014) señala que una interfaz de usuario bien diseñada no solo presenta información de manera atractiva, sino que guía al usuario a través de flujos de trabajo complejos —como formularios de cotización, procesos de compra y paneles de administración— de manera intuitiva y eficiente.
+Django se utiliza como núcleo del backend por su madurez, seguridad integrada y ecosistema (Django Software Foundation, 2024; Vincent, 2022). Su ORM y sistema de migraciones facilitan la evolución del esquema de datos; además, el panel administrativo acelera la gestión interna de contenidos y operaciones.
 
-### 3.1 Lenguaje: TypeScript / JavaScript
+DRF implementa la capa API REST para exponer recursos de catálogo, cotizaciones, pagos, chatbot, analítica y contenidos (Christie, 2024; Fielding, 2000). Este diseño promueve separación de responsabilidades entre cliente y servidor.
 
-TypeScript es un superconjunto tipado de JavaScript desarrollado por Microsoft que compila a JavaScript estándar. Según Cherny (2019), TypeScript añade un sistema de tipos estáticos opcional que permite detectar errores en tiempo de compilación, antes de que el código llegue a producción. Microsoft (2024) describe TypeScript como un lenguaje que escala la productividad del desarrollador al proporcionar autocompletado inteligente, navegación del código y refactorización segura en entornos de desarrollo integrado (IDE).
+Celery se usa para tareas asíncronas como envíos de correo, generación de documentos y procesos diferidos, reduciendo latencia en la experiencia de usuario (Ask Solem, 2024).
 
-Según Freeman (2022), la adopción de TypeScript en proyectos empresariales se justifica por tres factores principales: la detección temprana de errores de tipo, la documentación implícita del código a través de las interfaces y tipos definidos, y la mejora en la colaboración entre equipos al establecer contratos claros entre módulos.
+### 3.2 Frontend: Next.js, React, TypeScript y Tailwind
 
-| Aspecto | Detalle |
-|---|---|
-| **Versión TS** | ≥ 5.3.3 |
-| **Strict mode** | Habilitado (`tsconfig.json`) |
-| **Target** | ES2017+ |
-| **Uso** | Todo el código fuente del frontend (`.tsx`, `.ts`) |
+Next.js se eligió por su soporte híbrido de renderizado (SSR/SSG/CSR), aspecto clave para SEO y rendimiento (Vercel, 2024; Wieruch, 2023). React aporta componentes reutilizables y un modelo declarativo de UI (Meta Platforms, 2024).
 
-**Ventajas en el proyecto:**
-- **Detección temprana de errores** en las interfaces de datos del catálogo, cotizaciones y pagos (Cherny, 2019)
-- **Autocompletado y documentación** en VS Code para >50 componentes, mejorando la productividad del desarrollador
-- **Tipado de API responses** con interfaces TypeScript que reflejan los serializers de Django, creando un contrato explícito entre frontend y backend
+TypeScript mejora robustez del código al detectar errores de tipo antes de ejecución, especialmente útil en integración frontend-backend (Microsoft, 2024). Tailwind CSS facilita consistencia visual y velocidad de implementación mediante utilidades de diseño (Tailwind Labs, 2024).
 
-### 3.2 Tecnologías CSS / Estilos
+### 3.3 Datos, caché y rendimiento
 
-Tailwind CSS es un framework de utilidades CSS (*utility-first*) que permite construir interfaces mediante la composición de clases predefinidas directamente en el HTML. Según Tailwind Labs (2024), este enfoque elimina la necesidad de escribir CSS personalizado para la mayoría de los casos, reduciendo la complejidad del código y facilitando el mantenimiento. Wathan (2023) argumenta que el paradigma *utility-first* promueve la consistencia visual al limitar las opciones de estilo a un sistema de diseño predefinido, en contraste con el CSS tradicional donde cada desarrollador puede crear estilos arbitrarios.
+PostgreSQL funciona como base principal por su confiabilidad transaccional y capacidades avanzadas (The PostgreSQL Global Development Group, 2024). Redis se usa como capa de alto rendimiento para:
+- caché de información consultada con frecuencia,
+- soporte de sesiones según entorno,
+- broker/result backend para tareas Celery cuando aplica.
 
-| Tecnología | Versión | Uso |
+En el chatbot, el contexto de negocio se cachea con TTL para evitar recalcular y consultar base de datos en cada mensaje, reduciendo latencia y consumo de recursos.
+
+### 3.4 Integraciones API
+
+La plataforma integra APIs para capacidades especializadas:
+- **Gemini** para respuestas conversacionales contextualizadas.
+- **MercadoPago y PayPal** para pagos.
+- **reCAPTCHA v3** para mitigación de abuso automatizado.
+- **S3/R2** para almacenamiento de archivos.
+- **OpenStreetMap/Leaflet** para geolocalización.
+
+La literatura sobre arquitectura de APIs respalda este enfoque de composición con servicios externos cuando acelera entrega de valor y reduce complejidad de implementación propia (Jacobson et al., 2012; Lauret, 2019).
+
+### 3.5 Seguridad, gobernanza de datos y continuidad operativa
+
+En sistemas de comercio digital, la seguridad debe diseñarse desde arquitectura y no añadirse al final. El backend API debe contemplar autenticación robusta, autorización por roles, validación de entrada y control de abuso por tasa de peticiones. Estas prácticas reducen superficies de ataque y protegen tanto a usuarios como a la organización.
+
+Adicionalmente, la gobernanza de datos exige definir qué información se captura, cuánto tiempo se conserva y quién puede acceder a ella. En el contexto del proyecto, esta gobernanza se vincula especialmente con datos de contacto de leads, historial de cotizaciones y eventos de interacción del chatbot. Un principio central es minimizar la captura a lo necesario para el proceso comercial.
+
+La continuidad operativa también depende de decisiones de entorno: separación entre desarrollo y producción, uso de variables de entorno para secretos, y estrategias de fallback cuando algún servicio externo no esté disponible. En este sentido, el diseño híbrido del chatbot (IA + fallback) aporta resiliencia funcional en escenarios de degradación.
+
+### 3.6 Escalabilidad y observabilidad
+
+La escalabilidad del sistema puede analizarse en tres planos:
+
+- **Escalabilidad horizontal de servicios web:** frontend y backend pueden evolucionar de forma independiente.
+- **Escalabilidad de carga operativa:** uso de tareas asíncronas para trabajos costosos.
+- **Escalabilidad de lectura:** caché para disminuir presión sobre base de datos.
+
+No obstante, escalar sin observabilidad produce “crecimiento ciego”. Por eso, la analítica propia, el registro de eventos y la trazabilidad de errores son componentes críticos. La observabilidad no solo sirve para depuración técnica; también permite validar hipótesis de negocio (por ejemplo, qué canal de entrada genera más cotizaciones efectivas).
+
+### 3.7 Justificación de stack frente a objetivos del estudio
+
+La selección tecnológica se justifica por alineación con objetivos y restricciones del caso:
+
+- **Django + DRF:** rapidez de desarrollo empresarial con seguridad y API madura.
+- **Next.js + React:** combinación de rendimiento, SEO e interactividad.
+- **PostgreSQL + Redis:** equilibrio entre consistencia transaccional y velocidad de acceso.
+- **Celery:** desacoplo de procesos no inmediatos para proteger la experiencia de usuario.
+
+Esta coherencia entre stack y objetivo investigativo fortalece la pertinencia del proyecto como intervención tecnológica contextualizada.
+
+---
+
+## 4. Chatbot como componente de negocio
+
+Los chatbots actuales evolucionaron desde sistemas basados en reglas hacia modelos híbridos con NLP/LLM (Adamopoulou & Moussiades, 2020; Jurafsky & Martin, 2023). Para este proyecto, el chatbot se concibe como herramienta **task-oriented**: su objetivo principal es resolver dudas comerciales, guiar la cotización y captar leads.
+
+La arquitectura implementa un enfoque híbrido:
+- respuestas con IA (Gemini) para consultas abiertas,
+- fallback basado en reglas para continuidad del servicio,
+- construcción de contexto desde base de datos (servicios, FAQs, sucursales),
+- control de uso por throttling.
+
+Este diseño se alinea con evidencia que sugiere que chatbots en e-commerce incrementan disponibilidad de atención y reducen fricción inicial de contacto (Dale, 2016).
+
+### 4.1 Función del chatbot en el embudo comercial
+
+En este proyecto, el chatbot no se plantea como un sustituto total del equipo comercial, sino como un mecanismo de preatención y calificación inicial. Su aporte principal está en tres niveles:
+
+1. **Disponibilidad continua:** respuesta inmediata fuera del horario humano.
+2. **Filtrado de intención:** identifica si el usuario está explorando, comparando o listo para cotizar.
+3. **Derivación inteligente:** cuando detecta necesidad de cierre, redirige a WhatsApp o formulario.
+
+Este enfoque reduce fricción en etapas tempranas del embudo y mejora la probabilidad de conversión, especialmente en usuarios que requieren respuestas rápidas antes de dejar datos.
+
+### 4.2 Arquitectura conversacional aplicada
+
+La arquitectura conversacional combina componentes de procesamiento y negocio:
+
+- **Entrada:** mensaje de usuario y metadatos de sesión.
+- **Control:** throttling para proteger recursos y evitar abuso.
+- **Contexto:** recuperación de información empresarial (servicios, FAQs, sucursales).
+- **Generación:** respuesta vía modelo principal o fallback.
+- **Acción:** sugerencia de siguiente paso (cotizar, contactar, navegar).
+
+Desde la teoría de sistemas de diálogo, este enfoque corresponde a un modelo híbrido orientado a tareas, donde la calidad de respuesta depende tanto del modelo lingüístico como de la calidad del contexto inyectado (Jurafsky & Martin, 2023).
+
+### 4.3 Limitaciones y riesgos del componente IA
+
+Toda integración de LLM conlleva riesgos: alucinación de respuestas, variabilidad semántica y sensibilidad a prompt. Por ello, el diseño técnico debe incorporar mitigaciones, entre ellas:
+
+- contexto estructurado y actualizado desde base de datos,
+- reglas de salida (tono, brevedad y restricción a información verificable),
+- fallback deterministic cuando el proveedor IA no esté disponible,
+- escalación a canal humano en casos ambiguos.
+
+Estas salvaguardas son consistentes con prácticas recientes de despliegue responsable de asistentes conversacionales en dominios transaccionales.
+
+### 4.4 Indicadores de evaluación del chatbot
+
+Para evaluar su aporte real, no basta medir “cantidad de mensajes”. Se proponen indicadores más útiles:
+
+- tasa de conversaciones que terminan en acción comercial,
+- proporción de escalaciones a canal humano,
+- tiempo medio de primera respuesta,
+- satisfacción implícita (continuidad de interacción, no abandono temprano).
+
+La medición de estos indicadores permite distinguir entre uso superficial y valor comercial efectivo.
+
+---
+
+## 5. Publicidad digital y analítica aplicada
+
+La digitalización de la Agencia MCD se vincula con prácticas de marketing de desempeño. A diferencia de medios tradicionales, el canal digital permite medir de forma continua indicadores de tráfico, interacción y conversión (Kaushik, 2010; Chaffey & Ellis-Chadwick, 2019).
+
+En esta plataforma, el modelo de captación combina:
+- formulario de cotización,
+- chatbot,
+- enlaces de contacto directo (WhatsApp),
+- CTAs distribuidos estratégicamente.
+
+Asimismo, la solución incorpora gestión de contenidos (CMS) para que el equipo no técnico actualice carrusel, portafolio y contenido institucional sin intervención de desarrollo, lo cual reduce tiempos operativos y mejora capacidad de campaña.
+
+Desde SEO, la elección de Next.js responde a la necesidad de indexabilidad y rendimiento, relevantes para visibilidad orgánica (Enge et al., 2015; Google Developers, 2024).
+
+### 5.1 Publicidad tradicional vs. digital: implicaciones estratégicas
+
+La publicidad tradicional mantiene valor en cobertura local y recordación de marca; sin embargo, su principal limitación es la dificultad de atribuir resultados con precisión. En contraste, la publicidad digital permite trazabilidad casi completa del recorrido del usuario: origen, comportamiento, interacción y conversión (Chaffey & Ellis-Chadwick, 2019).
+
+Para una agencia como MCD, la ventaja competitiva surge al combinar ambos mundos: experiencia en producción gráfica tradicional y una capa digital que cuantifica impacto y acelera respuesta comercial.
+
+### 5.2 SEO técnico y contenido como activo de adquisición
+
+El SEO se aborda desde una perspectiva integral:
+
+- **SEO técnico:** rendimiento, estructura semántica, indexabilidad.
+- **SEO on-page:** contenido útil y alineado a intención de búsqueda.
+- **SEO local:** consistencia de información comercial y geográfica.
+
+La arquitectura SSR/SSG fortalece indexación y tiempos de carga, factores asociados con mejor visibilidad y experiencia de usuario (Enge et al., 2015; Google Developers, 2024).
+
+### 5.3 Analítica orientada a decisiones
+
+La analítica no debe limitarse a reportar números descriptivos; su función es soportar decisiones. Por ejemplo, identificar qué canal genera leads de mayor calidad o en qué paso del formulario se concentra el abandono. Esta visión coincide con el enfoque de analítica accionable propuesto por Kaushik (2010).
+
+En el proyecto, la captura de eventos permite construir hipótesis de mejora continua, como ajuste de CTAs, simplificación de pasos y redistribución de inversión en canales de adquisición.
+
+### 5.4 Gestión de contenidos y autonomía operativa
+
+Un CMS funcional reduce dependencia del equipo técnico en cambios de comunicación comercial. Esta autonomía es crítica en campañas con ventanas cortas, donde el tiempo de publicación impacta resultados. Desde gestión digital, la agilidad de contenido es un factor de competitividad operativa (Chaffey & Ellis-Chadwick, 2019).
+
+### 5.5 Métricas clave para seguimiento del modelo
+
+Para sostener la mejora continua, el proyecto debe monitorear métricas por niveles:
+
+- **Adquisición:** visitas, fuentes, CTR de entrada.
+- **Comportamiento:** tiempo en sitio, profundidad de navegación, interacción con elementos clave.
+- **Conversión:** ratio de cotización, tasa de contacto efectivo, costo por lead.
+
+Este marco de métricas permite evaluar impacto real de la plataforma sobre resultados comerciales, no solo actividad digital superficial.
+
+---
+
+## 6. Comparativo con alternativas similares
+
+En cumplimiento del requisito metodológico, se compara la solución adoptada (desarrollo a medida) con opciones comunes.
+
+| Criterio | Arquitectura MCD (Django + Next.js) | WordPress + WooCommerce | Shopify |
+|---|---|---|---|
+| Control funcional | Alto (código propio) | Medio (plugins) | Bajo-medio (SaaS) |
+| Personalización de lógica (chatbot, flujos) | Alta | Media | Baja-media |
+| Escalabilidad técnica | Alta (capas separadas) | Media | Alta (administrada por proveedor) |
+| Dependencia de proveedor | Baja | Media | Alta |
+| Velocidad inicial de salida | Media | Alta | Alta |
+| Ajuste a procesos específicos de agencia | Muy alto | Medio | Medio |
+
+**Síntesis del comparativo:**
+Si el objetivo fuera solo publicar catálogo rápidamente, una solución SaaS podría ser suficiente. Sin embargo, para integrar cotización avanzada, analítica propia, chatbot contextual y control de datos, la arquitectura a medida ofrece mejor alineación estratégica, aunque exige mayor esfuerzo inicial.
+
+### 6.1 Discusión del costo total de propiedad
+
+Un análisis comparativo más riguroso requiere mirar el costo total de propiedad (TCO): no solo licencias iniciales, sino también personalización, mantenimiento, dependencia de terceros, límites de plataforma y crecimiento de transacciones. En soluciones cerradas, el costo puede escalar por módulos adicionales o comisiones; en soluciones a medida, el costo principal se concentra en desarrollo y operación técnica.
+
+Para el caso MCD, donde los flujos comerciales y de contenido requieren personalización progresiva, la inversión en arquitectura propia se justifica por su mayor capacidad de adaptación.
+
+### 6.2 Riesgos de cada enfoque
+
+- **SaaS cerrado:** menor complejidad técnica inicial, pero mayor dependencia de roadmap de proveedor.
+- **CMS con plugins:** rápida implementación, pero riesgo de deuda técnica por dependencia de extensiones heterogéneas.
+- **Desarrollo a medida:** mayor control y extensibilidad, con exigencia de disciplina de ingeniería y documentación.
+
+La elección final debe alinearse con estrategia de mediano plazo y no únicamente con velocidad de implementación inicial.
+
+### 6.3 Criterios de decisión aplicados al proyecto
+
+La decisión arquitectónica del proyecto prioriza: (a) control funcional, (b) trazabilidad de datos, (c) posibilidad de integrar lógica comercial propia y (d) escalabilidad del modelo omnicanal. Estos criterios responden directamente al problema investigado y a la necesidad de evolucionar el sistema después de su primera versión.
+
+---
+
+## 7. Marco legal aplicable (México)
+
+### 7.1 Protección de datos personales
+
+La **Ley Federal de Protección de Datos Personales en Posesión de los Particulares** (LFPDPPP) y su reglamento establecen principios de tratamiento, consentimiento y derechos ARCO (Cámara de Diputados del H. Congreso de la Unión, 2010, 2011). Para el proyecto, esto se refleja en la captura de datos mínimos, aviso de privacidad y controles de acceso en panel administrativo.
+
+En términos de cumplimiento práctico, el tratamiento de datos en formularios de cotización y chatbot debe declarar finalidades explícitas, limitar transferencia no autorizada y facilitar mecanismos de atención a solicitudes de titulares. La evidencia de cumplimiento requiere también trazabilidad administrativa y técnica.
+
+### 7.2 Comercio electrónico y evidencia digital
+
+El **Código de Comercio** reconoce validez jurídica de mensajes de datos y actos electrónicos. Complementariamente, la **NOM-151-SCFI-2016** regula conservación de mensajes de datos y digitalización documental (Cámara de Diputados del H. Congreso de la Unión, 1889; Secretaría de Economía, 2017). Esto respalda la trazabilidad digital de cotizaciones, pedidos, cambios de estado y confirmaciones.
+
+Desde la práctica de plataforma, esto implica preservar integridad de registros, consistencia de marcas de tiempo y capacidad de reconstrucción de eventos relevantes para atención al cliente y soporte operativo.
+
+### 7.3 Protección al consumidor
+
+La **Ley Federal de Protección al Consumidor** exige información clara y prácticas comerciales no engañosas (Cámara de Diputados del H. Congreso de la Unión, 1992). En términos de implementación, implica transparentar características de servicios, condiciones comerciales y canales de atención.
+
+Además, la experiencia digital debe evitar ambigüedad en alcances de servicio, tiempos estimados y condiciones de cotización. Esta claridad reduce fricciones comerciales y riesgos de reclamación.
+
+### 7.4 Propiedad intelectual
+
+El manejo de piezas gráficas, diseños y contenidos digitales se vincula con la **Ley Federal del Derecho de Autor** y la **Ley Federal de Protección a la Propiedad Industrial** (Cámara de Diputados del H. Congreso de la Unión, 1996, 2020). Operativamente, se recomienda mantener control de titularidad, permisos de uso y trazabilidad de activos en CMS.
+
+En una agencia de publicidad, esta dimensión es especialmente sensible, ya que se manipulan activos de clientes y piezas propias. Por ello, la gestión documental de autorizaciones y la separación clara de repositorios de material son prácticas recomendables para reducir riesgos legales.
+
+### 7.5 Pagos y seguridad técnica
+
+Aunque el procesamiento de tarjeta lo realizan pasarelas externas, el sistema debe asegurar integridad de webhooks y consistencia de estados de pago. Como referencia técnica, PCI DSS orienta buenas prácticas de seguridad en ecosistemas de pago (PCI Security Standards Council, 2022).
+
+Esto se traduce en validar eventos de confirmación, registrar transiciones de estado y evitar decisiones de negocio basadas en datos no verificados. En términos de cumplimiento operativo, la integridad del flujo de pago es tan importante como la disponibilidad del servicio.
+
+### 7.6 Matriz síntesis de cumplimiento (norma–proceso)
+
+| Norma | Proceso del sistema | Evidencia esperada |
 |---|---|---|
-| **Tailwind CSS** | ≥ 3.4.1 | Framework utility-first para todo el estilizado |
-| **PostCSS** | ≥ 8.4.33 | Procesador CSS (requerido por Tailwind) |
-| **Autoprefixer** | ≥ 10.4.17 | Prefijos de vendor automáticos |
-| **clsx + tailwind-merge** | 2.1.0 / 2.2.0 | Merge condicional de clases CSS |
-
-**Paleta CMYK personalizada:** Se definió un sistema de color basado en CMYK (`cmyk-cyan: #0DA3EF`, `cmyk-magenta: #EC2D8D`, `cmyk-yellow: #FFE884`, `cmyk-black: #0D0D0D`) que refleja la identidad visual de la agencia de publicidad e impresión, alineándose con las recomendaciones de Lupton y Phillips (2015) sobre la coherencia entre la identidad gráfica corporativa y las interfaces digitales.
-
-### 3.3 Internacionalización (i18n)
-
-La internacionalización (i18n) es el proceso de diseñar una aplicación para que pueda adaptarse a diferentes idiomas y regiones sin modificaciones en el código fuente. Según Esselink (2000), la internacionalización efectiva requiere la externalización de todos los textos visibles al usuario, el manejo adecuado de formatos de fecha, número y moneda, y el soporte para diferentes sistemas de escritura. En el proyecto, se implementa internacionalización bilingüe (español e inglés) mediante `next-intl`, que proporciona enrutamiento por idioma y traducción de mensajes basada en archivos JSON.
-
-| Aspecto | Detalle |
-|---|---|
-| **Librería** | `next-intl` ≥ 3.4.0 |
-| **Idiomas** | Español (es) e Inglés (en) |
-| **Archivos** | `messages/es.json`, `messages/en.json` |
-| **Routing** | `/es/catálogo`, `/en/catalog` (path-based) |
+| LFPDPPP + Reglamento | Formularios, chatbot, usuarios | Aviso de privacidad, control de acceso, trazabilidad de tratamiento |
+| Código de Comercio | Cotizaciones/pedidos digitales | Registros de eventos y estados con marca temporal |
+| NOM-151-SCFI-2016 | Conservación de mensajes/documentos | Política de conservación y resguardo documental |
+| LFPC | Información comercial al usuario | Condiciones claras y canales de atención visibles |
+| LFDA / LFPPI | Gestión de creativos y contenidos | Registro de titularidad/autorización de uso |
+| PCI DSS (referencial) | Integración de pagos | Verificación de webhooks y manejo seguro de estados |
 
 ---
 
-## 4. Backend
+## 8. Síntesis del capítulo
 
-El backend, o capa del servidor, es el componente de una aplicación web responsable de la lógica de negocio, el acceso a datos, la autenticación y la comunicación con servicios externos. Según Holovaty y Kaplan-Moss (2009), un backend bien diseñado actúa como intermediario seguro entre el cliente (frontend) y los recursos del sistema (base de datos, servicios de terceros), implementando validaciones, autorizaciones y transformaciones de datos.
+El marco teórico construido cumple las funciones académicas centrales:
 
-### 4.1 Lenguaje: Python
+1. **Evitar errores de diseño:** al basar decisiones en literatura técnica y estándares.
+2. **Orientar la implementación:** al justificar arquitectura, herramientas y flujos.
+3. **Delimitar el problema:** al centrar la investigación en digitalización comercial de una agencia real.
+4. **Abrir líneas futuras:** analítica predictiva, automatización comercial y madurez de cumplimiento.
 
-Python es un lenguaje de programación de alto nivel, interpretado, de tipado dinámico y multiparadigma. Su filosofía de diseño, expresada en el *Zen of Python* (PEP 20), enfatiza la legibilidad del código, la simplicidad y la praticidad (Van Rossum & Drake, 2009). Según Lutz (2013), Python permite expresar conceptos en significativamente menos líneas de código que lenguajes como Java o C++, lo que acelera el desarrollo y reduce la probabilidad de errores.
+En suma, el capítulo articula teoría y práctica para sostener que la solución propuesta no es una suma de herramientas aisladas, sino un sistema coherente con objetivos de negocio, restricciones operativas y marco normativo.
 
-En el contexto del desarrollo web, Forcier et al. (2009) señalan que Python se ha consolidado como uno de los lenguajes más utilizados para el desarrollo de APIs y servicios backend, respaldado por un ecosistema maduro de frameworks (Django, Flask, FastAPI), bibliotecas científicas y herramientas de procesamiento de datos. La Python Software Foundation (2024) destaca que la comunidad de Python mantiene más de 400,000 paquetes disponibles en PyPI (*Python Package Index*), lo que facilita la integración con prácticamente cualquier servicio o tecnología externa.
+Desde el punto de vista investigativo, el aporte de este marco teórico es doble: por un lado, organiza el conocimiento técnico y normativo que fundamenta la implementación; por otro, establece criterios para evaluar la plataforma más allá de su puesta en marcha inicial. Esto permite que la investigación mantenga rigor académico y utilidad aplicada para la organización.
 
-| Aspecto | Detalle |
-|---|---|
-| **Versión** | Python 3.11+ |
-| **Gestor de paquetes** | pip + requirements.txt |
-| **Entorno virtual** | venv (`.venv/`) |
-| **Servidor WSGI** | Gunicorn ≥ 21.2 (producción) |
-| **Servidor estático** | WhiteNoise ≥ 6.6 (archivos estáticos en producción) |
-
-### 4.2 Arquitectura del Backend
-
-La arquitectura del backend sigue el patrón de diseño modular propuesto por Django, donde cada funcionalidad del sistema se encapsula en una "app" independiente con sus propios modelos, vistas, serializers y URLs. Según Greenfeld y Greenfeld (2020), esta organización promueve la separación de responsabilidades, la reutilización de código y la escalabilidad del proyecto.
-
-```
-config/              → Configuración Django (settings, URLs, WSGI, Celery)
-apps/
-├── core/            → Modelos base, paginación, excepciones, reCAPTCHA
-├── users/           → Autenticación, registro, perfiles (JWT + allauth)
-├── catalog/         → Categorías, productos, imágenes (CRUD + S3)
-├── quotes/          → Cotizaciones multi-línea (formulario landing)
-├── orders/          → Gestión de pedidos y estados
-├── payments/        → MercadoPago, PayPal (webhooks)
-├── inventory/       → Control de stock, alertas de bajo inventario
-├── chatbot/         → IA conversacional (Gemini), leads, conversaciones
-├── content/         → CMS: carrusel, testimonios, FAQs, sucursales
-├── analytics/       → Tracking de eventos, page views, dashboard stats
-├── audit/           → Logs de auditoría (middleware)
-├── notifications/   → Emails transaccionales (django-anymail)
-```
-
-### 4.3 Seguridad
-
-La seguridad en aplicaciones web es un aspecto crítico que debe abordarse en múltiples capas. La OWASP (2021) identifica las diez vulnerabilidades más comunes en aplicaciones web, incluyendo inyección SQL, ruptura de autenticación, exposición de datos sensibles y cross-site scripting (XSS). Según Stuttard y Pinto (2018), una estrategia de seguridad efectiva combina mecanismos de defensa en profundidad: autenticación robusta, autorización granular, cifrado de datos sensibles, validación de entradas y monitoreo de actividad.
-
-En el presente proyecto, se implementan las siguientes medidas de seguridad alineadas con las recomendaciones de la OWASP:
-
-| Mecanismo | Implementación |
-|---|---|
-| **Autenticación** | JWT (access + refresh tokens) vía `djangorestframework-simplejwt`, siguiendo el estándar RFC 7519 (Jones et al., 2015) |
-| **Registro social** | `django-allauth` + `dj-rest-auth` para OAuth 2.0 (Hardt, 2012) |
-| **Cifrado** | `cryptography` ≥ 42.0 (tokens firmados, datos sensibles) |
-| **Anti-bot** | Google reCAPTCHA v3 (formularios de cotización, registro, contacto) |
-| **CORS** | `django-cors-headers` (whitelist de dominios del frontend) |
-| **Auditoría** | Middleware personalizado que registra cada acción en `AuditLog`, siguiendo las prácticas de trazabilidad recomendadas por Stuttard y Pinto (2018) |
+En consecuencia, el capítulo sirve como puente entre problema, objetivos y decisiones de diseño, justificando por qué la arquitectura seleccionada y los componentes funcionales del sistema son adecuados para la realidad operacional de la Agencia MCD.
 
 ---
 
-## 5. Librerías
+## Referencias
 
-En el desarrollo de software moderno, las librerías de código abierto constituyen un componente fundamental que permite reutilizar soluciones probadas en lugar de implementar cada funcionalidad desde cero. Según Sommerville (2016), la reutilización de software a través de bibliotecas reduce significativamente el tiempo de desarrollo, disminuye la tasa de defectos —al emplear código ya probado por una comunidad amplia— y permite concentrar los esfuerzos en la lógica de negocio específica del proyecto. Pressman y Maxim (2020) añaden que la selección cuidadosa de dependencias es esencial para garantizar la seguridad, el rendimiento y la mantenibilidad a largo plazo de un sistema.
+Adamopoulou, E., & Moussiades, L. (2020). An overview of chatbot technology. *IFIP International Conference on Artificial Intelligence Applications and Innovations*, 373–383. https://doi.org/10.1007/978-3-030-49186-4_31
 
-El presente proyecto emplea librerías organizadas en cuatro categorías: frontend (interfaz de usuario e interactividad), backend (lógica de negocio y servicios), testing (aseguramiento de calidad) y calidad de código (estándares y consistencia).
+Ask Solem. (2024). *Celery documentation*. https://docs.celeryq.dev/
 
-### 5.1 Librerías Frontend (JavaScript/TypeScript)
+Cámara de Diputados del H. Congreso de la Unión. (1889). *Código de Comercio*. https://www.diputados.gob.mx/LeyesBiblio/pdf/CCom.pdf
 
-Las librerías del frontend abordan cuatro áreas clave identificadas por Wieruch (2023): gestión de estado, formularios y validación, experiencia de usuario (animaciones, notificaciones) y comunicación con el servidor.
+Cámara de Diputados del H. Congreso de la Unión. (1992). *Ley Federal de Protección al Consumidor*. https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPC.pdf
 
-| Librería | Versión | Propósito |
-|---|---|---|
-| **@tanstack/react-query** | ≥ 5.17.0 | Gestión de estado del servidor, caché de peticiones API, sincronización automática. Implementa el patrón *stale-while-revalidate* para optimizar la percepción de velocidad (Dodds, 2021). |
-| **zustand** | ≥ 4.4.7 | Estado global ligero (carrito, UI state). Alternativa minimalista a Redux con ~1KB, siguiendo el principio de mínima complejidad necesaria. |
-| **react-hook-form** | ≥ 7.49.3 | Formularios de alto rendimiento con validación. Maneja el formulario de cotización multi-paso (~15 campos) sin rerenders innecesarios. |
-| **zod** | ≥ 3.22.4 | Validación de esquemas *TypeScript-first*. Define y valida la estructura de datos de cotizaciones, implementando validación defensiva tanto en cliente como servidor (Cherny, 2019). |
-| **@hookform/resolvers** | ≥ 3.3.3 | Bridge entre react-hook-form y zod para validación declarativa. |
-| **framer-motion** | ≥ 10.18.0 | Animaciones declarativas (transiciones de página, scroll reveal, parallax shifts). |
-| **next-auth** | ≥ 4.24.5 | Autenticación en Next.js (sesiones, JWT, providers OAuth). Implementa los flujos de autorización definidos en OAuth 2.0 (Hardt, 2012). |
-| **next-intl** | ≥ 3.4.0 | Internacionalización: routing por locale, traducción de mensajes, formateo de fechas/números (Esselink, 2000). |
-| **axios** | ≥ 1.6.5 | Cliente HTTP con interceptores (attach JWT, refresh automático, manejo global de errores). |
-| **leaflet** | ≥ 1.9.4 | Mapas interactivos (ubicación de sucursales). Usa tiles de OpenStreetMap como alternativa gratuita a Google Maps. |
-| **embla-carousel-react** | ≥ 8.0.0 | Carrusel del hero (slides de portafolio, testimonios). Lightweight, touch-friendly. |
-| **date-fns** | ≥ 3.2.0 | Manipulación de fechas (formato de fechas de cotización, pedidos, entregas). |
-| **sharp** | ≥ 0.33.2 | Optimización de imágenes en build-time (WebP, resize). Usado por `next/image` para cumplir las métricas Core Web Vitals (Google Developers, 2024). |
-| **react-hot-toast** | ≥ 2.4.1 | Notificaciones toast (confirmación de cotización, errores, éxito de pago). |
-| **lucide-react** | ≥ 0.562.0 | Biblioteca de íconos SVG (800+ íconos consistentes en todo el UI). |
-| **@headlessui/react** | ≥ 1.7.18 | Componentes UI accesibles e *unstyled* (modals, dropdowns, tabs). Implementa las directrices WCAG 2.1 de accesibilidad (W3C, 2018). |
-| **@heroicons/react** | ≥ 2.1.1 | Íconos SVG de Tailwind Labs (complemento a Lucide). |
+Cámara de Diputados del H. Congreso de la Unión. (1996). *Ley Federal del Derecho de Autor*. https://www.diputados.gob.mx/LeyesBiblio/pdf/LFDA.pdf
 
-### 5.2 Librerías Backend (Python)
+Cámara de Diputados del H. Congreso de la Unión. (2010). *Ley Federal de Protección de Datos Personales en Posesión de los Particulares*. https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf
 
-Las librerías del backend cubren las capas de acceso a datos, almacenamiento, generación de documentos, comunicación externa y monitoreo, siguiendo las recomendaciones de arquitectura en capas de Greenfeld y Greenfeld (2020).
+Cámara de Diputados del H. Congreso de la Unión. (2011). *Reglamento de la Ley Federal de Protección de Datos Personales en Posesión de los Particulares*. https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LFPDPPP.pdf
 
-| Librería | Versión | Propósito |
-|---|---|---|
-| **psycopg2-binary** | ≥ 2.9 | Driver PostgreSQL de alto rendimiento para Django ORM. Implementa el protocolo nativo de PostgreSQL para máxima eficiencia (Obe & Hsu, 2017). |
-| **dj-database-url** | ≥ 2.1 | Parseo de URLs de base de datos desde variables de entorno (`DATABASE_URL`). Facilita la portabilidad entre entornos siguiendo los principios de *twelve-factor app* (Wiggins, 2017). |
-| **django-redis** | ≥ 5.4 | Backend de caché Redis para Django (sesiones, caché de consultas, contexto chatbot). |
-| **boto3 + django-storages** | ≥ 1.34 / ≥ 1.14 | Almacenamiento de archivos en S3/R2 (imágenes de catálogo, PDFs de cotización). |
-| **weasyprint** | ≥ 60.0 | Generación de PDFs desde HTML/CSS (cotizaciones formales con diseño corporativo). |
-| **reportlab** | ≥ 4.0 | Generación programática de PDFs (reportes, facturas). |
-| **openpyxl** | ≥ 3.1 | Exportación de datos a Excel (reportes de ventas, inventario, analytics). |
-| **Pillow** | ≥ 10.2 | Procesamiento de imágenes (resize, thumbnails, optimización de catálogo). |
-| **django-anymail** | ≥ 10.2 | Envío de emails transaccionales vía proveedores (SendGrid/Mailgun). Abstrae la complejidad de múltiples APIs de correo. |
-| **drf-spectacular** | ≥ 0.27 | Documentación OpenAPI 3.0 automática (Swagger UI + ReDoc). Implementa la especificación OpenAPI Initiative (2024). |
-| **django-mptt** | ≥ 0.16 | Árboles jerárquicos eficientes (categorías de catálogo anidadas). Implementa el algoritmo *Modified Preorder Tree Traversal* (Celko, 2012). |
-| **django-import-export** | ≥ 3.3 | Import/export masivo de datos vía Django Admin (Excel/CSV). |
-| **django-filter** | ≥ 23.5 | Filtros declarativos para vistas DRF (búsqueda, ordenamiento, facetas). |
-| **python-slugify** | ≥ 8.0 | Generación de slugs URL-friendly para productos y categorías. |
-| **sentry-sdk** | ≥ 1.39 | Monitoreo de errores en producción (captura excepciones, traza performance). |
-| **python-json-logger** | ≥ 2.0 | Logs estructurados en JSON (integración con servicios de monitoreo). |
-| **google-genai** | ≥ 1.0 | SDK oficial de Google Generative AI (integración con Gemini). |
+Cámara de Diputados del H. Congreso de la Unión. (2020). *Ley Federal de Protección a la Propiedad Industrial*. https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPPI_010720.pdf
 
-### 5.3 Librerías de Testing
+Chaffey, D., & Ellis-Chadwick, F. (2019). *Digital marketing: Strategy, implementation and practice* (7th ed.). Pearson.
 
-Las pruebas de software son esenciales para garantizar la calidad y prevenir regresiones. Según Myers et al. (2011), las pruebas deben organizarse en múltiples niveles: unitarias, de integración y de sistema. El uso de frameworks de testing automatizado permite ejecutar estas pruebas de forma continua y repetible.
+Christie, T. (2024). *Django REST Framework*. https://www.django-rest-framework.org/
 
-| Librería | Propósito |
-|---|---|
-| **pytest + pytest-django** | Framework de testing del backend. Según Okken (2022), pytest simplifica la escritura de pruebas mediante fixtures, parametrización y plugins. |
-| **pytest-cov** | Cobertura de código — permite medir qué porcentaje del código es ejercitado por las pruebas |
-| **factory-boy** | Generación de datos de prueba (fixtures) mediante el patrón Factory, evitando la creación manual de objetos de prueba |
-| **Jest + @testing-library/react** | Testing del frontend (unit + integration). Según Dodds (2021), Testing Library promueve pruebas que simulan la interacción real del usuario |
+Dale, R. (2016). The return of the chatbots. *Natural Language Engineering, 22*(5), 811–817. https://doi.org/10.1017/S1351324916000243
 
-### 5.4 Librerías de Calidad de Código
+Django Software Foundation. (2024). *Django documentation*. https://docs.djangoproject.com/
 
-Según Martin (2009), el código limpio no solo funciona correctamente sino que es legible, mantenible y sigue convenciones consistentes. Las herramientas de linting y formateo automatizado garantizan la adherencia a estándares de codificación en todo el proyecto.
+Enge, E., Spencer, S., & Stricchiola, J. C. (2015). *The art of SEO* (3rd ed.). O’Reilly.
 
-| Librería | Propósito |
-|---|---|
-| **ESLint + eslint-config-next** | Linting del frontend — análisis estático que detecta patrones problemáticos en JavaScript/TypeScript |
-| **Prettier** | Formateo automático de código frontend — garantiza estilo consistente sin debates sobre formato |
-| **Black** | Formateo de código Python — "el formateador sin opiniones" que elimina discusiones de estilo (Python Software Foundation, 2024) |
-| **Flake8** | Linting de Python — verifica conformidad con PEP 8 (guía de estilo oficial de Python) |
-| **isort** | Ordenamiento de imports Python — organización automática siguiendo convenciones estándar |
-| **mypy + django-stubs** | Tipado estático de Python — verificación de tipos en tiempo de desarrollo similar a TypeScript |
+Fielding, R. T. (2000). *Architectural styles and the design of network-based software architectures* (Doctoral dissertation, University of California, Irvine). https://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
+
+Fowler, M. (2015). *Patterns of enterprise application architecture*. Addison-Wesley.
+
+Google Developers. (2024). *Web Vitals*. https://web.dev/vitals/
+
+Hernández-Sampieri, R., & Mendoza, C. P. (2018). *Metodología de la investigación: Las rutas cuantitativa, cualitativa y mixta*. McGraw-Hill.
+
+Jacobson, D., Brail, G., & Woods, D. (2012). *APIs: A strategy guide*. O’Reilly.
+
+Jurafsky, D., & Martin, J. H. (2023). *Speech and language processing* (3rd ed. draft). https://web.stanford.edu/~jurafsky/slp3/
+
+Kaushik, A. (2010). *Web analytics 2.0*. Wiley.
+
+Lauret, A. (2019). *The design of web APIs*. Manning.
+
+Meta Platforms. (2024). *React documentation*. https://react.dev/
+
+Microsoft. (2024). *TypeScript documentation*. https://www.typescriptlang.org/docs/
+
+PCI Security Standards Council. (2022). *PCI DSS v4.0*. https://www.pcisecuritystandards.org/
+
+Porter, M. E., & Heppelmann, J. E. (2014). How smart, connected products are transforming competition. *Harvard Business Review, 92*(11), 64–88.
+
+Sadalage, P. J., & Fowler, M. (2013). *NoSQL distilled*. Addison-Wesley.
+
+Secretaría de Economía. (2017). *NOM-151-SCFI-2016*. Diario Oficial de la Federación. https://www.dof.gob.mx/nota_detalle.php?codigo=5470267&fecha=30/03/2017
+
+Tailwind Labs. (2024). *Tailwind CSS documentation*. https://tailwindcss.com/docs/
+
+The PostgreSQL Global Development Group. (2024). *PostgreSQL 16 documentation*. https://www.postgresql.org/docs/16/
+
+Vercel. (2024). *Next.js documentation*. https://nextjs.org/docs
+
+Vincent, W. S. (2022). *Django for APIs* (4th ed.). Still River Press.
+
+Wieruch, R. (2023). *The road to React*. https://www.roadtoreact.com/
 
 ---
 
-## 6. APIs
-
-Una API (*Application Programming Interface*) es un conjunto de protocolos y herramientas que permite la comunicación entre componentes de software. Según Fielding (2000), la arquitectura REST (*Representational State Transfer*) define un estilo arquitectónico para sistemas distribuidos basado en recursos identificados por URIs, representaciones en formatos estándar (JSON, XML) y operaciones uniformes (GET, POST, PUT, DELETE). Richardson y Ruby (2007) complementan esta definición señalando que una API RESTful bien diseñada debe ser autodescriptiva, sin estado (*stateless*) y navegable mediante hipervínculos (*HATEOAS*).
-
-En el contexto del proyecto, las APIs cumplen dos funciones: las **APIs propias** exponen la funcionalidad del backend al frontend, mientras que las **APIs externas** integran servicios de terceros como pagos, inteligencia artificial y almacenamiento en la nube. Según Lauret (2019), el diseño de APIs debe priorizar la consistencia, la seguridad y la documentación clara.
-
-### 6.1 APIs Propias (Backend Django REST)
-
-El backend expone una API RESTful completa bajo el prefijo `/api/v1/`, siguiendo las convenciones de versionado de API recomendadas por Massé (2012) para garantizar la compatibilidad hacia atrás cuando se introducen cambios:
-
-| Módulo | Endpoints principales | Métodos |
-|---|---|---|
-| **Auth** (`/api/v1/auth/`) | Login, registro, refresh token, perfil | POST, GET |
-| **Catálogo** (`/api/v1/catalog/`) | Categorías (MPTT), productos, imágenes | GET, POST, PUT, DELETE |
-| **Cotizaciones** (`/api/v1/quotes/`) | Crear cotización, listar, detalle, actualizar estado, generar PDF | GET, POST, PATCH |
-| **Pedidos** (`/api/v1/orders/`) | Crear pedido desde cotización, historial de estados | GET, POST, PATCH |
-| **Pagos** (`/api/v1/payments/`) | Crear preferencia MercadoPago/PayPal, webhooks | POST |
-| **Chatbot** (`/api/v1/chatbot/`) | Leads, conversaciones, mensajes, config del widget | GET, POST, PATCH |
-| **Contenido** (`/api/v1/content/`) | Carrusel, testimonios, FAQs, sucursales, config | GET |
-| **Analytics** (`/api/v1/analytics/`) | Batch de eventos, resumen para dashboard | POST, GET |
-| **Notificaciones** (`/api/v1/notifications/`) | Listar, marcar leída | GET, PATCH |
-| **Inventario** (`/api/v1/inventory/`) | Stock, alertas | GET, PATCH |
-
-**Documentación:** Swagger UI disponible en `/api/v1/docs/` (generada con `drf-spectacular`), cumpliendo con la especificación OpenAPI 3.0 (OpenAPI Initiative, 2024).
-
-### 6.2 APIs Externas Consumidas
-
-La integración con servicios externos es una práctica fundamental en el desarrollo de aplicaciones web modernas. Según Jacobson et al. (2012), las APIs permiten componer funcionalidades complejas a partir de servicios especializados, evitando la necesidad de implementar cada capacidad desde cero. A continuación se describen las APIs externas integradas en la plataforma.
-
-#### 6.2.1 Google Gemini API (Inteligencia Artificial)
-
-Los modelos de lenguaje grande (LLM) representan un avance significativo en el procesamiento del lenguaje natural. Según Vaswani et al. (2017), la arquitectura Transformer que subyace a estos modelos revolucionó el campo al introducir mecanismos de atención que permiten procesar secuencias de texto de forma paralela y capturar dependencias a larga distancia. Google DeepMind (2024) describe Gemini como una familia de modelos multimodales que pueden comprender y generar texto, código, imágenes y audio.
-
-| Aspecto | Detalle |
-|---|---|
-| **Servicio** | Google Generative AI — Gemini 2.0 Flash |
-| **SDK** | `google-genai` ≥ 1.0 (Python) |
-| **Límite gratuito** | 1,500 solicitudes/día |
-| **Uso** | Motor de IA del chatbot: genera respuestas contextualizadas sobre productos, precios, servicios y sucursales de la agencia |
-| **Información contextual** | El chatbot recibe contexto dinámico construido desde la base de datos (catálogo, FAQs, sucursales) actualizado cada hora |
-
-#### 6.2.2 MercadoPago API (Pagos - Latinoamérica)
-
-El comercio electrónico requiere pasarelas de pago que procesen transacciones de forma segura y confiable. Según Laudon y Traver (2021), una pasarela de pago actúa como intermediario entre el comerciante y las instituciones financieras, encriptando la información sensible y gestionando el flujo de autorización y liquidación.
-
-| Aspecto | Detalle |
-|---|---|
-| **Tipo** | REST API + Webhooks |
-| **Funcionalidad** | Procesamiento de pagos con tarjetas de crédito/débito, OXXO (efectivo), transferencia bancaria |
-| **Flujo** | Backend crea "preferencia de pago" → usuario redirigido a checkout → webhook notifica resultado |
-| **Seguridad** | Webhooks verificados con firma HMAC, cumpliendo estándares PCI DSS (PCI Security Standards Council, 2022) |
-
-#### 6.2.3 PayPal API (Pagos - Internacional)
-
-PayPal proporciona una plataforma de pagos internacionales ampliamente reconocida que facilita transacciones transfronterizas. Según Laudon y Traver (2021), la inclusión de múltiples métodos de pago incrementa las tasas de conversión al ofrecer al usuario su método preferido.
-
-| Aspecto | Detalle |
-|---|---|
-| **Tipo** | REST API v2 + Webhooks |
-| **Funcionalidad** | Pagos internacionales con cuenta PayPal o tarjeta |
-| **Flujo** | Crear orden → aprobar en PayPal → capturar pago → webhook de confirmación |
-
-#### 6.2.4 Google reCAPTCHA v3 API (Seguridad)
-
-La protección contra bots y spam es esencial para mantener la integridad de los formularios web. Según la OWASP (2021), los mecanismos CAPTCHA constituyen una capa de defensa contra ataques automatizados como el *credential stuffing* y el envío masivo de formularios.
-
-| Aspecto | Detalle |
-|---|---|
-| **Tipo** | JavaScript API (frontend) + REST API (verificación backend) |
-| **Versión** | v3 (invisible, basada en score) |
-| **Uso** | Protección anti-bot en: formulario de cotización, registro de usuario, contacto |
-| **Flujo** | Frontend ejecuta `grecaptcha.execute()` → obtiene token → lo envía al backend → backend verifica con Google y obtiene score (0.0–1.0) |
-
-#### 6.2.5 OpenStreetMap / Leaflet API (Mapas)
-
-OpenStreetMap (OSM) es un proyecto colaborativo para crear un mapa editable y libre del mundo. Según Haklay y Weber (2008), OSM constituye el ejemplo más exitoso de *geographic information volunteered*, proporcionando datos cartográficos de calidad comparable a fuentes comerciales.
-
-| Aspecto | Detalle |
-|---|---|
-| **Tipo** | Tile server (mapas) + JavaScript API (Leaflet) |
-| **Uso** | 1) Mapa interactivo para selección de rutas de entrega, 2) Visualización de ubicación de sucursales |
-| **Tiles** | `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` |
-| **Ventaja** | Gratuito y sin límite de uso (a diferencia de Google Maps) |
-
-#### 6.2.6 WhatsApp Business (Comunicación directa)
-
-WhatsApp Business es una herramienta de comunicación empresarial que permite a las organizaciones interactuar con sus clientes de forma directa. Según Kaplan y Haenlein (2010), las plataformas de mensajería instantánea se han convertido en un canal fundamental para la atención al cliente y la generación de leads en el comercio electrónico.
-
-| Aspecto | Detalle |
-|---|---|
-| **Tipo** | Deep links (`https://wa.me/527446887382`) |
-| **Uso** | Escalación del chatbot a atención humana, botón flotante de contacto en landing page |
-| **Sucursales** | Acapulco: +52 744 688 7382 / Tecoanapa: +52 745 114 7727 |
-
-#### 6.2.7 Amazon S3 / Cloudflare R2 API (Almacenamiento)
-
-El almacenamiento de objetos en la nube es el estándar para la gestión de archivos en aplicaciones web modernas. Según Velte et al. (2010), los servicios de almacenamiento en la nube ofrecen durabilidad, disponibilidad y escalabilidad que superan significativamente a las soluciones de almacenamiento local, eliminando la necesidad de gestionar infraestructura de almacenamiento propia.
-
-| Aspecto | Detalle |
-|---|---|
-| **SDK** | `boto3` (Python) + `django-storages` |
-| **Uso** | Almacenamiento de imágenes de catálogo, PDFs generados de cotizaciones, archivos adjuntos |
-| **Operaciones** | Upload, download, presigned URLs, lifecycle policies |
-
-#### 6.2.8 Email Service API (Transaccional)
-
-El correo electrónico transaccional se refiere a mensajes automatizados disparados por acciones específicas del usuario. Según Chaffey y Ellis-Chadwick (2019), los emails transaccionales tienen tasas de apertura significativamente superiores a los emails de marketing (>60% vs. ~20%), lo que los convierte en un canal de comunicación crítico para la experiencia del usuario.
-
-| Aspecto | Detalle |
-|---|---|
-| **Librería** | `django-anymail` (abstracción multi-proveedor) |
-| **Proveedores compatibles** | Brevo, SendGrid, Mailgun, Amazon SES |
-| **Uso** | Emails de confirmación de cotización, notificación de pago, bienvenida, recuperación de contraseña |
-| **Templates** | HTML con Django templates (`templates/emails/`) |
-
----
-
-## 7. Chatbot
-
-### 7.1 Definición y Contexto
-
-Un chatbot es un programa informático diseñado para simular conversación humana mediante texto o voz. Según Adamopoulou y Moussiades (2020), los chatbots han evolucionado desde sistemas basados en reglas simples —como ELIZA, desarrollado por Weizenbaum (1966) en el MIT— hasta agentes conversacionales impulsados por modelos de lenguaje grande (LLM) capaces de generar respuestas contextualizadas que van más allá de los patrones predefinidos.
-
-Jurafsky y Martin (2023) clasifican los sistemas de diálogo en dos categorías principales: *task-oriented* (orientados a tareas), diseñados para ayudar al usuario a cumplir un objetivo específico como reservar un vuelo o solicitar una cotización, y *open-domain* (dominio abierto), capaces de mantener conversaciones sobre cualquier tema. El chatbot del presente proyecto se clasifica como un sistema *task-oriented* con capacidades de dominio abierto limitado, ya que su función principal es asistir al usuario en la consulta de servicios, precios y la captación de datos de contacto.
-
-Dale (2016) señala que la integración de chatbots en plataformas de comercio electrónico ofrece múltiples beneficios: disponibilidad 24/7, reducción de costos operativos de atención al cliente, captación automatizada de leads y mejora en la experiencia del usuario al proporcionar respuestas inmediatas.
-
-### 7.2 Arquitectura del Chatbot MCD
-
-El chatbot de la plataforma MCD implementa una **arquitectura de servicio pluggable** basada en el patrón Strategy descrito por Gamma et al. (1994), donde la selección del motor de respuestas (IA o reglas) se realiza en tiempo de ejecución según la disponibilidad de recursos:
-
-```
-┌─────────────────────────────────────────────────┐
-│              Frontend (React Widget)             │
-│  • Burbuja flotante con badge de estado          │
-│  • Acciones rápidas (Servicios, Cotización,      │
-│    Ubicación, Catálogo)                          │
-│  • Historial de conversación por sesión          │
-└──────────────────┬──────────────────────────────┘
-                   │ POST /api/v1/chatbot/web/message/
-                   ▼
-┌─────────────────────────────────────────────────┐
-│            Backend (Django Views)                 │
-│  • Rate limiting: ChatMessageThrottle             │
-│  • Gestión de leads y conversaciones              │
-│  • Feedback de mensajes (útil/no útil)           │
-└──────────────────┬──────────────────────────────┘
-                   │ get_ai_service() → Factory
-                   ▼
-┌─────────────────────────────────────────────────┐
-│         AI Service Layer (Strategy Pattern)       │
-│                                                   │
-│  ┌──────────────┐  ┌──────────────┐              │
-│  │ GeminiService│  │FallbackService│             │
-│  │ (Gemini 2.0) │  │ (Keywords)    │             │
-│  └──────┬───────┘  └──────┬───────┘              │
-│         │ Auto-detect      │ Si no hay API key    │
-│         ▼                  ▼                      │
-│  ┌──────────────────────────────┐                │
-│  │     Context Builder          │                │
-│  │  • Catálogo (DB)             │                │
-│  │  • Sucursales (DB)           │                │
-│  │  • FAQs (DB)                 │                │
-│  │  • Servicios (hardcoded)     │                │
-│  │  Cache: Redis (1h TTL)       │                │
-│  └──────────────────────────────┘                │
-└─────────────────────────────────────────────────┘
-```
-
-### 7.3 Proveedor Principal: Google Gemini 2.0 Flash
-
-El modelo Gemini 2.0 Flash, desarrollado por Google DeepMind (2024), pertenece a la familia de modelos multimodales basados en la arquitectura Transformer (Vaswani et al., 2017). Según Google DeepMind (2024), la variante Flash está optimizada para velocidad de inferencia manteniendo capacidades de razonamiento avanzadas, lo que lo hace adecuado para aplicaciones de chatbot donde la latencia de respuesta impacta directamente en la experiencia del usuario.
-
-- **Modelo:** `gemini-2.0-flash` — modelo optimizado para velocidad con capacidades multimodales
-- **System prompt:** Instruido como asistente de la agencia MCD, con reglas de tono profesional, límite de 2-3 oraciones por respuesta, prohibición de inventar información. Según Brown et al. (2020), el *prompt engineering* es una técnica fundamental para dirigir el comportamiento de los LLM
-- **Contexto dinámico:** Cada 1 hora se reconstruye desde la base de datos el contexto del negocio (categorías, productos con precio, sucursales con horarios, FAQs), implementando el patrón *Retrieval-Augmented Generation* (RAG) descrito por Lewis et al. (2020)
-- **Escalación:** Si el chatbot detecta baja confianza o el usuario solicita atención humana, sugiere contactar por WhatsApp
-
-### 7.4 Gestión de Leads
-
-El chatbot funciona como canal de captación de leads. Según Kotler y Keller (2016), un lead es un prospecto que ha expresado interés en los productos o servicios de una empresa y ha proporcionado datos de contacto. La gestión automatizada de leads a través de chatbots permite cualificar prospectos en tiempo real y priorizarlos según su nivel de interés.
-
-| Campo | Descripción |
-|---|---|
-| **Datos capturados** | Nombre, email, teléfono, empresa, fuente (orgánico, WhatsApp, web) |
-| **Estados del lead** | `new` → `contacted` → `qualified` → `proposal` → `won` / `lost` |
-| **UTM tracking** | Captura parámetros UTM (source, medium, campaign) para atribución de marketing (Chaffey & Ellis-Chadwick, 2019) |
-| **Scoring** | Prioridad basada en interacciones y datos proporcionados |
-
-### 7.5 Tipos de Chatbot (Marco Teórico)
-
-Según Adamopoulou y Moussiades (2020), los chatbots pueden clasificarse según su mecanismo de generación de respuestas:
-
-| Tipo | Descripción | Ejemplo en MCD |
-|---|---|---|
-| **Basado en reglas** | Responde con patrones if/then predefinidos. Limitado a escenarios anticipados (Weizenbaum, 1966) | `FallbackService` (greeting, quote keywords) |
-| **Basado en IA/NLP** | Usa modelos de lenguaje para comprender la intención del usuario y generar respuestas naturales (Jurafsky & Martin, 2023) | `GeminiService` (comprensión semántica) |
-| **Híbrido** | Combina reglas para acciones rápidas + IA para consultas complejas. Según Dale (2016), este enfoque maximiza la confiabilidad para tareas conocidas sin sacrificar la flexibilidad | Arquitectura actual: acciones rápidas predefinidas + Gemini para diálogo libre |
-
----
-
-## 8. Publicidad
-
-### 8.1 Contexto: Agencia de Publicidad Digital
-
-La Agencia MCD es una agencia de publicidad e impresión ubicada en Guerrero, México, con sucursales en Acapulco (Diamante y Costa Azul) y Tecoanapa. La plataforma digital se desarrolla como herramienta de **transformación digital** para complementar y potenciar sus operaciones publicitarias tradicionales.
-
-Según Porter y Heppelmann (2014), la transformación digital implica la integración de tecnología digital en todas las áreas de un negocio, cambiando fundamentalmente la forma en que opera y entrega valor a sus clientes. En el caso de una agencia de publicidad, Chaffey y Ellis-Chadwick (2019) señalan que la transición hacia canales digitales no reemplaza los servicios tradicionales, sino que los complementa creando un modelo de negocio omnicanal que amplía el alcance y mejora la eficiencia operativa.
-
-### 8.2 Marketing Digital Implementado en la Plataforma
-
-#### 8.2.1 SEO (Search Engine Optimization)
-
-La optimización para motores de búsqueda (SEO) es el proceso de mejorar la visibilidad de un sitio web en los resultados orgánicos de los buscadores. Según Enge et al. (2015), el SEO moderno se fundamenta en tres pilares: SEO técnico (velocidad, estructura, crawleabilidad), SEO on-page (contenido, keywords, metadatos) y SEO off-page (backlinks, autoridad de dominio).
-
-Google Developers (2024) define las métricas Core Web Vitals —Largest Contentful Paint (LCP), First Input Delay (FID) y Cumulative Layout Shift (CLS)— como factores de ranking que miden la experiencia real del usuario. La arquitectura SSR/SSG de Next.js contribuye directamente a estas métricas al generar HTML completo en el servidor.
-
-| Estrategia | Implementación |
-|---|---|
-| **Server-Side Rendering** | Next.js SSR/SSG genera HTML completo que los crawlers pueden indexar (Wieruch, 2023) |
-| **SEO Models** | Modelo base `SEOModel` en Django que agrega `meta_title`, `meta_description`, `meta_keywords` a contenido CMS |
-| **Rutas semánticas** | URLs con slugs descriptivos (`/es/catalogo/impresion-gran-formato`), siguiendo las recomendaciones de Enge et al. (2015) |
-| **Internacionalización** | Contenido en español e inglés con `hreflang` tags |
-| **Open Graph** | Metadatos para compartir en redes sociales, optimizando la visibilidad social (Chaffey & Ellis-Chadwick, 2019) |
-
-#### 8.2.2 Analítica Web (Analytics Propio)
-
-La analítica web es la medición, recopilación, análisis y reporte de datos de internet con el propósito de entender y optimizar el uso de un sitio web. Según Kaushik (2010), la analítica web efectiva no solo mide el tráfico, sino que proporciona insights accionables sobre el comportamiento del usuario, la efectividad de las campañas y las oportunidades de mejora.
-
-La plataforma implementa un **sistema de analítica propio** (sin dependencia de Google Analytics), lo que garantiza el control total sobre los datos y el cumplimiento de regulaciones de privacidad:
-
-| Componente | Detalle |
-|---|---|
-| **PageView tracking** | Cada visita registra: URL, referrer, UTM params, dispositivo, IP, duración |
-| **Event tracking** | Eventos personalizados: clics en CTA, pasos del formulario de cotización, scroll depth |
-| **Session tracking** | Sesiones anónimas por cookie, vinculación con usuario autenticado |
-| **Dashboard** | Endpoint `GET /api/v1/analytics/summary/` con estadísticas agregadas |
-| **Device detection** | Clasificación automática: desktop / tablet / mobile |
-| **UTM Attribution** | Captura source, medium, campaign para medir ROI de campañas (Chaffey & Ellis-Chadwick, 2019) |
-
-#### 8.2.3 Lead Generation (Generación de Prospectos)
-
-La generación de leads es el proceso de atraer y convertir visitantes en prospectos interesados en los productos o servicios de una empresa. Según Kotler y Keller (2016), un embudo de conversión efectivo debe ofrecer múltiples puntos de contacto y reducir la fricción en cada etapa del viaje del cliente.
-
-| Canal | Mecanismo |
-|---|---|
-| **Formulario de cotización** | Formulario multi-paso en landing page con selección de productos, cantidades, archivos adjuntos, selección de ruta de entrega |
-| **Chatbot** | Captura datos de contacto durante la conversación, integrado con modelo `Lead` (Dale, 2016) |
-| **WhatsApp** | Botones de contacto directo con enlaces preformateados (Kaplan & Haenlein, 2010) |
-| **CTAs estratégicos** | Botones "Cotiza ya" y "Comprar" posicionados en header y barra flotante, siguiendo principios de diseño persuasivo (Cialdini, 2007) |
-
-#### 8.2.4 CMS (Content Management System)
-
-Un sistema de gestión de contenidos (CMS) permite crear, gestionar y modificar contenido digital sin necesidad de conocimientos técnicos especializados. Según Barker (2016), un CMS efectivo democratiza la gestión del contenido web, permitiendo que el equipo de marketing actualice el sitio sin intervención del equipo de desarrollo.
-
-El backend incluye un CMS administrable sin código para el equipo de marketing:
-
-| Contenido | Gestión |
-|---|---|
-| **Carrusel hero** | Slides con imagen, título, subtítulo, CTA configurable |
-| **Portafolio** | Trabajos destacados con imágenes y descripciones |
-| **Testimonios** | Reseñas de clientes con nombre, empresa, logo |
-| **FAQs** | Preguntas frecuentes editables (bilingüe) |
-| **Sucursales** | Ubicaciones con mapa, horarios, teléfono |
-| **Configuración del sitio** | Datos globales (nombre, logo, redes sociales) |
-
-#### 8.2.5 Email Marketing Transaccional
-
-El email transaccional se distingue del email de marketing masivo en que es disparado por una acción específica del usuario y contiene información personalizada y relevante. Según Chaffey y Ellis-Chadwick (2019), los emails transaccionales generan hasta 8 veces más apertura y 6 veces más clics que los emails promocionales, representando una oportunidad clave para reforzar la relación con el cliente.
-
-| Tipo de email | Trigger |
-|---|---|
-| **Confirmación de cotización** | Al enviar formulario de cotización |
-| **Actualización de estado** | Cambio de estado de cotización/pedido |
-| **Confirmación de pago** | Pago exitoso vía MercadoPago/PayPal |
-| **Bienvenida** | Registro de nuevo usuario |
-| **Recuperación de contraseña** | Solicitud de reset |
-
-### 8.3 Publicidad Tradicional vs. Digital (Marco Conceptual)
-
-Según Kotler y Keller (2016), la publicidad ha experimentado una transformación fundamental con la migración hacia canales digitales, aunque los medios tradicionales siguen siendo relevantes para ciertos segmentos y contextos. Chaffey y Ellis-Chadwick (2019) argumentan que la ventaja principal de la publicidad digital radica en su mensurabilidad: cada interacción puede ser rastreada, medida y optimizada en tiempo real.
-
-| Aspecto | Publicidad Tradicional | Publicidad Digital |
-|---|---|---|
-| **Alcance** | Geográfico limitado | Global, segmentado |
-| **Medición** | Difícil de cuantificar | Métricas en tiempo real (CTR, conversiones) (Kaushik, 2010) |
-| **Costo** | Alto costo fijo (impresión, distribución) | Costo variable, escalable |
-| **Interactividad** | Unidireccional | Bidireccional (chatbot, formularios, redes) |
-| **Personalización** | Masiva, genérica | Segmentada por comportamiento y demographics |
-| **Tiempo** | Semanas de producción | Cambios en minutos (CMS) (Barker, 2016) |
-
-**Relevancia para la agencia MCD:** La plataforma digital permite a la agencia ofrecer a sus clientes no solo servicios de impresión tradicional, sino también presencia digital, catálogo en línea, cotización instantánea y seguimiento de pedidos — transformando un negocio presencial en un modelo omnicanal. Según Porter y Heppelmann (2014), esta combinación de canales físicos y digitales crea ventajas competitivas difíciles de replicar.
-
-### 8.4 Métricas de Publicidad Digital
-
-Según Kaushik (2010), la medición efectiva del rendimiento digital requiere métricas alineadas con los objetivos del negocio. Las métricas implementadas en la plataforma MCD cubren las tres fases del embudo de conversión: adquisición (atraer visitantes), comportamiento (interacción con el sitio) y conversión (generación de leads y ventas).
-
-| Métrica | Fuente en MCD | Descripción |
-|---|---|---|
-| **Page Views** | `analytics.PageView` | Visitas por página, tendencias temporales |
-| **Session Duration** | `duration_ms` | Tiempo promedio en la plataforma |
-| **Bounce Rate** | Sesiones con 1 sola pageview | Porcentaje de visitas que abandonan inmediatamente |
-| **Conversion Rate** | Cotizaciones / Visitas totales | Efectividad del embudo de ventas |
-| **Lead Sources** | `Lead.source`, UTM params | Canal de adquisición de cada prospecto (Chaffey & Ellis-Chadwick, 2019) |
-| **CTA Click Rate** | `TrackEvent` (event_name=cta_click) | Efectividad de botones de llamada a la acción |
-| **Chat Engagement** | Mensajes/sesión, escalaciones | Uso y utilidad del chatbot |
-
----
-
-## Referencias Bibliográficas
-
-- Abramov, D., & Cataldo, J. (2023). React Server Components. *React RFC*. https://github.com/reactjs/rfcs/blob/main/text/0188-server-components.md
-- Adamopoulou, E., & Moussiades, L. (2020). An Overview of Chatbot Technology. *IFIP International Conference on Artificial Intelligence Applications and Innovations*, 373-383. https://doi.org/10.1007/978-3-030-49186-4_31
-- Ask Solem. (2024). *Celery: Distributed Task Queue*. https://docs.celeryq.dev/
-- Banks, A., & Porcello, E. (2020). *Learning React: Modern Patterns for Developing React Apps* (2a ed.). O'Reilly Media.
-- Barker, D. (2016). *Web Content Management: Systems, Features, and Best Practices*. O'Reilly Media.
-- Brown, T. B., Mann, B., Ryder, N., Subbiah, M., Kaplan, J., Dhariwal, P., ... & Amodei, D. (2020). Language Models are Few-Shot Learners. *Advances in Neural Information Processing Systems*, 33, 1877-1901.
-- Carlson, J. L. (2013). *Redis in Action*. Manning Publications.
-- Celko, J. (2012). *Joe Celko's Trees and Hierarchies in SQL for Smarties* (2a ed.). Morgan Kaufmann.
-- Chaffey, D., & Ellis-Chadwick, F. (2019). *Digital Marketing: Strategy, Implementation and Practice* (7a ed.). Pearson Education.
-- Cherny, B. (2019). *Programming TypeScript: Making Your JavaScript Applications Scale*. O'Reilly Media.
-- Christie, T. (2024). *Django REST Framework*. https://www.django-rest-framework.org/
-- Cialdini, R. B. (2007). *Influence: The Psychology of Persuasion* (ed. revisada). Harper Business.
-- DaCosta, M. (2015). *Redis Essentials*. Packt Publishing.
-- Dale, R. (2016). The Return of the Chatbots. *Natural Language Engineering*, 22(5), 811-817. https://doi.org/10.1017/S1351324916000243
-- Django Software Foundation. (2024). *Django Documentation*. https://docs.djangoproject.com/
-- Dodds, K. C. (2021). *Testing JavaScript Applications*. Manning Publications.
-- Duckett, J. (2014). *HTML and CSS: Design and Build Websites*. John Wiley & Sons.
-- Elmasri, R., & Navathe, S. B. (2016). *Fundamentals of Database Systems* (7a ed.). Pearson Education.
-- Enge, E., Spencer, S., & Stricchiola, J. C. (2015). *The Art of SEO: Mastering Search Engine Optimization* (3a ed.). O'Reilly Media.
-- Esselink, B. (2000). *A Practical Guide to Localization*. John Benjamins Publishing.
-- Fielding, R. T. (2000). *Architectural Styles and the Design of Network-based Software Architectures* [Tesis doctoral, University of California, Irvine]. https://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
-- Flanagan, D. (2020). *JavaScript: The Definitive Guide* (7a ed.). O'Reilly Media.
-- Forcier, J., Bissex, P., & Chun, W. J. (2009). *Python Web Development with Django*. Addison-Wesley.
-- Fowler, M. (2015). *Patterns of Enterprise Application Architecture*. Addison-Wesley.
-- Freeman, A. (2022). *Essential TypeScript 5* (3a ed.). Apress.
-- Gackenheimer, C. (2015). *Introduction to React*. Apress.
-- Gamma, E., Helm, R., Johnson, R., & Vlissides, J. (1994). *Design Patterns: Elements of Reusable Object-Oriented Software*. Addison-Wesley.
-- Google DeepMind. (2024). *Gemini: A Family of Highly Capable Multimodal Models*. https://deepmind.google/technologies/gemini/
-- Google Developers. (2024). *Web Vitals*. https://web.dev/vitals/
-- Greenfeld, D. R., & Greenfeld, A. R. (2020). *Two Scoops of Django 3.x: Best Practices for the Django Web Framework*. Two Scoops Press.
-- Haklay, M., & Weber, P. (2008). OpenStreetMap: User-Generated Street Maps. *IEEE Pervasive Computing*, 7(4), 12-18. https://doi.org/10.1109/MPRV.2008.80
-- Hardt, D. (2012). *The OAuth 2.0 Authorization Framework*. RFC 6749. Internet Engineering Task Force. https://tools.ietf.org/html/rfc6749
-- Hillar, G. C. (2019). *Django RESTful Web Services*. Packt Publishing.
-- Holovaty, A., & Kaplan-Moss, J. (2009). *The Definitive Guide to Django: Web Development Done Right* (2a ed.). Apress.
-- Jacobson, D., Brail, G., & Woods, D. (2012). *APIs: A Strategy Guide*. O'Reilly Media.
-- Jones, M., Bradley, J., & Sakimura, N. (2015). *JSON Web Token (JWT)*. RFC 7519. Internet Engineering Task Force. https://tools.ietf.org/html/rfc7519
-- Juba, S., & Volkov, A. (2019). *Learning PostgreSQL 12* (4a ed.). Packt Publishing.
-- Jurafsky, D., & Martin, J. H. (2023). *Speech and Language Processing* (3a ed., borrador en línea). Stanford University. https://web.stanford.edu/~jurafsky/slp3/
-- Kaplan, A. M., & Haenlein, M. (2010). Users of the World, Unite! The Challenges and Opportunities of Social Media. *Business Horizons*, 53(1), 59-68. https://doi.org/10.1016/j.bushor.2009.09.003
-- Kaushik, A. (2010). *Web Analytics 2.0: The Art of Online Accountability and Science of Customer Centricity*. Sybex (Wiley).
-- Kotler, P., & Keller, K. L. (2016). *Marketing Management* (15a ed.). Pearson Education.
-- Kreibich, J. A. (2010). *Using SQLite*. O'Reilly Media.
-- Laudon, K. C., & Traver, C. G. (2021). *E-Commerce 2021-2022: Business, Technology and Society* (17a ed.). Pearson Education.
-- Lauret, A. (2019). *The Design of Web APIs*. Manning Publications.
-- Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Kiela, D. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. *Advances in Neural Information Processing Systems*, 33, 9459-9474.
-- Lupton, E., & Phillips, J. C. (2015). *Graphic Design: The New Basics* (2a ed.). Princeton Architectural Press.
-- Lutz, M. (2013). *Learning Python* (5a ed.). O'Reilly Media.
-- Macedo, T., & Oliveira, R. (2020). Redis Architecture and Design Patterns. En *Handbook of Research on Software Engineering Innovation*. IGI Global.
-- Martin, R. C. (2009). *Clean Code: A Handbook of Agile Software Craftsmanship*. Prentice Hall.
-- Massé, M. (2012). *REST API Design Rulebook*. O'Reilly Media.
-- Meta Platforms. (2024). *React — A JavaScript library for building user interfaces*. https://react.dev/
-- Microsoft. (2024). *TypeScript Documentation*. https://www.typescriptlang.org/docs/
-- Momjian, B. (2001). *PostgreSQL: Introduction and Concepts*. Addison-Wesley.
-- Myers, G. J., Sandler, C., & Badgett, T. (2011). *The Art of Software Testing* (3a ed.). John Wiley & Sons.
-- Obe, R. O., & Hsu, L. S. (2017). *PostgreSQL: Up and Running* (3a ed.). O'Reilly Media.
-- Okken, B. (2022). *Python Testing with pytest* (2a ed.). Pragmatic Bookshelf.
-- OpenAPI Initiative. (2024). *OpenAPI Specification v3.1.0*. https://spec.openapis.org/oas/v3.1.0
-- OWASP. (2021). *OWASP Top Ten Web Application Security Risks*. https://owasp.org/www-project-top-ten/
-- Owens, M., & Allen, G. (2010). *The Definitive Guide to SQLite* (2a ed.). Apress.
-- PCI Security Standards Council. (2022). *Payment Card Industry Data Security Standard (PCI DSS) v4.0*. https://www.pcisecuritystandards.org/
-- Porter, M. E., & Heppelmann, J. E. (2014). How Smart, Connected Products Are Transforming Competition. *Harvard Business Review*, 92(11), 64-88.
-- Pressman, R. S., & Maxim, B. R. (2020). *Software Engineering: A Practitioner's Approach* (9a ed.). McGraw-Hill Education.
-- Python Software Foundation. (2024). *Python 3 Documentation*. https://docs.python.org/3/
-- Richardson, L., & Ruby, S. (2007). *RESTful Web Services*. O'Reilly Media.
-- Sadalage, P. J., & Fowler, M. (2013). *NoSQL Distilled: A Brief Guide to the Emerging World of Polyglot Persistence*. Addison-Wesley.
-- Seguin, K. (2012). *The Little Redis Book*. https://openmymind.net/redis.pdf
-- Silberschatz, A., Korth, H. F., & Sudarshan, S. (2020). *Database System Concepts* (7a ed.). McGraw-Hill Education.
-- Sommerville, I. (2016). *Software Engineering* (10a ed.). Pearson Education.
-- Stonebraker, M., & Rowe, L. A. (1986). The Design of POSTGRES. *ACM SIGMOD Record*, 15(2), 340-355. https://doi.org/10.1145/16856.16888
-- Stuttard, D., & Pinto, M. (2018). *The Web Application Hacker's Handbook* (2a ed.). Wiley.
-- Tailwind Labs. (2024). *Tailwind CSS Documentation*. https://tailwindcss.com/docs/
-- The PostgreSQL Global Development Group. (2024). *PostgreSQL 16 Documentation*. https://www.postgresql.org/docs/16/
-- Van Rossum, G., & Drake, F. L. (2009). *Python 3 Reference Manual*. CreateSpace.
-- Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., ... & Polosukhin, I. (2017). Attention Is All You Need. *Advances in Neural Information Processing Systems*, 30, 5998-6008.
-- Velte, T., Velte, A., & Elsenpeter, R. (2010). *Cloud Computing: A Practical Approach*. McGraw-Hill.
-- Vercel. (2024). *Next.js Documentation*. https://nextjs.org/docs
-- Vincent, W. S. (2022). *Django for APIs: Build Web APIs with Python and Django* (4a ed.). Still River Press.
-- W3C. (2018). *Web Content Accessibility Guidelines (WCAG) 2.1*. https://www.w3.org/TR/WCAG21/
-- Wathan, A. (2023). *Tailwind CSS: From Zero to Production*. Tailwind Labs.
-- Weizenbaum, J. (1966). ELIZA — A Computer Program for the Study of Natural Language Communication Between Man and Machine. *Communications of the ACM*, 9(1), 36-45. https://doi.org/10.1145/365153.365168
-- Wieruch, R. (2023). *The Road to React* (ed. 2023). https://www.roadtoreact.com/
-- Wiggins, A. (2017). *The Twelve-Factor App*. https://12factor.net/
-
----
-
-> **Nota:** Este documento constituye el capítulo de Marco Teórico del documento académico.
-> Cada sección corresponde a un nodo del mapa conceptual del proyecto.
-> Todas las referencias siguen el formato APA 7ª edición.
-> Para exportar a Word: `pandoc MARCO_TEORICO.md -o MARCO_TEORICO.docx --reference-doc=plantilla.docx`
+## Nota para formato APA 7 en Word
+
+1. Pega el texto con **Mantener solo texto**.  
+2. Configura: **Times New Roman 12**, interlineado **doble**, márgenes **2.54 cm**.  
+3. En “Referencias”, aplica **sangría francesa 1.27 cm** y mantén orden alfabético.  
+4. Verifica que todas las citas en texto (autor, año) tengan entrada correspondiente en la lista final.

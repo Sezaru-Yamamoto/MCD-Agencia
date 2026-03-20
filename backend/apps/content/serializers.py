@@ -20,6 +20,7 @@ from .models import (
     Service,
     ServiceImage,
     PortfolioVideo,
+    PortfolioItem,
     FAQ,
     Branch,
     LegalPage,
@@ -182,7 +183,7 @@ class ServiceImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceImage
-        fields = ['id', 'service', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'position', 'is_active']
+        fields = ['id', 'service', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'display_format', 'position', 'is_active']
         read_only_fields = ['id']
 
     def validate_image(self, value):
@@ -211,7 +212,7 @@ class ServiceImagePublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceImage
-        fields = ['id', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'position']
+        fields = ['id', 'image', 'alt_text', 'alt_text_en', 'subtype_key', 'display_format', 'position']
         read_only_fields = ['id']
 
 
@@ -406,6 +407,44 @@ class SiteConfigurationPublicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class PortfolioItemPublicSerializer(serializers.ModelSerializer):
+    """Serializer for PortfolioItem in public/landing context."""
+
+    class Meta:
+        model = PortfolioItem
+        fields = [
+            'id', 'media_type', 'image', 'youtube_id', 'title', 'title_en',
+            'aspect_ratio', 'position', 'is_active'
+        ]
+        read_only_fields = ['id']
+
+
+class PortfolioItemAdminSerializer(serializers.ModelSerializer):
+    """Serializer for PortfolioItem in admin context with full details."""
+
+    class Meta:
+        model = PortfolioItem
+        fields = [
+            'id', 'media_type', 'image', 'youtube_id', 'title', 'title_en',
+            'aspect_ratio', 'position', 'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        """Ensure required fields based on media type."""
+        media_type = data.get('media_type', self.instance.media_type if self.instance else 'image')
+        
+        if media_type == PortfolioItem.MEDIA_TYPE_IMAGE and not data.get('image') and not (self.instance and self.instance.image):
+            raise serializers.ValidationError(
+                {'image': 'Image is required for image type items.'}
+            )
+        if media_type == PortfolioItem.MEDIA_TYPE_VIDEO and not data.get('youtube_id') and not (self.instance and self.instance.youtube_id):
+            raise serializers.ValidationError(
+                {'youtube_id': 'YouTube video ID is required for video type items.'}
+            )
+        return data
+
+
 class ContactFormSerializer(serializers.Serializer):
     """Serializer for contact form submissions."""
 
@@ -439,4 +478,5 @@ class LandingPageSerializer(serializers.Serializer):
     faqs = FAQPublicSerializer(many=True, read_only=True)
     branches = BranchPublicSerializer(many=True, read_only=True)
     portfolio_videos = PortfolioVideoPublicSerializer(many=True, read_only=True)
+    portfolio_items = PortfolioItemPublicSerializer(many=True, read_only=True)
     config = SiteConfigurationPublicSerializer(read_only=True)

@@ -16,6 +16,23 @@ export interface AdminUser extends User {
   last_login?: string;
   orders_count: number;
   quotes_count: number;
+  total_spent?: string;
+  last_order_date?: string;
+}
+
+export interface AdminClient {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company?: string;
+  address?: string;
+  city?: string;
+  total_orders: number;
+  total_quotes: number;
+  total_spent: string;
+  last_order_date?: string;
+  created_at: string;
 }
 
 export interface AdminOrder extends Order {
@@ -84,6 +101,13 @@ export async function getAdminUsers(filters?: {
   return apiClient.get<PaginatedResponse<AdminUser>>('/admin/users/', filters);
 }
 
+export async function getAdminClients(filters?: {
+  search?: string;
+  page?: number;
+}): Promise<PaginatedResponse<AdminClient>> {
+  return apiClient.get<PaginatedResponse<AdminClient>>('/admin/users/clients/', filters);
+}
+
 export async function getAdminUserById(id: string): Promise<AdminUser> {
   return apiClient.get<AdminUser>(`/admin/users/${id}/`);
 }
@@ -147,7 +171,7 @@ export async function getAdminQuoteRequests(filters?: {
 }
 
 export async function assignQuoteRequest(id: string, userId: string): Promise<AdminQuoteRequest> {
-  return apiClient.post<AdminQuoteRequest>(`/admin/quote-requests/${id}/assign/`, { user_id: userId });
+  return apiClient.post<AdminQuoteRequest>(`/admin/quote-requests/${id}/assign/`, { assigned_to_id: userId });
 }
 
 export async function createQuoteFromRequest(
@@ -291,7 +315,7 @@ export async function deleteProductImage(
 // Inventory Admin
 export interface CreateMovementData {
   variant_id: string;
-  type: 'IN' | 'OUT' | 'ADJUSTMENT';
+  movement_type: 'IN' | 'OUT' | 'ADJUSTMENT';
   quantity: number;
   reason: string;
   notes?: string;

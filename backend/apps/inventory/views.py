@@ -70,35 +70,31 @@ class InventoryMovementViewSet(viewsets.ModelViewSet):
 
             stock_before = variant.stock
 
-            # Calculate stock change
-            if movement_type == InventoryMovement.MOVEMENT_IN:
-                variant.stock += quantity
-            elif movement_type == InventoryMovement.MOVEMENT_OUT:
-                if variant.stock < quantity:
-                    return Response(
-                        {'error': _('Insufficient stock.')},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                variant.stock -= quantity
-            else:  # Adjustment
-                # For adjustments, quantity is the new absolute stock value
-                variant.stock = quantity
+            # Validate stock-out against current stock
+            if movement_type == InventoryMovement.MOVEMENT_OUT and stock_before < quantity:
+                return Response(
+                    {'error': _('Insufficient stock.')},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            variant.save(update_fields=['stock', 'updated_at'])
+            # For adjustments, API quantity is the target absolute stock.
+            # Convert to delta because InventoryMovement stores adjustments as deltas.
+            movement_quantity = quantity
+            if movement_type == InventoryMovement.MOVEMENT_ADJUSTMENT:
+                movement_quantity = quantity - stock_before
 
             # Create movement record
             movement = InventoryMovement.objects.create(
                 variant=variant,
                 movement_type=movement_type,
-                quantity=quantity if movement_type != InventoryMovement.MOVEMENT_ADJUSTMENT else abs(
-                    quantity - stock_before
-                ),
+                quantity=movement_quantity,
                 reason=reason,
                 notes=serializer.validated_data.get('notes', ''),
-                stock_before=stock_before,
-                stock_after=variant.stock,
                 created_by=request.user
             )
+
+            # Stock is updated by InventoryMovement.save(); refresh variant state
+            variant.refresh_from_db(fields=['stock'])
 
             # Check for low stock alert
             if variant.stock <= variant.low_stock_threshold:

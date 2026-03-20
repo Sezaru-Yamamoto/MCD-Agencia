@@ -23,6 +23,7 @@ from .models import (
     Service,
     ServiceImage,
     PortfolioVideo,
+    PortfolioItem,
     FAQ,
     Branch,
     LegalPage,
@@ -41,6 +42,8 @@ from .serializers import (
     ServiceImagePublicSerializer,
     PortfolioVideoSerializer,
     PortfolioVideoPublicSerializer,
+    PortfolioItemPublicSerializer,
+    PortfolioItemAdminSerializer,
     FAQSerializer,
     FAQPublicSerializer,
     BranchSerializer,
@@ -78,6 +81,7 @@ class LandingPageView(APIView):
             'faqs': FAQ.objects.filter(is_active=True).order_by('category', 'position'),
             'branches': Branch.objects.filter(is_active=True).order_by('position'),
             'portfolio_videos': PortfolioVideo.objects.filter(is_active=True).order_by('position'),
+            'portfolio_items': PortfolioItem.objects.filter(is_active=True).order_by('position'),
             'config': SiteConfiguration.get_config(),
         }
 
@@ -102,6 +106,9 @@ class LandingPageView(APIView):
             ).data,
             'portfolio_videos': PortfolioVideoPublicSerializer(
                 data['portfolio_videos'], many=True, context={'request': request}
+            ).data,
+            'portfolio_items': PortfolioItemPublicSerializer(
+                data['portfolio_items'], many=True, context={'request': request}
             ).data,
             'config': SiteConfigurationPublicSerializer(
                 data['config'], context={'request': request}
@@ -605,3 +612,62 @@ class SiteConfigurationView(APIView):
         )
 
         return Response(SiteConfigurationSerializer(config).data)
+
+class PortfolioItemViewSet(viewsets.ModelViewSet):
+    """ViewSet for portfolio item management (unified image + video gallery)."""
+
+    parser_classes = [parsers.JSONParser, parsers.MultiPartParser, parsers.FormParser]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        """Return portfolio items based on user role."""
+        if self.request.user.is_staff:
+            return PortfolioItem.objects.all().order_by('position')
+        return PortfolioItem.objects.filter(is_active=True).order_by('position')
+
+    def get_serializer_class(self):
+        """Return appropriate serializer."""
+        if not self.request.user.is_staff:
+            return PortfolioItemPublicSerializer
+        return PortfolioItemAdminSerializer
+
+    def get_permissions(self):
+        """Set permissions based on action."""
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+    def perform_create(self, serializer):
+        """Log portfolio item creation."""
+        item = serializer.save()
+        AuditLog.log(
+            entity=item,
+            action=AuditLog.ACTION_CREATED,
+            actor=self.request.user,
+            after_state=PortfolioItemAdminSerializer(item).data,
+            request=self.request
+        )
+
+    def perform_update(self, serializer):
+        """Log portfolio item update."""
+        before_state = PortfolioItemAdminSerializer(self.get_object()).data
+        item = serializer.save()
+        AuditLog.log(
+            entity=item,
+            action=AuditLog.ACTION_UPDATED,
+            actor=self.request.user,
+            before_state=before_state,
+            after_state=PortfolioItemAdminSerializer(item).data,
+            request=self.request
+        )
+
+    def perform_destroy(self, instance):
+        """Log portfolio item deletion."""
+        AuditLog.log(
+            entity=instance,
+            action=AuditLog.ACTION_DELETED,
+            actor=self.request.user,
+            before_state=PortfolioItemAdminSerializer(instance).data,
+            request=self.request
+        )
+        super().perform_destroy(instance)

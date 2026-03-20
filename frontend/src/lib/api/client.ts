@@ -9,7 +9,7 @@
  *   - TypeScript support
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+import { getApiBaseUrl } from './base-url';
 
 interface RequestConfig extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
@@ -61,9 +61,10 @@ export function clearTokens(): void {
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
+  const apiBaseUrl = getApiBaseUrl();
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
+    const response = await fetch(`${apiBaseUrl}/auth/token/refresh/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -89,7 +90,8 @@ async function refreshAccessToken(): Promise<string | null> {
  * Build URL with query parameters.
  */
 function buildUrl(endpoint: string, params?: Record<string, string | number | boolean | undefined>): string {
-  const url = new URL(endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`);
+  const apiBaseUrl = getApiBaseUrl();
+  const url = new URL(endpoint.startsWith('http') ? endpoint : `${apiBaseUrl}${endpoint}`);
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

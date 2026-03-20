@@ -210,6 +210,8 @@ class StockAlert(TimeStampedModel):
     """
 
     STATUS_PENDING = 'pending'
+    # Backward-compatible alias used in views/services
+    STATUS_ACTIVE = STATUS_PENDING
     STATUS_ACKNOWLEDGED = 'acknowledged'
     STATUS_RESOLVED = 'resolved'
 

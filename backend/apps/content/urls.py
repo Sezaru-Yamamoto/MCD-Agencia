@@ -25,6 +25,7 @@ from .views import (
     ServiceViewSet,
     ServiceImageViewSet,
     PortfolioVideoViewSet,
+    PortfolioItemViewSet,
     FAQViewSet,
     BranchViewSet,
     LegalPageViewSet,
@@ -38,6 +39,7 @@ router.register('carousel', CarouselSlideViewSet, basename='carousel')
 router.register('services', ServiceViewSet, basename='services')
 router.register('service-images', ServiceImageViewSet, basename='service-images')
 router.register('portfolio-videos', PortfolioVideoViewSet, basename='portfolio-videos')
+router.register('portfolio-items', PortfolioItemViewSet, basename='portfolio-items')
 router.register('testimonials', TestimonialViewSet, basename='testimonials')
 router.register('clients', ClientLogoViewSet, basename='clients')
 router.register('faqs', FAQViewSet, basename='faqs')

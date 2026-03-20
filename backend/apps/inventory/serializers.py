@@ -99,12 +99,26 @@ class CreateMovementSerializer(serializers.Serializer):
         choices=InventoryMovement.MOVEMENT_TYPE_CHOICES,
         required=True
     )
-    quantity = serializers.IntegerField(min_value=1, required=True)
+    quantity = serializers.IntegerField(min_value=0, required=True)
     reason = serializers.ChoiceField(
         choices=InventoryMovement.REASON_CHOICES,
         required=True
     )
     notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        movement_type = attrs.get('movement_type')
+        quantity = attrs.get('quantity', 0)
+
+        # IN/OUT require strictly positive quantity.
+        if movement_type in [InventoryMovement.MOVEMENT_IN, InventoryMovement.MOVEMENT_OUT] and quantity <= 0:
+            raise serializers.ValidationError({'quantity': _('Quantity must be greater than 0.')})
+
+        # ADJUSTMENT accepts absolute target stock >= 0.
+        if movement_type == InventoryMovement.MOVEMENT_ADJUSTMENT and quantity < 0:
+            raise serializers.ValidationError({'quantity': _('Adjusted stock cannot be negative.')})
+
+        return attrs
 
 
 class StockAlertSerializer(serializers.ModelSerializer):

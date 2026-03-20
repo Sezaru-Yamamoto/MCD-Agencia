@@ -86,7 +86,7 @@ const nextConfig = {
       afterFiles: [],
       fallback: [
         {
-          source: '/api/:path*',
+          source: '/api/v1/:path*',
           destination: `${apiUrl}/:path*`,
         },
       ],
@@ -142,7 +142,7 @@ const nextConfig = {
               }
               return [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://*.clarity.ms https://connect.facebook.net",
+                `script-src 'self' 'unsafe-inline' ${process.env.NODE_ENV !== 'production' ? "'unsafe-eval'" : ''} https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://*.clarity.ms https://connect.facebook.net`,
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                 "font-src 'self' https://fonts.gstatic.com",
                 `img-src 'self' data: blob: https: ${apiOrigin}`,

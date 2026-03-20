@@ -14,6 +14,7 @@ import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { resendVerification } from '@/lib/api/auth';
 import { useRecaptcha } from '@/hooks';
+import { getBackendOrigin } from '@/lib/api/base-url';
 
 const loginSchema = z.object({
   email: z.string().email('Ingresa un email válido'),
@@ -215,8 +216,7 @@ export default function LoginPage() {
         className="w-full"
         onClick={() => {
           sessionStorage.setItem('oauth_redirect', redirectTo);
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-          const backendUrl = apiUrl.replace('/api/v1', '');
+          const backendUrl = getBackendOrigin();
           const callbackUrl = '/api/v1/auth/google/callback/';
           window.location.href = `${backendUrl}/accounts/google/login/?next=${encodeURIComponent(callbackUrl)}`;
         }}
