@@ -620,16 +620,26 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination
 
     def _bootstrap_from_legacy(self):
-        """Populate unified portfolio items from legacy sources if empty."""
-        if PortfolioItem.objects.exists():
-            return
+        """Backfill unified portfolio items from legacy sources without duplicates."""
+        existing_video_ids = set(
+            PortfolioItem.objects.filter(media_type=PortfolioItem.MEDIA_TYPE_VIDEO)
+            .exclude(youtube_id='')
+            .values_list('youtube_id', flat=True)
+        )
+        existing_image_paths = set(
+            path for path in PortfolioItem.objects.filter(media_type=PortfolioItem.MEDIA_TYPE_IMAGE)
+            .exclude(image='')
+            .values_list('image', flat=True)
+            if path
+        )
+
+        next_position = PortfolioItem.objects.aggregate(max_pos=models.Max('position')).get('max_pos')
+        position = (next_position + 1) if next_position is not None else 0
 
         with transaction.atomic():
-            position = 0
-
             legacy_videos = PortfolioVideo.objects.filter(is_active=True).order_by('position')
             for video in legacy_videos:
-                if not video.youtube_id:
+                if not video.youtube_id or video.youtube_id in existing_video_ids:
                     continue
                 PortfolioItem.objects.create(
                     media_type=PortfolioItem.MEDIA_TYPE_VIDEO,
@@ -644,11 +654,13 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
                     position=position,
                     is_active=video.is_active,
                 )
+                existing_video_ids.add(video.youtube_id)
                 position += 1
 
             legacy_images = ServiceImage.objects.filter(is_active=True).select_related('service').order_by('position')
             for image in legacy_images:
-                if not image.image:
+                image_name = image.image.name if image.image else ''
+                if not image_name or image_name in existing_image_paths:
                     continue
                 PortfolioItem.objects.create(
                     media_type=PortfolioItem.MEDIA_TYPE_IMAGE,
@@ -663,6 +675,7 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
                     position=position,
                     is_active=image.is_active,
                 )
+                existing_image_paths.add(image_name)
                 position += 1
 
     def get_queryset(self):
@@ -672,8 +685,7 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
         return PortfolioItem.objects.filter(is_active=True).order_by('position')
 
     def list(self, request, *args, **kwargs):
-        if request.user.is_staff:
-            self._bootstrap_from_legacy()
+        self._bootstrap_from_legacy()
         return super().list(request, *args, **kwargs)
 
     def get_serializer_class(self):

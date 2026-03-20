@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
@@ -242,7 +242,20 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
 export function Portfolio() {
   const t = useTranslations('landing.portfolio');
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!fullscreenImage) {
+      document.body.style.overflow = '';
+      return;
+    }
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [fullscreenImage]);
 
   const { data: apiVideos, isLoading: videosLoading } = useQuery({
     queryKey: ['portfolio-videos'],
@@ -331,6 +344,21 @@ export function Portfolio() {
     return [...apiVideoItems, ...managedImageItems];
   }, [apiVideos, managedImageItems]);
 
+  const goToIndex = useCallback((nextIndex: number) => {
+    if (items.length === 0 || nextIndex === currentIdx) return;
+    setIsTransitioning(true);
+    setCurrentIdx(nextIndex);
+    window.setTimeout(() => setIsTransitioning(false), 280);
+  }, [items.length, currentIdx]);
+
+  useEffect(() => {
+    if (items.length <= 1 || fullscreenImage) return;
+    const interval = window.setInterval(() => {
+      goToIndex((currentIdx + 1) % items.length);
+    }, 6000);
+    return () => window.clearInterval(interval);
+  }, [items.length, currentIdx, goToIndex, fullscreenImage]);
+
   const handleQuoteClick = () => { trackCTA('quote', 'portfolio'); };
 
   const renderItem = useCallback((item: PortfolioItem, isCenter: boolean) => {
@@ -340,9 +368,11 @@ export function Portfolio() {
           : 'h-full max-w-[160px] mx-auto aspect-[9/16]')
       : 'h-full w-full aspect-video';
 
+    const interactionClass = isCenter ? 'pointer-events-auto' : 'pointer-events-none';
+
     if (item.type === 'video' && item.videoId) {
       return (
-        <div className={`${frameClass} transition-opacity duration-700`}>
+        <div className={`${frameClass} ${interactionClass} transition-opacity duration-700`}>
           <VideoCard
             videoId={item.videoId}
             label={item.label}
@@ -354,7 +384,7 @@ export function Portfolio() {
     }
     if (item.type === 'image' && item.imageUrl) {
       return (
-        <div className={`${frameClass} transition-opacity duration-700`}>
+        <div className={`${frameClass} ${interactionClass} transition-opacity duration-700`}>
           <ImageCard
             imageUrl={item.imageUrl}
             label={item.label}
@@ -390,12 +420,14 @@ export function Portfolio() {
         {/* Coverflow carousel */}
         {!videosLoading && items.length > 0 && (
           <>
-            <CoverflowCarousel
-              items={items}
-              currentIndex={currentIdx}
-              onIndexChange={setCurrentIdx}
-              renderItem={renderItem}
-            />
+            <div className={`transition-all duration-300 ${isTransitioning ? 'opacity-75 scale-[0.99]' : 'opacity-100 scale-100'}`}>
+              <CoverflowCarousel
+                items={items}
+                currentIndex={currentIdx}
+                onIndexChange={goToIndex}
+                renderItem={renderItem}
+              />
+            </div>
 
             {/* Dots */}
             {items.length > 1 && (
@@ -403,7 +435,7 @@ export function Portfolio() {
                 {items.map((_, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setCurrentIdx(idx)}
+                    onClick={() => goToIndex(idx)}
                     className={`rounded-full transition-all h-2.5 ${
                       idx === currentIdx ? 'bg-cmyk-cyan w-7' : 'bg-white/30 hover:bg-white/50 w-2.5'
                     }`}
@@ -424,12 +456,14 @@ export function Portfolio() {
 
       {/* Fullscreen image lightbox */}
       {fullscreenImage && (
-        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center" onClick={() => setFullscreenImage(null)}>
+        <div className="fixed inset-0 z-[100] bg-black/90 p-4 overflow-y-auto" onClick={() => setFullscreenImage(null)}>
           <button onClick={() => setFullscreenImage(null)} className="absolute top-4 right-4 z-30 text-white hover:text-red-400 p-2 rounded-full bg-black/60" aria-label="Cerrar">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={fullscreenImage} alt="Portfolio" className="max-w-[90vw] max-h-[85vh] object-contain rounded" onClick={(e) => e.stopPropagation()} />
+          <div className="min-h-full w-full grid place-items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={fullscreenImage} alt="Portfolio" className="max-w-[90vw] max-h-[85vh] object-contain rounded" onClick={(e) => e.stopPropagation()} />
+          </div>
         </div>
       )}
     </section>
