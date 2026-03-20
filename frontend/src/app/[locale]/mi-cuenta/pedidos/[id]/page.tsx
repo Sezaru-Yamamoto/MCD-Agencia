@@ -51,6 +51,34 @@ export default function OrderDetailPage() {
     queryFn: () => getOrderById(orderId),
   });
 
+  const toSafeText = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    return '';
+  };
+
+  const formatAddress = (value: unknown): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value !== 'object' || Array.isArray(value)) return '';
+
+    const address = value as Record<string, unknown>;
+    const parts = [
+      toSafeText(address.street) || toSafeText(address.calle),
+      toSafeText(address.exterior_number) || toSafeText(address.numero_exterior),
+      toSafeText(address.interior_number) || toSafeText(address.numero_interior),
+      toSafeText(address.neighborhood) || toSafeText(address.colonia),
+      toSafeText(address.city) || toSafeText(address.ciudad),
+      toSafeText(address.state) || toSafeText(address.estado),
+      toSafeText(address.postal_code) || toSafeText(address.codigo_postal),
+      toSafeText(address.reference) || toSafeText(address.referencia),
+    ].filter(Boolean);
+
+    return parts.join(', ');
+  };
+
   if (isLoading) {
     return <LoadingPage message="Cargando pedido..." />;
   }
@@ -66,7 +94,10 @@ export default function OrderDetailPage() {
     );
   }
 
-  const StatusIcon = STATUS_ICONS[order.status] || ClockIcon;
+  const StatusIcon = STATUS_ICONS[toSafeText(order.status)] || ClockIcon;
+  const orderLines = Array.isArray(order.lines) ? order.lines : [];
+  const statusHistory = Array.isArray(order.status_history) ? order.status_history : [];
+  const shippingAddressText = formatAddress(order.shipping_address);
   const canPay = ['pending_payment', 'partially_paid'].includes(order.status) && Number(order.balance_due) > 0;
 
   const handlePayment = async () => {
@@ -140,7 +171,7 @@ export default function OrderDetailPage() {
           size="md"
         >
           <StatusIcon className="h-4 w-4 mr-1" />
-          {order.status_display}
+          {toSafeText(order.status_display) || toSafeText(order.status)}
         </Badge>
       </div>
 
@@ -150,17 +181,17 @@ export default function OrderDetailPage() {
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Productos</h3>
             <div className="divide-y divide-neutral-800">
-              {order.lines.map((line) => (
+              {orderLines.map((line) => (
                 <div key={line.id} className="py-4 first:pt-0 last:pb-0 flex gap-4">
                   <div className="w-16 h-16 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
                     <div className="w-full h-full flex items-center justify-center text-neutral-500 text-xs">
-                      {line.sku}
+                      {toSafeText(line.sku)}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium">{line.name}</p>
-                    <p className="text-sm text-neutral-400">{line.variant_name}</p>
-                    <p className="text-sm text-neutral-400">SKU: {line.sku}</p>
+                    <p className="text-white font-medium">{toSafeText(line.name)}</p>
+                    <p className="text-sm text-neutral-400">{toSafeText(line.variant_name)}</p>
+                    <p className="text-sm text-neutral-400">SKU: {toSafeText(line.sku)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-white">{formatPrice(line.unit_price)}</p>
@@ -176,7 +207,7 @@ export default function OrderDetailPage() {
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Historial</h3>
             <div className="space-y-4">
-              {order.status_history.map((history, index) => (
+              {statusHistory.map((history, index) => (
                 <div key={history.id} className="flex gap-4">
                   <div className="relative">
                     <div
@@ -191,14 +222,14 @@ export default function OrderDetailPage() {
                   </div>
                   <div className="pb-4">
                     <p className="text-white font-medium">
-                      {history.to_status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                      {toSafeText(history.to_status).replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                     </p>
                     <p className="text-sm text-neutral-400">
                       {formatDateTime(history.created_at)}
-                      {history.changed_by_name && ` por ${history.changed_by_name}`}
+                      {toSafeText(history.changed_by_name) && ` por ${toSafeText(history.changed_by_name)}`}
                     </p>
-                    {history.notes && (
-                      <p className="text-sm text-neutral-500 mt-1">{history.notes}</p>
+                    {toSafeText(history.notes) && (
+                      <p className="text-sm text-neutral-500 mt-1">{toSafeText(history.notes)}</p>
                     )}
                   </div>
                 </div>
@@ -242,7 +273,7 @@ export default function OrderDetailPage() {
             {order.payment_method && (
               <div className="mt-4 pt-4 border-t border-neutral-800">
                 <p className="text-sm text-neutral-400">Método de pago</p>
-                <p className="text-white capitalize">{order.payment_method}</p>
+                <p className="text-white capitalize">{toSafeText(order.payment_method)}</p>
               </div>
             )}
           </Card>
@@ -316,14 +347,14 @@ export default function OrderDetailPage() {
 
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Dirección de envío</h3>
-            <p className="text-neutral-300 whitespace-pre-line">{order.shipping_address}</p>
+            <p className="text-neutral-300 whitespace-pre-line">{shippingAddressText || 'Sin dirección registrada'}</p>
           </Card>
 
           {order.tracking_number && (
             <Card>
               <h3 className="text-lg font-semibold text-white mb-4">Seguimiento</h3>
               <p className="text-neutral-400 mb-2">Número de guía</p>
-              <p className="text-white font-mono">{order.tracking_number}</p>
+              <p className="text-white font-mono">{toSafeText(order.tracking_number)}</p>
               {order.tracking_url && (
                 <a
                   href={order.tracking_url}
@@ -342,7 +373,7 @@ export default function OrderDetailPage() {
           {order.notes && (
             <Card>
               <h3 className="text-lg font-semibold text-white mb-4">Notas</h3>
-              <p className="text-neutral-400">{order.notes}</p>
+              <p className="text-neutral-400">{toSafeText(order.notes)}</p>
             </Card>
           )}
         </div>
