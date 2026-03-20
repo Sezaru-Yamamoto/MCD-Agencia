@@ -93,28 +93,45 @@ export default function OrderDetailPage() {
     return parts.join(', ');
   };
 
+  const parseJsonIfString = (value: unknown): unknown => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) return value;
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return value;
+    }
+  };
+
   const flattenTechnicalDetails = (value: unknown, prefix = ''): Array<{ label: string; value: string }> => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const normalizedValue = parseJsonIfString(value);
+    if (normalizedValue === null || normalizedValue === undefined || normalizedValue === '') return [];
+
+    if (typeof normalizedValue === 'string' || typeof normalizedValue === 'number' || typeof normalizedValue === 'boolean') {
+      return prefix ? [{ label: prefix, value: String(normalizedValue) }] : [];
+    }
+
+    if (Array.isArray(normalizedValue)) {
+      const arrayEntries: Array<{ label: string; value: string }> = [];
+      normalizedValue.forEach((item, index) => {
+        const itemLabel = prefix ? `${prefix} [${index + 1}]` : `item_${index + 1}`;
+        arrayEntries.push(...flattenTechnicalDetails(item, itemLabel));
+      });
+      return arrayEntries;
+    }
+
+    if (typeof normalizedValue !== 'object') return [];
 
     const entries: Array<{ label: string; value: string }> = [];
-    for (const [key, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, rawValueInput] of Object.entries(normalizedValue as Record<string, unknown>)) {
+      const rawValue = parseJsonIfString(rawValueInput);
       const label = prefix ? `${prefix} · ${key}` : key;
       if (rawValue === null || rawValue === undefined || rawValue === '') continue;
 
       if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
         entries.push({ label, value: String(rawValue) });
-      } else if (Array.isArray(rawValue)) {
-        const joined = rawValue
-          .map((item) => {
-            if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
-              return String(item);
-            }
-            return '';
-          })
-          .filter(Boolean)
-          .join(', ');
-        if (joined) entries.push({ label, value: joined });
-      } else if (typeof rawValue === 'object') {
+      } else if (Array.isArray(rawValue) || typeof rawValue === 'object') {
         entries.push(...flattenTechnicalDetails(rawValue, label));
       }
     }
@@ -292,10 +309,32 @@ export default function OrderDetailPage() {
                         toSafeText(metadata?.description) ||
                         toSafeText(line.variant_name);
 
+                      const metadataServiceDetails = parseJsonIfString(metadata?.service_details);
+                      const quoteLineServiceDetails = parseJsonIfString(quoteLine?.service_details);
+                      const metadataForFallback = metadata
+                        ? Object.fromEntries(
+                            Object.entries(metadata).filter(([key]) => ![
+                              'quote_line_id',
+                              'quote_line_description',
+                              'quote_line_description_en',
+                              'delivery_method',
+                              'delivery_address',
+                              'pickup_branch_id',
+                              'unit',
+                              'original_quantity',
+                              'description',
+                            ].includes(key))
+                          )
+                        : undefined;
+
                       const technicalSource =
-                        (metadata?.service_details && typeof metadata.service_details === 'object' ? metadata.service_details : undefined) ||
-                        quoteLine?.service_details;
-                      const technicalItems = flattenTechnicalDetails(technicalSource);
+                        (metadataServiceDetails && typeof metadataServiceDetails === 'object' ? metadataServiceDetails : undefined) ||
+                        (quoteLineServiceDetails && typeof quoteLineServiceDetails === 'object' ? quoteLineServiceDetails : undefined) ||
+                        metadataForFallback;
+
+                      const technicalItems = flattenTechnicalDetails(technicalSource)
+                        .filter((item) => item.label !== 'service_type' && item.label !== 'service_details')
+                        .slice(0, 20);
 
                       return (
                         <>
@@ -304,7 +343,7 @@ export default function OrderDetailPage() {
                             <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-2">
                               <p className="text-[11px] font-medium text-neutral-300 mb-1">Detalles técnicos</p>
                               <ul className="space-y-1">
-                                {technicalItems.slice(0, 12).map((item, index) => (
+                                {technicalItems.map((item, index) => (
                                   <li key={`${line.id}-tech-${index}`} className="text-[11px] text-neutral-400">
                                     <span className="text-neutral-500">{item.label}:</span> {item.value}
                                   </li>
