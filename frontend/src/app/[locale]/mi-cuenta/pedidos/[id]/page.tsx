@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -36,8 +36,15 @@ const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
+  const isMountedRef = useRef(true);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mercadopago' | 'paypal' | 'bank_transfer' | 'cash'>('mercadopago');
   const [isPaying, setIsPaying] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', orderId],
@@ -69,6 +76,8 @@ export default function OrderDetailPage() {
     try {
       await setOrderPaymentMethod(order.id, selectedPaymentMethod);
 
+      if (!isMountedRef.current) return;
+
       if (selectedPaymentMethod === 'mercadopago') {
         const preference = await initiateMercadoPagoPayment(order.id);
         const redirectUrl = process.env.NODE_ENV === 'production'
@@ -84,13 +93,21 @@ export default function OrderDetailPage() {
         return;
       }
 
+      if (!isMountedRef.current) return;
+
       if (selectedPaymentMethod === 'bank_transfer') {
         toast.success('Método seleccionado: transferencia. Un administrador confirmará el pago.');
       } else {
         toast.success('Método seleccionado: efectivo. Un administrador confirmará el pago.');
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
+
       const err = error as { message?: string };
+      toast.error(err.message || 'Error al procesar el pago');
+      setIsPaying(false);
+    }
+  };
       toast.error(err.message || 'No se pudo iniciar el pago');
     } finally {
       setIsPaying(false);
