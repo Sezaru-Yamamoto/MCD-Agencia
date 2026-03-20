@@ -990,24 +990,42 @@ class QuoteViewSet(viewsets.ModelViewSet):
             'referencia': (address.get('referencia') or address.get('reference') or '').strip(),
         }
 
-    def _sync_customer_profile_address_from_quote(self, quote: Quote, user) -> None:
-        """Persist delivery address into user profile/UserAddress for shipping/installation only."""
+    def _sync_customer_profile_from_quote(self, quote: Quote, user) -> None:
+        """Persist contact + delivery data from quote into customer profile."""
         if not user:
             return
 
+        # Sync contact fields first (without overriding existing profile data)
+        user_update_fields = []
+        quote_phone = (quote.customer_phone or '').strip()
+        quote_company = (quote.customer_company or '').strip()
+
+        if quote_phone and not (user.phone or '').strip():
+            user.phone = quote_phone
+            user_update_fields.append('phone')
+
+        if quote_company and not (user.company or '').strip():
+            user.company = quote_company
+            user_update_fields.append('company')
+
         delivery_method = quote.delivery_method or (quote.quote_request.delivery_method if quote.quote_request else '')
         if delivery_method not in [QuoteRequest.DELIVERY_SHIPPING, QuoteRequest.DELIVERY_INSTALLATION]:
+            if user_update_fields:
+                user.save(update_fields=user_update_fields + ['updated_at'])
             return
 
         source_address = quote.delivery_address or (quote.quote_request.delivery_address if quote.quote_request else {})
         profile_addr = self._normalize_address_for_user_profile(source_address)
         if not profile_addr or not any(profile_addr.values()):
+            if user_update_fields:
+                user.save(update_fields=user_update_fields + ['updated_at'])
             return
 
         from apps.users.models import UserAddress
 
         user.default_delivery_address = profile_addr
-        user.save(update_fields=['default_delivery_address', 'updated_at'])
+        user_update_fields.append('default_delivery_address')
+        user.save(update_fields=list(dict.fromkeys(user_update_fields + ['updated_at'])))
 
         required_fields = {
             'calle': profile_addr.get('calle', ''),
@@ -1179,7 +1197,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             # This covers the common flow: user registers, returns to quote link,
             # then accepts and expects the address to be saved for future requests.
             if request.user.is_authenticated and not _is_internal_user(request.user):
-                self._sync_customer_profile_address_from_quote(quote, request.user)
+                self._sync_customer_profile_from_quote(quote, request.user)
 
             quote.status = Quote.STATUS_ACCEPTED
             quote.accepted_at = timezone.now()
