@@ -2098,9 +2098,9 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Actions */}
           </div>
-          <div className="lg:sticky lg:top-20 mt-4 z-10">
-          <Card className="p-4">
-            <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
+          <div className="lg:sticky lg:top-20 mt-6 z-10">
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-white mb-3">Acciones</h3>
             <div className="space-y-2">
               {/* Download PDF — hidden in edit mode */}
               {!editMode && (quote.pdf_file || quote.token) && (
