@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 const REQUEST_TIMEOUT_MS = 7000;
-const MAX_BACKEND_ATTEMPTS = 2;
+const MAX_BACKEND_ATTEMPTS = 5;
 
 function getPrimaryApiBase(request: NextRequest): string {
   return `${request.nextUrl.origin.replace(/\/$/, '')}/api/v1`;
@@ -17,7 +17,7 @@ function normalizeApiBase(input: string): string {
 }
 
 function buildBackendCandidates(request: NextRequest): string[] {
-  const candidates: string[] = [getPrimaryApiBase(request)];
+  const candidates: string[] = [];
 
   const backendUrl = process.env.BACKEND_URL;
   const internalApiUrl = process.env.INTERNAL_API_URL;
@@ -27,15 +27,17 @@ function buildBackendCandidates(request: NextRequest): string[] {
   if (internalApiUrl) candidates.push(normalizeApiBase(internalApiUrl));
   if (publicApiUrl) candidates.push(normalizeApiBase(publicApiUrl));
 
-  // Explicit fallback used by current deployment docs
-  candidates.push('https://mcd-agencia-api.onrender.com/api/v1');
+  // Stable production fallback (Fly)
+  candidates.push('https://mcd-agencia-api.fly.dev/api/v1');
+  // Last resort: same-origin /api/v1 rewrite path
+  candidates.push(getPrimaryApiBase(request));
 
   const origin = request.nextUrl.origin.replace(/\/$/, '');
   const seen = new Set<string>();
 
   const filtered = candidates.filter((candidate) => {
     if (!candidate || seen.has(candidate)) return false;
-    // Keep only /api/v1 same-origin target as primary; avoid other same-origin paths.
+    // Keep only /api/v1 same-origin target; avoid other same-origin paths.
     if (candidate.startsWith(origin) && candidate !== `${origin}/api/v1`) return false;
     seen.add(candidate);
     return true;
@@ -204,7 +206,6 @@ export async function POST(request: NextRequest) {
 
     // Send to Django backend (try multiple configured backends)
     const backendCandidates = buildBackendCandidates(request);
-    const primaryApiBase = getPrimaryApiBase(request);
     if (backendCandidates.length === 0) {
       return NextResponse.json(
         { error: 'Configuración de backend faltante en el servidor.' },
@@ -215,9 +216,7 @@ export async function POST(request: NextRequest) {
     let response: Response | null = null;
     let lastFetchError: unknown = null;
 
-    // Strict consistency rule: create quote requests only through primary API source
-    // (same source used by dashboard/solicitudes), so "enviado" is always visible there.
-    for (const apiBase of [primaryApiBase]) {
+    for (const apiBase of backendCandidates) {
       try {
         const attempt = await fetchWithTimeout(`${apiBase}/quotes/request/`, {
           method: 'POST',
@@ -241,7 +240,7 @@ export async function POST(request: NextRequest) {
     if (!response) {
       console.error('No backend candidate reachable for /quotes/request/', lastFetchError);
 
-      const minimalQuoteSaved = await submitMinimalQuoteFallback([primaryApiBase], payload);
+      const minimalQuoteSaved = await submitMinimalQuoteFallback(backendCandidates, payload);
       if (minimalQuoteSaved) {
         return NextResponse.json(
           {
@@ -319,7 +318,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (response.status >= 500) {
-        const minimalQuoteSaved = await submitMinimalQuoteFallback([primaryApiBase], payload);
+        const minimalQuoteSaved = await submitMinimalQuoteFallback(backendCandidates, payload);
         if (minimalQuoteSaved) {
           return NextResponse.json(
             {
