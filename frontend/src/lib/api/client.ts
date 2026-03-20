@@ -49,10 +49,16 @@ export function setTokens(accessToken: string, refreshToken: string): void {
 /**
  * Clear stored tokens.
  */
-export function clearTokens(): void {
+export function clearTokens(reason: 'manual' | 'expired' | 'unauthorized' = 'manual'): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
+
+  window.dispatchEvent(
+    new CustomEvent('auth:tokens-cleared', {
+      detail: { reason },
+    })
+  );
 }
 
 /**
@@ -73,7 +79,7 @@ async function refreshAccessToken(): Promise<string | null> {
     });
 
     if (!response.ok) {
-      clearTokens();
+      clearTokens('expired');
       return null;
     }
 
@@ -81,7 +87,7 @@ async function refreshAccessToken(): Promise<string | null> {
     localStorage.setItem('accessToken', data.access);
     return data.access;
   } catch {
-    clearTokens();
+    clearTokens('expired');
     return null;
   }
 }

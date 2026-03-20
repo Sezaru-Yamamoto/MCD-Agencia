@@ -1140,7 +1140,7 @@ def generate_snapshot_pdf(quote, snapshot, language='es'):
     return buffer.getvalue()
 
 
-def send_quote_email_sync(quote_id: str) -> bool:
+def send_quote_email_sync(quote_id: str, frontend_url: str | None = None) -> bool:
     """
     Synchronous function to send quote email.
     Can be called directly without Celery.
@@ -1164,8 +1164,8 @@ def send_quote_email_sync(quote_id: str) -> bool:
 
         # Build the quote view URL with token
         lang = quote.language or 'es'
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-        quote_url = f"{frontend_url}/{lang}/cotizacion/{quote.token}" if quote.token else f"{frontend_url}/{lang}/ventas/cotizaciones/{quote.id}"
+        resolved_frontend_url = (frontend_url or getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')).rstrip('/')
+        quote_url = f"{resolved_frontend_url}/{lang}/cotizacion/{quote.token}" if quote.token else f"{resolved_frontend_url}/{lang}/ventas/cotizaciones/{quote.id}"
 
         context = {
             'quote': quote,

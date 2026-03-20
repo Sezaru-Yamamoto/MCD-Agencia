@@ -165,6 +165,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuth();
   }, []);
 
+  // Global auth event listener (token expiration / invalidation)
+  useEffect(() => {
+    const handleTokensCleared = (event: Event) => {
+      const customEvent = event as CustomEvent<{ reason?: 'manual' | 'expired' | 'unauthorized' }>;
+      const reason = customEvent.detail?.reason ?? 'manual';
+
+      setUser(null);
+
+      if (reason !== 'manual') {
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (!currentPath.includes('/login')) {
+          toast.error('Tu sesión expiró. Inicia sesión nuevamente.');
+          router.push('/login');
+        }
+      }
+    };
+
+    window.addEventListener('auth:tokens-cleared', handleTokensCleared as EventListener);
+    return () => {
+      window.removeEventListener('auth:tokens-cleared', handleTokensCleared as EventListener);
+    };
+  }, [router]);
+
   const login = useCallback(async (credentials: LoginCredentials) => {
     const { user: loggedInUser } = await apiLogin(credentials);
     setUser(loggedInUser);

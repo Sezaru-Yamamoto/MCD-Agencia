@@ -48,6 +48,24 @@ from .serializers import (
 )
 
 
+def _frontend_url_from_request(request) -> str | None:
+    origin = request.headers.get('Origin')
+    if origin and (origin.startswith('https://') or origin.startswith('http://')):
+        return origin.rstrip('/')
+
+    referer = request.headers.get('Referer')
+    if referer and (referer.startswith('https://') or referer.startswith('http://')):
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(referer)
+            if parsed.scheme and parsed.netloc:
+                return f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            return None
+
+    return None
+
+
 class QuoteRequestPublicView(APIView):
     """
     Public endpoint for quote request submission.
@@ -865,7 +883,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         email_sent = False
         email_error = ''
         try:
-            send_quote_email_sync(str(quote.id))
+            send_quote_email_sync(str(quote.id), frontend_url=_frontend_url_from_request(request))
             email_sent = True
             logger.info(f"Quote email sent for {quote.quote_number}")
         except Exception as e:
@@ -896,7 +914,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         email_sent = False
         email_error = ''
         try:
-            send_quote_email_sync(str(quote.id))
+            send_quote_email_sync(str(quote.id), frontend_url=_frontend_url_from_request(request))
             email_sent = True
             logger.info(f"Quote email resent for {quote.quote_number}")
         except Exception as e:
