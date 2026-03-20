@@ -461,7 +461,8 @@ export async function acceptQuote(
   signatureName?: string,
 ): Promise<AcceptQuoteResponse> {
   return apiClient.post<AcceptQuoteResponse>(`/quotes/${id}/accept/`, {
-    notes,
+    accepted: true,
+    notes: notes || undefined,
     signature: signature || undefined,
     signature_name: signatureName || undefined,
   });
