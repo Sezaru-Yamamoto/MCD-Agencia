@@ -236,6 +236,7 @@ export interface CreateQuoteData {
   quote_request_id?: string;
   customer_name: string;
   customer_email: string;
+  customer_phone?: string;
   customer_company?: string;
   valid_days?: number;
   payment_mode?: 'FULL' | 'DEPOSIT_ALLOWED';

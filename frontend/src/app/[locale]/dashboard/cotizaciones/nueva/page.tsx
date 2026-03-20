@@ -74,6 +74,7 @@ export default function NewQuotePage() {
   const [quoteRequest, setQuoteRequest] = useState<QuoteRequest | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [customerCompany, setCustomerCompany] = useState('');
   const [items, setItems] = useState<QuoteLineItem[]>([]);
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
@@ -111,6 +112,7 @@ export default function NewQuotePage() {
       // Pre-fill customer info
       setCustomerName(request.customer_name);
       setCustomerEmail(request.customer_email);
+      setCustomerPhone(request.customer_phone || '');
       setCustomerCompany(request.customer_company || '');
 
       // When prefilling from request, lock customer fields
@@ -373,6 +375,7 @@ export default function NewQuotePage() {
         quote_request_id: quoteRequestId || undefined,
         customer_name: customerName,
         customer_email: customerEmail,
+        customer_phone: customerPhone || undefined,
         customer_company: customerCompany || undefined,
         valid_days: validDays,
         payment_mode: 'FULL',
@@ -642,6 +645,22 @@ export default function NewQuotePage() {
                     readOnly={quoteRequest ? !customerEditable : false}
                     tabIndex={quoteRequest && !customerEditable ? -1 : undefined}
                     placeholder="email@ejemplo.com"
+                    className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
+                      quoteRequest && !customerEditable
+                        ? 'bg-neutral-800/50 border-neutral-700/50'
+                        : 'bg-neutral-800 border-neutral-700 focus:border-cmyk-cyan'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-sm mb-2">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    readOnly={quoteRequest ? !customerEditable : false}
+                    tabIndex={quoteRequest && !customerEditable ? -1 : undefined}
+                    placeholder="55 1234 5678"
                     className={`w-full px-4 py-2 border rounded-lg text-white placeholder-neutral-500 focus:outline-none ${
                       quoteRequest && !customerEditable
                         ? 'bg-neutral-800/50 border-neutral-700/50'
@@ -937,6 +956,12 @@ export default function NewQuotePage() {
                                       year: 'numeric', month: 'short', day: 'numeric',
                                     })}
                                   </p>
+                                </div>
+                              )}
+                              {svcRef.description && svcRef.description.trim() && (
+                                <div className="p-3 bg-neutral-900/50 rounded-lg col-span-2 flex flex-col">
+                                  <p className="text-neutral-500 text-xs mb-1">Comentarios adicionales</p>
+                                  <p className="text-white font-medium mt-auto whitespace-pre-wrap">{svcRef.description}</p>
                                 </div>
                               )}
                             </div>
