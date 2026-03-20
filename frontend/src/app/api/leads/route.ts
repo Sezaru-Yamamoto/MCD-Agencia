@@ -17,14 +17,17 @@ function buildBackendCandidates(request: NextRequest): string[] {
   if (backendUrl) candidates.push(normalizeApiBase(backendUrl));
   if (internalApiUrl) candidates.push(normalizeApiBase(internalApiUrl));
   if (publicApiUrl) candidates.push(normalizeApiBase(publicApiUrl));
+  // Same-origin API proxy (Vercel rewrite /api/v1 -> backend)
+  candidates.push(`${request.nextUrl.origin.replace(/\/$/, '')}/api/v1`);
+  // Safe explicit fallback used by current deployment docs
+  candidates.push('https://mcd-agencia-api.onrender.com/api/v1');
 
-  const requestOrigin = request.nextUrl.origin.replace(/\/$/, '');
   const seen = new Set<string>();
 
   return candidates.filter((candidate) => {
     if (!candidate || seen.has(candidate)) return false;
     seen.add(candidate);
-    return !candidate.startsWith(requestOrigin);
+    return true;
   });
 }
 
