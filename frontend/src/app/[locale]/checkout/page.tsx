@@ -44,7 +44,7 @@ const PAYMENT_METHODS = [
   {
     id: 'mercadopago',
     name: 'Mercado Pago',
-    description: 'Tarjetas, OXXO, transferencia',
+    description: 'Pago seguro con Mercado Pago',
     icon: CreditCardIcon,
   },
   {
@@ -54,15 +54,9 @@ const PAYMENT_METHODS = [
     icon: BuildingLibraryIcon,
   },
   {
-    id: 'bank_transfer',
-    name: 'Transferencia',
-    description: 'Confirmación manual por administrador',
-    icon: BuildingLibraryIcon,
-  },
-  {
-    id: 'cash',
-    name: 'Efectivo',
-    description: 'Confirmación manual por administrador',
+    id: 'card',
+    name: 'Tarjetas',
+    description: 'Crédito y débito',
     icon: CreditCardIcon,
   },
 ];
@@ -141,11 +135,15 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     try {
+      const normalizedPaymentMethod = selectedPaymentMethod === 'card'
+        ? 'mercadopago'
+        : selectedPaymentMethod;
+
       // Create the order first
       const order = await createOrder({
         shipping_address_id: selectedAddressId,
         use_shipping_as_billing: true,
-        payment_method: selectedPaymentMethod as 'mercadopago' | 'paypal',
+        payment_method: normalizedPaymentMethod as 'mercadopago' | 'paypal',
         terms_accepted: true,
       });
 
@@ -153,26 +151,16 @@ export default function CheckoutPage() {
       await refreshCart();
 
       // Redirect to payment gateway based on selected method
-      if (selectedPaymentMethod === 'mercadopago') {
+      if (normalizedPaymentMethod === 'mercadopago') {
         const preference = await initiateMercadoPagoPayment(order.id);
         // Use sandbox in development, production in production
         const redirectUrl = process.env.NODE_ENV === 'production'
           ? preference.init_point
           : preference.sandbox_init_point || preference.init_point;
         window.location.href = redirectUrl;
-      } else if (selectedPaymentMethod === 'paypal') {
+      } else if (normalizedPaymentMethod === 'paypal') {
         const paypalOrder = await initiatePayPalPayment(order.id);
         window.location.href = paypalOrder.approval_url;
-      } else {
-        // Direct to order confirmation for other methods
-        if (selectedPaymentMethod === 'bank_transfer') {
-          toast.success('Orden creada. Tu pago por transferencia quedará pendiente de confirmación por admin.');
-        } else if (selectedPaymentMethod === 'cash') {
-          toast.success('Orden creada. Tu pago en efectivo quedará pendiente de confirmación por admin.');
-        } else {
-          toast.success('Orden creada exitosamente');
-        }
-        router.push(`/mi-cuenta/pedidos/${order.id}`);
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -384,15 +372,11 @@ export default function CheckoutPage() {
                 disabled={!selectedAddressId || !termsAccepted}
                 leftIcon={<LockClosedIcon className="h-5 w-5" />}
               >
-                {(selectedPaymentMethod === 'mercadopago' || selectedPaymentMethod === 'paypal')
-                  ? `Pagar ${formatPrice(cart.total)}`
-                  : `Continuar ${formatPrice(cart.total)}`}
+                {`Pagar ${formatPrice(cart.total)}`}
               </Button>
 
               <p className="text-xs text-neutral-500 text-center mt-4">
-                {(selectedPaymentMethod === 'mercadopago' || selectedPaymentMethod === 'paypal')
-                  ? 'Pago seguro con encriptación SSL'
-                  : 'El pago será validado manualmente por administración'}
+                Pago seguro con encriptación SSL
               </p>
             </Card>
           </div>
