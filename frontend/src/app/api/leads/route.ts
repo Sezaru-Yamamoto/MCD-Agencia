@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
+const REQUEST_TIMEOUT_MS = 7000;
+const MAX_BACKEND_ATTEMPTS = 2;
 
 function normalizeApiBase(input: string): string {
   const value = input.trim().replace(/\/$/, '');
@@ -27,13 +29,28 @@ function buildBackendCandidates(request: NextRequest): string[] {
   const origin = request.nextUrl.origin.replace(/\/$/, '');
   const seen = new Set<string>();
 
-  return candidates.filter((candidate) => {
+  const filtered = candidates.filter((candidate) => {
     if (!candidate || seen.has(candidate)) return false;
     // Prevent self-referential loops on Vercel (can cause 504)
     if (candidate.startsWith(origin)) return false;
     seen.add(candidate);
     return true;
   });
+
+  return filtered.slice(0, MAX_BACKEND_ATTEMPTS);
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function submitContactFallback(
@@ -52,7 +69,7 @@ async function submitContactFallback(
 
   for (const apiBase of backendCandidates) {
     try {
-      const response = await fetch(`${apiBase}/content/contact/`, {
+      const response = await fetchWithTimeout(`${apiBase}/content/contact/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +102,7 @@ async function submitMinimalQuoteFallback(
 
   for (const apiBase of backendCandidates) {
     try {
-      const response = await fetch(`${apiBase}/quotes/request/`, {
+      const response = await fetchWithTimeout(`${apiBase}/quotes/request/`, {
         method: 'POST',
         body: minimalData,
       });
@@ -195,14 +212,10 @@ export async function POST(request: NextRequest) {
 
     for (const apiBase of backendCandidates) {
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-        const attempt = await fetch(`${apiBase}/quotes/request/`, {
+        const attempt = await fetchWithTimeout(`${apiBase}/quotes/request/`, {
           method: 'POST',
           body: backendFormData,
-          signal: controller.signal,
         });
-        clearTimeout(timeout);
 
         if (attempt.status === 404 || attempt.status >= 500) {
           console.error('Backend attempt failed:', apiBase, attempt.status);
