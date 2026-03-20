@@ -15,16 +15,19 @@ Quote Workflow:
     5. Customer pays → order processing begins
 """
 
+import logging
 import uuid
 from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel, SoftDeleteModel
+
+logger = logging.getLogger(__name__)
 
 
 def get_default_validity_date():
@@ -356,6 +359,20 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
             self.request_number = self._generate_request_number()
         if self.catalog_item and not self.catalog_item_name:
             self.catalog_item_name = self.catalog_item.name
+
+        for _ in range(3):
+            try:
+                super().save(*args, **kwargs)
+                return
+            except IntegrityError as exc:
+                # Guard against race conditions and soft-deleted collisions
+                # on the unique request_number index.
+                if self._state.adding and 'quotes_quoterequest_request_number_key' in str(exc):
+                    self.request_number = self._generate_request_number()
+                    continue
+                raise
+
+        # If all retries were exhausted, bubble up the latest DB error.
         super().save(*args, **kwargs)
 
     def _generate_request_number(self):
@@ -366,7 +383,7 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
 
         # Find the highest existing number for today
         last = (
-            QuoteRequest.objects
+            QuoteRequest.all_objects
             .filter(request_number__startswith=prefix)
             .order_by('-request_number')
             .values_list('request_number', flat=True)
@@ -416,53 +433,54 @@ class QuoteRequest(TimeStampedModel, SoftDeleteModel):
         Returns:
             User: The assigned sales rep, or None if no one available.
         """
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
 
-        # Get all eligible sales reps
-        eligible_reps = User.objects.filter(
-            role__name='sales',
-            is_active=True,
-            receives_auto_assignments=True,
-        ).filter(
-            current_load__lt=models.F('max_load')
-        )
-
-        if not eligible_reps.exists():
-            # Fallback: any active sales rep with capacity
+            # Get all eligible sales reps
             eligible_reps = User.objects.filter(
                 role__name='sales',
                 is_active=True,
+                receives_auto_assignments=True,
             ).filter(
                 current_load__lt=models.F('max_load')
             )
 
-        if not eligible_reps.exists():
+            if not eligible_reps.exists():
+                # Fallback: any active sales rep with capacity
+                eligible_reps = User.objects.filter(
+                    role__name='sales',
+                    is_active=True,
+                ).filter(
+                    current_load__lt=models.F('max_load')
+                )
+
+            if not eligible_reps.exists():
+                return None
+
+            # Try to find rep with matching specialty
+            if self.service_type:
+                specialty_reps = [
+                    rep for rep in eligible_reps.order_by('current_load', 'assignment_priority')
+                    if rep.sales_specialties and self.service_type in rep.sales_specialties
+                ]
+                if specialty_reps:
+                    assigned_rep = specialty_reps[0]
+                    self._do_assignment(assigned_rep, self.ASSIGNMENT_AUTO_SPECIALTY)
+                    return assigned_rep
+
+            assigned_rep = eligible_reps.order_by(
+                'current_load', 'assignment_priority'
+            ).first()
+
+            if assigned_rep:
+                method = self.ASSIGNMENT_AUTO_LOAD if auto else self.ASSIGNMENT_MANUAL
+                self._do_assignment(assigned_rep, method)
+
+            return assigned_rep
+        except Exception:
+            logger.exception('Auto-assignment failed for quote request %s', getattr(self, 'id', None))
             return None
-
-        # Try to find rep with matching specialty
-        if self.service_type:
-            # Filter in Python for SQLite compatibility
-            # (JSONField contains lookup not supported in SQLite)
-            specialty_reps = [
-                rep for rep in eligible_reps.order_by('current_load', 'assignment_priority')
-                if rep.sales_specialties and self.service_type in rep.sales_specialties
-            ]
-            if specialty_reps:
-                assigned_rep = specialty_reps[0]
-                self._do_assignment(assigned_rep, self.ASSIGNMENT_AUTO_SPECIALTY)
-                return assigned_rep
-
-        # Fallback: assign to rep with lowest load
-        assigned_rep = eligible_reps.order_by(
-            'current_load', 'assignment_priority'
-        ).first()
-
-        if assigned_rep:
-            method = self.ASSIGNMENT_AUTO_LOAD if auto else self.ASSIGNMENT_MANUAL
-            self._do_assignment(assigned_rep, method)
-
-        return assigned_rep
 
     def _do_assignment(self, sales_rep, method):
         """Perform the actual assignment."""

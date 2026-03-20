@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -12,10 +13,12 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-import { getOrderById } from '@/lib/api/orders';
+import { getOrderById, setOrderPaymentMethod } from '@/lib/api/orders';
+import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, formatDateTime, cn } from '@/lib/utils';
 import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
+import toast from 'react-hot-toast';
 
 const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
   draft: ClockIcon,
@@ -33,6 +36,8 @@ const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mercadopago' | 'paypal' | 'bank_transfer' | 'cash'>('mercadopago');
+  const [isPaying, setIsPaying] = useState(false);
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', orderId],
@@ -55,6 +60,42 @@ export default function OrderDetailPage() {
   }
 
   const StatusIcon = STATUS_ICONS[order.status] || ClockIcon;
+  const canPay = ['pending_payment', 'partially_paid'].includes(order.status) && Number(order.balance_due) > 0;
+
+  const handlePayment = async () => {
+    if (!canPay || isPaying) return;
+
+    setIsPaying(true);
+    try {
+      await setOrderPaymentMethod(order.id, selectedPaymentMethod);
+
+      if (selectedPaymentMethod === 'mercadopago') {
+        const preference = await initiateMercadoPagoPayment(order.id);
+        const redirectUrl = process.env.NODE_ENV === 'production'
+          ? preference.init_point
+          : preference.sandbox_init_point || preference.init_point;
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      if (selectedPaymentMethod === 'paypal') {
+        const paypalOrder = await initiatePayPalPayment(order.id);
+        window.location.href = paypalOrder.approval_url;
+        return;
+      }
+
+      if (selectedPaymentMethod === 'bank_transfer') {
+        toast.success('Método seleccionado: transferencia. Un administrador confirmará el pago.');
+      } else {
+        toast.success('Método seleccionado: efectivo. Un administrador confirmará el pago.');
+      }
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'No se pudo iniciar el pago');
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -193,6 +234,40 @@ export default function OrderDetailPage() {
               </div>
             )}
           </Card>
+
+          {canPay && (
+            <Card>
+              <h3 className="text-lg font-semibold text-white mb-4">Realizar pago</h3>
+              <div className="space-y-3">
+                <select
+                  value={selectedPaymentMethod}
+                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash')}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-cmyk-cyan focus:outline-none"
+                >
+                  <option value="mercadopago">Mercado Pago</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="bank_transfer">Transferencia</option>
+                  <option value="cash">Efectivo</option>
+                </select>
+
+                {(selectedPaymentMethod === 'bank_transfer' || selectedPaymentMethod === 'cash') && (
+                  <p className="text-xs text-neutral-400">
+                    Este método requiere validación manual por administrador.
+                  </p>
+                )}
+
+                <Button
+                  onClick={handlePayment}
+                  isLoading={isPaying}
+                  className="w-full"
+                >
+                  {selectedPaymentMethod === 'mercadopago' || selectedPaymentMethod === 'paypal'
+                    ? 'Continuar al pago'
+                    : 'Solicitar confirmación de pago'}
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {/* Delivery Method */}
           {order.delivery_method && (

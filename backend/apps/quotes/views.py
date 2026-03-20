@@ -917,6 +917,147 @@ class QuoteViewSet(viewsets.ModelViewSet):
         serializer = QuoteResponseSerializer(qs, many=True)
         return Response(serializer.data)
 
+    def _normalize_order_payment_method(self, quote: Quote, explicit_method: str | None = None) -> str:
+        """Resolve a valid Order.payment_method from explicit value or quote methods."""
+        from apps.orders.models import Order
+
+        valid_methods = {value for value, _ in Order.PAYMENT_METHOD_CHOICES}
+        aliases = {
+            'mercado_pago': 'mercadopago',
+            'mercado pago': 'mercadopago',
+            'paypal': 'paypal',
+            'transfer': 'bank_transfer',
+            'transferencia': 'bank_transfer',
+            'bank transfer': 'bank_transfer',
+            'bank_transfer': 'bank_transfer',
+            'cash': 'cash',
+            'efectivo': 'cash',
+            'tarjeta': 'mercadopago',
+            'card': 'mercadopago',
+            'credit_card': 'mercadopago',
+        }
+
+        def normalize(value):
+            if not value:
+                return None
+            key = str(value).strip().lower()
+            resolved = aliases.get(key, key)
+            return resolved if resolved in valid_methods else None
+
+        normalized_explicit = normalize(explicit_method)
+        if normalized_explicit:
+            return normalized_explicit
+
+        for method in (quote.payment_methods or []):
+            normalized = normalize(method)
+            if normalized:
+                return normalized
+
+        return 'bank_transfer'
+
+    def _convert_quote_to_order(self, quote: Quote, actor, payment_method: str | None = None, notes: str = ''):
+        """Create an order from quote if not already converted.
+
+        Returns:
+            tuple(order, created)
+        """
+        from apps.orders.models import Order, OrderLine, OrderStatusHistory
+
+        existing_order = Order.objects.filter(quote=quote).first()
+        if existing_order:
+            return existing_order, False
+
+        if not quote.customer:
+            raise ValueError(_('This quote does not have a registered customer linked. Please link a customer before converting to order.'))
+
+        order_payment_method = self._normalize_order_payment_method(quote, payment_method)
+
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=quote.customer,
+                status=Order.STATUS_PENDING_PAYMENT,
+                subtotal=quote.subtotal,
+                tax_rate=quote.tax_rate,
+                tax_amount=quote.tax_amount,
+                total=quote.total,
+                currency=quote.currency,
+                payment_method=order_payment_method,
+                notes=notes,
+                internal_notes=_('Converted from quote %(quote_number)s') % {'quote_number': quote.quote_number},
+                quote=quote,
+                delivery_method=quote.delivery_method,
+                pickup_branch=quote.pickup_branch,
+                delivery_address=quote.delivery_address,
+            )
+
+            for line in quote.lines.all():
+                OrderLine.objects.create(
+                    order=order,
+                    sku=f'Q-{quote.quote_number}-{line.position}',
+                    name=line.concept,
+                    variant_name=line.description[:255] if line.description else '',
+                    quantity=int(line.quantity),
+                    unit_price=line.unit_price,
+                    line_total=line.line_total,
+                    metadata={
+                        'quote_line_id': str(line.id),
+                        'unit': line.unit,
+                        'original_quantity': str(line.quantity),
+                    }
+                )
+
+            OrderStatusHistory.objects.create(
+                order=order,
+                from_status=Order.STATUS_DRAFT,
+                to_status=Order.STATUS_PENDING_PAYMENT,
+                changed_by=actor,
+                notes=_('Order created from quote %(quote_number)s') % {'quote_number': quote.quote_number}
+            )
+
+            quote.status = Quote.STATUS_CONVERTED
+            quote.save(update_fields=['status', 'updated_at'])
+
+            if quote.quote_request and quote.quote_request.status != QuoteRequest.STATUS_ACCEPTED:
+                quote.quote_request.status = QuoteRequest.STATUS_ACCEPTED
+                quote.quote_request.save(update_fields=['status', 'updated_at'])
+
+            AuditLog.log(
+                entity=quote,
+                action=AuditLog.ACTION_STATE_CHANGED,
+                actor=actor,
+                before_state={'status': Quote.STATUS_ACCEPTED},
+                after_state={
+                    'status': Quote.STATUS_CONVERTED,
+                    'order_id': str(order.id),
+                    'order_number': order.order_number,
+                },
+                request=getattr(self, 'request', None)
+            )
+
+        try:
+            Notification.notify_owner_and_admins(
+                owner=quote.created_by,
+                notification_type=Notification.TYPE_ORDER_CREATED,
+                title=f'Pedido #{order.order_number} creado',
+                message=f'Convertido desde cotización #{quote.quote_number} — {quote.customer_name}.',
+                entity_type='Order',
+                entity_id=order.id,
+                action_url=f'/dashboard/pedidos/{order.id}',
+            )
+        except Exception:
+            pass
+
+        try:
+            threading.Thread(
+                target=send_order_confirmation_email,
+                args=(str(quote.id), order.order_number),
+                daemon=True
+            ).start()
+        except Exception:
+            pass
+
+        return order, True
+
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         """Accept a quote (customer)."""
@@ -946,6 +1087,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():
+            if request.user.is_authenticated and not _is_internal_user(request.user) and not quote.customer:
+                quote.customer = request.user
             quote.status = Quote.STATUS_ACCEPTED
             quote.accepted_at = timezone.now()
             quote.customer_notes = serializer.validated_data.get('notes', '')
@@ -970,7 +1113,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
             quote.save(update_fields=[
                 'status', 'accepted_at', 'customer_notes',
-                'signature_image', 'signature_name', 'signed_at', 'updated_at'
+                'signature_image', 'signature_name', 'signed_at', 'customer', 'updated_at'
             ])
 
             # Update quote request status
@@ -1006,7 +1149,19 @@ class QuoteViewSet(viewsets.ModelViewSet):
             except Exception:
                 pass
 
-        return Response(QuoteSerializer(quote).data)
+        order = None
+        if quote.customer:
+            try:
+                order, _ = self._convert_quote_to_order(quote, actor=request.user)
+            except Exception as conversion_error:
+                logger.warning(f"Auto-conversion failed for quote {quote.quote_number}: {conversion_error}")
+
+        response_data = QuoteSerializer(quote).data
+        if order:
+            response_data['order_id'] = str(order.id)
+            response_data['order_number'] = order.order_number
+
+        return Response(response_data)
 
     @action(detail=True, methods=['post'])
     def convert_to_order(self, request, pk=None):
@@ -1037,113 +1192,18 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Check if already converted
-        from apps.orders.models import Order, OrderLine, OrderStatusHistory
-        if Order.objects.filter(quote=quote).exists():
-            return Response(
-                {'error': _('This quote has already been converted to an order.')},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         payment_method = request.data.get('payment_method', 'bank_transfer')
         notes = request.data.get('notes', '')
 
-        with transaction.atomic():
-            # Create order from quote data
-            order = Order.objects.create(
-                user=quote.customer,
-                status=Order.STATUS_PENDING_PAYMENT,
-                subtotal=quote.subtotal,
-                tax_rate=quote.tax_rate,
-                tax_amount=quote.tax_amount,
-                total=quote.total,
-                currency=quote.currency,
+        try:
+            order, _ = self._convert_quote_to_order(
+                quote,
+                actor=request.user,
                 payment_method=payment_method,
                 notes=notes,
-                internal_notes=_(
-                    'Converted from quote %(quote_number)s'
-                ) % {'quote_number': quote.quote_number},
-                quote=quote,
-                # Delivery info inherited from quote
-                delivery_method=quote.delivery_method,
-                pickup_branch=quote.pickup_branch,
-                delivery_address=quote.delivery_address,
             )
-
-            # Create order lines from quote lines
-            for line in quote.lines.all():
-                OrderLine.objects.create(
-                    order=order,
-                    sku=f'Q-{quote.quote_number}-{line.position}',
-                    name=line.concept,
-                    variant_name=line.description[:255] if line.description else '',
-                    quantity=int(line.quantity),
-                    unit_price=line.unit_price,
-                    line_total=line.line_total,
-                    metadata={
-                        'quote_line_id': str(line.id),
-                        'unit': line.unit,
-                        'original_quantity': str(line.quantity),
-                    }
-                )
-
-            # Create initial status history
-            OrderStatusHistory.objects.create(
-                order=order,
-                from_status=Order.STATUS_DRAFT,
-                to_status=Order.STATUS_PENDING_PAYMENT,
-                changed_by=request.user,
-                notes=_(
-                    'Order created from quote %(quote_number)s'
-                ) % {'quote_number': quote.quote_number}
-            )
-
-            # Update quote status to converted
-            quote.status = Quote.STATUS_CONVERTED
-            quote.save(update_fields=['status', 'updated_at'])
-
-            # Update quote request status if exists
-            if quote.quote_request and quote.quote_request.status != QuoteRequest.STATUS_ACCEPTED:
-                quote.quote_request.status = QuoteRequest.STATUS_ACCEPTED
-                quote.quote_request.save(update_fields=['status', 'updated_at'])
-
-            AuditLog.log(
-                entity=quote,
-                action=AuditLog.ACTION_STATE_CHANGED,
-                actor=request.user,
-                before_state={'status': Quote.STATUS_ACCEPTED},
-                after_state={
-                    'status': Quote.STATUS_CONVERTED,
-                    'order_id': str(order.id),
-                    'order_number': order.order_number,
-                },
-                request=request
-            )
-
-        # In-app notification: order created from quote
-        try:
-            Notification.notify_owner_and_admins(
-                owner=quote.created_by,
-                notification_type=Notification.TYPE_ORDER_CREATED,
-                title=f'Pedido #{order.order_number} creado',
-                message=f'Convertido desde cotización #{quote.quote_number} — {quote.customer_name}.',
-                entity_type='Order',
-                entity_id=order.id,
-                action_url=f'/dashboard/pedidos/{order.id}',
-            )
-        except Exception:
-            pass
-
-        # Send order confirmation email to customer
-        try:
-            import threading as _threading
-            _threading.Thread(
-                target=send_order_confirmation_email,
-                args=(str(quote.id), order.order_number),
-                daemon=True
-            ).start()
-        except Exception:
-            pass
+        except ValueError as conversion_error:
+            return Response({'error': str(conversion_error)}, status=status.HTTP_400_BAD_REQUEST)
 
         from apps.orders.serializers import OrderSerializer as OrderSerializerFull
         return Response({

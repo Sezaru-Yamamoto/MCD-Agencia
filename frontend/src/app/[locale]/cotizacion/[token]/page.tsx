@@ -287,11 +287,15 @@ export default function QuoteViewPage() {
 
     setIsSubmitting(true);
     try {
-      await acceptQuote(quote.id, responseComment, signatureData, signatureName);
+      const accepted = await acceptQuote(quote.id, responseComment, signatureData, signatureName);
       setResponseAction(null);
-      toast.success('¡Cotización aceptada! Redirigiendo a tu cuenta...');
+      toast.success('¡Cotización aceptada!');
       setTimeout(() => {
-        router.push(`/${locale}/mi-cuenta/cotizaciones`);
+        if (accepted.order_id) {
+          router.push(`/${locale}/mi-cuenta/pedidos/${accepted.order_id}`);
+        } else {
+          router.push(`/${locale}/mi-cuenta/cotizaciones`);
+        }
       }, 1000);
     } catch (error) {
       const err = error as { message?: string; response?: { data?: { error?: string } } };

@@ -192,6 +192,11 @@ export interface Quote {
   created_at: string;
 }
 
+export type AcceptQuoteResponse = Quote & {
+  order_id?: string;
+  order_number?: string;
+};
+
 export interface QuoteResponse {
   id: string;
   quote: string;
@@ -453,8 +458,8 @@ export async function acceptQuote(
   notes?: string,
   signature?: string | null,
   signatureName?: string,
-): Promise<Quote> {
-  return apiClient.post<Quote>(`/quotes/${id}/accept/`, {
+): Promise<AcceptQuoteResponse> {
+  return apiClient.post<AcceptQuoteResponse>(`/quotes/${id}/accept/`, {
     notes,
     signature: signature || undefined,
     signature_name: signatureName || undefined,

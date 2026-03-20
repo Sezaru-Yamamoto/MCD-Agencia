@@ -72,7 +72,7 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
     catalog_item_id = serializers.UUIDField(required=False, write_only=True)
 
     # Multi-service support: optional JSON array of service objects
-    services = serializers.JSONField(required=False, write_only=True, default=None)
+    services = serializers.JSONField(required=False, write_only=True, allow_null=True)
 
     class Meta:
         model = QuoteRequest

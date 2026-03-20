@@ -428,6 +428,44 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response(OrderSerializer(order).data)
 
+    @action(detail=True, methods=['post'])
+    def set_payment_method(self, request, pk=None):
+        """Set customer-selected payment method for pending orders."""
+        order = self.get_object()
+
+        if order.user_id != request.user.id:
+            return Response(
+                {'error': _('You can only update your own orders.')},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if order.status not in [Order.STATUS_PENDING_PAYMENT, Order.STATUS_PARTIALLY_PAID]:
+            return Response(
+                {'error': _('Payment method can only be changed while payment is pending.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        payment_method = request.data.get('payment_method', '')
+        valid_methods = {value for value, _ in Order.PAYMENT_METHOD_CHOICES}
+        if payment_method not in valid_methods:
+            return Response(
+                {'error': _('Invalid payment method.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.payment_method = payment_method
+        order.save(update_fields=['payment_method', 'updated_at'])
+
+        AuditLog.log(
+            entity=order,
+            action=AuditLog.ACTION_UPDATED,
+            actor=request.user,
+            after_state={'payment_method': order.payment_method},
+            request=request,
+        )
+
+        return Response(OrderSerializer(order).data)
+
 
 class OrderAdminViewSet(viewsets.ModelViewSet):
     """
@@ -475,6 +513,26 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         new_status = serializer.validated_data['status']
         notes = serializer.validated_data.get('notes', '')
         scheduled_date = serializer.validated_data.get('scheduled_date')
+        user_role = getattr(getattr(request.user, 'role', None), 'name', '')
+        is_admin = user_role == 'admin'
+
+        if new_status in [Order.STATUS_PAID, Order.STATUS_PARTIALLY_PAID, Order.STATUS_REFUNDED] and not is_admin:
+            return Response(
+                {'error': _('Only admin can confirm or reconcile payments.')},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if new_status == Order.STATUS_IN_PRODUCTION and not order.is_fully_paid:
+            if not is_admin:
+                return Response(
+                    {'error': _('Order must be fully paid before starting production.')},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if not str(notes or '').strip():
+                return Response(
+                    {'error': _('Admin override requires notes to start production before full payment.')},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         with transaction.atomic():
             old_status = order.status

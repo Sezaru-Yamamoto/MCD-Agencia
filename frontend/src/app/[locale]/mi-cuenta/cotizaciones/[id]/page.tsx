@@ -157,10 +157,14 @@ export default function CustomerQuoteDetailPage() {
     if (!quote) return;
     setIsSubmitting(true);
     try {
-      await acceptQuote(quote.id, responseComment, signatureData, signatureName);
+      const accepted = await acceptQuote(quote.id, responseComment, signatureData, signatureName);
       setResponseAction(null);
       setResponseComment('');
       toast.success('¡Cotización aceptada exitosamente!');
+      if (accepted.order_id) {
+        router.push(`/${locale}/mi-cuenta/pedidos/${accepted.order_id}`);
+        return;
+      }
       refetch();
     } catch (error) {
       const err = error as { message?: string; response?: { data?: { error?: string } } };

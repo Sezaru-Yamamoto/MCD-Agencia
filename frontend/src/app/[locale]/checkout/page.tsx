@@ -53,6 +53,18 @@ const PAYMENT_METHODS = [
     description: 'Pago seguro con PayPal',
     icon: BuildingLibraryIcon,
   },
+  {
+    id: 'bank_transfer',
+    name: 'Transferencia',
+    description: 'Confirmación manual por administrador',
+    icon: BuildingLibraryIcon,
+  },
+  {
+    id: 'cash',
+    name: 'Efectivo',
+    description: 'Confirmación manual por administrador',
+    icon: CreditCardIcon,
+  },
 ];
 
 export default function CheckoutPage() {
@@ -153,7 +165,13 @@ export default function CheckoutPage() {
         window.location.href = paypalOrder.approval_url;
       } else {
         // Direct to order confirmation for other methods
-        toast.success('Orden creada exitosamente');
+        if (selectedPaymentMethod === 'bank_transfer') {
+          toast.success('Orden creada. Tu pago por transferencia quedará pendiente de confirmación por admin.');
+        } else if (selectedPaymentMethod === 'cash') {
+          toast.success('Orden creada. Tu pago en efectivo quedará pendiente de confirmación por admin.');
+        } else {
+          toast.success('Orden creada exitosamente');
+        }
         router.push(`/mi-cuenta/pedidos/${order.id}`);
       }
     } catch (error: unknown) {
@@ -366,11 +384,15 @@ export default function CheckoutPage() {
                 disabled={!selectedAddressId || !termsAccepted}
                 leftIcon={<LockClosedIcon className="h-5 w-5" />}
               >
-                Pagar {formatPrice(cart.total)}
+                {(selectedPaymentMethod === 'mercadopago' || selectedPaymentMethod === 'paypal')
+                  ? `Pagar ${formatPrice(cart.total)}`
+                  : `Continuar ${formatPrice(cart.total)}`}
               </Button>
 
               <p className="text-xs text-neutral-500 text-center mt-4">
-                Pago seguro con encriptación SSL
+                {(selectedPaymentMethod === 'mercadopago' || selectedPaymentMethod === 'paypal')
+                  ? 'Pago seguro con encriptación SSL'
+                  : 'El pago será validado manualmente por administración'}
               </p>
             </Card>
           </div>

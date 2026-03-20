@@ -100,6 +100,7 @@ export default function StaffOrderDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [statusNotes, setStatusNotes] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
 
   const orderId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -142,9 +143,15 @@ export default function StaffOrderDetailPage() {
 
     setIsUpdating(true);
     try {
-      const updated = await updateOrderStatus(order.id, newStatus, statusNotes || undefined);
+      const updated = await updateOrderStatus(
+        order.id,
+        newStatus,
+        statusNotes || undefined,
+        scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+      );
       setOrder(updated);
       setStatusNotes('');
+      setScheduledDate('');
       toast.success(`Estado actualizado a "${statusLabel}"`);
     } catch (error: unknown) {
       console.error('Error updating status:', error);
@@ -346,6 +353,13 @@ export default function StaffOrderDetailPage() {
                   placeholder="Notas del cambio (opcional)..."
                   className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
                   rows={2}
+                />
+                <input
+                  type="datetime-local"
+                  value={scheduledDate}
+                  onChange={(e) => setScheduledDate(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm focus:border-cmyk-cyan focus:outline-none [color-scheme:dark]"
+                  aria-label="Fecha programada"
                 />
                 <div className="space-y-2">
                   {availableTransitions.map((option) => (

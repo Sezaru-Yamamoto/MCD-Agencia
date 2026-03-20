@@ -285,11 +285,25 @@ export async function getStaffOrderById(id: string): Promise<Order> {
 export async function updateOrderStatus(
   id: string,
   newStatus: string,
-  notes?: string
+  notes?: string,
+  scheduledDate?: string | null,
 ): Promise<Order> {
   return apiClient.post<Order>(`/admin/orders/${id}/update_status/`, {
     status: newStatus,
     notes,
+    scheduled_date: scheduledDate ?? undefined,
+  });
+}
+
+/**
+ * Customer selects payment method for a pending order.
+ */
+export async function setOrderPaymentMethod(
+  id: string,
+  paymentMethod: 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash'
+): Promise<Order> {
+  return apiClient.post<Order>(`/orders/${id}/set_payment_method/`, {
+    payment_method: paymentMethod,
   });
 }
 
