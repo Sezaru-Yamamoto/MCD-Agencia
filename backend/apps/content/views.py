@@ -6,7 +6,7 @@ This module provides ViewSets for CMS content:
     - Admin content management
 """
 
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status, parsers
 from rest_framework.decorators import action
@@ -619,11 +619,62 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
     parser_classes = [parsers.JSONParser, parsers.MultiPartParser, parsers.FormParser]
     pagination_class = StandardPagination
 
+    def _bootstrap_from_legacy(self):
+        """Populate unified portfolio items from legacy sources if empty."""
+        if PortfolioItem.objects.exists():
+            return
+
+        with transaction.atomic():
+            position = 0
+
+            legacy_videos = PortfolioVideo.objects.filter(is_active=True).order_by('position')
+            for video in legacy_videos:
+                if not video.youtube_id:
+                    continue
+                PortfolioItem.objects.create(
+                    media_type=PortfolioItem.MEDIA_TYPE_VIDEO,
+                    youtube_id=video.youtube_id,
+                    title=video.title,
+                    title_en=video.title_en,
+                    aspect_ratio=(
+                        PortfolioItem.ASPECT_RATIO_PORTRAIT_REEL_9_16
+                        if video.orientation == 'vertical'
+                        else PortfolioItem.ASPECT_RATIO_LANDSCAPE_16_9
+                    ),
+                    position=position,
+                    is_active=video.is_active,
+                )
+                position += 1
+
+            legacy_images = ServiceImage.objects.filter(is_active=True).select_related('service').order_by('position')
+            for image in legacy_images:
+                if not image.image:
+                    continue
+                PortfolioItem.objects.create(
+                    media_type=PortfolioItem.MEDIA_TYPE_IMAGE,
+                    image=image.image,
+                    title=getattr(image.service, 'name', '') or image.alt_text,
+                    title_en=getattr(image.service, 'name_en', '') or image.alt_text_en,
+                    aspect_ratio=(
+                        PortfolioItem.ASPECT_RATIO_PORTRAIT_REEL_9_16
+                        if image.display_format == ServiceImage.DISPLAY_FORMAT_REEL
+                        else PortfolioItem.ASPECT_RATIO_LANDSCAPE_16_9
+                    ),
+                    position=position,
+                    is_active=image.is_active,
+                )
+                position += 1
+
     def get_queryset(self):
         """Return portfolio items based on user role."""
         if self.request.user.is_staff:
             return PortfolioItem.objects.all().order_by('position')
         return PortfolioItem.objects.filter(is_active=True).order_by('position')
+
+    def list(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            self._bootstrap_from_legacy()
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_class(self):
         """Return appropriate serializer."""

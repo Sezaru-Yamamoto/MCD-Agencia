@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { trackCTA } from '@/lib/tracking';
-import { getLandingPageData, getPortfolioVideos, type PortfolioVideo, type PortfolioItem as APIPortfolioItem } from '@/lib/api/content';
+import { getLandingPageData, getPortfolioVideos, type PortfolioVideo } from '@/lib/api/content';
 
 /**
  * =============================================
@@ -178,13 +178,10 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
   const prevIdx = (currentIndex - 1 + items.length) % items.length;
   const nextIdx = (currentIndex + 1) % items.length;
 
-  const currentItem = items[currentIndex];
-  const isReel = currentItem?.orientation === 'vertical';
-
   return (
     <div
       className="relative flex items-center justify-center w-full overflow-hidden py-4"
-      style={{ minHeight: '400px' }}
+      style={{ minHeight: '440px' }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -192,7 +189,7 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
       {/* Previous item */}
       {items.length > 1 && (
         <div
-          className={`absolute left-0 sm:left-[2%] md:left-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] ${isReel ? 'aspect-[9/16] sm:aspect-[3/4]' : 'aspect-video'} opacity-40 scale-[0.85] blur-[1px] transition-all duration-1000 cursor-pointer hover:opacity-60`}
+          className="absolute left-0 sm:left-[2%] md:left-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] h-[240px] sm:h-[260px] md:h-[300px] opacity-40 scale-[0.85] blur-[1px] transition-opacity duration-700 cursor-pointer hover:opacity-60"
           onClick={() => onIndexChange(prevIdx)}
         >
           {renderItem(items[prevIdx], false)}
@@ -200,14 +197,14 @@ function CoverflowCarousel({ items, currentIndex, onIndexChange, renderItem }: {
       )}
 
       {/* Center (active) item */}
-      <div className={`relative z-10 ${isReel ? 'w-[65%] sm:w-[50%] md:w-[40%] lg:w-[35%] aspect-[9/16] sm:aspect-[3/4]' : 'w-[85%] sm:w-[75%] md:w-[65%] lg:w-[60%] aspect-video'} transition-all duration-1000 transform`}>
+      <div className="relative z-10 w-[85%] sm:w-[75%] md:w-[65%] lg:w-[60%] h-[320px] sm:h-[400px] md:h-[500px]">
         {renderItem(items[currentIndex], true)}
       </div>
 
       {/* Next item */}
       {items.length > 1 && (
         <div
-          className={`absolute right-0 sm:right-[2%] md:right-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] ${isReel ? 'aspect-[9/16] sm:aspect-[3/4]' : 'aspect-video'} opacity-40 scale-[0.85] blur-[1px] transition-all duration-1000 cursor-pointer hover:opacity-60`}
+          className="absolute right-0 sm:right-[2%] md:right-[5%] z-0 w-[30%] sm:w-[28%] md:w-[25%] h-[240px] sm:h-[260px] md:h-[300px] opacity-40 scale-[0.85] blur-[1px] transition-opacity duration-700 cursor-pointer hover:opacity-60"
           onClick={() => onIndexChange(nextIdx)}
         >
           {renderItem(items[nextIdx], false)}
@@ -337,23 +334,33 @@ export function Portfolio() {
   const handleQuoteClick = () => { trackCTA('quote', 'portfolio'); };
 
   const renderItem = useCallback((item: PortfolioItem, isCenter: boolean) => {
+    const frameClass = item.orientation === 'vertical'
+      ? (isCenter
+          ? 'h-full max-w-[260px] mx-auto aspect-[9/16]'
+          : 'h-full max-w-[160px] mx-auto aspect-[9/16]')
+      : 'h-full w-full aspect-video';
+
     if (item.type === 'video' && item.videoId) {
       return (
-        <VideoCard
-          videoId={item.videoId}
-          label={item.label}
-          playLabel={t('playVideo')}
-          altText={t('videoAlt')}
-        />
+        <div className={`${frameClass} transition-opacity duration-700`}>
+          <VideoCard
+            videoId={item.videoId}
+            label={item.label}
+            playLabel={t('playVideo')}
+            altText={t('videoAlt')}
+          />
+        </div>
       );
     }
     if (item.type === 'image' && item.imageUrl) {
       return (
-        <ImageCard
-          imageUrl={item.imageUrl}
-          label={item.label}
-          onClick={isCenter ? () => setFullscreenImage(item.imageUrl!) : undefined}
-        />
+        <div className={`${frameClass} transition-opacity duration-700`}>
+          <ImageCard
+            imageUrl={item.imageUrl}
+            label={item.label}
+            onClick={isCenter ? () => setFullscreenImage(item.imageUrl!) : undefined}
+          />
+        </div>
       );
     }
     return null;
