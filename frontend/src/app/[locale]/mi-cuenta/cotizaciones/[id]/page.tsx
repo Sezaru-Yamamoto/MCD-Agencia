@@ -785,9 +785,9 @@ export default function CustomerQuoteDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="xl:col-span-2 space-y-4">
           {/* Customer Info */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Tus datos</h3>
@@ -2098,7 +2098,7 @@ export default function CustomerQuoteDetailPage() {
 
           {/* Actions */}
           </div>
-          <div className="lg:sticky lg:top-20 mt-6 z-10">
+          <div className="xl:sticky xl:top-20 mt-6 z-10">
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-white mb-3">Acciones</h3>
             <div className="space-y-2">
