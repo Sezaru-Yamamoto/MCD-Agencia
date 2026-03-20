@@ -679,25 +679,11 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
                 position += 1
 
     def get_queryset(self):
-        """Return portfolio items based on user role."""
+        """Return portfolio items; always backfill legacy on access."""
+        self._bootstrap_from_legacy()
         if self.request.user.is_staff:
             return PortfolioItem.objects.all().order_by('position')
         return PortfolioItem.objects.filter(is_active=True).order_by('position')
-
-    def list(self, request, *args, **kwargs):
-        self._bootstrap_from_legacy()
-        return super().list(request, *args, **kwargs)
-
-    @action(detail=False, methods=['post'], url_path='sync-legacy')
-    def sync_legacy(self, request):
-        """Force sync of legacy portfolio media into unified CMS items."""
-        before_count = PortfolioItem.objects.count()
-        self._bootstrap_from_legacy()
-        after_count = PortfolioItem.objects.count()
-        return Response({
-            'created': max(after_count - before_count, 0),
-            'total': after_count,
-        })
 
     def get_serializer_class(self):
         """Return appropriate serializer."""

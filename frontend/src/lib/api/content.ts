@@ -594,11 +594,6 @@ export async function getPortfolioItems(): Promise<PortfolioItem[]> {
  * Get portfolio items (admin — includes inactive).
  */
 export async function getAdminPortfolioItems(): Promise<PortfolioItemAdmin[]> {
-  try {
-    await apiClient.post('/content/portfolio-items/sync-legacy/', {});
-  } catch {
-    // Continue with list fetch even if sync endpoint is unavailable.
-  }
   const response = await apiClient.get<{ results: PortfolioItemAdmin[] } | PortfolioItemAdmin[]>(
     '/content/portfolio-items/'
   );
