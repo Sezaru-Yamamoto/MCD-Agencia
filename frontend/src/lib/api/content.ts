@@ -594,10 +594,52 @@ export async function getPortfolioItems(): Promise<PortfolioItem[]> {
  * Get portfolio items (admin — includes inactive).
  */
 export async function getAdminPortfolioItems(): Promise<PortfolioItemAdmin[]> {
-  const response = await apiClient.get<{ results: PortfolioItemAdmin[] } | PortfolioItemAdmin[]>(
-    '/content/portfolio-items/'
-  );
-  return Array.isArray(response) ? response : response.results;
+  try {
+    const response = await apiClient.get<{ results: PortfolioItemAdmin[] } | PortfolioItemAdmin[]>(
+      '/content/portfolio-items/'
+    );
+    const items = Array.isArray(response) ? response : response.results;
+    if (items.length > 0) return items;
+  } catch {
+    // Unified endpoint not available in this deployment; fall back to legacy sources.
+  }
+
+  const [landing, legacyVideos] = await Promise.all([
+    getLandingPageData(),
+    getAdminPortfolioVideos().catch(() => [] as PortfolioVideoAdmin[]),
+  ]);
+
+  const mappedVideos: PortfolioItemAdmin[] = legacyVideos.map((video, index) => ({
+    id: `legacy-video-${video.id}`,
+    media_type: 'video',
+    youtube_id: video.youtube_id,
+    title: video.title,
+    title_en: video.title_en,
+    aspect_ratio: video.orientation === 'vertical' ? 'portrait_reel_9_16' : 'landscape_16_9',
+    position: index,
+    is_active: video.is_active,
+  }));
+
+  const mappedImages: PortfolioItemAdmin[] = [];
+  let position = mappedVideos.length;
+  (landing.services || []).forEach((service) => {
+    (service.carousel_images || []).forEach((img) => {
+      if (!img.image) return;
+      mappedImages.push({
+        id: `legacy-image-${img.id}`,
+        media_type: 'image',
+        image: img.image,
+        title: service.name || img.alt_text || 'Trabajo',
+        title_en: service.name_en || img.alt_text_en || service.name || 'Work',
+        aspect_ratio: img.display_format === 'reel' ? 'portrait_reel_9_16' : 'landscape_16_9',
+        position,
+        is_active: true,
+      });
+      position += 1;
+    });
+  });
+
+  return [...mappedVideos, ...mappedImages];
 }
 
 /**

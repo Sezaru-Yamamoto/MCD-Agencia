@@ -880,6 +880,8 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
     onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
+  const isLegacyItem = (itemId: string) => itemId.startsWith('legacy-');
+
   const openCreate = () => {
     setEditing(null);
     setMediaFile(null);
@@ -896,6 +898,10 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
   };
 
   const openEdit = (item: PortfolioItemAdmin) => {
+    if (isLegacyItem(item.id)) {
+      toast.error('Este elemento proviene del landing legacy. Edítalo desde su módulo original por ahora.');
+      return;
+    }
     setEditing(item);
     setMediaFile(null);
     setForm({
@@ -950,6 +956,10 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
   };
 
   const toggleActive = (item: PortfolioItemAdmin) => {
+    if (isLegacyItem(item.id)) {
+      toast.error('Este elemento proviene del landing legacy. Actívalo/ocúltalo desde su módulo original.');
+      return;
+    }
     updateMut.mutate({
       id: item.id,
       data: { is_active: !item.is_active },
@@ -966,6 +976,9 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
           <p className="text-xs text-neutral-500 mt-1">
             Mezcla imágenes (16:9 landscape o 9:16 reel) con videos de YouTube. Las transiciones en el landing serán suaves.
           </p>
+          {sorted.some((item) => isLegacyItem(item.id)) && (
+            <p className="text-xs text-amber-400 mt-1">Mostrando contenido legacy del landing de forma dinámica.</p>
+          )}
         </div>
         <Button onClick={openCreate} className="gap-2">
           <PlusIcon className="h-4 w-4" /> Agregar
@@ -1019,7 +1032,17 @@ function PortfolioTab({ portfolios, queryClient }: { portfolios: PortfolioItemAd
                   <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                     <PencilIcon className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar?')) deleteMut.mutate(item.id); }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (isLegacyItem(item.id)) {
+                        toast.error('Este elemento proviene del landing legacy. Elimínalo desde su módulo original.');
+                        return;
+                      }
+                      if (confirm('¿Eliminar?')) deleteMut.mutate(item.id);
+                    }}
+                  >
                     <TrashIcon className="h-5 w-5 text-red-400" />
                   </Button>
                 </div>
