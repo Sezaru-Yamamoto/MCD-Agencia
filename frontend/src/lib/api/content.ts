@@ -10,6 +10,7 @@
  */
 
 import { apiClient } from './client';
+import { CLIENTS } from '@/lib/constants';
 
 // Types
 export interface CarouselSlide {
@@ -308,12 +309,23 @@ export async function getAdminClientLogos(): Promise<ClientLogoAdmin[]> {
   }
 
   const landing = await getLandingPageData();
-  return (landing.clients || []).map((client, index) => ({
+  const landingClients = (landing.clients || []).map((client, index) => ({
     id: client.id,
     name: client.name,
     logo: client.logo,
     website: client.website,
     position: client.position ?? index,
+    is_active: true,
+  }));
+
+  if (landingClients.length > 0) return landingClients;
+
+  return CLIENTS.map((client, index) => ({
+    id: `legacy-client-${index}`,
+    name: client.name,
+    logo: client.logo,
+    website: undefined,
+    position: index,
     is_active: true,
   }));
 }

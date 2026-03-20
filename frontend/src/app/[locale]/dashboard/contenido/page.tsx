@@ -688,7 +688,13 @@ function ClientLogosTab({ logos, queryClient }: { logos: ClientLogoAdmin[]; quer
     onError: (err) => toast.error(getApiErrorMessage(err, 'Error al eliminar')),
   });
 
+  const isLegacyClient = (logoId: string) => logoId.startsWith('legacy-client-');
+
   const toggleActive = (logo: ClientLogoAdmin) => {
+    if (isLegacyClient(logo.id)) {
+      toast.error('Logo de referencia del landing. Sube este logo al CMS para poder gestionarlo.');
+      return;
+    }
     updateClientLogo(logo.id, { is_active: !logo.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ['admin-client-logos'] }));
   };
 
@@ -698,6 +704,10 @@ function ClientLogosTab({ logos, queryClient }: { logos: ClientLogoAdmin[]; quer
     setShowModal(true);
   };
   const openEdit = (l: ClientLogoAdmin) => {
+    if (isLegacyClient(l.id)) {
+      toast.error('Logo de referencia del landing. Súbelo como nuevo para editarlo desde CMS.');
+      return;
+    }
     setEditing(l); setLogoFile(null);
     setForm({ name: l.name, website: l.website || '', position: l.position, is_active: l.is_active });
     setShowModal(true);
@@ -760,7 +770,18 @@ function ClientLogosTab({ logos, queryClient }: { logos: ClientLogoAdmin[]; quer
                   <Button variant="ghost" size="sm" onClick={() => toggleActive(logo)} className="!p-1">
                     {logo.is_active ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeSlashIcon className="h-3.5 w-3.5" />}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { if (confirm('¿Eliminar logo?')) deleteMut.mutate(logo.id); }} className="!p-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (isLegacyClient(logo.id)) {
+                        toast.error('Logo de referencia del landing. Súbelo al CMS para poder eliminarlo desde aquí.');
+                        return;
+                      }
+                      if (confirm('¿Eliminar logo?')) deleteMut.mutate(logo.id);
+                    }}
+                    className="!p-1"
+                  >
                     <TrashIcon className="h-3.5 w-3.5 text-red-400" />
                   </Button>
                 </div>
