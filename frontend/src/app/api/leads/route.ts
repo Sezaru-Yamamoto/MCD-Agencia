@@ -36,6 +36,38 @@ function buildBackendCandidates(request: NextRequest): string[] {
   });
 }
 
+async function submitContactFallback(
+  backendCandidates: string[],
+  payload: Record<string, unknown>,
+): Promise<boolean> {
+  const contacto = (payload.contacto as Record<string, unknown> | undefined) || {};
+  const fallbackBody = {
+    name: String(contacto.nombre || ''),
+    email: String(contacto.email || ''),
+    phone: String(contacto.telefono || ''),
+    company: String(contacto.empresa || ''),
+    message: String(payload.comentarios || payload.servicio || 'Solicitud desde formulario de cotización'),
+    privacy_accepted: true,
+  };
+
+  for (const apiBase of backendCandidates) {
+    try {
+      const response = await fetch(`${apiBase}/content/contact/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fallbackBody),
+      });
+      if (response.ok) return true;
+    } catch {
+      // Continue trying next backend candidate.
+    }
+  }
+
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -158,6 +190,19 @@ export async function POST(request: NextRequest) {
 
     if (!response) {
       console.error('No backend candidate reachable for /quotes/request/', lastFetchError);
+
+      const fallbackSaved = await submitContactFallback(backendCandidates, payload);
+      if (fallbackSaved) {
+        return NextResponse.json(
+          {
+            success: true,
+            request_number: 'LEAD-FALLBACK',
+            message: 'Recibimos tu solicitud. Nuestro equipo te contactará en breve.',
+          },
+          { status: 202 }
+        );
+      }
+
       return NextResponse.json(
         { error: 'No se pudo conectar con el servidor. Inténtalo de nuevo en unos minutos.' },
         { status: 503 }
@@ -211,6 +256,20 @@ export async function POST(request: NextRequest) {
           })
           .join('; ');
         errorMessage = fieldErrors || errorMessage;
+      }
+
+      if (response.status >= 500) {
+        const fallbackSaved = await submitContactFallback(backendCandidates, payload);
+        if (fallbackSaved) {
+          return NextResponse.json(
+            {
+              success: true,
+              request_number: 'LEAD-FALLBACK',
+              message: 'Recibimos tu solicitud. Nuestro equipo te contactará en breve.',
+            },
+            { status: 202 }
+          );
+        }
       }
 
       return NextResponse.json(
