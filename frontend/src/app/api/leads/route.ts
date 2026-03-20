@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+function normalizeApiBase(input: string): string {
+  const value = input.trim().replace(/\/$/, '');
+  if (!value) return '';
+  if (value.endsWith('/api/v1')) return value;
+  return `${value}/api/v1`;
+}
+
+function buildBackendCandidates(request: NextRequest): string[] {
+  const candidates: string[] = [];
+
+  const backendUrl = process.env.BACKEND_URL;
+  const internalApiUrl = process.env.INTERNAL_API_URL;
+  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (backendUrl) candidates.push(normalizeApiBase(backendUrl));
+  if (internalApiUrl) candidates.push(normalizeApiBase(internalApiUrl));
+  if (publicApiUrl) candidates.push(normalizeApiBase(publicApiUrl));
+
+  const requestOrigin = request.nextUrl.origin.replace(/\/$/, '');
+  const seen = new Set<string>();
+
+  return candidates.filter((candidate) => {
+    if (!candidate || seen.has(candidate)) return false;
+    seen.add(candidate);
+    return !candidate.startsWith(requestOrigin);
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,15 +111,41 @@ export async function POST(request: NextRequest) {
       backendFormData.append('file_service_map', fileServiceMap);
     }
 
-    // Send to Django backend
-    let response: Response;
-    try {
-      response = await fetch(`${BACKEND_URL}/quotes/request/`, {
-        method: 'POST',
-        body: backendFormData,
-      });
-    } catch (fetchError) {
-      console.error('Backend connection error:', fetchError);
+    // Send to Django backend (try multiple configured backends)
+    const backendCandidates = buildBackendCandidates(request);
+    if (backendCandidates.length === 0) {
+      return NextResponse.json(
+        { error: 'Configuración de backend faltante en el servidor.' },
+        { status: 500 }
+      );
+    }
+
+    let response: Response | null = null;
+    let lastFetchError: unknown = null;
+
+    for (const apiBase of backendCandidates) {
+      try {
+        const attempt = await fetch(`${apiBase}/quotes/request/`, {
+          method: 'POST',
+          body: backendFormData,
+        });
+
+        if (attempt.status === 404 || attempt.status >= 500) {
+          console.error('Backend attempt failed:', apiBase, attempt.status);
+          response = attempt;
+          continue;
+        }
+
+        response = attempt;
+        break;
+      } catch (fetchError) {
+        lastFetchError = fetchError;
+        console.error('Backend connection error:', apiBase, fetchError);
+      }
+    }
+
+    if (!response) {
+      console.error('No backend candidate reachable for /quotes/request/', lastFetchError);
       return NextResponse.json(
         { error: 'No se pudo conectar con el servidor. Inténtalo de nuevo en unos minutos.' },
         { status: 503 }
