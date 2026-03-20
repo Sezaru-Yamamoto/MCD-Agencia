@@ -195,28 +195,61 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
             if validated_data.get('customer_company'):
                 user.company = validated_data['customer_company']
                 update_fields.append('company')
+            delivery_method = validated_data.get('delivery_method')
             delivery_addr = validated_data.get('delivery_address')
-            if delivery_addr and isinstance(delivery_addr, dict) and any(delivery_addr.values()):
-                user.default_delivery_address = delivery_addr
+
+            def _to_spanish_address(addr: dict) -> dict:
+                if not isinstance(addr, dict):
+                    return {}
+                return {
+                    'calle': (addr.get('calle') or addr.get('street') or '').strip(),
+                    'numero_exterior': (addr.get('numero_exterior') or addr.get('exterior_number') or '').strip(),
+                    'numero_interior': (addr.get('numero_interior') or addr.get('interior_number') or '').strip(),
+                    'colonia': (addr.get('colonia') or addr.get('neighborhood') or '').strip(),
+                    'ciudad': (addr.get('ciudad') or addr.get('city') or '').strip(),
+                    'estado': (addr.get('estado') or addr.get('state') or '').strip(),
+                    'codigo_postal': (addr.get('codigo_postal') or addr.get('postal_code') or '').strip(),
+                    'referencia': (addr.get('referencia') or addr.get('reference') or '').strip(),
+                }
+
+            profile_addr = _to_spanish_address(delivery_addr)
+            should_persist_profile_address = delivery_method in [
+                QuoteRequest.DELIVERY_SHIPPING,
+                QuoteRequest.DELIVERY_INSTALLATION,
+            ]
+
+            if (
+                should_persist_profile_address
+                and profile_addr
+                and any(profile_addr.values())
+            ):
+                user.default_delivery_address = profile_addr
                 update_fields.append('default_delivery_address')
                 # Also save as a UserAddress record if it doesn't already exist
                 from apps.users.models import UserAddress
                 addr_fields = {
-                    'calle': delivery_addr.get('calle', ''),
-                    'numero_exterior': delivery_addr.get('numero_exterior', ''),
-                    'colonia': delivery_addr.get('colonia', ''),
-                    'ciudad': delivery_addr.get('ciudad', ''),
-                    'estado': delivery_addr.get('estado', ''),
-                    'codigo_postal': delivery_addr.get('codigo_postal', ''),
+                    'calle': profile_addr.get('calle', ''),
+                    'numero_exterior': profile_addr.get('numero_exterior', ''),
+                    'colonia': profile_addr.get('colonia', ''),
+                    'ciudad': profile_addr.get('ciudad', ''),
+                    'estado': profile_addr.get('estado', ''),
+                    'codigo_postal': profile_addr.get('codigo_postal', ''),
                 }
-                if addr_fields['calle'] and addr_fields['codigo_postal']:
+                if (
+                    addr_fields['calle'] and
+                    addr_fields['numero_exterior'] and
+                    addr_fields['colonia'] and
+                    addr_fields['ciudad'] and
+                    addr_fields['estado'] and
+                    addr_fields['codigo_postal']
+                ):
                     exists = UserAddress.objects.filter(user=user, **addr_fields).exists()
                     if not exists:
                         UserAddress.objects.create(
                             user=user,
                             label='',
-                            numero_interior=delivery_addr.get('numero_interior', ''),
-                            referencia=delivery_addr.get('referencia', ''),
+                            numero_interior=profile_addr.get('numero_interior', ''),
+                            referencia=profile_addr.get('referencia', ''),
                             is_default=not UserAddress.objects.filter(user=user).exists(),
                             **addr_fields,
                         )

@@ -973,6 +973,67 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         return 'bank_transfer'
 
+    @staticmethod
+    def _normalize_address_for_user_profile(address: dict | None) -> dict:
+        """Normalize quote/order address payload to UserAddress Spanish schema."""
+        if not isinstance(address, dict):
+            return {}
+
+        return {
+            'calle': (address.get('calle') or address.get('street') or '').strip(),
+            'numero_exterior': (address.get('numero_exterior') or address.get('exterior_number') or '').strip(),
+            'numero_interior': (address.get('numero_interior') or address.get('interior_number') or '').strip(),
+            'colonia': (address.get('colonia') or address.get('neighborhood') or '').strip(),
+            'ciudad': (address.get('ciudad') or address.get('city') or '').strip(),
+            'estado': (address.get('estado') or address.get('state') or '').strip(),
+            'codigo_postal': (address.get('codigo_postal') or address.get('postal_code') or '').strip(),
+            'referencia': (address.get('referencia') or address.get('reference') or '').strip(),
+        }
+
+    def _sync_customer_profile_address_from_quote(self, quote: Quote, user) -> None:
+        """Persist delivery address into user profile/UserAddress for shipping/installation only."""
+        if not user:
+            return
+
+        delivery_method = quote.delivery_method or (quote.quote_request.delivery_method if quote.quote_request else '')
+        if delivery_method not in [QuoteRequest.DELIVERY_SHIPPING, QuoteRequest.DELIVERY_INSTALLATION]:
+            return
+
+        source_address = quote.delivery_address or (quote.quote_request.delivery_address if quote.quote_request else {})
+        profile_addr = self._normalize_address_for_user_profile(source_address)
+        if not profile_addr or not any(profile_addr.values()):
+            return
+
+        from apps.users.models import UserAddress
+
+        user.default_delivery_address = profile_addr
+        user.save(update_fields=['default_delivery_address', 'updated_at'])
+
+        required_fields = {
+            'calle': profile_addr.get('calle', ''),
+            'numero_exterior': profile_addr.get('numero_exterior', ''),
+            'colonia': profile_addr.get('colonia', ''),
+            'ciudad': profile_addr.get('ciudad', ''),
+            'estado': profile_addr.get('estado', ''),
+            'codigo_postal': profile_addr.get('codigo_postal', ''),
+        }
+        has_minimum = all(required_fields.values())
+        if not has_minimum:
+            return
+
+        exists = UserAddress.objects.filter(user=user, **required_fields).exists()
+        if exists:
+            return
+
+        UserAddress.objects.create(
+            user=user,
+            label='',
+            numero_interior=profile_addr.get('numero_interior', ''),
+            referencia=profile_addr.get('referencia', ''),
+            is_default=not UserAddress.objects.filter(user=user).exists(),
+            **required_fields,
+        )
+
     def _convert_quote_to_order(self, quote: Quote, actor, payment_method: str | None = None, notes: str = ''):
         """Create an order from quote if not already converted.
 
@@ -1113,6 +1174,13 @@ class QuoteViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             if request.user.is_authenticated and not _is_internal_user(request.user) and not quote.customer:
                 quote.customer = request.user
+
+            # Persist address into customer profile only for shipping/installation.
+            # This covers the common flow: user registers, returns to quote link,
+            # then accepts and expects the address to be saved for future requests.
+            if request.user.is_authenticated and not _is_internal_user(request.user):
+                self._sync_customer_profile_address_from_quote(quote, request.user)
+
             quote.status = Quote.STATUS_ACCEPTED
             quote.accepted_at = timezone.now()
             quote.customer_notes = serializer.validated_data.get('notes', '')
