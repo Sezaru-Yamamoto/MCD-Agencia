@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 function normalizeApiBase(input: string): string {
   const value = input.trim().replace(/\/$/, '');
   if (!value) return '';
@@ -17,15 +20,17 @@ function buildBackendCandidates(request: NextRequest): string[] {
   if (backendUrl) candidates.push(normalizeApiBase(backendUrl));
   if (internalApiUrl) candidates.push(normalizeApiBase(internalApiUrl));
   if (publicApiUrl) candidates.push(normalizeApiBase(publicApiUrl));
-  // Same-origin API proxy (Vercel rewrite /api/v1 -> backend)
-  candidates.push(`${request.nextUrl.origin.replace(/\/$/, '')}/api/v1`);
-  // Safe explicit fallback used by current deployment docs
+
+  // Explicit fallback used by current deployment docs
   candidates.push('https://mcd-agencia-api.onrender.com/api/v1');
 
+  const origin = request.nextUrl.origin.replace(/\/$/, '');
   const seen = new Set<string>();
 
   return candidates.filter((candidate) => {
     if (!candidate || seen.has(candidate)) return false;
+    // Prevent self-referential loops on Vercel (can cause 504)
+    if (candidate.startsWith(origin)) return false;
     seen.add(candidate);
     return true;
   });
@@ -128,10 +133,14 @@ export async function POST(request: NextRequest) {
 
     for (const apiBase of backendCandidates) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
         const attempt = await fetch(`${apiBase}/quotes/request/`, {
           method: 'POST',
           body: backendFormData,
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
 
         if (attempt.status === 404 || attempt.status >= 500) {
           console.error('Backend attempt failed:', apiBase, attempt.status);
