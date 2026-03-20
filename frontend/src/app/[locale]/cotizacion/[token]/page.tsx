@@ -1487,6 +1487,105 @@ export default function QuoteViewPage() {
           {/* Sidebar */}
           <div>
             <div className="space-y-4">
+              {/* Sticky Actions */}
+              <div className="lg:sticky lg:top-20 z-10">
+                <Card className="p-4">
+                  <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={handleDownloadPdf}
+                      disabled={isDownloading}
+                      isLoading={isDownloading}
+                      variant="outline"
+                      className="w-full"
+                      leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
+                    >
+                      {isDownloading ? 'Descargando...' : 'Descargar PDF'}
+                    </Button>
+
+                    {isStaff ? (
+                      /* Staff actions: Duplicate + link to dashboard */
+                      <>
+                        <Button
+                          onClick={async () => {
+                            if (!quote) return;
+                            setIsDuplicating(true);
+                            try {
+                              const newQuote = await duplicateQuote(quote.id);
+                              toast.success('Cotización duplicada');
+                              router.push(`/${locale}/dashboard/cotizaciones/${newQuote.id}/editar`);
+                            } catch {
+                              toast.error('No se pudo duplicar la cotización');
+                            } finally {
+                              setIsDuplicating(false);
+                            }
+                          }}
+                          disabled={isDuplicating}
+                          isLoading={isDuplicating}
+                          variant="outline"
+                          className="w-full"
+                          leftIcon={<DocumentDuplicateIcon className="h-4 w-4" />}
+                        >
+                          Duplicar Cotización
+                        </Button>
+                        <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}`} className="block">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            leftIcon={<ArrowTopRightOnSquareIcon className="h-4 w-4" />}
+                          >
+                            Ver en Panel de Control
+                          </Button>
+                        </Link>
+                      </>
+                    ) : (
+                      /* Client actions */
+                      <>
+                        {canRespond && (
+                          <>
+                            <Button
+                              onClick={handleAcceptClick}
+                              className="w-full bg-green-600 hover:bg-green-700"
+                              leftIcon={<CheckCircleIcon className="h-5 w-5" />}
+                            >
+                              Aceptar Cotización
+                            </Button>
+                            <Button
+                              onClick={() => setResponseAction('reject')}
+                              variant="outline"
+                              className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
+                              leftIcon={<XCircleIcon className="h-5 w-5" />}
+                            >
+                              Rechazar
+                            </Button>
+                            <Button
+                              onClick={() => setShowChangeEditor(true)}
+                              variant="outline"
+                              className="w-full"
+                              leftIcon={<ChatBubbleLeftRightIcon className="h-5 w-5" />}
+                            >
+                              Solicitar Cambios
+                            </Button>
+                          </>
+                        )}
+
+                        {isRejected && (
+                          <Link href={`/${locale}/#cotizar`} className="block">
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              leftIcon={<PlusCircleIcon className="h-5 w-5" />}
+                            >
+                              Solicitar Nueva Cotización
+                            </Button>
+                          </Link>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
               {/* Validity */}
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -1894,104 +1993,6 @@ export default function QuoteViewPage() {
               </Card>
             </div>
 
-            {/* Sticky Actions */}
-            <div className="lg:sticky lg:top-20 mt-4 z-10">
-              <Card className="p-4">
-                <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
-                <div className="space-y-2">
-                  <Button
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloading}
-                    isLoading={isDownloading}
-                    variant="outline"
-                    className="w-full"
-                    leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
-                  >
-                    {isDownloading ? 'Descargando...' : 'Descargar PDF'}
-                  </Button>
-
-                  {isStaff ? (
-                    /* Staff actions: Duplicate + link to dashboard */
-                    <>
-                      <Button
-                        onClick={async () => {
-                          if (!quote) return;
-                          setIsDuplicating(true);
-                          try {
-                            const newQuote = await duplicateQuote(quote.id);
-                            toast.success('Cotización duplicada');
-                            router.push(`/${locale}/dashboard/cotizaciones/${newQuote.id}/editar`);
-                          } catch {
-                            toast.error('No se pudo duplicar la cotización');
-                          } finally {
-                            setIsDuplicating(false);
-                          }
-                        }}
-                        disabled={isDuplicating}
-                        isLoading={isDuplicating}
-                        variant="outline"
-                        className="w-full"
-                        leftIcon={<DocumentDuplicateIcon className="h-4 w-4" />}
-                      >
-                        Duplicar Cotización
-                      </Button>
-                      <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}`} className="block">
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          leftIcon={<ArrowTopRightOnSquareIcon className="h-4 w-4" />}
-                        >
-                          Ver en Panel de Control
-                        </Button>
-                      </Link>
-                    </>
-                  ) : (
-                    /* Client actions */
-                    <>
-                      {canRespond && (
-                        <>
-                          <Button
-                            onClick={handleAcceptClick}
-                            className="w-full bg-green-600 hover:bg-green-700"
-                            leftIcon={<CheckCircleIcon className="h-5 w-5" />}
-                          >
-                            Aceptar Cotización
-                          </Button>
-                          <Button
-                            onClick={() => setResponseAction('reject')}
-                            variant="outline"
-                            className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
-                            leftIcon={<XCircleIcon className="h-5 w-5" />}
-                          >
-                            Rechazar
-                          </Button>
-                          <Button
-                            onClick={() => setShowChangeEditor(true)}
-                            variant="outline"
-                            className="w-full"
-                            leftIcon={<ChatBubbleLeftRightIcon className="h-5 w-5" />}
-                          >
-                            Solicitar Cambios
-                          </Button>
-                        </>
-                      )}
-
-                      {isRejected && (
-                        <Link href={`/${locale}/#cotizar`} className="block">
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            leftIcon={<PlusCircleIcon className="h-5 w-5" />}
-                          >
-                            Solicitar Nueva Cotización
-                          </Button>
-                        </Link>
-                      )}
-                    </>
-                  )}
-                </div>
-              </Card>
-            </div>
           </div>
         </div>
 
