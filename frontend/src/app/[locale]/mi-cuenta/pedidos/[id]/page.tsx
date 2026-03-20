@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { getOrderById, setOrderPaymentMethod } from '@/lib/api/orders';
+import { getQuoteById } from '@/lib/api/quotes';
 import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, formatDateTime, cn } from '@/lib/utils';
@@ -58,6 +59,12 @@ export default function OrderDetailPage() {
     queryFn: () => getOrderById(orderId),
   });
 
+  const { data: sourceQuote } = useQuery({
+    queryKey: ['order-source-quote', order?.quote],
+    queryFn: () => getQuoteById(order!.quote as string),
+    enabled: Boolean(order?.quote),
+  });
+
   const toSafeText = (value: unknown): string => {
     if (value === null || value === undefined) return '';
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -86,6 +93,35 @@ export default function OrderDetailPage() {
     return parts.join(', ');
   };
 
+  const flattenTechnicalDetails = (value: unknown, prefix = ''): Array<{ label: string; value: string }> => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+
+    const entries: Array<{ label: string; value: string }> = [];
+    for (const [key, rawValue] of Object.entries(value as Record<string, unknown>)) {
+      const label = prefix ? `${prefix} · ${key}` : key;
+      if (rawValue === null || rawValue === undefined || rawValue === '') continue;
+
+      if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+        entries.push({ label, value: String(rawValue) });
+      } else if (Array.isArray(rawValue)) {
+        const joined = rawValue
+          .map((item) => {
+            if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+              return String(item);
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join(', ');
+        if (joined) entries.push({ label, value: joined });
+      } else if (typeof rawValue === 'object') {
+        entries.push(...flattenTechnicalDetails(rawValue, label));
+      }
+    }
+
+    return entries;
+  };
+
   if (isLoading) {
     return <LoadingPage message="Cargando pedido..." />;
   }
@@ -104,8 +140,13 @@ export default function OrderDetailPage() {
   const StatusIcon = STATUS_ICONS[toSafeText(order.status)] || ClockIcon;
   const orderLines = Array.isArray(order.lines) ? order.lines : [];
   const statusHistory = Array.isArray(order.status_history) ? order.status_history : [];
+  const quoteLinesById = new Map(
+    (sourceQuote?.lines || []).map((quoteLine) => [String(quoteLine.id), quoteLine])
+  );
   const shippingAddressText = formatAddress(order.shipping_address);
   const deliveryAddressText = formatAddress(order.delivery_address);
+  const quoteDeliveryAddressText = formatAddress(sourceQuote?.delivery_address);
+  const quoteRequestDeliveryAddressText = formatAddress(sourceQuote?.quote_request?.delivery_address);
   const deliveryMethod = toSafeText(order.delivery_method);
   const pickupBranchText = [
     toSafeText(order.pickup_branch_detail?.name),
@@ -122,12 +163,28 @@ export default function OrderDetailPage() {
   let deliveryAddressLabel = 'Dirección de envío';
   let resolvedDeliveryAddress = shippingAddressText;
 
+  const fallbackFromLineMetadata = orderLines
+    .map((line) => {
+      const metadata = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
+        ? (line.metadata as Record<string, unknown>)
+        : null;
+      return formatAddress(metadata?.delivery_address);
+    })
+    .find(Boolean) || '';
+
+  const globalDeliveryFallback =
+    deliveryAddressText ||
+    quoteDeliveryAddressText ||
+    quoteRequestDeliveryAddressText ||
+    fallbackFromLineMetadata ||
+    shippingAddressText;
+
   if (deliveryMethod === 'installation') {
     deliveryAddressLabel = 'Dirección de instalación';
-    resolvedDeliveryAddress = deliveryAddressText || shippingAddressText;
+    resolvedDeliveryAddress = globalDeliveryFallback;
   } else if (deliveryMethod === 'shipping') {
     deliveryAddressLabel = 'Dirección de envío';
-    resolvedDeliveryAddress = deliveryAddressText || shippingAddressText;
+    resolvedDeliveryAddress = globalDeliveryFallback;
   } else if (deliveryMethod === 'pickup') {
     deliveryAddressLabel = 'Sucursal de recolección';
     resolvedDeliveryAddress = pickupBranchText || shippingAddressText;
@@ -227,13 +284,36 @@ export default function OrderDetailPage() {
                       const metadata = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
                         ? (line.metadata as Record<string, unknown>)
                         : null;
+                      const quoteLineId = toSafeText(metadata?.quote_line_id);
+                      const quoteLine = quoteLineId ? quoteLinesById.get(quoteLineId) : undefined;
                       const fullDescription =
                         toSafeText(metadata?.quote_line_description) ||
+                        toSafeText(quoteLine?.description) ||
                         toSafeText(metadata?.description) ||
                         toSafeText(line.variant_name);
 
-                      if (!fullDescription) return null;
-                      return <p className="text-sm text-neutral-400">{fullDescription}</p>;
+                      const technicalSource =
+                        (metadata?.service_details && typeof metadata.service_details === 'object' ? metadata.service_details : undefined) ||
+                        quoteLine?.service_details;
+                      const technicalItems = flattenTechnicalDetails(technicalSource);
+
+                      return (
+                        <>
+                          {fullDescription && <p className="text-sm text-neutral-400">{fullDescription}</p>}
+                          {technicalItems.length > 0 && (
+                            <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-2">
+                              <p className="text-[11px] font-medium text-neutral-300 mb-1">Detalles técnicos</p>
+                              <ul className="space-y-1">
+                                {technicalItems.slice(0, 12).map((item, index) => (
+                                  <li key={`${line.id}-tech-${index}`} className="text-[11px] text-neutral-400">
+                                    <span className="text-neutral-500">{item.label}:</span> {item.value}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      );
                     })()}
                     <p className="text-sm text-neutral-400">SKU: {toSafeText(line.sku)}</p>
                   </div>

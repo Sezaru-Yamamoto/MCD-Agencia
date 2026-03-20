@@ -75,6 +75,7 @@ export interface OrderStatusHistory {
 export interface Order {
   id: string;
   order_number: string;
+  quote?: string | null;
   status: string;
   status_display: string;
   shipping_address: string;

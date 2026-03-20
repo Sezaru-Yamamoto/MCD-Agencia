@@ -190,11 +190,13 @@ class OrderSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     customer = serializers.SerializerMethodField()
     pickup_branch_detail = serializers.SerializerMethodField()
+    quote = serializers.UUIDField(source='quote_id', read_only=True)
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'status', 'status_display',
+            'quote',
             'customer',
             'shipping_address', 'billing_address',
             'subtotal', 'tax_rate', 'tax_amount', 'total',
