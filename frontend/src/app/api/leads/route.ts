@@ -68,6 +68,36 @@ async function submitContactFallback(
   return false;
 }
 
+async function submitMinimalQuoteFallback(
+  backendCandidates: string[],
+  payload: Record<string, unknown>,
+): Promise<boolean> {
+  const contacto = (payload.contacto as Record<string, unknown> | undefined) || {};
+  const serviceType = String(payload.servicio || 'otro');
+  const minimalData = new FormData();
+  minimalData.append('customer_name', String(contacto.nombre || 'Cliente sin nombre'));
+  minimalData.append('customer_email', String(contacto.email || 'sin-correo@placeholder.local'));
+  minimalData.append('customer_phone', String(contacto.telefono || ''));
+  minimalData.append('customer_company', String(contacto.empresa || ''));
+  minimalData.append('service_type', serviceType);
+  minimalData.append('description', String(payload.comentarios || `Solicitud generada en modo contingencia para servicio: ${serviceType}`));
+  minimalData.append('preferred_language', 'es');
+
+  for (const apiBase of backendCandidates) {
+    try {
+      const response = await fetch(`${apiBase}/quotes/request/`, {
+        method: 'POST',
+        body: minimalData,
+      });
+      if (response.ok) return true;
+    } catch {
+      // Continue trying next backend candidate.
+    }
+  }
+
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -191,6 +221,18 @@ export async function POST(request: NextRequest) {
     if (!response) {
       console.error('No backend candidate reachable for /quotes/request/', lastFetchError);
 
+      const minimalQuoteSaved = await submitMinimalQuoteFallback(backendCandidates, payload);
+      if (minimalQuoteSaved) {
+        return NextResponse.json(
+          {
+            success: true,
+            request_number: 'LEAD-QUOTE-FALLBACK',
+            message: 'Recibimos tu solicitud y fue registrada en solicitudes. Nuestro equipo te contactará en breve.',
+          },
+          { status: 202 }
+        );
+      }
+
       const fallbackSaved = await submitContactFallback(backendCandidates, payload);
       if (fallbackSaved) {
         return NextResponse.json(
@@ -259,6 +301,18 @@ export async function POST(request: NextRequest) {
       }
 
       if (response.status >= 500) {
+        const minimalQuoteSaved = await submitMinimalQuoteFallback(backendCandidates, payload);
+        if (minimalQuoteSaved) {
+          return NextResponse.json(
+            {
+              success: true,
+              request_number: 'LEAD-QUOTE-FALLBACK',
+              message: 'Recibimos tu solicitud y fue registrada en solicitudes. Nuestro equipo te contactará en breve.',
+            },
+            { status: 202 }
+          );
+        }
+
         const fallbackSaved = await submitContactFallback(backendCandidates, payload);
         if (fallbackSaved) {
           return NextResponse.json(
