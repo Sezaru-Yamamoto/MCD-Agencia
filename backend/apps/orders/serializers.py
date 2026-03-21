@@ -190,7 +190,7 @@ class OrderSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     customer = serializers.SerializerMethodField()
     pickup_branch_detail = serializers.SerializerMethodField()
-    quote = serializers.UUIDField(source='quote_id', read_only=True)
+    quote = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -225,6 +225,12 @@ class OrderSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def get_quote(self, obj):
+        """Return source quote UUID if available."""
+        if obj.quote_id:
+            return str(obj.quote_id)
+        return None
+
     def get_pickup_branch_detail(self, obj):
         """Return branch name and address for display."""
         if obj.pickup_branch:
@@ -248,11 +254,13 @@ class OrderListSerializer(serializers.ModelSerializer):
     payment_method_display = serializers.CharField(
         source='get_payment_method_display', read_only=True
     )
+    quote = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'status', 'status_display',
+            'quote',
             'total', 'amount_paid', 'currency', 'payment_method',
             'payment_method_display', 'item_count', 'customer',
             'created_at'
@@ -271,6 +279,12 @@ class OrderListSerializer(serializers.ModelSerializer):
                 'email': obj.user.email,
                 'full_name': obj.user.full_name or obj.user.email,
             }
+        return None
+
+    def get_quote(self, obj):
+        """Return source quote UUID if available."""
+        if obj.quote_id:
+            return str(obj.quote_id)
         return None
 
 

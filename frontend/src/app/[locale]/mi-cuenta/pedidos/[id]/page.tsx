@@ -192,6 +192,31 @@ export default function OrderDetailPage() {
     })
     .find(Boolean) || '';
 
+  const metadataRecords = orderLines
+    .map((line) => (line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
+      ? (line.metadata as Record<string, unknown>)
+      : null))
+    .filter((record): record is Record<string, unknown> => Boolean(record));
+
+  const fallbackRequestDescription = metadataRecords
+    .map((record) => toSafeText(record.quote_request_description) || toSafeText(record.description))
+    .find(Boolean) || '';
+
+  const fallbackRequiredDate = metadataRecords
+    .map((record) => toSafeText(record.quote_request_required_date) || toSafeText(record.required_date))
+    .find(Boolean) || '';
+
+  const fallbackAttachments = metadataRecords
+    .flatMap((record) => {
+      const attachments = parseJsonIfString(record.quote_request_attachments || record.attachments);
+      return Array.isArray(attachments) ? attachments : [];
+    })
+    .filter((attachment) => attachment && typeof attachment === 'object') as Array<Record<string, unknown>>;
+
+  const shouldShowRequestSection = Boolean(
+    sourceQuote?.quote_request || fallbackRequestDescription || fallbackRequiredDate || fallbackAttachments.length
+  );
+
   const globalDeliveryFallback =
     deliveryAddressText ||
     quoteDeliveryAddressText ||
@@ -299,22 +324,22 @@ export default function OrderDetailPage() {
             )}
             
             {/* Solicitud original y archivos adjuntos */}
-            {sourceQuote?.quote_request && (
+            {shouldShowRequestSection && (
               <div className="mb-4 p-4 bg-neutral-900/50 border border-neutral-800 rounded-lg">
                 <h4 className="text-sm font-semibold text-white mb-3">Información de la Solicitud Original</h4>
                 
-                {sourceQuote.quote_request.description && (
+                {(sourceQuote?.quote_request?.description || fallbackRequestDescription) && (
                   <div className="mb-3">
                     <p className="text-xs text-neutral-500 mb-1">Descripción / Comentarios del cliente</p>
-                    <p className="text-sm text-neutral-300">{sourceQuote.quote_request.description}</p>
+                    <p className="text-sm text-neutral-300">{sourceQuote?.quote_request?.description || fallbackRequestDescription}</p>
                   </div>
                 )}
                 
-                {sourceQuote.quote_request.required_date && (
+                {(sourceQuote?.quote_request?.required_date || fallbackRequiredDate) && (
                   <div className="mb-3">
                     <p className="text-xs text-neutral-500 mb-1">Fecha Requerida</p>
                     <p className="text-sm text-white font-medium">
-                      {new Date(sourceQuote.quote_request.required_date).toLocaleDateString('es-MX', {
+                      {new Date(sourceQuote?.quote_request?.required_date || fallbackRequiredDate).toLocaleDateString('es-MX', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
@@ -323,14 +348,14 @@ export default function OrderDetailPage() {
                   </div>
                 )}
                 
-                {sourceQuote.quote_request.attachments && sourceQuote.quote_request.attachments.length > 0 && (
+                {((sourceQuote?.quote_request?.attachments && sourceQuote.quote_request.attachments.length > 0) || fallbackAttachments.length > 0) && (
                   <div>
                     <p className="text-xs text-neutral-500 mb-2">Archivos Adjuntos</p>
                     <div className="space-y-1">
-                      {sourceQuote.quote_request.attachments.map((att: any) => (
+                      {(sourceQuote?.quote_request?.attachments || fallbackAttachments).map((att: any, index: number) => (
                         <a
-                          key={att.id}
-                          href={att.file_url}
+                          key={att.id || att.file || index}
+                          href={att.file_url || att.file}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-sm text-cmyk-cyan hover:text-cmyk-cyan/80"
