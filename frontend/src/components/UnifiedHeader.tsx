@@ -144,11 +144,15 @@ export function UnifiedHeader() {
     return pathname === `/${locale}${href}` || pathname === href;
   };
 
+  const hasDesktopSidebarOffset =
+    pathname?.startsWith(`/${locale}/dashboard`) ||
+    pathname?.startsWith(`/${locale}/mi-cuenta`);
+
   return (
     <>
     <header
       ref={headerRef}
-      className={`fixed top-0 left-0 right-0 lg:left-64 z-50 transition-all duration-500 ${
+      className={`fixed top-0 left-0 right-0 ${hasDesktopSidebarOffset ? 'lg:left-64' : ''} z-50 transition-all duration-500 ${
         isScrolled
           ? 'py-2'
           : 'py-3 sm:py-4'
