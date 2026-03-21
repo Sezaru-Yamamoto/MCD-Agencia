@@ -1506,8 +1506,8 @@ export default function QuoteViewPage() {
           {/* Sidebar */}
           <div>
             <div className="space-y-4">
-              {/* Sticky Actions */}
-              <div className="xl:sticky xl:top-20 z-10">
+              {/* Actions */}
+              <div className="z-10">
                 <Card className="p-4">
                   <h3 className="font-medium text-white text-xs mb-2">Acciones</h3>
                   <div className="space-y-2">
