@@ -21,8 +21,9 @@ import {
 import { getOrderById, setOrderPaymentMethod } from '@/lib/api/orders';
 import { getQuoteById, getQuotes } from '@/lib/api/quotes';
 import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
+import { getBranches } from '@/lib/api/content';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
-import { formatPrice, formatDate, formatDateTime, cn } from '@/lib/utils';
+import { formatPrice, formatDate, cn } from '@/lib/utils';
 import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
 import toast from 'react-hot-toast';
@@ -100,6 +101,8 @@ export default function OrderDetailPage() {
   const [isPaying, setIsPaying] = useState(false);
   const [isAttachmentsModalOpen, setIsAttachmentsModalOpen] = useState(false);
   const [activeAttachments, setActiveAttachments] = useState<Array<Record<string, unknown>>>([]);
+  const [transferReference, setTransferReference] = useState('');
+  const [transferFiles, setTransferFiles] = useState<File[]>([]);
 
   useEffect(() => {
     return () => {
@@ -145,6 +148,12 @@ export default function OrderDetailPage() {
   });
 
   const sourceQuote = sourceQuoteById || sourceQuoteByNumber || undefined;
+
+  const { data: branches = [] } = useQuery({
+    queryKey: ['branches-for-cash-payment'],
+    queryFn: getBranches,
+    enabled: Boolean(order?.id) && selectedPaymentMethod === 'cash',
+  });
 
   const toSafeText = (value: unknown): string => {
     if (value === null || value === undefined) return '';
@@ -283,6 +292,13 @@ export default function OrderDetailPage() {
   const handlePayment = async () => {
     if (!canPay || isPaying) return;
 
+    if (selectedPaymentMethod === 'bank_transfer') {
+      if (!transferReference.trim()) {
+        toast.error('Ingresa el número de transferencia para continuar. Ejemplo: SPEI-58294011');
+        return;
+      }
+    }
+
     setIsPaying(true);
     try {
       await setOrderPaymentMethod(order.id, selectedPaymentMethod);
@@ -307,7 +323,10 @@ export default function OrderDetailPage() {
       if (!isMountedRef.current) return;
 
       if (selectedPaymentMethod === 'bank_transfer') {
-        toast.success('Método seleccionado: transferencia. Un administrador confirmará el pago.');
+        toast.success(
+          `Transferencia registrada (${transferReference.trim() || 'sin referencia'}). ` +
+          `Adjuntos: ${transferFiles.length}. Un asesor validará tu pago.`
+        );
       } else {
         toast.success('Método seleccionado: efectivo. Un administrador confirmará el pago.');
       }
@@ -355,9 +374,9 @@ export default function OrderDetailPage() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Order Items */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-7 space-y-6">
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Productos</h3>
             
@@ -378,7 +397,7 @@ export default function OrderDetailPage() {
             <div className="divide-y divide-neutral-800">
               {orderLines.map((line) => (
                 <div key={line.id} className="py-4 first:pt-0 last:pb-0 flex gap-4">
-                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
                     <div className="w-full h-full flex items-center justify-center text-neutral-500 text-xs">
                       {toSafeText(line.sku)}
                     </div>
@@ -625,8 +644,8 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Order Summary */}
-        <div className="space-y-6">
-          <Card>
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Resumen</h3>
             <div className="space-y-3">
               <div className="flex justify-between text-neutral-400">
@@ -665,7 +684,7 @@ export default function OrderDetailPage() {
           </Card>
 
           {canPay && (
-            <Card>
+            <Card className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Realizar pago</h3>
               <div className="space-y-3">
                 <div className="space-y-2">
@@ -701,6 +720,73 @@ export default function OrderDetailPage() {
                     );
                   })}
                 </div>
+
+                {selectedPaymentMethod === 'bank_transfer' && (
+                  <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
+                    <div>
+                      <p className="text-sm text-neutral-300 font-medium">Número de transferencia</p>
+                      <input
+                        type="text"
+                        value={transferReference}
+                        onChange={(e) => setTransferReference(e.target.value)}
+                        placeholder="Ejemplo: SPEI-58294011"
+                        className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-cmyk-cyan focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-neutral-300 font-medium">Comprobante de transferencia (imagen)</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(event) => {
+                          const files = Array.from(event.target.files || []);
+                          setTransferFiles(files);
+                        }}
+                        className="mt-1 w-full text-sm text-neutral-300 file:mr-3 file:rounded file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-white hover:file:bg-neutral-600"
+                      />
+                      {transferFiles.length > 0 && (
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          {transferFiles.slice(0, 3).map((file, index) => (
+                            <div key={`${file.name}-${index}`} className="rounded border border-neutral-700 p-2 text-[11px] text-neutral-400 truncate">
+                              {file.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-neutral-400 space-y-1">
+                      <p>Instrucciones:</p>
+                      <p>1) Realiza la transferencia desde tu banco.</p>
+                      <p>2) Captura el número de referencia exacto.</p>
+                      <p>3) Sube la foto/captura del ticket para validación.</p>
+                      <p>4) Nuestro equipo confirmará tu pago y activará producción.</p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedPaymentMethod === 'cash' && (
+                  <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
+                    <p className="text-sm text-neutral-300">
+                      Debes acercarte a cualquiera de nuestras sucursales para realizar el pago en efectivo.
+                      En sucursal te apoyarán con la validación de tu pedido.
+                    </p>
+
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {branches.length > 0 ? branches.map((branch) => (
+                        <div key={branch.id} className="rounded border border-neutral-800 p-2">
+                          <p className="text-sm text-white font-medium">{branch.name}</p>
+                          <p className="text-xs text-neutral-400">{branch.full_address || `${branch.city}, ${branch.state}`}</p>
+                          <p className="text-xs text-neutral-500">{branch.phone} · {branch.hours}</p>
+                        </div>
+                      )) : (
+                        <p className="text-xs text-neutral-400">Cargando sucursales disponibles...</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {(selectedPaymentMethod === 'bank_transfer' || selectedPaymentMethod === 'cash') && (
                   <p className="text-xs text-neutral-400">
