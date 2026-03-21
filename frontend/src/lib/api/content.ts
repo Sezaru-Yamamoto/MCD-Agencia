@@ -10,7 +10,7 @@
  */
 
 import { apiClient } from './client';
-import { CLIENTS } from '@/lib/constants';
+import { CLIENTS, FAQ_ITEMS, LOCATIONS, SERVICES } from '@/lib/constants';
 
 // Types
 export interface CarouselSlide {
@@ -211,21 +211,220 @@ export interface PortfolioItemAdmin extends PortfolioItem {
   updated_at?: string;
 }
 
+const LANDING_CACHE_PREFIX = 'mcd:landing-cache:';
+const DEFAULT_HOURS = 'Lunes a Viernes: 9:00 - 18:00 Sábados: 9:00 - 14:00';
+
+type CachedEnvelope<T> = {
+  timestamp: number;
+  data: T;
+};
+
+function readCachedData<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`${LANDING_CACHE_PREFIX}${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedEnvelope<T>;
+    return parsed?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedData<T>(key: string, data: T): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload: CachedEnvelope<T> = { timestamp: Date.now(), data };
+    window.localStorage.setItem(`${LANDING_CACHE_PREFIX}${key}`, JSON.stringify(payload));
+  } catch {
+    // Ignore storage quota/serialization issues.
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error('timeout')), ms);
+    }),
+  ]);
+}
+
+async function cacheFirstFetch<T>(
+  cacheKey: string,
+  fetcher: () => Promise<T>,
+  fallbackFactory: () => T,
+  timeoutMs = 1800,
+): Promise<T> {
+  const cached = readCachedData<T>(cacheKey);
+
+  if (cached) {
+    // Return immediately for fast paint; refresh in background.
+    void fetcher()
+      .then((fresh) => writeCachedData(cacheKey, fresh))
+      .catch(() => {
+        // Keep cached data on refresh error.
+      });
+    return cached;
+  }
+
+  try {
+    const fresh = await withTimeout(fetcher(), timeoutMs);
+    writeCachedData(cacheKey, fresh);
+    return fresh;
+  } catch {
+    return fallbackFactory();
+  }
+}
+
+function getFallbackCarouselSlides(): CarouselSlide[] {
+  const fallbackImages = [
+    '/images/carousel/anuncios-iluminados.jfif',
+    '/images/carousel/vallas-moviles.jfif',
+    '/images/carousel/lonas.jfif',
+  ];
+
+  return fallbackImages.map((image, index) => ({
+    id: `fallback-slide-${index + 1}`,
+    title: 'Agencia MCD',
+    title_en: 'MCD Agency',
+    subtitle: 'Publicidad e impresión profesional en Guerrero',
+    subtitle_en: 'Professional advertising and printing in Guerrero',
+    image,
+    cta_text: 'Solicitar cotización',
+    cta_text_en: 'Request quote',
+    cta_url: '/#cotizar',
+    service_key: '',
+    position: index,
+  }));
+}
+
+function getFallbackClientLogos(): ClientLogo[] {
+  return CLIENTS.map((client, index) => ({
+    id: `fallback-client-${index + 1}`,
+    name: client.name,
+    logo: client.logo,
+    website: '',
+    position: index,
+  }));
+}
+
+function getFallbackFAQs(): FAQ[] {
+  return FAQ_ITEMS.map((item, index) => ({
+    id: `fallback-faq-${index + 1}`,
+    question: item.question,
+    question_en: item.question,
+    answer: item.answer,
+    answer_en: item.answer,
+    category: 'general',
+    category_display: 'General',
+    position: index,
+  }));
+}
+
+function getFallbackBranches(): Branch[] {
+  return LOCATIONS.map((location, index) => ({
+    id: `fallback-branch-${location.id}`,
+    name: location.name,
+    street: location.address,
+    neighborhood: '',
+    city: location.city,
+    state: 'Guerrero',
+    postal_code: '',
+    phone: location.phone,
+    email: location.email,
+    hours: DEFAULT_HOURS,
+    hours_en: 'Mon-Fri: 9:00 - 18:00 Sat: 9:00 - 14:00',
+    latitude: Number(location.latitude),
+    longitude: Number(location.longitude),
+    full_address: location.address,
+    position: index,
+  }));
+}
+
+function getFallbackServices(): Service[] {
+  return SERVICES.map((service, index) => ({
+    id: service.id,
+    service_key: service.id,
+    name: service.title,
+    name_en: service.title,
+    description: service.description,
+    description_en: service.description,
+    icon: service.icon,
+    image: service.image,
+    cta_text: 'Solicitar cotización',
+    cta_text_en: 'Request quote',
+    cta_url: '/#cotizar',
+    is_featured: index < 6,
+    position: index,
+    is_active: true,
+    carousel_images: [],
+  }));
+}
+
+function getFallbackSiteConfig(): SiteConfig {
+  return {
+    id: 'fallback-site-config',
+    site_name: 'Agencia MCD',
+    site_name_en: 'MCD Agency',
+    tagline: 'Publicidad e impresión profesional',
+    tagline_en: 'Professional advertising and printing',
+    contact_email: 'ventas@agenciamcd.mx',
+    contact_phone: '+52 744 688 7382',
+    whatsapp_number: '+52 744 688 7382',
+    social_links: {},
+    about_content: '',
+    about_content_en: '',
+    mission: '',
+    mission_en: '',
+    vision: '',
+    vision_en: '',
+    values: '',
+    values_en: '',
+  };
+}
+
+function getFallbackLandingData(): LandingPageData {
+  return {
+    carousel: getFallbackCarouselSlides(),
+    services: getFallbackServices(),
+    testimonials: [],
+    clients: getFallbackClientLogos(),
+    faqs: getFallbackFAQs(),
+    branches: getFallbackBranches(),
+    portfolio_videos: [],
+    portfolio_items: [],
+    config: getFallbackSiteConfig(),
+  };
+}
+
 // API Functions
 
 /**
  * Get all landing page data in a single request.
  */
 export async function getLandingPageData(): Promise<LandingPageData> {
-  return apiClient.get<LandingPageData>('/content/landing/');
+  return cacheFirstFetch(
+    'landing-data',
+    () => apiClient.get<LandingPageData>('/content/landing/'),
+    getFallbackLandingData,
+    2200
+  );
 }
 
 /**
  * Get carousel slides.
  */
 export async function getCarouselSlides(): Promise<CarouselSlide[]> {
-  const response = await apiClient.get<{ results: CarouselSlide[] } | CarouselSlide[]>('/content/carousel/');
-  return Array.isArray(response) ? response : response.results;
+  return cacheFirstFetch(
+    'carousel-slides',
+    async () => {
+      const response = await apiClient.get<{ results: CarouselSlide[] } | CarouselSlide[]>('/content/carousel/');
+      return Array.isArray(response) ? response : response.results;
+    },
+    getFallbackCarouselSlides,
+    1800
+  );
 }
 
 /**
@@ -240,16 +439,30 @@ export async function getTestimonials(): Promise<Testimonial[]> {
  * Get client logos.
  */
 export async function getClientLogos(): Promise<ClientLogo[]> {
-  const response = await apiClient.get<{ results: ClientLogo[] } | ClientLogo[]>('/content/clients/');
-  return Array.isArray(response) ? response : response.results;
+  return cacheFirstFetch(
+    'client-logos',
+    async () => {
+      const response = await apiClient.get<{ results: ClientLogo[] } | ClientLogo[]>('/content/clients/');
+      return Array.isArray(response) ? response : response.results;
+    },
+    getFallbackClientLogos,
+    1800
+  );
 }
 
 /**
  * Get FAQs.
  */
 export async function getFAQs(category?: string): Promise<FAQ[]> {
-  const response = await apiClient.get<{ results: FAQ[] } | FAQ[]>('/content/faqs/', { category });
-  return Array.isArray(response) ? response : response.results;
+  return cacheFirstFetch(
+    `faqs:${category || 'all'}`,
+    async () => {
+      const response = await apiClient.get<{ results: FAQ[] } | FAQ[]>('/content/faqs/', { category });
+      return Array.isArray(response) ? response : response.results;
+    },
+    getFallbackFAQs,
+    1800
+  );
 }
 
 /**
@@ -270,25 +483,32 @@ export async function getBranches(): Promise<Branch[]> {
     results: Branch[];
   };
 
-  const allBranches: Branch[] = [];
-  let endpoint: string | null = '/content/branches/';
+  return cacheFirstFetch(
+    'branches',
+    async () => {
+      const allBranches: Branch[] = [];
+      let endpoint: string | null = '/content/branches/';
 
-  while (endpoint) {
-    const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
-      endpoint,
-      { page_size: 100 }
-    );
+      while (endpoint) {
+        const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
+          endpoint,
+          { page_size: 100 }
+        );
 
-    if (Array.isArray(response)) {
-      allBranches.push(...response);
-      break;
-    }
+        if (Array.isArray(response)) {
+          allBranches.push(...response);
+          break;
+        }
 
-    allBranches.push(...(response.results || []));
-    endpoint = response.next || null;
-  }
+        allBranches.push(...(response.results || []));
+        endpoint = response.next || null;
+      }
 
-  return allBranches;
+      return allBranches;
+    },
+    getFallbackBranches,
+    1800
+  );
 }
 
 /**
@@ -489,8 +709,15 @@ export async function deleteService(id: string): Promise<void> {
  * Get services (public).
  */
 export async function getServices(): Promise<Service[]> {
-  const response = await apiClient.get<{ results: Service[] } | Service[]>('/content/services/');
-  return Array.isArray(response) ? response : response.results;
+  return cacheFirstFetch(
+    'services',
+    async () => {
+      const response = await apiClient.get<{ results: Service[] } | Service[]>('/content/services/');
+      return Array.isArray(response) ? response : response.results;
+    },
+    getFallbackServices,
+    1800
+  );
 }
 
 /**
@@ -585,10 +812,17 @@ export async function deleteServiceImage(id: string): Promise<void> {
  * Get portfolio videos (public).
  */
 export async function getPortfolioVideos(): Promise<PortfolioVideo[]> {
-  const response = await apiClient.get<{ results: PortfolioVideo[] } | PortfolioVideo[]>(
-    '/content/portfolio-videos/'
+  return cacheFirstFetch(
+    'portfolio-videos',
+    async () => {
+      const response = await apiClient.get<{ results: PortfolioVideo[] } | PortfolioVideo[]>(
+        '/content/portfolio-videos/'
+      );
+      return Array.isArray(response) ? response : response.results;
+    },
+    () => [],
+    1800
   );
-  return Array.isArray(response) ? response : response.results;
 }
 
 /**
@@ -635,10 +869,17 @@ export async function deletePortfolioVideo(id: string): Promise<void> {
  * Get portfolio items (public).
  */
 export async function getPortfolioItems(): Promise<PortfolioItem[]> {
-  const response = await apiClient.get<{ results: PortfolioItem[] } | PortfolioItem[]>(
-    '/content/portfolio-items/'
+  return cacheFirstFetch(
+    'portfolio-items',
+    async () => {
+      const response = await apiClient.get<{ results: PortfolioItem[] } | PortfolioItem[]>(
+        '/content/portfolio-items/'
+      );
+      return Array.isArray(response) ? response : response.results;
+    },
+    () => [],
+    1800
   );
-  return Array.isArray(response) ? response : response.results;
 }
 
 /**
