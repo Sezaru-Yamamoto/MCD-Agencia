@@ -290,6 +290,14 @@ export default function OrderDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Productos</h3>
+            
+            {/* DEBUG: Show if quote is loaded */}
+            {order.quote && !sourceQuote && (
+              <div className="mb-4 p-2 bg-blue-900/30 border border-blue-700 rounded text-xs text-blue-300">
+                Cargando información de la solicitud original...
+              </div>
+            )}
+            
             {/* Solicitud original y archivos adjuntos */}
             {sourceQuote?.quote_request && (
               <div className="mb-4 p-4 bg-neutral-900/50 border border-neutral-800 rounded-lg">
@@ -334,6 +342,13 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* DEBUG: If quote exists but quote_request doesn't */}
+            {sourceQuote && !sourceQuote.quote_request && (
+              <div className="mb-4 p-2 bg-yellow-900/30 border border-yellow-700 rounded text-xs text-yellow-300">
+                ⚠️ Cotización sin información de solicitud original
               </div>
             )}
 
