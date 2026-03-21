@@ -433,7 +433,7 @@ export async function getQuoteRequestById(id: string): Promise<QuoteRequest> {
 /**
  * Get user's quotes.
  */
-export async function getQuotes(filters?: { status?: string; page?: number }): Promise<PaginatedResponse<Quote>> {
+export async function getQuotes(filters?: { status?: string; page?: number; search?: string }): Promise<PaginatedResponse<Quote>> {
   return apiClient.get<PaginatedResponse<Quote>>('/quotes/', filters);
 }
 

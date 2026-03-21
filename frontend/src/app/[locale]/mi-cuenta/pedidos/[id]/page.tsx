@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { getOrderById, setOrderPaymentMethod } from '@/lib/api/orders';
-import { getQuoteById } from '@/lib/api/quotes';
+import { getQuoteById, getQuotes } from '@/lib/api/quotes';
 import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, formatDateTime, cn } from '@/lib/utils';
@@ -44,6 +44,14 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Efectivo',
 };
 
+const QUOTE_NUMBER_REGEX = /(COT-\d{8}-\d+)/i;
+
+const extractQuoteNumber = (value: unknown): string => {
+  if (typeof value !== 'string') return '';
+  const match = value.match(QUOTE_NUMBER_REGEX);
+  return match?.[1]?.toUpperCase() || '';
+};
+
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
@@ -62,11 +70,39 @@ export default function OrderDetailPage() {
     queryFn: () => getOrderById(orderId),
   });
 
-  const { data: sourceQuote } = useQuery({
+  const inferredQuoteNumber = (() => {
+    if (!order) return '';
+
+    const historyQuoteNumber = (Array.isArray(order.status_history) ? order.status_history : [])
+      .map((entry) => extractQuoteNumber(entry?.notes))
+      .find(Boolean);
+
+    const skuQuoteNumber = (Array.isArray(order.lines) ? order.lines : [])
+      .map((line) => extractQuoteNumber(line?.sku))
+      .find(Boolean);
+
+    return historyQuoteNumber || skuQuoteNumber || '';
+  })();
+
+  const { data: sourceQuoteById } = useQuery({
     queryKey: ['order-source-quote', order?.quote],
     queryFn: () => getQuoteById(order!.quote as string),
     enabled: Boolean(order?.quote),
   });
+
+  const { data: sourceQuoteByNumber } = useQuery({
+    queryKey: ['order-source-quote-by-number', inferredQuoteNumber],
+    enabled: Boolean(!order?.quote && inferredQuoteNumber),
+    queryFn: async () => {
+      const response = await getQuotes({ search: inferredQuoteNumber, page: 1 });
+      const exactMatch = response.results?.find(
+        (quote) => quote.quote_number?.toUpperCase() === inferredQuoteNumber
+      );
+      return exactMatch || response.results?.[0] || null;
+    },
+  });
+
+  const sourceQuote = sourceQuoteById || sourceQuoteByNumber || undefined;
 
   const toSafeText = (value: unknown): string => {
     if (value === null || value === undefined) return '';
