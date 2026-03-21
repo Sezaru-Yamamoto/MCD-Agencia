@@ -55,7 +55,7 @@ const StickyActions = dynamic(
 );
 
 const ChatWidget = dynamic(
-  () => import('@/components/landing/ChatWidget').then((m) => m.ChatWidget),
+  () => import('@/components/landing/ChatWidget').then((m) => m.default),
   { ssr: false }
 );
 
