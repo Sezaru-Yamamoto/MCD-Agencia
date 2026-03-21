@@ -14,6 +14,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { trackEvent, trackingEvents } from '@/lib/tracking';
 
 // Landing page components
@@ -21,14 +22,42 @@ import {
   Header,
   Hero,
   BackgroundGlow,
-  Portfolio,
-  Clients,
-  QuoteForm,
-  Locations,
-  Footer,
-  ChatWidget,
 } from '@/components/landing';
-import { StickyActions } from '@/components/landing/StickyActions';
+
+const Portfolio = dynamic(
+  () => import('@/components/landing/Portfolio').then((m) => m.Portfolio),
+  { ssr: false, loading: () => <div className="min-h-[380px]" /> }
+);
+
+const Clients = dynamic(
+  () => import('@/components/landing/Clients').then((m) => m.Clients),
+  { ssr: false, loading: () => <div className="min-h-[220px]" /> }
+);
+
+const QuoteForm = dynamic(
+  () => import('@/components/landing/QuoteForm').then((m) => m.QuoteForm),
+  { ssr: false, loading: () => <div className="min-h-[420px]" /> }
+);
+
+const Locations = dynamic(
+  () => import('@/components/landing/Locations').then((m) => m.Locations),
+  { ssr: false, loading: () => <div className="min-h-[220px]" /> }
+);
+
+const Footer = dynamic(
+  () => import('@/components/landing/Footer').then((m) => m.Footer),
+  { ssr: false, loading: () => <div className="min-h-[180px]" /> }
+);
+
+const StickyActions = dynamic(
+  () => import('@/components/landing/StickyActions').then((m) => m.StickyActions),
+  { ssr: false }
+);
+
+const ChatWidget = dynamic(
+  () => import('@/components/landing/ChatWidget').then((m) => m.ChatWidget),
+  { ssr: false }
+);
 
 // ─── Scroll-reveal (fueled.com / oncorps.ai style) ─────────────────────────
 // Observed once, applies smooth translate + fade + optional scale + clip-path

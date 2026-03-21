@@ -204,7 +204,6 @@ export function Hero() {
               fill
               className="object-cover"
               priority={index === 0}
-              unoptimized
               sizes="100vw"
             />
             {/* Subtle vignette — lighter than before */}
