@@ -274,7 +274,10 @@ export async function getBranches(): Promise<Branch[]> {
   let endpoint: string | null = '/content/branches/';
 
   while (endpoint) {
-    const response = await apiClient.get<BranchListResponse | Branch[]>(endpoint, { page_size: 100 });
+    const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
+      endpoint,
+      { page_size: 100 }
+    );
 
     if (Array.isArray(response)) {
       allBranches.push(...response);
