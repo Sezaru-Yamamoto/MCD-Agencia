@@ -52,6 +52,7 @@ export function PaymentTestingPanel() {
     enabled: permissions.isAdmin && activeTab === 'mock',
     refetchInterval: 3000, // Auto-refresh every 3s
     retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   // Create test order
@@ -224,7 +225,7 @@ export function PaymentTestingPanel() {
                 value={testAmount}
                 onChange={(e) => setTestAmount(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="1500"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 caret-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -353,9 +354,14 @@ export function PaymentTestingPanel() {
 
             {isMockError && (
               <Card className="p-4 bg-red-50 border-red-200">
-                <p className="text-red-700 text-sm text-center">
-                  No se pudo cargar mock payments. Recarga la página e intenta nuevamente.
-                </p>
+                <div className="text-center space-y-2">
+                  <p className="text-red-700 text-sm">
+                    No se pudo cargar mock payments.
+                  </p>
+                  <Button variant="outline" onClick={() => refetchMock()}>
+                    Reintentar
+                  </Button>
+                </div>
               </Card>
             )}
 

@@ -141,7 +141,16 @@ export const paymentTestingService = {
    * Get list of current mock payments in session.
    */
   async getMockPayments(): Promise<MockPaymentsList> {
-    return apiClient.get<MockPaymentsList>('/payments/test_mock_payments/');
+    try {
+      return await apiClient.get<MockPaymentsList>('/payments/test_mock_payments/');
+    } catch (error: any) {
+      // Graceful fallback in prod when endpoint is temporarily unavailable
+      // (e.g. backend not yet deployed with testing routes).
+      if (error?.status === 403 || error?.status === 404) {
+        return { count: 0, payments: [] };
+      }
+      throw error;
+    }
   },
 
   /**
