@@ -527,11 +527,13 @@ export default function QuoteViewPage() {
                   <div className="p-2 rounded-lg bg-cmyk-cyan/10">
                     <BuildingOfficeIcon className="h-5 w-5 text-cmyk-cyan" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-neutral-500 text-xs">Cliente</p>
-                    <p className="text-white">{quote.customer_name}</p>
-                    {quote.customer_company && (
-                      <p className="text-neutral-400 text-sm">{quote.customer_company}</p>
+                    <p className="text-white break-words">{quote.customer_name}</p>
+                    {(quote.customer_company || quote.quote_request?.customer_company) && (
+                      <p className="text-neutral-400 text-sm break-words">
+                        {quote.customer_company || quote.quote_request?.customer_company}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -539,9 +541,9 @@ export default function QuoteViewPage() {
                   <div className="p-2 rounded-lg bg-cmyk-cyan/10">
                     <EnvelopeIcon className="h-5 w-5 text-cmyk-cyan" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-neutral-500 text-xs">Email</p>
-                    <p className="text-white">{quote.customer_email}</p>
+                    <p className="text-white text-sm leading-tight break-all">{quote.customer_email}</p>
                   </div>
                 </div>
                 {quote.customer_phone && (
@@ -549,9 +551,9 @@ export default function QuoteViewPage() {
                     <div className="p-2 rounded-lg bg-cmyk-cyan/10">
                       <PhoneIcon className="h-5 w-5 text-cmyk-cyan" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-neutral-500 text-xs">Teléfono</p>
-                      <p className="text-white">{quote.customer_phone}</p>
+                      <p className="text-white break-words">{quote.customer_phone}</p>
                     </div>
                   </div>
                 )}
