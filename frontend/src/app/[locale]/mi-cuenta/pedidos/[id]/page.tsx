@@ -463,7 +463,7 @@ export default function OrderDetailPage() {
                                     ? new Date(matchingQuoteLine.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', {
                                         year: 'numeric', month: 'short', day: 'numeric'
                                       })
-                                    : formatDate(order.scheduled_date)}
+                                    : order.scheduled_date ? formatDate(order.scheduled_date) : 'No especificada'}
                                 </span>
                               </span>
                             </div>
