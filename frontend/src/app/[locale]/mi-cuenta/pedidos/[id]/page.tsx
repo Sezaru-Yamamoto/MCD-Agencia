@@ -347,6 +347,29 @@ export default function OrderDetailPage() {
     })
     .filter((attachment) => attachment && typeof attachment === 'object') as Array<Record<string, unknown>>;
 
+  const parseMoneyValue = (value: unknown): number => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (typeof value !== 'string') return 0;
+    const normalized = value.replace(/[^\d.-]/g, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const shippingFromQuoteLines = (sourceQuote?.lines || []).reduce((sum, line) => {
+    return sum + parseMoneyValue((line as Record<string, unknown>).shipping_cost);
+  }, 0);
+
+  const shippingFromOrderMetadata = metadataRecords.reduce((sum, record) => {
+    return sum + parseMoneyValue(
+      record.shipping_cost ||
+      record.quote_line_shipping_cost ||
+      record.shippingCost ||
+      record.quote_shipping_cost
+    );
+  }, 0);
+
+  const resolvedShippingCost = shippingFromQuoteLines > 0 ? shippingFromQuoteLines : shippingFromOrderMetadata;
+
   const handlePayment = async () => {
     if (!canPay || isPaying) return;
 
@@ -711,6 +734,10 @@ export default function OrderDetailPage() {
               <div className="flex justify-between text-neutral-400">
                 <span>Subtotal</span>
                 <span>{formatPrice(order.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-neutral-400">
+                <span>Envío</span>
+                <span>{formatPrice(resolvedShippingCost.toFixed(2))}</span>
               </div>
               <div className="flex justify-between text-neutral-400">
                 <span>IVA ({order.tax_rate}%)</span>
