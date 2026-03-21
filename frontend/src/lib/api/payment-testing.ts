@@ -85,7 +85,7 @@ export const paymentTestingService = {
    * Create a test order for payment testing.
    */
   async createTestOrder(amount: number = 1500): Promise<TestOrder> {
-    return apiClient.post<TestOrder>('/payments/test/create-order/', {
+    return apiClient.post<TestOrder>('/payments/test_create_order/', {
       amount: String(amount),
     });
   },
@@ -94,7 +94,7 @@ export const paymentTestingService = {
    * Create a test quote for payment testing.
    */
   async createTestQuote(amount: number = 2500): Promise<TestQuote> {
-    return apiClient.post<TestQuote>('/payments/test/create-quote/', {
+    return apiClient.post<TestQuote>('/payments/test_create_quote/', {
       amount: String(amount),
     });
   },

@@ -223,7 +223,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
             'is_successful': payment.is_successful
         })
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def test_simulate_approved(self, request, pk=None):
         """
         [ADMIN/TESTING ONLY] Simulate an approved payment.
@@ -236,7 +236,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         Returns:
             Updated payment data after approval
         """
-        if not request.user.is_staff:
+        if not is_internal_user(request.user):
             return Response(
                 {'error': 'Only staff users can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
@@ -298,7 +298,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def test_simulate_rejected(self, request, pk=None):
         """
         [ADMIN/TESTING ONLY] Simulate a rejected payment.
@@ -311,7 +311,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         Returns:
             Updated payment data after rejection
         """
-        if not request.user.is_staff:
+        if not is_internal_user(request.user):
             return Response(
                 {'error': 'Only staff users can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
@@ -363,7 +363,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def test_create_order(self, request):
         """
         [ADMIN/TESTING ONLY] Create a test order for payment testing.
@@ -376,7 +376,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         Returns:
             Created order with balance_due equal to amount
         """
-        if not request.user.is_staff:
+        if not is_internal_user(request.user):
             return Response(
                 {'error': 'Only staff users can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
@@ -418,7 +418,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def test_create_quote(self, request):
         """
         [ADMIN/TESTING ONLY] Create a test quote for payment testing.
@@ -431,7 +431,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         Returns:
             Created quote in ACCEPTED status
         """
-        if not request.user.is_staff:
+        if not is_internal_user(request.user):
             return Response(
                 {'error': 'Only staff users can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
@@ -473,7 +473,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def test_mock_payments(self, request):
         """
         [ADMIN/TESTING ONLY] Get list of current mock payments.
@@ -485,7 +485,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         Returns:
             List of mock payments with details
         """
-        if not request.user.is_staff:
+        if not is_internal_user(request.user):
             return Response(
                 {'error': 'Only staff users can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN

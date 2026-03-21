@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -18,7 +18,8 @@ import {
   TestPaymentResult,
   MockPaymentsList,
 } from '@/lib/api/payment-testing';
-import { Card, Button, Badge, LoadingPage } from '@/components/ui';
+import { Card, Button, Badge } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 import { formatPrice, cn } from '@/lib/utils';
 
 /**
@@ -35,6 +36,7 @@ import { formatPrice, cn } from '@/lib/utils';
  *   - Full audit trail of all test transactions
  */
 export function PaymentTestingPanel() {
+  const permissions = usePermissions();
   const [isExpanded, setIsExpanded] = useState(false);
   const [testAmount, setTestAmount] = useState('1500');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mercadopago' | 'paypal'>(
@@ -44,7 +46,7 @@ export function PaymentTestingPanel() {
   const [activeTab, setActiveTab] = useState<'create' | 'active' | 'mock'>('create');
 
   // Check if user can access testing
-  const { data: hasAccess = false, isLoading: checkingAccess } = useQuery({
+  const { data: hasAccess = false } = useQuery({
     queryKey: ['payment-testing-access'],
     queryFn: () => paymentTestingService.canAccessPaymentTesting(),
     retry: false,
@@ -134,11 +136,7 @@ export function PaymentTestingPanel() {
     },
   });
 
-  if (checkingAccess) {
-    return null;
-  }
-
-  if (!hasAccess) {
+  if (!permissions.isAdmin) {
     return null;
   }
 
@@ -218,6 +216,11 @@ export function PaymentTestingPanel() {
                 <div className="text-sm text-blue-800">
                   <p className="font-semibold">Testing Mode</p>
                   <p>Create test orders and simulate payment flows. No real charges.</p>
+                  {!hasAccess && (
+                    <p className="mt-1 text-blue-700">
+                      Endpoint probe no disponible todavía. Si acabas de desplegar, recarga en 1-2 min.
+                    </p>
+                  )}
                 </div>
               </div>
             </Card>
