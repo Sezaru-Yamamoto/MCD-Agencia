@@ -45,19 +45,13 @@ export function PaymentTestingPanel() {
   const [selectedPaymentForAction, setSelectedPaymentForAction] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'create' | 'active' | 'mock'>('create');
 
-  // Check if user can access testing
-  const { data: hasAccess = false } = useQuery({
-    queryKey: ['payment-testing-access'],
-    queryFn: () => paymentTestingService.canAccessPaymentTesting(),
-    retry: false,
-  });
-
   // Get mock payments
-  const { data: mockPayments, refetch: refetchMock } = useQuery({
+  const { data: mockPayments, refetch: refetchMock, isLoading: isMockLoading, isError: isMockError } = useQuery({
     queryKey: ['mock-payments'],
     queryFn: () => paymentTestingService.getMockPayments(),
-    enabled: hasAccess && activeTab === 'mock',
+    enabled: permissions.isAdmin && activeTab === 'mock',
     refetchInterval: 3000, // Auto-refresh every 3s
+    retry: 1,
   });
 
   // Create test order
@@ -216,11 +210,6 @@ export function PaymentTestingPanel() {
                 <div className="text-sm text-blue-800">
                   <p className="font-semibold">Testing Mode</p>
                   <p>Create test orders and simulate payment flows. No real charges.</p>
-                  {!hasAccess && (
-                    <p className="mt-1 text-blue-700">
-                      Endpoint probe no disponible todavía. Si acabas de desplegar, recarga en 1-2 min.
-                    </p>
-                  )}
                 </div>
               </div>
             </Card>
@@ -230,13 +219,12 @@ export function PaymentTestingPanel() {
                 Test Amount (MXN)
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={testAmount}
-                onChange={(e) => setTestAmount(e.target.value)}
+                onChange={(e) => setTestAmount(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="1500"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="50"
-                step="50"
               />
             </div>
 
@@ -264,7 +252,7 @@ export function PaymentTestingPanel() {
 
             <Button
               onClick={() => createOrderMutation.mutate()}
-              disabled={createOrderMutation.isPending || !testAmount}
+              disabled={createOrderMutation.isPending || !testAmount || Number(testAmount) <= 0}
               className="w-full"
               variant="primary"
             >
@@ -357,19 +345,27 @@ export function PaymentTestingPanel() {
         {/* Mock Payments Tab */}
         {activeTab === 'mock' && (
           <div className="space-y-4">
-            {!mockPayments && (
+            {isMockLoading && (
               <div className="flex items-center justify-center py-8">
                 <ArrowPathIcon className="w-5 h-5 animate-spin text-gray-400" />
               </div>
             )}
 
-            {mockPayments && mockPayments.count === 0 && (
+            {isMockError && (
+              <Card className="p-4 bg-red-50 border-red-200">
+                <p className="text-red-700 text-sm text-center">
+                  No se pudo cargar mock payments. Recarga la página e intenta nuevamente.
+                </p>
+              </Card>
+            )}
+
+            {!isMockLoading && !isMockError && mockPayments && mockPayments.count === 0 && (
               <Card className="p-4 bg-gray-50">
                 <p className="text-gray-600 text-center">No mock payments yet</p>
               </Card>
             )}
 
-            {mockPayments && mockPayments.count > 0 && (
+            {!isMockLoading && !isMockError && mockPayments && mockPayments.count > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium text-gray-700">
                   {mockPayments.count} mock payment{mockPayments.count !== 1 ? 's' : ''} in session
