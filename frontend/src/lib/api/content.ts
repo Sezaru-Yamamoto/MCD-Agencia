@@ -263,8 +263,29 @@ export async function getFAQCategories(): Promise<Array<{ value: string; label: 
  * Get branches.
  */
 export async function getBranches(): Promise<Branch[]> {
-  const response = await apiClient.get<{ results: Branch[] } | Branch[]>('/content/branches/');
-  return Array.isArray(response) ? response : response.results;
+  type BranchListResponse = {
+    count?: number;
+    next?: string | null;
+    previous?: string | null;
+    results: Branch[];
+  };
+
+  const allBranches: Branch[] = [];
+  let endpoint: string | null = '/content/branches/';
+
+  while (endpoint) {
+    const response = await apiClient.get<BranchListResponse | Branch[]>(endpoint, { page_size: 100 });
+
+    if (Array.isArray(response)) {
+      allBranches.push(...response);
+      break;
+    }
+
+    allBranches.push(...(response.results || []));
+    endpoint = response.next || null;
+  }
+
+  return allBranches;
 }
 
 /**
