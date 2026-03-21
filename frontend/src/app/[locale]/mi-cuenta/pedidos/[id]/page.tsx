@@ -87,6 +87,28 @@ const PAYMENT_OPTIONS: Array<{
 
 const QUOTE_NUMBER_REGEX = /(COT-\d{8}-\d+)/i;
 
+type CashBranchInfo = {
+  id: string;
+  name: string;
+  full_address: string;
+  phone: string;
+  hours: string;
+  city?: string;
+  state?: string;
+};
+
+const CASH_BRANCH_FALLBACKS: CashBranchInfo[] = [
+  {
+    id: 'fallback-costa-azul',
+    name: 'Agencia MCD Costa Azul',
+    full_address: 'Capitán Vasco de Gama 295, 2° piso Plaza Yamaha, Fracc. Costa Azul, 39850 Acapulco de Juárez, Gro.',
+    phone: '+52 744 688 7382',
+    hours: 'Lunes a Viernes: 9:00 - 18:00 Sábados: 9:00 - 14:00',
+    city: 'Acapulco de Juárez',
+    state: 'Guerrero',
+  },
+];
+
 const extractQuoteNumber = (value: unknown): string => {
   if (typeof value !== 'string') return '';
   const match = value.match(QUOTE_NUMBER_REGEX);
@@ -154,6 +176,42 @@ export default function OrderDetailPage() {
     queryFn: getBranches,
     enabled: Boolean(order?.id) && selectedPaymentMethod === 'cash',
   });
+
+  const cashBranches: CashBranchInfo[] = (() => {
+    const safeText = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+      }
+      return '';
+    };
+
+    const normalizedFromApi: CashBranchInfo[] = branches.map((branch) => ({
+      id: String(branch.id),
+      name: safeText((branch as unknown as Record<string, unknown>).name),
+      full_address: safeText((branch as unknown as Record<string, unknown>).full_address),
+      phone: safeText((branch as unknown as Record<string, unknown>).phone),
+      hours: safeText((branch as unknown as Record<string, unknown>).hours),
+      city: safeText((branch as unknown as Record<string, unknown>).city),
+      state: safeText((branch as unknown as Record<string, unknown>).state),
+    }));
+
+    const branchMap = new Map<string, CashBranchInfo>();
+    const getKey = (branch: CashBranchInfo) => `${branch.name}|${branch.full_address}`.toLowerCase().trim();
+
+    normalizedFromApi.forEach((branch) => {
+      if (!branch.name && !branch.full_address) return;
+      branchMap.set(getKey(branch), branch);
+    });
+
+    CASH_BRANCH_FALLBACKS.forEach((branch) => {
+      if (!branchMap.has(getKey(branch))) {
+        branchMap.set(getKey(branch), branch);
+      }
+    });
+
+    return Array.from(branchMap.values());
+  })();
 
   const toSafeText = (value: unknown): string => {
     if (value === null || value === undefined) return '';
@@ -771,10 +829,10 @@ export default function OrderDetailPage() {
                     </p>
 
                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                      {branches.length > 0 ? branches.map((branch) => (
+                      {cashBranches.length > 0 ? cashBranches.map((branch) => (
                         <div key={branch.id} className="rounded border border-neutral-800 p-2">
                           <p className="text-sm text-white font-medium">{branch.name}</p>
-                          <p className="text-xs text-neutral-400">{branch.full_address || `${branch.city}, ${branch.state}`}</p>
+                          <p className="text-xs text-neutral-400">{branch.full_address || `${branch.city || ''}, ${branch.state || ''}`}</p>
                           <p className="text-xs text-neutral-500">{branch.phone} · {branch.hours}</p>
                         </div>
                       )) : (
