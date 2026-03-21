@@ -312,6 +312,7 @@ export default function OrderDetailPage() {
 
                       const metadataServiceDetails = parseJsonIfString(metadata?.service_details);
                       const quoteLineServiceDetails = parseJsonIfString(quoteLine?.service_details);
+                      const metadataQuoteRequestDetails = parseJsonIfString(metadata?.quote_request_service_details);
                       const sourceRequestDetails = parseJsonIfString(sourceQuote?.quote_request?.service_details);
                       const sourceRequestServices = Array.isArray(sourceQuote?.quote_request?.services)
                         ? sourceQuote?.quote_request?.services
@@ -319,7 +320,8 @@ export default function OrderDetailPage() {
 
                       const inferredServiceType = toSafeText(
                         (metadataServiceDetails as Record<string, unknown> | undefined)?.service_type ||
-                        (quoteLineServiceDetails as Record<string, unknown> | undefined)?.service_type
+                        (quoteLineServiceDetails as Record<string, unknown> | undefined)?.service_type ||
+                        metadata?.quote_request_service_type
                       );
 
                       const matchedRequestService = inferredServiceType
@@ -339,6 +341,13 @@ export default function OrderDetailPage() {
                               'unit',
                               'original_quantity',
                               'description',
+                              'quote_request_service_type',
+                              'quote_request_service_details',
+                              'quote_request_description',
+                              'quote_request_quantity',
+                              'quote_request_dimensions',
+                              'quote_request_material',
+                              'quote_request_includes_installation',
                             ].includes(key))
                           )
                         : undefined;
@@ -346,6 +355,7 @@ export default function OrderDetailPage() {
                       const technicalSource =
                         (metadataServiceDetails && typeof metadataServiceDetails === 'object' ? metadataServiceDetails : undefined) ||
                         (quoteLineServiceDetails && typeof quoteLineServiceDetails === 'object' ? quoteLineServiceDetails : undefined) ||
+                        (metadataQuoteRequestDetails && typeof metadataQuoteRequestDetails === 'object' ? metadataQuoteRequestDetails : undefined) ||
                         (matchedRequestServiceDetails && typeof matchedRequestServiceDetails === 'object' ? matchedRequestServiceDetails : undefined) ||
                         (sourceRequestDetails && typeof sourceRequestDetails === 'object' ? sourceRequestDetails : undefined) ||
                         metadataForFallback;

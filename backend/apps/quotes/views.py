@@ -1088,6 +1088,31 @@ class QuoteViewSet(viewsets.ModelViewSet):
             )
 
             for line in quote.lines.all():
+                # Build comprehensive metadata including quote_request data
+                line_metadata = {
+                    'quote_line_id': str(line.id),
+                    'quote_line_description': line.description or '',
+                    'quote_line_description_en': line.description_en or '',
+                    'service_details': line.service_details or {},
+                    'delivery_method': line.delivery_method or quote.delivery_method or '',
+                    'delivery_address': line.delivery_address or quote.delivery_address or {},
+                    'pickup_branch_id': str(line.pickup_branch_id) if line.pickup_branch_id else '',
+                    'unit': line.unit,
+                    'original_quantity': str(line.quantity),
+                }
+                
+                # Add quote_request context data for better fallbacks
+                if quote.quote_request:
+                    line_metadata.update({
+                        'quote_request_service_type': quote.quote_request.service_type or '',
+                        'quote_request_service_details': quote.quote_request.service_details or {},
+                        'quote_request_description': quote.quote_request.description or '',
+                        'quote_request_quantity': str(quote.quote_request.quantity) if quote.quote_request.quantity else '',
+                        'quote_request_dimensions': quote.quote_request.dimensions or '',
+                        'quote_request_material': quote.quote_request.material or '',
+                        'quote_request_includes_installation': quote.quote_request.includes_installation,
+                    })
+                
                 OrderLine.objects.create(
                     order=order,
                     sku=f'Q-{quote.quote_number}-{line.position}',
@@ -1096,17 +1121,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
                     quantity=int(line.quantity),
                     unit_price=line.unit_price,
                     line_total=line.line_total,
-                    metadata={
-                        'quote_line_id': str(line.id),
-                        'quote_line_description': line.description or '',
-                        'quote_line_description_en': line.description_en or '',
-                        'service_details': line.service_details or {},
-                        'delivery_method': line.delivery_method or quote.delivery_method or '',
-                        'delivery_address': line.delivery_address or quote.delivery_address or {},
-                        'pickup_branch_id': str(line.pickup_branch_id) if line.pickup_branch_id else '',
-                        'unit': line.unit,
-                        'original_quantity': str(line.quantity),
-                    }
+                    metadata=line_metadata,
                 )
 
             OrderStatusHistory.objects.create(
