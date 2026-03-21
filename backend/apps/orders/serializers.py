@@ -8,6 +8,7 @@ This module provides serializers for e-commerce operations:
     - Order status management
 """
 
+import re
 from decimal import Decimal
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -229,6 +230,26 @@ class OrderSerializer(serializers.ModelSerializer):
         """Return source quote UUID if available."""
         if obj.quote_id:
             return str(obj.quote_id)
+
+        # Fallback for legacy orders missing FK relation but containing quote number in notes
+        note_candidates = [
+            getattr(obj, 'internal_notes', '') or '',
+            getattr(obj, 'notes', '') or '',
+        ]
+        quote_number = ''
+        for note in note_candidates:
+            match = re.search(r'(COT-\d{8}-\d+)', str(note or ''), flags=re.IGNORECASE)
+            if match:
+                quote_number = match.group(1).upper()
+                break
+
+        if quote_number:
+            from apps.quotes.models import Quote
+
+            quote_id = Quote.objects.filter(quote_number=quote_number).values_list('id', flat=True).first()
+            if quote_id:
+                return str(quote_id)
+
         return None
 
     def get_pickup_branch_detail(self, obj):
@@ -285,6 +306,25 @@ class OrderListSerializer(serializers.ModelSerializer):
         """Return source quote UUID if available."""
         if obj.quote_id:
             return str(obj.quote_id)
+
+        note_candidates = [
+            getattr(obj, 'internal_notes', '') or '',
+            getattr(obj, 'notes', '') or '',
+        ]
+        quote_number = ''
+        for note in note_candidates:
+            match = re.search(r'(COT-\d{8}-\d+)', str(note or ''), flags=re.IGNORECASE)
+            if match:
+                quote_number = match.group(1).upper()
+                break
+
+        if quote_number:
+            from apps.quotes.models import Quote
+
+            quote_id = Quote.objects.filter(quote_number=quote_number).values_list('id', flat=True).first()
+            if quote_id:
+                return str(quote_id)
+
         return None
 
 
