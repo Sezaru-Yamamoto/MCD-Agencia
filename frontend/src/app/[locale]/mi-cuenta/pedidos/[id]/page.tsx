@@ -19,6 +19,7 @@ import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/pay
 import { Card, Badge, Button, LoadingPage, Breadcrumb } from '@/components/ui';
 import { formatPrice, formatDate, formatDateTime, cn } from '@/lib/utils';
 import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
+import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
 import toast from 'react-hot-toast';
 
 const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
@@ -359,10 +360,21 @@ export default function OrderDetailPage() {
                         .filter((item) => item.label !== 'service_type' && item.label !== 'service_details')
                         .slice(0, 20);
 
+                      const hasServiceDetails = inferredServiceType && technicalSource && typeof technicalSource === 'object';
+
                       return (
                         <>
                           {resolvedDescription && <p className="text-sm text-neutral-400">{resolvedDescription}</p>}
-                          {technicalItems.length > 0 && (
+                          {hasServiceDetails && inferredServiceType && (
+                            <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-3">
+                              <p className="text-sm font-medium text-neutral-300 mb-3">Parámetros del servicio</p>
+                              <ServiceDetailsDisplay
+                                serviceType={inferredServiceType}
+                                serviceDetails={technicalSource as Record<string, unknown>}
+                              />
+                            </div>
+                          )}
+                          {!hasServiceDetails && technicalItems.length > 0 && (
                             <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-2">
                               <p className="text-[11px] font-medium text-neutral-300 mb-1">Detalles técnicos</p>
                               <ul className="space-y-1">
