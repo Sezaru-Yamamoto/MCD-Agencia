@@ -73,23 +73,59 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def initiate(self, request):
-        """Initiate a payment."""
-        serializer = CreatePaymentSerializer(data=request.data)
+        """
+        Initiate a payment.
+
+        POST /api/v1/payments/initiate/
+        {
+            "order_id": "uuid",
+            "provider": "mercadopago",
+            "amount": 1000.00  # optional, for deposits
+        }
+
+        Returns:
+            {
+                "payment_id": "uuid",
+                "provider_order_id": "...",
+                "init_point": "https://...",  # for MP
+                "approval_url": "https://...",  # for PayPal
+                "is_mock": true  # if using mock gateway
+            }
+        """
+        # Include user in validation context
+        data = request.data.copy()
+        serializer = CreatePaymentSerializer(data=data)
+
+        # Manually set user for validation
+        if hasattr(serializer, '_user'):
+            serializer._user = request.user
+
         serializer.is_valid(raise_exception=True)
 
         provider = serializer.validated_data['provider']
         order = serializer.validated_data.get('order')
         quote = serializer.validated_data.get('quote')
+        custom_amount = serializer.validated_data.get('amount')
 
-        # Determine amount
+        # Determine amount and entity
         if order:
-            amount = order.balance_due
+            amount = custom_amount or order.balance_due
             entity_type = 'order'
             entity = order
+            metadata = {
+                'order_id': str(order.id),
+                'order_number': order.order_number,
+                'user_id': str(order.user_id),
+            }
         else:
-            amount = quote.total
+            amount = custom_amount or quote.total
             entity_type = 'quote'
             entity = quote
+            metadata = {
+                'quote_id': str(quote.id),
+                'quote_number': quote.quote_number,
+                'user_id': str(quote.user_id),
+            }
 
         # Create payment record
         payment = Payment.objects.create(
@@ -99,76 +135,77 @@ class PaymentViewSet(viewsets.ModelViewSet):
             provider=provider,
             amount=amount,
             status=Payment.STATUS_PENDING,
-            ip_address=self._get_client_ip(request)
+            ip_address=self._get_client_ip(request),
+            metadata=metadata,
+        )
+
+        logger.info(
+            f"Payment initiated: {payment.id} for {entity_type} "
+            f"(provider={provider}, user={request.user.id}, amount={amount})"
         )
 
         # Generate payment based on provider
-        if provider == Payment.PROVIDER_MERCADOPAGO:
-            result = self._create_mercadopago_preference(payment, entity, entity_type)
-        else:  # PayPal
-            result = self._create_paypal_order(payment, entity, entity_type)
+        from .services import get_payment_gateway
+        
+        try:
+            gateway = get_payment_gateway(provider=provider)
 
-        if 'error' in result:
+            payment_data = {
+                'amount': float(amount),
+                'currency': 'MXN',
+                'metadata': metadata,
+            }
+
+            if provider == Payment.PROVIDER_MERCADOPAGO:
+                result = gateway.create_preference(payment_data)
+            else:  # PayPal
+                result = gateway.create_paypal_order(payment_data)
+
+            if 'error' in result:
+                payment.status = Payment.STATUS_REJECTED
+                payment.error_message = result['error']
+                payment.save(update_fields=['status', 'error_message', 'updated_at'])
+                
+                logger.error(f"Payment initiation failed: {result['error']}")
+                
+                return Response(
+                    {'error': result['error']},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Store provider order ID
+            payment.provider_order_id = result.get('order_id') or result.get('preference_id')
+            payment.save(update_fields=['provider_order_id', 'updated_at'])
+
+            AuditLog.log(
+                entity=payment,
+                action=AuditLog.ACTION_CREATED,
+                actor=request.user,
+                after_state=PaymentSerializer(payment).data,
+                request=request,
+                metadata={'provider': provider, 'amount': str(amount)}
+            )
+
+            logger.info(f"Payment initiated successfully: {payment.id}")
+
+            return Response({
+                'payment_id': str(payment.id),
+                'status': payment.status,
+                **result
+            })
+
+        except Exception as e:
+            logger.error(f"Unexpected error initiating payment: {str(e)}", exc_info=True)
             payment.status = Payment.STATUS_REJECTED
-            payment.error_message = result['error']
+            payment.error_message = f"System error: {str(e)}"
             payment.save(update_fields=['status', 'error_message', 'updated_at'])
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-        AuditLog.log(
-            entity=payment,
-            action=AuditLog.ACTION_CREATED,
-            actor=request.user,
-            after_state=PaymentSerializer(payment).data,
-            request=request
-        )
+            return Response(
+                {'error': 'Failed to initiate payment. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        return Response({
-            'payment_id': str(payment.id),
-            **result
-        })
 
-    def _create_mercadopago_preference(self, payment, entity, entity_type):
-        """Create Mercado Pago preference."""
-        try:
-            # Note: In production, use actual Mercado Pago SDK
-            # This is a placeholder implementation
-            import uuid
-
-            preference_id = str(uuid.uuid4())
-            init_point = f"https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id={preference_id}"
-
-            payment.provider_order_id = preference_id
-            payment.save(update_fields=['provider_order_id', 'updated_at'])
-
-            return {
-                'preference_id': preference_id,
-                'init_point': init_point,
-                'sandbox_init_point': init_point.replace('www', 'sandbox')
-            }
-        except Exception as e:
-            logger.error(f"Mercado Pago error: {str(e)}")
-            return {'error': str(e)}
-
-    def _create_paypal_order(self, payment, entity, entity_type):
-        """Create PayPal order."""
-        try:
-            # Note: In production, use actual PayPal SDK
-            # This is a placeholder implementation
-            import uuid
-
-            order_id = str(uuid.uuid4())
-            approval_url = f"https://www.paypal.com/checkoutnow?token={order_id}"
-
-            payment.provider_order_id = order_id
-            payment.save(update_fields=['provider_order_id', 'updated_at'])
-
-            return {
-                'order_id': order_id,
-                'approval_url': approval_url
-            }
-        except Exception as e:
-            logger.error(f"PayPal error: {str(e)}")
-            return {'error': str(e)}
 
     def _get_client_ip(self, request):
         """Get client IP address."""
@@ -184,6 +221,172 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return Response({
             'status': payment.status,
             'is_successful': payment.is_successful
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def test_simulate_approved(self, request, pk=None):
+        """
+        [ADMIN/TESTING ONLY] Simulate an approved payment.
+
+        This endpoint is for development/testing only. It manually marks
+        a payment as approved and processes it as if a webhook was received.
+
+        POST /api/v1/payments/{id}/test_simulate_approved/
+
+        Returns:
+            Updated payment data after approval
+        """
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only staff users can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        payment = self.get_object()
+
+        if payment.status in [Payment.STATUS_APPROVED, Payment.STATUS_REFUNDED]:
+            return Response(
+                {'error': f'Cannot simulate approval for {payment.status} payment'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                # Mark as approved
+                payment.status = Payment.STATUS_APPROVED
+                payment.approved_at = timezone.now()
+                payment.metadata['simulator'] = True
+                payment.metadata['simulated_at'] = timezone.now().isoformat()
+                payment.save()
+
+                # Process successful payment
+                if payment.order:
+                    order = payment.order
+                    order.amount_paid += payment.amount
+                    if order.is_fully_paid:
+                        order.transition_to(
+                            'paid',
+                            notes=f'Payment simulated by {request.user.username} (admin)'
+                        )
+                        order.paid_at = timezone.now()
+                    order.save(update_fields=['amount_paid', 'updated_at'])
+
+                    logger.info(
+                        f"Payment {payment.id} simulated as approved by {request.user.username}. "
+                        f"Order amount_paid: {order.amount_paid}"
+                    )
+
+                # Log audit
+                AuditLog.log(
+                    entity=payment,
+                    action=AuditLog.ACTION_PAYMENT_PROCESSED,
+                    actor=request.user,
+                    after_state=PaymentSerializer(payment).data,
+                    metadata={
+                        'simulator': True,
+                        'approved_by': request.user.username,
+                        'reason': 'Admin testing'
+                    }
+                )
+
+            return Response(PaymentSerializer(payment).data)
+
+        except Exception as e:
+            logger.error(f"Error simulating payment approval: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to simulate payment: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def test_simulate_rejected(self, request, pk=None):
+        """
+        [ADMIN/TESTING ONLY] Simulate a rejected payment.
+
+        POST /api/v1/payments/{id}/test_simulate_rejected/
+        {
+            "reason": "declined"  # optional
+        }
+
+        Returns:
+            Updated payment data after rejection
+        """
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only staff users can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        payment = self.get_object()
+        reason = request.data.get('reason', 'declined')
+
+        if payment.status in [Payment.STATUS_REJECTED, Payment.STATUS_REFUNDED]:
+            return Response(
+                {'error': f'Cannot simulate rejection for {payment.status} payment'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                # Mark as rejected
+                payment.status = Payment.STATUS_REJECTED
+                payment.error_message = f"Simulated rejection: {reason}"
+                payment.metadata['simulator'] = True
+                payment.metadata['simulated_at'] = timezone.now().isoformat()
+                payment.metadata['rejection_reason'] = reason
+                payment.save()
+
+                logger.info(
+                    f"Payment {payment.id} simulated as rejected by {request.user.username}. "
+                    f"Reason: {reason}"
+                )
+
+                # Log audit
+                AuditLog.log(
+                    entity=payment,
+                    action=AuditLog.ACTION_PAYMENT_PROCESSED,
+                    actor=request.user,
+                    after_state=PaymentSerializer(payment).data,
+                    metadata={
+                        'simulator': True,
+                        'rejected_by': request.user.username,
+                        'reason': reason
+                    }
+                )
+
+            return Response(PaymentSerializer(payment).data)
+
+        except Exception as e:
+            logger.error(f"Error simulating payment rejection: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to simulate payment: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def test_mock_payments(self, request):
+        """
+        [ADMIN/TESTING ONLY] Get list of current mock payments.
+
+        Returns all payments that were created using the mock gateway.
+
+        GET /api/v1/payments/test_mock_payments/
+
+        Returns:
+            List of mock payments with details
+        """
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only staff users can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from .services import MockPaymentGateway
+
+        mock_payments = MockPaymentGateway._mock_payments
+        return Response({
+            'count': len(mock_payments),
+            'payments': list(mock_payments.values())
         })
 
 

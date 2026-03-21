@@ -79,62 +79,192 @@ class PaymentListSerializer(serializers.ModelSerializer):
 
 
 class CreatePaymentSerializer(serializers.Serializer):
-    """Serializer for initiating a payment."""
+    """
+    Serializer for initiating a payment.
+
+    Validates:
+        - Either order_id or quote_id is provided (not both)
+        - Entity (order/quote) exists and belongs to user
+        - Entity is in a valid state for payment
+        - Amount is valid for the entity
+        - Provider is available
+    """
 
     order_id = serializers.UUIDField(required=False)
     quote_id = serializers.UUIDField(required=False)
     provider = serializers.ChoiceField(
         choices=Payment.PROVIDER_CHOICES,
-        required=True
+        required=True,
+        help_text=_('Payment provider: mercadopago or paypal')
     )
     amount = serializers.DecimalField(
-        max_digits=12, decimal_places=2, required=False
+        max_digits=12, decimal_places=2, required=False,
+        help_text=_('Custom amount (for deposits/partial payments)')
     )
-    is_deposit = serializers.BooleanField(default=False)
+    is_deposit = serializers.BooleanField(
+        default=False,
+        help_text=_('Whether this is a deposit payment')
+    )
+
+    # Additional fields for manual payment methods (transfer, cash)
+    payment_method = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text=_('Payment method: mercadopago, paypal, bank_transfer, cash')
+    )
+    transfer_reference = serializers.CharField(
+        required=False, allow_blank=True,
+        help_text=_('Bank transfer reference (for bank_transfer method)')
+    )
+    cash_branch_id = serializers.CharField(
+        required=False, allow_blank=True,
+        help_text=_('Cash payment branch ID')
+    )
 
     def validate(self, attrs):
-        """Validate payment creation request."""
+        """
+        Validate payment creation request.
+
+        Checks:
+            1. Order or Quote is provided (mutually exclusive)
+            2. Entity exists and belongs to authed user
+            3. Entity is in valid state for payment
+            4. Amount matches entity or is within valid range
+        """
         order_id = attrs.get('order_id')
         quote_id = attrs.get('quote_id')
+        user = attrs.get('_user')  # Will be set by view
 
+        # Validate either order or quote
         if not order_id and not quote_id:
-            raise serializers.ValidationError(
-                _('Either order_id or quote_id is required.')
-            )
+            raise serializers.ValidationError({
+                'error': _('Either order_id or quote_id is required.')
+            })
 
         if order_id and quote_id:
-            raise serializers.ValidationError(
-                _('Provide either order_id or quote_id, not both.')
-            )
+            raise serializers.ValidationError({
+                'error': _('Provide either order_id or quote_id, not both.')
+            })
 
-        # Validate order exists and is payable
+        # Validate order exists, belongs to user, and is payable
         if order_id:
             from apps.orders.models import Order
             try:
                 order = Order.objects.get(id=order_id)
+
+                # Security: Validate user owns this order
+                if user and order.user_id != user.id:
+                    raise serializers.ValidationError({
+                        'order_id': _('You do not have permission to pay this order.')
+                    })
+
+                # Validate order state
                 if order.is_fully_paid:
                     raise serializers.ValidationError({
                         'order_id': _('This order is already fully paid.')
                     })
+
+                if order.status in ['cancelled', 'refunded']:
+                    raise serializers.ValidationError({
+                        'order_id': _('Cannot pay a %(status)s order.') % {
+                            'status': order.get_status_display()
+                        }
+                    })
+
+                # Validate balance due is positive
+                if order.balance_due <= 0:
+                    raise serializers.ValidationError({
+                        'order_id': _('No payment due for this order.')
+                    })
+
+                # Validate minimum payment amount
+                if not attrs.get('is_deposit') and order.balance_due < Decimal('50.00'):
+                    raise serializers.ValidationError({
+                        'amount': _('Minimum payment amount is MXN 50.00')
+                    })
+
                 attrs['order'] = order
+                attrs['entity_amount'] = order.balance_due
+
             except Order.DoesNotExist:
                 raise serializers.ValidationError({
                     'order_id': _('Order not found.')
                 })
 
-        # Validate quote exists and is accepted
+        # Validate quote exists, belongs to user, and is accepted
         if quote_id:
             from apps.quotes.models import Quote
             try:
                 quote = Quote.objects.get(id=quote_id)
+
+                # Security: Validate user owns this quote
+                if user and quote.user_id != user.id:
+                    raise serializers.ValidationError({
+                        'quote_id': _('You do not have permission to pay this quote.')
+                    })
+
+                # Validate quote state
                 if quote.status != Quote.STATUS_ACCEPTED:
                     raise serializers.ValidationError({
-                        'quote_id': _('Quote must be accepted before payment.')
+                        'quote_id': _('Quote must be accepted before payment. Current status: %(status)s') % {
+                            'status': quote.get_status_display()
+                        }
                     })
+
+                # Validate amount
+                if quote.total <= 0:
+                    raise serializers.ValidationError({
+                        'quote_id': _('Quote total is invalid.')
+                    })
+
+                # Validate minimum payment amount
+                if not attrs.get('is_deposit') and quote.total < Decimal('50.00'):
+                    raise serializers.ValidationError({
+                        'amount': _('Minimum payment amount is MXN 50.00')
+                    })
+
                 attrs['quote'] = quote
+                attrs['entity_amount'] = quote.total
+
             except Quote.DoesNotExist:
                 raise serializers.ValidationError({
                     'quote_id': _('Quote not found.')
+                })
+
+        # Validate custom amount if provided
+        if attrs.get('amount'):
+            custom_amount = attrs['amount']
+            entity_amount = attrs.get('entity_amount', Decimal('0'))
+
+            if custom_amount <= 0:
+                raise serializers.ValidationError({
+                    'amount': _('Payment amount must be positive.')
+                })
+
+            if custom_amount > entity_amount:
+                raise serializers.ValidationError({
+                    'amount': _('Payment amount exceeds balance due. Maximum: %(max)s') % {
+                        'max': entity_amount
+                    }
+                })
+
+            if custom_amount < Decimal('50.00') and not attrs.get('is_deposit'):
+                raise serializers.ValidationError({
+                    'amount': _('Minimum payment amount is MXN 50.00')
+                })
+
+        # Validate manual payment methods
+        payment_method = attrs.get('payment_method')
+        if payment_method == 'bank_transfer':
+            if not attrs.get('transfer_reference'):
+                raise serializers.ValidationError({
+                    'transfer_reference': _('Bank transfer reference is required.')
+                })
+
+        if payment_method == 'cash':
+            if not attrs.get('cash_branch_id'):
+                raise serializers.ValidationError({
+                    'cash_branch_id': _('Cash payment branch must be selected.')
                 })
 
         return attrs
