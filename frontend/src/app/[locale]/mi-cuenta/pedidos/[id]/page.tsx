@@ -356,7 +356,7 @@ export default function OrderDetailPage() {
   };
 
   const shippingFromQuoteLines = (sourceQuote?.lines || []).reduce((sum, line) => {
-    return sum + parseMoneyValue((line as Record<string, unknown>).shipping_cost);
+    return sum + parseMoneyValue(line.shipping_cost);
   }, 0);
 
   const shippingFromOrderMetadata = metadataRecords.reduce((sum, record) => {
