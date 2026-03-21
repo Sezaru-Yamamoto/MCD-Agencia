@@ -13,6 +13,9 @@ import {
   XCircleIcon,
   CalendarIcon,
   PaperClipIcon,
+  CreditCardIcon,
+  BanknotesIcon,
+  BuildingLibraryIcon,
 } from '@heroicons/react/24/outline';
 
 import { getOrderById, setOrderPaymentMethod } from '@/lib/api/orders';
@@ -43,6 +46,43 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bank_transfer: 'Transferencia',
   cash: 'Efectivo',
 };
+
+const PAYMENT_OPTIONS: Array<{
+  key: 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash';
+  label: string;
+  Icon: typeof CreditCardIcon;
+  hint: string;
+  badge: string;
+}> = [
+  {
+    key: 'mercadopago',
+    label: 'Mercado Pago',
+    Icon: CreditCardIcon,
+    hint: 'Tarjetas y saldo disponible',
+    badge: 'MP',
+  },
+  {
+    key: 'paypal',
+    label: 'PayPal',
+    Icon: CreditCardIcon,
+    hint: 'Pago seguro con cuenta PayPal',
+    badge: 'PP',
+  },
+  {
+    key: 'bank_transfer',
+    label: 'Transferencia',
+    Icon: BuildingLibraryIcon,
+    hint: 'Validación manual por administrador',
+    badge: 'CLABE',
+  },
+  {
+    key: 'cash',
+    label: 'Efectivo',
+    Icon: BanknotesIcon,
+    hint: 'Pago presencial y validación manual',
+    badge: 'Cash',
+  },
+];
 
 const QUOTE_NUMBER_REGEX = /(COT-\d{8}-\d+)/i;
 
@@ -214,33 +254,10 @@ export default function OrderDetailPage() {
     (sourceQuote?.lines || []).map((quoteLine) => [String(quoteLine.id), quoteLine])
   );
   const shippingAddressText = formatAddress(order.shipping_address);
-  const deliveryAddressText = formatAddress(order.delivery_address);
-  const quoteDeliveryAddressText = formatAddress(sourceQuote?.delivery_address);
-  const quoteRequestDeliveryAddressText = formatAddress(sourceQuote?.quote_request?.delivery_address);
-  const deliveryMethod = toSafeText(order.delivery_method);
-  const pickupBranchText = [
-    toSafeText(order.pickup_branch_detail?.name),
-    toSafeText(order.pickup_branch_detail?.full_address) || [
-      toSafeText(order.pickup_branch_detail?.city),
-      toSafeText(order.pickup_branch_detail?.state),
-    ].filter(Boolean).join(', '),
-  ].filter(Boolean).join(' — ');
   const paymentMethodText = toSafeText(order.payment_method);
   const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethodText] || paymentMethodText;
   const canPay = ['pending_payment', 'partially_paid'].includes(order.status) && Number(order.balance_due) > 0;
   const shouldShowSelectedPaymentMethod = Boolean(paymentMethodText) && !canPay;
-
-  let deliveryAddressLabel = 'Dirección de envío';
-  let resolvedDeliveryAddress = shippingAddressText;
-
-  const fallbackFromLineMetadata = orderLines
-    .map((line) => {
-      const metadata = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
-        ? (line.metadata as Record<string, unknown>)
-        : null;
-      return formatAddress(metadata?.delivery_address);
-    })
-    .find(Boolean) || '';
 
   const metadataRecords = orderLines
     .map((line) => (line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
@@ -262,28 +279,6 @@ export default function OrderDetailPage() {
       return Array.isArray(attachments) ? attachments : [];
     })
     .filter((attachment) => attachment && typeof attachment === 'object') as Array<Record<string, unknown>>;
-
-  const shouldShowRequestSection = Boolean(
-    sourceQuote?.quote_request || fallbackRequestDescription || fallbackRequiredDate || fallbackAttachments.length
-  );
-
-  const globalDeliveryFallback =
-    deliveryAddressText ||
-    quoteDeliveryAddressText ||
-    quoteRequestDeliveryAddressText ||
-    fallbackFromLineMetadata ||
-    shippingAddressText;
-
-  if (deliveryMethod === 'installation') {
-    deliveryAddressLabel = 'Dirección de instalación';
-    resolvedDeliveryAddress = globalDeliveryFallback;
-  } else if (deliveryMethod === 'shipping') {
-    deliveryAddressLabel = 'Dirección de envío';
-    resolvedDeliveryAddress = globalDeliveryFallback;
-  } else if (deliveryMethod === 'pickup') {
-    deliveryAddressLabel = 'Sucursal de recolección';
-    resolvedDeliveryAddress = pickupBranchText || shippingAddressText;
-  }
 
   const handlePayment = async () => {
     if (!canPay || isPaying) return;
@@ -373,20 +368,6 @@ export default function OrderDetailPage() {
               </div>
             )}
             
-            {/* Solicitud original y archivos adjuntos */}
-            {shouldShowRequestSection && (
-              <div className="mb-4 p-4 bg-neutral-900/50 border border-neutral-800 rounded-lg">
-                <h4 className="text-sm font-semibold text-white mb-3">Información de la Solicitud Original</h4>
-                
-                {(sourceQuote?.quote_request?.description || fallbackRequestDescription) && (
-                  <p className="text-sm text-neutral-300">
-                    <span className="text-neutral-400">Comentarios del cliente:</span>{' '}
-                    {sourceQuote?.quote_request?.description || fallbackRequestDescription}
-                  </p>
-                )}
-              </div>
-            )}
-
             {/* DEBUG: If quote exists but quote_request doesn't */}
             {sourceQuote && !sourceQuote.quote_request && (
               <div className="mb-4 p-2 bg-yellow-900/30 border border-yellow-700 rounded text-xs text-yellow-300">
@@ -469,8 +450,7 @@ export default function OrderDetailPage() {
                       const requestLevelDescription =
                         toSafeText(matchedRequestService?.description) ||
                         toSafeText(sourceQuote?.quote_request?.description);
-
-                      const resolvedDescription = fullDescription || requestLevelDescription;
+                      const customerComment = requestLevelDescription || fallbackRequestDescription || toSafeText(fullDescription);
 
                       const technicalItems = flattenTechnicalDetails(technicalSource)
                         .filter((item) => item.label !== 'service_type' && item.label !== 'service_details')
@@ -520,8 +500,6 @@ export default function OrderDetailPage() {
 
                       return (
                         <>
-                          {resolvedDescription && <p className="text-sm text-neutral-400">{resolvedDescription}</p>}
-                          
                           {hasServiceDetails && inferredServiceType && (
                             <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-3">
                               <p className="text-sm font-medium text-neutral-300 mb-3">Parámetros del servicio</p>
@@ -529,6 +507,13 @@ export default function OrderDetailPage() {
                                 serviceType={inferredServiceType}
                                 serviceDetails={technicalSource as Record<string, unknown>}
                               />
+
+                              {customerComment && (
+                                <p className="mt-3 text-sm text-neutral-300">
+                                  <span className="text-neutral-400">Comentarios del cliente:</span>{' '}
+                                  {customerComment}
+                                </p>
+                              )}
 
                               {uniqueLineAttachments.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-neutral-800">
@@ -556,6 +541,13 @@ export default function OrderDetailPage() {
                                   </li>
                                 ))}
                               </ul>
+
+                              {customerComment && (
+                                <p className="mt-2 text-xs text-neutral-300">
+                                  <span className="text-neutral-500">Comentarios del cliente:</span>{' '}
+                                  {customerComment}
+                                </p>
+                              )}
 
                               {uniqueLineAttachments.length > 0 && (
                                 <div className="mt-3 pt-2 border-t border-neutral-800/80">
@@ -594,7 +586,7 @@ export default function OrderDetailPage() {
                                   <span>
                                     Fecha requerida:{' '}
                                     <span className="text-white font-medium">
-                                      {new Date(resolvedRequiredDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                                      {new Date(`${resolvedRequiredDate}T12:00:00`).toLocaleDateString('es-MX', {
                                         year: 'numeric', month: 'short', day: 'numeric'
                                       })}
                                     </span>
@@ -625,40 +617,6 @@ export default function OrderDetailPage() {
                   <div className="text-right min-w-[140px]">
                     <p className="text-sm text-neutral-400">{formatPrice(line.unit_price)} × {line.quantity}</p>
                     <p className="text-cyan-400 font-semibold text-lg leading-tight">{formatPrice(line.line_total)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Status Timeline */}
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">Historial</h3>
-            <div className="space-y-4">
-              {statusHistory.map((history, index) => (
-                <div key={history.id} className="flex gap-4">
-                  <div className="relative">
-                    <div
-                      className={cn(
-                        'w-3 h-3 rounded-full',
-                        index === 0 ? 'bg-cmyk-cyan' : 'bg-neutral-700'
-                      )}
-                    />
-                    {index < order.status_history.length - 1 && (
-                      <div className="absolute top-3 left-1.5 w-px h-full -translate-x-1/2 bg-neutral-700" />
-                    )}
-                  </div>
-                  <div className="pb-4">
-                    <p className="text-white font-medium">
-                      {toSafeText(history.to_status).replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </p>
-                    <p className="text-sm text-neutral-400">
-                      {formatDateTime(history.created_at)}
-                      {toSafeText(history.changed_by_name) && ` por ${toSafeText(history.changed_by_name)}`}
-                    </p>
-                    {toSafeText(history.notes) && (
-                      <p className="text-sm text-neutral-500 mt-1">{toSafeText(history.notes)}</p>
-                    )}
                   </div>
                 </div>
               ))}
@@ -710,16 +668,39 @@ export default function OrderDetailPage() {
             <Card>
               <h3 className="text-lg font-semibold text-white mb-4">Realizar pago</h3>
               <div className="space-y-3">
-                <select
-                  value={selectedPaymentMethod}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash')}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-cmyk-cyan focus:outline-none"
-                >
-                  <option value="mercadopago">Mercado Pago</option>
-                  <option value="paypal">PayPal</option>
-                  <option value="bank_transfer">Transferencia</option>
-                  <option value="cash">Efectivo</option>
-                </select>
+                <div className="space-y-2">
+                  {PAYMENT_OPTIONS.map(({ key, label, Icon, hint, badge }) => {
+                    const isSelected = selectedPaymentMethod === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedPaymentMethod(key)}
+                        className={cn(
+                          'w-full rounded-lg border px-3 py-2 text-left transition-colors',
+                          isSelected
+                            ? 'border-cmyk-cyan bg-cmyk-cyan/10'
+                            : 'border-neutral-700 bg-neutral-900 hover:border-neutral-500'
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-neutral-800 text-neutral-200">
+                              <Icon className="h-5 w-5" />
+                            </span>
+                            <div>
+                              <p className="text-white text-sm font-medium">{label}</p>
+                              <p className="text-xs text-neutral-400">{hint}</p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-semibold text-neutral-300 bg-neutral-800 px-2 py-1 rounded">
+                            {badge}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
                 {(selectedPaymentMethod === 'bank_transfer' || selectedPaymentMethod === 'cash') && (
                   <p className="text-xs text-neutral-400">
@@ -772,11 +753,6 @@ export default function OrderDetailPage() {
               )}
             </Card>
           )}
-
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">{deliveryAddressLabel}</h3>
-            <p className="text-neutral-300 whitespace-pre-line">{resolvedDeliveryAddress || 'Sin dirección registrada'}</p>
-          </Card>
 
           {order.tracking_number && (
             <Card>
