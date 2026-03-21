@@ -28,6 +28,23 @@ urlpatterns = [
     path('webhooks/mercadopago/', MercadoPagoWebhookView.as_view(), name='webhook_mercadopago'),
     path('webhooks/paypal/', PayPalWebhookView.as_view(), name='webhook_paypal'),
 
+    # Explicit testing endpoints (avoid router ambiguity with {pk} route)
+    path(
+        'test_create_order/',
+        PaymentViewSet.as_view({'post': 'test_create_order'}),
+        name='payments_test_create_order',
+    ),
+    path(
+        'test_create_quote/',
+        PaymentViewSet.as_view({'post': 'test_create_quote'}),
+        name='payments_test_create_quote',
+    ),
+    path(
+        'test_mock_payments/',
+        PaymentViewSet.as_view({'get': 'test_mock_payments'}),
+        name='payments_test_mock_payments',
+    ),
+
     # ViewSets
     path('', include(router.urls)),
 ]
