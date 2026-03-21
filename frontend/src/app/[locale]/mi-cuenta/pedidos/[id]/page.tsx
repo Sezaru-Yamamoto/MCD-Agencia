@@ -58,6 +58,8 @@ export default function OrderDetailPage() {
   const isMountedRef = useRef(true);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mercadopago' | 'paypal' | 'bank_transfer' | 'cash'>('mercadopago');
   const [isPaying, setIsPaying] = useState(false);
+  const [isAttachmentsModalOpen, setIsAttachmentsModalOpen] = useState(false);
+  const [activeAttachments, setActiveAttachments] = useState<Array<Record<string, unknown>>>([]);
 
   useEffect(() => {
     return () => {
@@ -141,6 +143,18 @@ export default function OrderDetailPage() {
     } catch {
       return value;
     }
+  };
+
+  const isImageFile = (attachment: Record<string, unknown>): boolean => {
+    const fileUrl = toSafeText(attachment.file_url) || toSafeText(attachment.file);
+    const fileName = (toSafeText(attachment.file_name) || toSafeText(attachment.filename) || fileUrl).toLowerCase();
+    return /\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/.test(fileName);
+  };
+
+  const openAttachmentsModal = (attachments: Array<Record<string, unknown>>) => {
+    if (!attachments.length) return;
+    setActiveAttachments(attachments);
+    setIsAttachmentsModalOpen(true);
   };
 
   const flattenTechnicalDetails = (value: unknown, prefix = ''): Array<{ label: string; value: string }> => {
@@ -365,43 +379,10 @@ export default function OrderDetailPage() {
                 <h4 className="text-sm font-semibold text-white mb-3">Información de la Solicitud Original</h4>
                 
                 {(sourceQuote?.quote_request?.description || fallbackRequestDescription) && (
-                  <div className="mb-3">
-                    <p className="text-xs text-neutral-500 mb-1">Descripción / Comentarios del cliente</p>
-                    <p className="text-sm text-neutral-300">{sourceQuote?.quote_request?.description || fallbackRequestDescription}</p>
-                  </div>
-                )}
-                
-                {(sourceQuote?.quote_request?.required_date || fallbackRequiredDate) && (
-                  <div className="mb-3">
-                    <p className="text-xs text-neutral-500 mb-1">Fecha Requerida</p>
-                    <p className="text-sm text-white font-medium">
-                      {new Date(sourceQuote?.quote_request?.required_date || fallbackRequiredDate).toLocaleDateString('es-MX', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                )}
-                
-                {((sourceQuote?.quote_request?.attachments && sourceQuote.quote_request.attachments.length > 0) || fallbackAttachments.length > 0) && (
-                  <div>
-                    <p className="text-xs text-neutral-500 mb-2">Archivos Adjuntos</p>
-                    <div className="space-y-1">
-                      {(sourceQuote?.quote_request?.attachments || fallbackAttachments).map((att: any, index: number) => (
-                        <a
-                          key={att.id || att.file || index}
-                          href={att.file_url || att.file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-sm text-cmyk-cyan hover:text-cmyk-cyan/80"
-                        >
-                          <PaperClipIcon className="h-4 w-4" />
-                          {att.file_name || att.file}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-sm text-neutral-300">
+                    <span className="text-neutral-400">Comentarios del cliente:</span>{' '}
+                    {sourceQuote?.quote_request?.description || fallbackRequestDescription}
+                  </p>
                 )}
               </div>
             )}
@@ -496,6 +477,41 @@ export default function OrderDetailPage() {
                         .slice(0, 20);
 
                       const hasServiceDetails = inferredServiceType && technicalSource && typeof technicalSource === 'object';
+
+                      const rawLineAttachments = [
+                        ...(Array.isArray(matchedRequestService?.attachments) ? matchedRequestService.attachments : []),
+                        ...(Array.isArray(sourceQuote?.quote_request?.attachments) ? sourceQuote.quote_request.attachments : []),
+                        ...fallbackAttachments,
+                      ].filter((attachment) => attachment && typeof attachment === 'object') as Array<Record<string, unknown>>;
+
+                      const uniqueLineAttachments = rawLineAttachments.filter((attachment, index, self) => {
+                        const currentKey = toSafeText(attachment.id) || toSafeText(attachment.file_url) || toSafeText(attachment.file);
+                        return self.findIndex((item) => {
+                          const itemKey = toSafeText(item.id) || toSafeText(item.file_url) || toSafeText(item.file);
+                          return itemKey === currentKey;
+                        }) === index;
+                      });
+
+                      const lineDeliveryMethod =
+                        toSafeText(quoteLine?.delivery_method) ||
+                        toSafeText(metadata?.delivery_method) ||
+                        toSafeText(matchedRequestService?.delivery_method) ||
+                        toSafeText(sourceQuote?.quote_request?.delivery_method) ||
+                        toSafeText(order.delivery_method);
+
+                      const lineDeliveryMethodLabel =
+                        DELIVERY_METHOD_LABELS[lineDeliveryMethod as DeliveryMethod]?.es || lineDeliveryMethod;
+
+                      const lineDeliveryAddress =
+                        formatAddress(quoteLine?.delivery_address) ||
+                        formatAddress(metadata?.delivery_address) ||
+                        formatAddress(matchedRequestService?.delivery_address) ||
+                        formatAddress(sourceQuote?.quote_request?.delivery_address);
+
+                      const resolvedRequiredDate =
+                        toSafeText(matchedRequestService?.required_date) ||
+                        toSafeText(sourceQuote?.quote_request?.required_date) ||
+                        fallbackRequiredDate;
                       
                       // Find matching quote line for additional details like estimated_delivery_date
                       const matchingQuoteLine = sourceQuote?.lines?.find(
@@ -513,6 +529,20 @@ export default function OrderDetailPage() {
                                 serviceType={inferredServiceType}
                                 serviceDetails={technicalSource as Record<string, unknown>}
                               />
+
+                              {uniqueLineAttachments.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-neutral-800">
+                                  <p className="text-xs text-neutral-500 mb-1">Archivos adjuntos</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => openAttachmentsModal(uniqueLineAttachments)}
+                                    className="inline-flex items-center gap-2 text-sm text-cmyk-cyan hover:text-cmyk-cyan/80"
+                                  >
+                                    <PaperClipIcon className="h-4 w-4" />
+                                    Ver archivos
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                           
@@ -526,33 +556,75 @@ export default function OrderDetailPage() {
                                   </li>
                                 ))}
                               </ul>
+
+                              {uniqueLineAttachments.length > 0 && (
+                                <div className="mt-3 pt-2 border-t border-neutral-800/80">
+                                  <p className="text-[11px] text-neutral-500 mb-1">Archivos adjuntos</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => openAttachmentsModal(uniqueLineAttachments)}
+                                    className="inline-flex items-center gap-2 text-xs text-cmyk-cyan hover:text-cmyk-cyan/80"
+                                  >
+                                    <PaperClipIcon className="h-3.5 w-3.5" />
+                                    Ver archivos
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                           
-                          {(matchingQuoteLine?.estimated_delivery_date || order.scheduled_date) && (
-                            <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
-                              <CalendarIcon className="h-4 w-4 text-cmyk-cyan" />
-                              <span>
-                                Entrega estimada:{' '}
-                                <span className="text-white font-medium">
-                                  {matchingQuoteLine?.estimated_delivery_date
-                                    ? new Date(matchingQuoteLine.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', {
-                                        year: 'numeric', month: 'short', day: 'numeric'
-                                      })
-                                    : order.scheduled_date ? formatDate(order.scheduled_date) : 'No especificada'}
+                          <div className="mt-2 space-y-1 text-sm text-neutral-400">
+                            {(matchingQuoteLine?.estimated_delivery_date || order.scheduled_date || resolvedRequiredDate) && (
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <CalendarIcon className="h-4 w-4 text-cmyk-cyan" />
+                                  <span>
+                                    Entrega estimada:{' '}
+                                    <span className="text-white font-medium">
+                                      {matchingQuoteLine?.estimated_delivery_date
+                                        ? new Date(matchingQuoteLine.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                            year: 'numeric', month: 'short', day: 'numeric'
+                                          })
+                                        : order.scheduled_date ? formatDate(order.scheduled_date) : 'No especificada'}
+                                    </span>
+                                  </span>
                                 </span>
-                              </span>
-                            </div>
-                          )}
+
+                                {resolvedRequiredDate && (
+                                  <span>
+                                    Fecha requerida:{' '}
+                                    <span className="text-white font-medium">
+                                      {new Date(resolvedRequiredDate + 'T12:00:00').toLocaleDateString('es-MX', {
+                                        year: 'numeric', month: 'short', day: 'numeric'
+                                      })}
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {lineDeliveryMethodLabel && (
+                              <p>
+                                Método de entrega:{' '}
+                                <span className="text-white font-medium">{lineDeliveryMethodLabel}</span>
+                              </p>
+                            )}
+
+                            {lineDeliveryAddress && (
+                              <p>
+                                Dirección de entrega:{' '}
+                                <span className="text-white">{lineDeliveryAddress}</span>
+                              </p>
+                            )}
+                          </div>
                         </>
                       );
                     })()}
                     <p className="text-sm text-neutral-400">SKU: {toSafeText(line.sku)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-white">{formatPrice(line.unit_price)}</p>
-                    <p className="text-sm text-neutral-400">× {line.quantity}</p>
-                    <p className="text-cyan-400 font-medium">{formatPrice(line.line_total)}</p>
+                  <div className="text-right min-w-[140px]">
+                    <p className="text-sm text-neutral-400">{formatPrice(line.unit_price)} × {line.quantity}</p>
+                    <p className="text-cyan-400 font-semibold text-lg leading-tight">{formatPrice(line.line_total)}</p>
                   </div>
                 </div>
               ))}
@@ -734,6 +806,69 @@ export default function OrderDetailPage() {
           )}
         </div>
       </div>
+
+      {isAttachmentsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
+              <h4 className="text-white font-semibold">Archivos adjuntos</h4>
+              <button
+                type="button"
+                onClick={() => setIsAttachmentsModalOpen(false)}
+                className="text-sm text-neutral-300 hover:text-white"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto max-h-[calc(85vh-64px)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {activeAttachments.map((attachment, index) => {
+                  const fileUrl = toSafeText(attachment.file_url) || toSafeText(attachment.file);
+                  const fileName = toSafeText(attachment.file_name) || toSafeText(attachment.filename) || `Archivo ${index + 1}`;
+
+                  if (!fileUrl) {
+                    return (
+                      <div key={`${fileName}-${index}`} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+                        <p className="text-sm text-neutral-300">{fileName}</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={`${fileUrl}-${index}`} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3 space-y-2">
+                      {isImageFile(attachment) ? (
+                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block">
+                          <div className="relative w-full h-48 rounded-md overflow-hidden border border-neutral-800">
+                            <Image
+                              src={fileUrl}
+                              alt={fileName}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        </a>
+                      ) : (
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-cmyk-cyan hover:text-cmyk-cyan/80"
+                        >
+                          Abrir archivo
+                        </a>
+                      )}
+                      <p className="text-xs text-neutral-400 break-all">{fileName}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
