@@ -828,7 +828,7 @@ export default function OrderDetailPage() {
                       En sucursal te apoyarán con la validación de tu pedido.
                     </p>
 
-                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    <div className="space-y-2">
                       {cashBranches.length > 0 ? cashBranches.map((branch) => (
                         <div key={branch.id} className="rounded border border-neutral-800 p-2">
                           <p className="text-sm text-white font-medium">{branch.name}</p>
