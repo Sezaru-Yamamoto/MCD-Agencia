@@ -293,8 +293,10 @@ export default function OrderDetailPage() {
     if (!canPay || isPaying) return;
 
     if (selectedPaymentMethod === 'bank_transfer') {
-      if (!transferReference.trim()) {
-        toast.error('Ingresa la referencia para continuar. Ejemplo: SPEI-58294011');
+      const hasReference = Boolean(transferReference.trim());
+      const hasReceiptImage = transferFiles.length > 0;
+      if (!hasReference && !hasReceiptImage) {
+        toast.error('Ingresa una referencia o sube una imagen del comprobante para continuar.');
         return;
       }
     }
@@ -723,7 +725,7 @@ export default function OrderDetailPage() {
                         type="text"
                         value={transferReference}
                         onChange={(e) => setTransferReference(e.target.value)}
-                        placeholder="Ejemplo: SPEI-58294011"
+                        placeholder="Ejemplo: SPEI-58294011 (opcional si subes imagen)"
                         className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-cmyk-cyan focus:outline-none"
                       />
                     </div>
@@ -754,8 +756,8 @@ export default function OrderDetailPage() {
                     <div className="text-xs text-neutral-400 space-y-1">
                       <p>Instrucciones:</p>
                       <p>1) Realiza la transferencia desde tu banco.</p>
-                      <p>2) Captura el número de referencia exacto.</p>
-                      <p>3) Sube la foto/captura del ticket para validación.</p>
+                      <p>2) Captura el número de referencia exacto o sube imagen del comprobante.</p>
+                      <p>3) Debes proporcionar al menos uno: referencia o imagen de la transferencia.</p>
                       <p>4) Nuestro equipo confirmará tu pago y empezaremos con la producción de tus productos.</p>
                     </div>
                   </div>
