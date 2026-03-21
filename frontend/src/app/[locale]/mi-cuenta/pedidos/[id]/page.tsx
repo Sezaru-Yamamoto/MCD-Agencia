@@ -294,7 +294,7 @@ export default function OrderDetailPage() {
 
     if (selectedPaymentMethod === 'bank_transfer') {
       if (!transferReference.trim()) {
-        toast.error('Ingresa el número de transferencia para continuar. Ejemplo: SPEI-58294011');
+        toast.error('Ingresa la referencia para continuar. Ejemplo: SPEI-58294011');
         return;
       }
     }
@@ -710,8 +710,15 @@ export default function OrderDetailPage() {
 
                 {selectedPaymentMethod === 'bank_transfer' && (
                   <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
+                    <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-xs text-neutral-300 space-y-1">
+                      <p><span className="text-neutral-500">Beneficiario:</span> MCD Agencia Publicitaria SA de CV</p>
+                      <p><span className="text-neutral-500">Banco:</span> BBVA México</p>
+                      <p><span className="text-neutral-500">Cuenta:</span> 012345678901234567</p>
+                      <p><span className="text-neutral-500">CLABE:</span> 012345678901234567</p>
+                    </div>
+
                     <div>
-                      <p className="text-sm text-neutral-300 font-medium">Número de transferencia</p>
+                      <p className="text-sm text-neutral-300 font-medium">Referencia:</p>
                       <input
                         type="text"
                         value={transferReference}
@@ -749,7 +756,7 @@ export default function OrderDetailPage() {
                       <p>1) Realiza la transferencia desde tu banco.</p>
                       <p>2) Captura el número de referencia exacto.</p>
                       <p>3) Sube la foto/captura del ticket para validación.</p>
-                      <p>4) Nuestro equipo confirmará tu pago y activará producción.</p>
+                      <p>4) Nuestro equipo confirmará tu pago y empezaremos con la producción de tus productos.</p>
                     </div>
                   </div>
                 )}
@@ -773,12 +780,6 @@ export default function OrderDetailPage() {
                       )}
                     </div>
                   </div>
-                )}
-
-                {(selectedPaymentMethod === 'bank_transfer' || selectedPaymentMethod === 'cash') && (
-                  <p className="text-xs text-neutral-400">
-                    Este método requiere validación manual por administrador.
-                  </p>
                 )}
 
                 <Button
