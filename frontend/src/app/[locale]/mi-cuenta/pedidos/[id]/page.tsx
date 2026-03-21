@@ -11,6 +11,8 @@ import {
   CheckCircleIcon,
   ClockIcon,
   XCircleIcon,
+  CalendarIcon,
+  PaperClipIcon,
 } from '@heroicons/react/24/outline';
 
 import { getOrderById, setOrderPaymentMethod } from '@/lib/api/orders';
@@ -288,6 +290,53 @@ export default function OrderDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Productos</h3>
+            {/* Solicitud original y archivos adjuntos */}
+            {sourceQuote?.quote_request && (
+              <div className="mb-4 p-4 bg-neutral-900/50 border border-neutral-800 rounded-lg">
+                <h4 className="text-sm font-semibold text-white mb-3">Información de la Solicitud Original</h4>
+                
+                {sourceQuote.quote_request.description && (
+                  <div className="mb-3">
+                    <p className="text-xs text-neutral-500 mb-1">Descripción / Comentarios del cliente</p>
+                    <p className="text-sm text-neutral-300">{sourceQuote.quote_request.description}</p>
+                  </div>
+                )}
+                
+                {sourceQuote.quote_request.required_date && (
+                  <div className="mb-3">
+                    <p className="text-xs text-neutral-500 mb-1">Fecha Requerida</p>
+                    <p className="text-sm text-white font-medium">
+                      {new Date(sourceQuote.quote_request.required_date).toLocaleDateString('es-MX', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                )}
+                
+                {sourceQuote.quote_request.attachments && sourceQuote.quote_request.attachments.length > 0 && (
+                  <div>
+                    <p className="text-xs text-neutral-500 mb-2">Archivos Adjuntos</p>
+                    <div className="space-y-1">
+                      {sourceQuote.quote_request.attachments.map((att: any) => (
+                        <a
+                          key={att.id}
+                          href={att.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-cmyk-cyan hover:text-cmyk-cyan/80"
+                        >
+                          <PaperClipIcon className="h-4 w-4" />
+                          {att.file_name || att.file}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="divide-y divide-neutral-800">
               {orderLines.map((line) => (
                 <div key={line.id} className="py-4 first:pt-0 last:pb-0 flex gap-4">
@@ -371,10 +420,16 @@ export default function OrderDetailPage() {
                         .slice(0, 20);
 
                       const hasServiceDetails = inferredServiceType && technicalSource && typeof technicalSource === 'object';
+                      
+                      // Find matching quote line for additional details like estimated_delivery_date
+                      const matchingQuoteLine = sourceQuote?.lines?.find(
+                        (ql) => ql.concept === line.name || ql.description === line.variant_name
+                      );
 
                       return (
                         <>
                           {resolvedDescription && <p className="text-sm text-neutral-400">{resolvedDescription}</p>}
+                          
                           {hasServiceDetails && inferredServiceType && (
                             <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-3">
                               <p className="text-sm font-medium text-neutral-300 mb-3">Parámetros del servicio</p>
@@ -384,6 +439,7 @@ export default function OrderDetailPage() {
                               />
                             </div>
                           )}
+                          
                           {!hasServiceDetails && technicalItems.length > 0 && (
                             <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-2">
                               <p className="text-[11px] font-medium text-neutral-300 mb-1">Detalles técnicos</p>
@@ -394,6 +450,22 @@ export default function OrderDetailPage() {
                                   </li>
                                 ))}
                               </ul>
+                            </div>
+                          )}
+                          
+                          {(matchingQuoteLine?.estimated_delivery_date || order.scheduled_date) && (
+                            <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
+                              <CalendarIcon className="h-4 w-4 text-cmyk-cyan" />
+                              <span>
+                                Entrega estimada:{' '}
+                                <span className="text-white font-medium">
+                                  {matchingQuoteLine?.estimated_delivery_date
+                                    ? new Date(matchingQuoteLine.estimated_delivery_date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                        year: 'numeric', month: 'short', day: 'numeric'
+                                      })
+                                    : formatDate(order.scheduled_date)}
+                                </span>
+                              </span>
                             </div>
                           )}
                         </>
