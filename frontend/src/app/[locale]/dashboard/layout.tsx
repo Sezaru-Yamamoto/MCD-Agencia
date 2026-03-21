@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions, getRoleDisplayName, type Permissions } from '@/hooks/usePermissions';
 import { LoadingPage } from '@/components/ui';
+import { PaymentTestingPanel } from '@/components/admin/PaymentTestingPanel';
 import { cn, getInitials } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -240,6 +241,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page content */}
         <main className="p-6">{children}</main>
       </div>
+
+      {/* Payment Testing Panel (admin only) */}
+      <PaymentTestingPanel />
     </div>
   );
 }

@@ -363,6 +363,116 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def test_create_order(self, request):
+        """
+        [ADMIN/TESTING ONLY] Create a test order for payment testing.
+
+        POST /api/v1/payments/test/create-order/
+        {
+            "amount": "1500.00"  # optional, defaults to 1500
+        }
+
+        Returns:
+            Created order with balance_due equal to amount
+        """
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only staff users can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from apps.orders.models import Order
+        from decimal import Decimal
+
+        try:
+            amount = request.data.get('amount', '1500.00')
+            
+            try:
+                amount = Decimal(str(amount))
+            except:
+                amount = Decimal('1500.00')
+
+            order = Order.objects.create(
+                user=request.user,
+                order_number=f"TEST-{Order.objects.count() + 1}",
+                balance_due=amount,
+                status=Order.STATUS_PENDING_PAYMENT,
+            )
+
+            logger.info(f"Test order created: {order.id} by admin {request.user.username}")
+
+            return Response({
+                'id': str(order.id),
+                'order_number': order.order_number,
+                'balance_due': str(order.balance_due),
+                'status': order.status,
+                'user_id': str(order.user_id),
+                'created_at': order.created_at.isoformat(),
+            })
+
+        except Exception as e:
+            logger.error(f"Error creating test order: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to create test order: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def test_create_quote(self, request):
+        """
+        [ADMIN/TESTING ONLY] Create a test quote for payment testing.
+
+        POST /api/v1/payments/test/create-quote/
+        {
+            "amount": "2500.00"  # optional, defaults to 2500
+        }
+
+        Returns:
+            Created quote in ACCEPTED status
+        """
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only staff users can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from apps.quotes.models import Quote
+        from decimal import Decimal
+
+        try:
+            amount = request.data.get('amount', '2500.00')
+            
+            try:
+                amount = Decimal(str(amount))
+            except:
+                amount = Decimal('2500.00')
+
+            quote = Quote.objects.create(
+                user=request.user,
+                quote_number=f"TEST-{Quote.objects.count() + 1}",
+                total=amount,
+                status=Quote.STATUS_ACCEPTED,
+            )
+
+            logger.info(f"Test quote created: {quote.id} by admin {request.user.username}")
+
+            return Response({
+                'id': str(quote.id),
+                'quote_number': quote.quote_number,
+                'total': str(quote.total),
+                'status': quote.status,
+                'user_id': str(quote.user_id),
+                'created_at': quote.created_at.isoformat(),
+            })
+
+        except Exception as e:
+            logger.error(f"Error creating test quote: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to create test quote: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
     def test_mock_payments(self, request):
         """
