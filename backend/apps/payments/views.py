@@ -363,7 +363,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def test_create_order(self, request):
         """
         [ADMIN/TESTING ONLY] Create a test order for payment testing.
@@ -418,7 +417,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def test_create_quote(self, request):
         """
         [ADMIN/TESTING ONLY] Create a test quote for payment testing.
@@ -473,7 +471,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def test_mock_payments(self, request):
         """
         [ADMIN/TESTING ONLY] Get list of current mock payments.
