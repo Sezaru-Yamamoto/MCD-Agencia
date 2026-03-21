@@ -375,29 +375,6 @@ export default function QuoteViewPage() {
     });
   };
 
-  const formatAddressText = (address?: Record<string, unknown> | null): string => {
-    if (!address || typeof address !== 'object') return '';
-    const parts = [
-      address.street || address.calle,
-      address.exterior_number || address.numero_exterior,
-      address.interior_number || address.numero_interior,
-      address.neighborhood || address.colonia,
-      address.city || address.ciudad,
-      address.state || address.estado,
-      address.postal_code || address.codigo_postal,
-      address.reference || address.referencia,
-    ]
-      .filter((v) => typeof v === 'string' && v.trim().length > 0)
-      .map((v) => String(v).trim());
-    return parts.join(', ');
-  };
-
-  const formatBranchText = (branch?: { name?: string; city?: string; state?: string; full_address?: string } | null): string => {
-    if (!branch) return '';
-    const location = [branch.city, branch.state].filter(Boolean).join(', ');
-    return [branch.name, branch.full_address || location].filter(Boolean).join(' — ');
-  };
-
   if (isLoading) {
     return <LoadingPage message="Cargando cotización..." />;
   }
@@ -426,38 +403,6 @@ export default function QuoteViewPage() {
   const isAccepted = quote.status === 'accepted';
   const isRejected = quote.status === 'rejected';
   const isChangesRequested = quote.status === 'changes_requested';
-
-  const firstLineWithDelivery = quote.lines?.find(
-    (line) =>
-      Boolean(line.delivery_method) ||
-      Boolean(line.pickup_branch_detail) ||
-      Boolean(line.delivery_address && Object.keys(line.delivery_address).length > 0)
-  );
-  const resolvedDeliveryMethod =
-    firstLineWithDelivery?.delivery_method ||
-    quote.quote_request?.delivery_method ||
-    quote.delivery_method ||
-    '';
-  const resolvedPickupText =
-    formatBranchText(firstLineWithDelivery?.pickup_branch_detail) ||
-    formatBranchText(quote.quote_request?.pickup_branch_detail) ||
-    formatBranchText(quote.pickup_branch_detail) ||
-    '';
-  const resolvedAddressText =
-    formatAddressText(firstLineWithDelivery?.delivery_address as Record<string, unknown> | undefined) ||
-    formatAddressText(quote.quote_request?.delivery_address as Record<string, unknown> | undefined) ||
-    formatAddressText(quote.delivery_address as Record<string, unknown> | undefined) ||
-    '';
-
-  const deliverySummaryLabel = resolvedDeliveryMethod === 'installation'
-    ? 'Lugar de instalación'
-    : resolvedDeliveryMethod === 'pickup'
-    ? 'Sucursal de recolección'
-    : 'Dirección de entrega';
-
-  const deliverySummaryValue = resolvedDeliveryMethod === 'pickup'
-    ? resolvedPickupText
-    : (resolvedAddressText || resolvedPickupText);
 
   return (
     <div className="min-h-screen pt-24 pb-8 px-4">
@@ -610,17 +555,6 @@ export default function QuoteViewPage() {
                     </div>
                   </div>
                 )}
-                {deliverySummaryValue && (
-                  <div className="flex items-center gap-3 md:col-span-2">
-                    <div className="p-2 rounded-lg bg-cmyk-cyan/10">
-                      <MapPinIcon className="h-5 w-5 text-cmyk-cyan" />
-                    </div>
-                    <div>
-                      <p className="text-neutral-500 text-xs">{deliverySummaryLabel}</p>
-                      <p className="text-white">{deliverySummaryValue}</p>
-                    </div>
-                  </div>
-                )}
               </div>
             </Card>
 
@@ -647,14 +581,12 @@ export default function QuoteViewPage() {
                           {line.description && (
                             <p className="text-neutral-500 text-xs">{line.description}</p>
                           )}
-                          {(line.delivery_method || line.estimated_delivery_date || line.delivery_address || line.pickup_branch_detail) && (
+                          {line.delivery_method && line.delivery_method !== 'not_applicable' && (
                             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
-                              {line.delivery_method && line.delivery_method !== 'not_applicable' && (
-                                <span className="inline-flex items-center gap-1">
-                                  <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                                  {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
-                                </span>
-                              )}
+                              <span className="inline-flex items-center gap-1">
+                                <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
+                              </span>
                               {line.estimated_delivery_date && (
                                 <span className="inline-flex items-center gap-1">
                                   <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
@@ -834,15 +766,13 @@ export default function QuoteViewPage() {
                           )}
 
                           {/* Delivery Method from Request */}
-                          {(quote.quote_request.delivery_method || quote.quote_request.pickup_branch_detail || (quote.quote_request.delivery_address && typeof quote.quote_request.delivery_address === 'object' && Object.keys(quote.quote_request.delivery_address).length > 0)) && (
+                          {quote.quote_request.delivery_method && (
                             <div className="p-3 bg-neutral-800/50 rounded-lg">
                               <p className="text-neutral-500 text-xs mb-2">Método de entrega solicitado</p>
-                              {quote.quote_request.delivery_method && (
-                                <p className="text-white flex items-center gap-2">
-                                  <span>{DELIVERY_METHOD_ICONS[quote.quote_request.delivery_method as DeliveryMethod]}</span>
-                                  {DELIVERY_METHOD_LABELS[quote.quote_request.delivery_method as DeliveryMethod]?.es || quote.quote_request.delivery_method}
-                                </p>
-                              )}
+                              <p className="text-white flex items-center gap-2">
+                                <span>{DELIVERY_METHOD_ICONS[quote.quote_request.delivery_method as DeliveryMethod]}</span>
+                                {DELIVERY_METHOD_LABELS[quote.quote_request.delivery_method as DeliveryMethod]?.es || quote.quote_request.delivery_method}
+                              </p>
                               {quote.quote_request.pickup_branch_detail && (
                                 <p className="text-neutral-300 text-sm mt-1">
                                   Sucursal: {quote.quote_request.pickup_branch_detail.name} — {quote.quote_request.pickup_branch_detail.city}, {quote.quote_request.pickup_branch_detail.state}
