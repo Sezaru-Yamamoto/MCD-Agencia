@@ -722,6 +722,15 @@ class QuoteCreateSerializer(serializers.Serializer):
         if not customer_phone and quote_request and quote_request.customer_phone:
             customer_phone = quote_request.customer_phone
 
+        # Auto-copy delivery method and address from quote_request if not provided
+        delivery_method = validated_data.get('delivery_method', '')
+        if not delivery_method and quote_request and quote_request.delivery_method:
+            delivery_method = quote_request.delivery_method
+
+        delivery_address = validated_data.get('delivery_address', {})
+        if (not delivery_address or not delivery_address.get('street')) and quote_request and quote_request.delivery_address:
+            delivery_address = quote_request.delivery_address
+
         quote = Quote.objects.create(
             quote_request=quote_request,
             customer_name=validated_data.get('customer_name'),
@@ -738,8 +747,8 @@ class QuoteCreateSerializer(serializers.Serializer):
             language=validated_data.get('language', 'es'),
             delivery_time_text=validated_data.get('delivery_time_text', ''),
             estimated_delivery_date=validated_data.get('estimated_delivery_date'),
-            delivery_method=validated_data.get('delivery_method', ''),
-            delivery_address=validated_data.get('delivery_address', {}),
+            delivery_method=delivery_method,
+            delivery_address=delivery_address,
             payment_methods=validated_data.get('payment_methods', []),
             payment_conditions=validated_data.get('payment_conditions', ''),
             included_services=validated_data.get('included_services', []),
@@ -748,6 +757,9 @@ class QuoteCreateSerializer(serializers.Serializer):
 
         # Link pickup branch if provided
         pickup_branch_id = validated_data.get('pickup_branch_id')
+        if not pickup_branch_id and quote_request and quote_request.pickup_branch_id:
+            pickup_branch_id = quote_request.pickup_branch_id
+        
         if pickup_branch_id:
             from apps.content.models import Branch
             try:
