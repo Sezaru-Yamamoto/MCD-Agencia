@@ -311,6 +311,21 @@ export default function OrderDetailPage() {
 
                       const metadataServiceDetails = parseJsonIfString(metadata?.service_details);
                       const quoteLineServiceDetails = parseJsonIfString(quoteLine?.service_details);
+                      const sourceRequestDetails = parseJsonIfString(sourceQuote?.quote_request?.service_details);
+                      const sourceRequestServices = Array.isArray(sourceQuote?.quote_request?.services)
+                        ? sourceQuote?.quote_request?.services
+                        : [];
+
+                      const inferredServiceType = toSafeText(
+                        (metadataServiceDetails as Record<string, unknown> | undefined)?.service_type ||
+                        (quoteLineServiceDetails as Record<string, unknown> | undefined)?.service_type
+                      );
+
+                      const matchedRequestService = inferredServiceType
+                        ? sourceRequestServices.find((service) => service.service_type === inferredServiceType)
+                        : (sourceRequestServices.length === 1 ? sourceRequestServices[0] : undefined);
+
+                      const matchedRequestServiceDetails = parseJsonIfString(matchedRequestService?.service_details);
                       const metadataForFallback = metadata
                         ? Object.fromEntries(
                             Object.entries(metadata).filter(([key]) => ![
@@ -330,7 +345,15 @@ export default function OrderDetailPage() {
                       const technicalSource =
                         (metadataServiceDetails && typeof metadataServiceDetails === 'object' ? metadataServiceDetails : undefined) ||
                         (quoteLineServiceDetails && typeof quoteLineServiceDetails === 'object' ? quoteLineServiceDetails : undefined) ||
+                        (matchedRequestServiceDetails && typeof matchedRequestServiceDetails === 'object' ? matchedRequestServiceDetails : undefined) ||
+                        (sourceRequestDetails && typeof sourceRequestDetails === 'object' ? sourceRequestDetails : undefined) ||
                         metadataForFallback;
+
+                      const requestLevelDescription =
+                        toSafeText(matchedRequestService?.description) ||
+                        toSafeText(sourceQuote?.quote_request?.description);
+
+                      const resolvedDescription = fullDescription || requestLevelDescription;
 
                       const technicalItems = flattenTechnicalDetails(technicalSource)
                         .filter((item) => item.label !== 'service_type' && item.label !== 'service_details')
@@ -338,7 +361,7 @@ export default function OrderDetailPage() {
 
                       return (
                         <>
-                          {fullDescription && <p className="text-sm text-neutral-400">{fullDescription}</p>}
+                          {resolvedDescription && <p className="text-sm text-neutral-400">{resolvedDescription}</p>}
                           {technicalItems.length > 0 && (
                             <div className="mt-2 rounded-md bg-neutral-900/60 border border-neutral-800 p-2">
                               <p className="text-[11px] font-medium text-neutral-300 mb-1">Detalles técnicos</p>
