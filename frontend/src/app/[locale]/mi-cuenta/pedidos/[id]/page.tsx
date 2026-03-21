@@ -660,19 +660,6 @@ export default function OrderDetailPage() {
                 <span>Total</span>
                 <span>{formatPrice(order.total)}</span>
               </div>
-
-              {!order.is_fully_paid && (
-                <>
-                  <div className="flex justify-between text-green-500 pt-2">
-                    <span>Pagado</span>
-                    <span>{formatPrice(order.amount_paid)}</span>
-                  </div>
-                  <div className="flex justify-between text-cmyk-yellow">
-                    <span>Saldo pendiente</span>
-                    <span>{formatPrice(order.balance_due)}</span>
-                  </div>
-                </>
-              )}
             </div>
 
             {shouldShowSelectedPaymentMethod && (
