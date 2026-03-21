@@ -18,6 +18,48 @@ from apps.catalog.serializers import ProductVariantSerializer
 from .models import Cart, CartItem, Address, Order, OrderLine, OrderStatusHistory
 
 
+QUOTE_NUMBER_REGEX = re.compile(r'(COT-\d{8}-\d+)', flags=re.IGNORECASE)
+
+
+def _extract_quote_number(text: str) -> str:
+    match = QUOTE_NUMBER_REGEX.search(str(text or ''))
+    if not match:
+        return ''
+    return match.group(1).upper()
+
+
+def _resolve_quote_id_for_order(obj) -> str | None:
+    if obj.quote_id:
+        return str(obj.quote_id)
+
+    candidates = [
+        getattr(obj, 'internal_notes', '') or '',
+        getattr(obj, 'notes', '') or '',
+    ]
+
+    for history in getattr(obj, 'status_history', []).all() if hasattr(getattr(obj, 'status_history', None), 'all') else []:
+        candidates.append(getattr(history, 'notes', '') or '')
+
+    for line in getattr(obj, 'lines', []).all() if hasattr(getattr(obj, 'lines', None), 'all') else []:
+        candidates.append(getattr(line, 'sku', '') or '')
+
+    quote_number = ''
+    for value in candidates:
+        quote_number = _extract_quote_number(value)
+        if quote_number:
+            break
+
+    if not quote_number:
+        return None
+
+    from apps.quotes.models import Quote
+
+    quote_id = Quote.objects.filter(quote_number=quote_number).values_list('id', flat=True).first()
+    if quote_id:
+        return str(quote_id)
+    return None
+
+
 class CartItemSerializer(serializers.ModelSerializer):
     """Serializer for CartItem model."""
 
@@ -228,29 +270,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_quote(self, obj):
         """Return source quote UUID if available."""
-        if obj.quote_id:
-            return str(obj.quote_id)
-
-        # Fallback for legacy orders missing FK relation but containing quote number in notes
-        note_candidates = [
-            getattr(obj, 'internal_notes', '') or '',
-            getattr(obj, 'notes', '') or '',
-        ]
-        quote_number = ''
-        for note in note_candidates:
-            match = re.search(r'(COT-\d{8}-\d+)', str(note or ''), flags=re.IGNORECASE)
-            if match:
-                quote_number = match.group(1).upper()
-                break
-
-        if quote_number:
-            from apps.quotes.models import Quote
-
-            quote_id = Quote.objects.filter(quote_number=quote_number).values_list('id', flat=True).first()
-            if quote_id:
-                return str(quote_id)
-
-        return None
+        return _resolve_quote_id_for_order(obj)
 
     def get_pickup_branch_detail(self, obj):
         """Return branch name and address for display."""
@@ -304,28 +324,7 @@ class OrderListSerializer(serializers.ModelSerializer):
 
     def get_quote(self, obj):
         """Return source quote UUID if available."""
-        if obj.quote_id:
-            return str(obj.quote_id)
-
-        note_candidates = [
-            getattr(obj, 'internal_notes', '') or '',
-            getattr(obj, 'notes', '') or '',
-        ]
-        quote_number = ''
-        for note in note_candidates:
-            match = re.search(r'(COT-\d{8}-\d+)', str(note or ''), flags=re.IGNORECASE)
-            if match:
-                quote_number = match.group(1).upper()
-                break
-
-        if quote_number:
-            from apps.quotes.models import Quote
-
-            quote_id = Quote.objects.filter(quote_number=quote_number).values_list('id', flat=True).first()
-            if quote_id:
-                return str(quote_id)
-
-        return None
+        return _resolve_quote_id_for_order(obj)
 
 
 class CreateOrderSerializer(serializers.Serializer):
