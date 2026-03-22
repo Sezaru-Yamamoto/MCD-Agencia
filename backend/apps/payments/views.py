@@ -392,10 +392,18 @@ class PaymentViewSet(viewsets.ModelViewSet):
             except:
                 amount = Decimal('1500.00')
 
+            # Calculate subtotal and tax to match total
+            # Assuming 16% tax rate (IVA)
+            tax_rate = Decimal('0.1600')
+            subtotal = amount / (Decimal('1') + tax_rate)
+            tax_amount = amount - subtotal
+
             order = Order.objects.create(
                 user=request.user,
                 order_number=f"TEST-{Order.objects.count() + 1}",
-                balance_due=amount,
+                total=amount,
+                subtotal=subtotal,
+                tax_amount=tax_amount,
                 status=Order.STATUS_PENDING_PAYMENT,
             )
 
@@ -405,6 +413,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'id': str(order.id),
                 'order_number': order.order_number,
                 'balance_due': str(order.balance_due),
+                'total': str(order.total),
+                'subtotal': str(order.subtotal),
+                'tax_amount': str(order.tax_amount),
                 'status': order.status,
                 'user_id': str(order.user_id),
                 'created_at': order.created_at.isoformat(),
@@ -446,10 +457,20 @@ class PaymentViewSet(viewsets.ModelViewSet):
             except:
                 amount = Decimal('2500.00')
 
+            # Calculate subtotal and tax to match total
+            # Assuming 16% tax rate (IVA)
+            tax_rate = Decimal('0.1600')
+            subtotal = amount / (Decimal('1') + tax_rate)
+            tax_amount = amount - subtotal
+
             quote = Quote.objects.create(
-                user=request.user,
+                customer=request.user,
+                customer_name=request.user.get_full_name() or request.user.username,
+                customer_email=request.user.email,
                 quote_number=f"TEST-{Quote.objects.count() + 1}",
                 total=amount,
+                subtotal=subtotal,
+                tax_amount=tax_amount,
                 status=Quote.STATUS_ACCEPTED,
             )
 
@@ -459,14 +480,19 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'id': str(quote.id),
                 'quote_number': quote.quote_number,
                 'total': str(quote.total),
+                'subtotal': str(quote.subtotal),
+                'tax_amount': str(quote.tax_amount),
                 'status': quote.status,
-                'user_id': str(quote.user_id),
+                'customer_id': str(quote.customer_id) if quote.customer else None,
                 'created_at': quote.created_at.isoformat(),
             })
 
         except Exception as e:
             logger.error(f"Error creating test quote: {str(e)}", exc_info=True)
             return Response(
+                {'error': f'Failed to create test quote: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
                 {'error': f'Failed to create test quote: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
