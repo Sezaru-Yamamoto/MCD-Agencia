@@ -407,7 +407,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=Order.STATUS_PENDING_PAYMENT,
             )
 
-            logger.info(f"Test order created: {order.id} by admin {request.user.username}")
+            logger.info(f"Test order created: {order.id} by admin {request.user.email}")
 
             return Response({
                 'id': str(order.id),
@@ -474,7 +474,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=Quote.STATUS_ACCEPTED,
             )
 
-            logger.info(f"Test quote created: {quote.id} by admin {request.user.username}")
+            logger.info(f"Test quote created: {quote.id} by admin {request.user.email}")
 
             return Response({
                 'id': str(quote.id),
