@@ -493,9 +493,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 {'error': f'Failed to create test quote: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-                {'error': f'Failed to create test quote: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
     def test_mock_payments(self, request):
         """
