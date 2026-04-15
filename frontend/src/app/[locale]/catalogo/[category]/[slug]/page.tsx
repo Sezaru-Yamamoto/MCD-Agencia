@@ -33,6 +33,7 @@ export default function ProductDetailPage() {
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
 
@@ -129,12 +130,15 @@ export default function ProductDetailPage() {
     }
 
     try {
-      await addItem(variant.id, 1);
-      toast.success('Producto agregado al carrito');
+      await addItem(variant.id, quantity);
+      toast.success(`Se agregaron ${quantity} unidad(es) al carrito`);
     } catch {
       toast.error('No se pudo agregar el producto al carrito');
     }
   };
+
+  const decreaseQuantity = () => setQuantity((prev) => Math.max(1, prev - 1));
+  const increaseQuantity = () => setQuantity((prev) => Math.min(99, prev + 1));
 
   return (
     <>
@@ -299,7 +303,28 @@ export default function ProductDetailPage() {
 
                 <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-11 w-full">
+                        <button
+                          type="button"
+                          onClick={decreaseQuantity}
+                          className="px-4 text-white bg-neutral-800 hover:bg-neutral-700"
+                          aria-label="Disminuir cantidad"
+                        >
+                          -
+                        </button>
+                        <span className="flex-1 text-sm text-white bg-neutral-900 text-center">{quantity}</span>
+                        <button
+                          type="button"
+                          onClick={increaseQuantity}
+                          className="px-4 text-white bg-neutral-800 hover:bg-neutral-700"
+                          aria-label="Aumentar cantidad"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <Button
                         size="lg"
                         className="w-full font-semibold bg-neutral-700 hover:bg-neutral-600 text-white"
@@ -314,6 +339,7 @@ export default function ProductDetailPage() {
                       >
                         Comprar ahora
                       </Button>
+                      </div>
                     </div>
                   )}
 
