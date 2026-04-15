@@ -574,7 +574,19 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             old_status = order.status
-            order.transition_to(new_status, changed_by=request.user, notes=notes)
+            if (
+                old_status == Order.STATUS_PENDING_PAYMENT
+                and new_status == Order.STATUS_IN_PRODUCTION
+                and order.payment_method in ONLINE_PAYMENT_METHODS
+            ):
+                order.transition_to(
+                    Order.STATUS_PAID,
+                    changed_by=request.user,
+                    notes=_('Auto-confirmed online payment before production')
+                )
+                order.transition_to(new_status, changed_by=request.user, notes=notes)
+            else:
+                order.transition_to(new_status, changed_by=request.user, notes=notes)
 
             # Update scheduled_date if provided
             if scheduled_date is not None:

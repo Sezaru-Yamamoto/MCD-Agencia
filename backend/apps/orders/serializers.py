@@ -434,6 +434,13 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
     def validate_status(self, value):
         """Validate status transition is allowed."""
         order = self.context.get('order')
+        if (
+            order
+            and order.status == Order.STATUS_PENDING_PAYMENT
+            and value == Order.STATUS_IN_PRODUCTION
+            and order.payment_method in ['mercadopago', 'paypal']
+        ):
+            return value
         if order and not order.can_transition_to(value):
             raise serializers.ValidationError(
                 _('Cannot transition from %(from)s to %(to)s.') % {
