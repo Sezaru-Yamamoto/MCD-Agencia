@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -36,6 +36,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   const { data: product, isLoading, error } = useQuery({
     queryKey: ['product', slug],
@@ -86,6 +87,7 @@ export default function ProductDetailPage() {
     locale === 'en' && product.short_description_en
       ? product.short_description_en
       : product.short_description;
+  const hasDifferentShortDescription = !!shortDescription && shortDescription.trim().toLowerCase() !== name.trim().toLowerCase();
 
   const images =
     product.images?.length > 0
@@ -148,6 +150,48 @@ export default function ProductDetailPage() {
     const parsed = Number(raw);
     if (Number.isNaN(parsed)) return;
     setQuantity(Math.max(1, Math.min(99, parsed)));
+  };
+
+  useEffect(() => {
+    const raw = localStorage.getItem('savedProducts');
+    const saved: string[] = raw ? JSON.parse(raw) : [];
+    setIsSaved(saved.includes(product.id));
+  }, [product.id]);
+
+  const handleSaveProduct = () => {
+    const raw = localStorage.getItem('savedProducts');
+    const saved: string[] = raw ? JSON.parse(raw) : [];
+
+    if (saved.includes(product.id)) {
+      const updated = saved.filter((id) => id !== product.id);
+      localStorage.setItem('savedProducts', JSON.stringify(updated));
+      setIsSaved(false);
+      toast.success('Producto removido de guardados');
+      return;
+    }
+
+    const updated = [...saved, product.id];
+    localStorage.setItem('savedProducts', JSON.stringify(updated));
+    setIsSaved(true);
+    toast.success('Producto guardado');
+  };
+
+  const handleShareProduct = async () => {
+    const shareUrl = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: name,
+          text: hasDifferentShortDescription ? shortDescription : name,
+          url: shareUrl,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Enlace copiado al portapapeles');
+    } catch {
+      toast.error('No se pudo compartir este producto');
+    }
   };
 
   return (
@@ -238,7 +282,12 @@ export default function ProductDetailPage() {
               <div className="lg:w-3/5 flex flex-col p-6 overflow-hidden">
                 <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                   <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">{name}</h1>
-                  <p className="text-neutral-400 text-base">{shortDescription}</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    <p className="text-neutral-400">Tipo: <span className="text-neutral-200">{product.type === 'service' ? 'Servicio' : 'Producto'}</span></p>
+                    <p className="text-neutral-400">Modo de venta: <span className="text-neutral-200">{product.sale_mode === 'BUY' ? 'Compra' : product.sale_mode === 'QUOTE' ? 'Cotización' : 'Compra y cotización'}</span></p>
+                    <p className="text-neutral-400">Categoría: <span className="text-neutral-200">{product.category?.name || 'Sin categoría'}</span></p>
+                  </div>
 
                   {(product.sale_mode === 'QUOTE' || product.sale_mode === 'HYBRID') && (
                     <div className="bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg p-2.5">
@@ -246,6 +295,45 @@ export default function ProductDetailPage() {
                     </div>
                   )}
 
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-1.5 text-neutral-400">
+                      <TruckIcon className="h-4 w-4 text-yellow-400" />
+                      <span className="text-xs">Envio nacional</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-neutral-400">
+                      <ShieldCheckIcon className="h-4 w-4 text-cyan-400" />
+                      <span className="text-xs">Garantia de calidad</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-neutral-200">Descripción</h4>
+                    {hasDifferentShortDescription && <p className="text-neutral-300 text-sm">{shortDescription}</p>}
+                    {description ? (
+                      <div className="prose prose-invert prose-sm max-w-none">
+                        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }} />
+                      </div>
+                    ) : (
+                      !hasDifferentShortDescription && <p className="text-neutral-400 text-sm">Sin descripción disponible.</p>
+                    )}
+                  </div>
+
+                  {product.specifications && Object.keys(product.specifications).length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-neutral-200">Especificaciones</h4>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        {Object.entries(product.specifications).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-2">
+                            <dt className="text-neutral-400">{key}:</dt>
+                            <dd className="text-neutral-300 font-medium text-right">{String(value)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && product.base_price && (
                     <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 space-y-2">
                       {product.compare_at_price && Number(product.compare_at_price) > Number(product.base_price) && (
@@ -279,39 +367,6 @@ export default function ProductDetailPage() {
                     </div>
                   )}
 
-                  <div className="flex gap-4">
-                    <div className="flex items-center gap-1.5 text-neutral-400">
-                      <TruckIcon className="h-4 w-4 text-yellow-400" />
-                      <span className="text-xs">Envio nacional</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-neutral-400">
-                      <ShieldCheckIcon className="h-4 w-4 text-cyan-400" />
-                      <span className="text-xs">Garantia de calidad</span>
-                    </div>
-                  </div>
-
-                  {description && (
-                    <div className="prose prose-invert prose-sm max-w-none">
-                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }} />
-                    </div>
-                  )}
-
-                  {product.specifications && Object.keys(product.specifications).length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-neutral-200">Especificaciones</h4>
-                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        {Object.entries(product.specifications).map(([key, value]) => (
-                          <div key={key} className="flex justify-between gap-2">
-                            <dt className="text-neutral-400">{key}:</dt>
-                            <dd className="text-neutral-300 font-medium text-right">{String(value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
                     <div className="space-y-2">
                       <div className="grid grid-cols-1 sm:grid-cols-[132px,1fr,1fr] gap-2 items-stretch">
@@ -330,7 +385,7 @@ export default function ProductDetailPage() {
                             max={99}
                             value={quantity}
                             onChange={onQuantityInputChange}
-                            className="w-[48px] h-full text-sm text-white bg-neutral-900 text-center border-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="w-[48px] h-full text-sm text-white bg-neutral-900 text-center border-0 outline-none ring-0 shadow-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
@@ -372,11 +427,23 @@ export default function ProductDetailPage() {
                     </Link>
                   )}
 
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="flex-1 text-xs" leftIcon={<HeartIcon className="h-4 w-4" />}>
-                      Guardar
+                  <div className="flex gap-2 mt-4 pt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      leftIcon={<HeartIcon className="h-4 w-4" />}
+                      onClick={handleSaveProduct}
+                    >
+                      {isSaved ? 'Guardado' : 'Guardar'}
                     </Button>
-                    <Button variant="ghost" size="sm" className="flex-1 text-xs" leftIcon={<ShareIcon className="h-4 w-4" />}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      leftIcon={<ShareIcon className="h-4 w-4" />}
+                      onClick={handleShareProduct}
+                    >
                       Compartir
                     </Button>
                   </div>
