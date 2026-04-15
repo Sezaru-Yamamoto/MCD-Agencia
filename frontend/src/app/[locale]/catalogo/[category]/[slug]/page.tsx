@@ -284,11 +284,7 @@ export default function ProductDetailPage() {
                 <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                   <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">{name}</h1>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <p className="text-neutral-400">Tipo: <span className="text-neutral-200">{product.type === 'service' ? 'Servicio' : 'Producto'}</span></p>
-                    <p className="text-neutral-400">Modo de venta: <span className="text-neutral-200">{product.sale_mode === 'BUY' ? 'Compra' : product.sale_mode === 'QUOTE' ? 'Cotización' : 'Compra y cotización'}</span></p>
-                    <p className="text-neutral-400">Categoría: <span className="text-neutral-200">{product.category?.name || 'Sin categoría'}</span></p>
-                  </div>
+                  <p className="text-neutral-400 text-sm">Categoría: <span className="text-neutral-200">{product.category?.name || 'Sin categoría'}</span></p>
 
                   {(product.sale_mode === 'QUOTE' || product.sale_mode === 'HYBRID') && (
                     <div className="bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg p-2.5">
@@ -308,10 +304,10 @@ export default function ProductDetailPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-neutral-200">Descripción</h4>
-                    {hasDifferentShortDescription && <p className="text-neutral-300 text-sm">{shortDescription}</p>}
+                    <h4 className="text-sm font-semibold text-neutral-400">Descripción</h4>
+                    {hasDifferentShortDescription && <p className="text-neutral-400 text-sm">{shortDescription}</p>}
                     {description ? (
-                      <div className="prose prose-invert prose-sm max-w-none">
+                      <div className="prose prose-invert prose-sm max-w-none prose-p:text-neutral-400 prose-li:text-neutral-400 prose-strong:text-neutral-300">
                         <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }} />
                       </div>
                     ) : (
@@ -334,7 +330,7 @@ export default function ProductDetailPage() {
                   )}
                 </div>
 
-                <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
+                <div className="pt-4 mt-auto border-t border-neutral-700 space-y-3">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && product.base_price && (
                     <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 space-y-2">
                       {product.compare_at_price && Number(product.compare_at_price) > Number(product.base_price) && (
@@ -369,13 +365,13 @@ export default function ProductDetailPage() {
                   )}
 
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 mt-2">
                       <div className="grid grid-cols-1 sm:grid-cols-[132px,1fr,1fr] gap-2 items-stretch">
-                        <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-11 w-[132px]">
+                        <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-11 w-[128px]">
                           <button
                             type="button"
                             onClick={decreaseQuantity}
-                            className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700 h-full"
+                            className="w-11 text-sm text-white bg-neutral-800 hover:bg-neutral-700 h-full"
                             aria-label="Disminuir cantidad"
                           >
                             -
@@ -386,12 +382,12 @@ export default function ProductDetailPage() {
                             max={99}
                             value={quantity}
                             onChange={onQuantityInputChange}
-                            className="w-[48px] h-full text-sm text-white bg-neutral-900 text-center border-0 outline-none ring-0 shadow-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="w-[40px] h-full text-sm text-white bg-neutral-900 text-center border-0 outline-none ring-0 shadow-none focus:outline-none focus:ring-0 [appearance:textfield] [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
                             onClick={increaseQuantity}
-                            className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700 h-full"
+                            className="w-11 text-sm text-white bg-neutral-800 hover:bg-neutral-700 h-full"
                             aria-label="Aumentar cantidad"
                           >
                             +
