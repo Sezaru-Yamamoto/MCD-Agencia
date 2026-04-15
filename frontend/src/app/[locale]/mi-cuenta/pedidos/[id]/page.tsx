@@ -41,6 +41,19 @@ const STATUS_ICONS: Record<string, typeof CheckCircleIcon> = {
   refunded: XCircleIcon,
 };
 
+const STATUS_LABELS_ES: Record<string, string> = {
+  draft: 'Borrador',
+  pending_payment: 'Pendiente de confirmación',
+  paid: 'Pagado',
+  partially_paid: 'Pago parcial',
+  in_production: 'En producción',
+  ready: 'Listo',
+  in_delivery: 'Enviado',
+  completed: 'Entregado',
+  cancelled: 'Cancelado',
+  refunded: 'Reembolsado',
+};
+
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   mercadopago: 'Mercado Pago',
   paypal: 'PayPal',
@@ -314,7 +327,7 @@ export default function OrderDetailPage() {
     );
   }
 
-  const StatusIcon = STATUS_ICONS[toSafeText(order.status)] || ClockIcon;
+  const rawStatus = toSafeText(order.status);
   const orderLines = Array.isArray(order.lines) ? order.lines : [];
   const statusHistory = Array.isArray(order.status_history) ? order.status_history : [];
   const quoteLinesById = new Map(
@@ -323,6 +336,12 @@ export default function OrderDetailPage() {
   const shippingAddressText = formatAddress(order.shipping_address);
   const paymentMethodText = toSafeText(order.payment_method);
   const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethodText] || paymentMethodText;
+  const isManualPaymentMethod = paymentMethodText === 'bank_transfer' || paymentMethodText === 'cash';
+  const effectiveStatus =
+    ['pending_payment', 'partially_paid'].includes(rawStatus) && !isManualPaymentMethod
+      ? 'paid'
+      : rawStatus;
+  const StatusIcon = STATUS_ICONS[effectiveStatus] || ClockIcon;
   const deliveryMethodFromNotes = (() => {
     const notes = toSafeText(order.notes);
     const match = notes.match(/Metodo de entrega:\s*(shipping|pickup|installation|digital|not_applicable)/i);
@@ -330,9 +349,8 @@ export default function OrderDetailPage() {
   })();
 
   const resolvedDeliveryMethod = (toSafeText(order.delivery_method) || deliveryMethodFromNotes || '').toLowerCase();
-  const isManualPaymentMethod = paymentMethodText === 'bank_transfer' || paymentMethodText === 'cash';
   const canPay =
-    ['pending_payment', 'partially_paid'].includes(order.status) &&
+    ['pending_payment', 'partially_paid'].includes(rawStatus) &&
     Number(order.balance_due) > 0 &&
     isManualPaymentMethod;
   const shouldShowSelectedPaymentMethod = Boolean(paymentMethodText);
@@ -379,7 +397,43 @@ export default function OrderDetailPage() {
     );
   }, 0);
 
-  const resolvedShippingCost = shippingFromQuoteLines > 0 ? shippingFromQuoteLines : shippingFromOrderMetadata;
+  const shippingFeeFromDeliveryAddress = parseMoneyValue((order.delivery_address as Record<string, unknown> | undefined)?.shipping_fee);
+  const resolvedShippingCost =
+    shippingFeeFromDeliveryAddress > 0
+      ? shippingFeeFromDeliveryAddress
+      : (shippingFromQuoteLines > 0 ? shippingFromQuoteLines : shippingFromOrderMetadata);
+
+  const statusOrder = ['draft', 'pending_payment', 'paid', 'in_production', 'ready_or_delivery', 'completed'];
+  const timelineSteps = (
+    isManualPaymentMethod
+      ? [
+          { key: 'draft', label: 'Creación del pedido' },
+          { key: 'pending_payment', label: 'Esperando confirmación del pago' },
+          { key: 'paid', label: 'Pagado' },
+          { key: 'in_production', label: 'En producción' },
+          {
+            key: 'ready_or_delivery',
+            label: resolvedDeliveryMethod === 'pickup' ? 'Listo para recoger' : 'Enviado',
+          },
+          { key: 'completed', label: 'Entregado' },
+        ]
+      : [
+          { key: 'draft', label: 'Creación del pedido' },
+          { key: 'paid', label: 'Pagado' },
+          { key: 'in_production', label: 'En producción' },
+          {
+            key: 'ready_or_delivery',
+            label: resolvedDeliveryMethod === 'pickup' ? 'Listo para recoger' : 'Enviado',
+          },
+          { key: 'completed', label: 'Entregado' },
+        ]
+  );
+
+  const effectiveTimelineStatus =
+    effectiveStatus === 'in_delivery' || effectiveStatus === 'ready'
+      ? 'ready_or_delivery'
+      : effectiveStatus;
+  const activeTimelineIndex = Math.max(0, timelineSteps.findIndex((step) => step.key === effectiveTimelineStatus));
 
   const handlePayment = async () => {
     if (!canPay || isPaying) return;
@@ -453,20 +507,52 @@ export default function OrderDetailPage() {
         </div>
         <Badge
           variant={
-            order.status === 'completed'
+            effectiveStatus === 'completed'
               ? 'success'
-              : order.status === 'cancelled'
+              : effectiveStatus === 'cancelled'
               ? 'error'
-              : order.status === 'paid' || order.status === 'in_production'
+              : effectiveStatus === 'paid' || effectiveStatus === 'in_production' || effectiveStatus === 'ready' || effectiveStatus === 'in_delivery'
               ? 'info'
               : 'warning'
           }
           size="md"
         >
           <StatusIcon className="h-4 w-4 mr-1" />
-          {toSafeText(order.status_display) || toSafeText(order.status)}
+          {STATUS_LABELS_ES[effectiveStatus] || toSafeText(order.status_display) || effectiveStatus}
         </Badge>
       </div>
+
+      <Card>
+        <h3 className="text-lg font-semibold text-white mb-4">Seguimiento del pedido</h3>
+        <div className="overflow-x-auto">
+          <div className="min-w-[760px] flex items-start gap-2">
+            {timelineSteps.map((step, index) => {
+              const isReached = index <= activeTimelineIndex;
+              const isCurrent = index === activeTimelineIndex;
+
+              return (
+                <div key={step.key} className="flex items-center flex-1 min-w-0">
+                  <div className="flex flex-col items-center min-w-[110px]">
+                    <div
+                      className={cn(
+                        'w-4 h-4 rounded-full border-2',
+                        isReached ? 'bg-cmyk-cyan border-cmyk-cyan' : 'bg-neutral-900 border-neutral-600',
+                        isCurrent && 'ring-4 ring-cmyk-cyan/20'
+                      )}
+                    />
+                    <p className={cn('text-xs mt-2 text-center leading-tight', isReached ? 'text-white' : 'text-neutral-500')}>
+                      {step.label}
+                    </p>
+                  </div>
+                  {index < timelineSteps.length - 1 && (
+                    <div className={cn('h-0.5 flex-1 mb-6', isReached ? 'bg-cmyk-cyan/70' : 'bg-neutral-700')} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Order Items */}
@@ -768,7 +854,7 @@ export default function OrderDetailPage() {
                 <span>{formatPrice(resolvedShippingCost.toFixed(2))}</span>
               </div>
               <div className="flex justify-between text-neutral-400">
-                <span>IVA ({order.tax_rate}%)</span>
+                <span>IVA ({(Number(order.tax_rate) * 100).toFixed(0)}%)</span>
                 <span>{formatPrice(order.tax_amount)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold text-white pt-2 border-t border-neutral-800">
@@ -963,10 +1049,12 @@ export default function OrderDetailPage() {
             </Card>
           )}
 
-          {order.notes && (
+          {resolvedDeliveryMethod === 'shipping' && !order.tracking_number && (
             <Card>
-              <h3 className="text-lg font-semibold text-white mb-4">Notas</h3>
-              <p className="text-neutral-400">{toSafeText(order.notes)}</p>
+              <h3 className="text-lg font-semibold text-white mb-3">Seguimiento de envío</h3>
+              <p className="text-sm text-neutral-400">
+                El número de rastreo aparecerá aquí cuando el administrador lo registre al despacho del pedido.
+              </p>
             </Card>
           )}
         </div>
