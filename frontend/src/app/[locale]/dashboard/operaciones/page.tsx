@@ -101,10 +101,12 @@ export default function OperationsPage() {
   const locale = useLocale();
   const [overview, setOverview] = useState<Awaited<ReturnType<typeof getWorkflowOverview>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [weekCursor, setWeekCursor] = useState(() => new Date());
 
   const toDateKey = (date: Date) => {
     const year = date.getFullYear();
@@ -191,6 +193,21 @@ export default function OperationsPage() {
     }
     return days;
   }, [monthCursor]);
+
+  const weekDays = useMemo(() => {
+    const start = new Date(weekCursor);
+    start.setHours(0, 0, 0, 0);
+    const weekday = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - weekday);
+
+    const days: Date[] = [];
+    for (let index = 0; index < 7; index += 1) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      days.push(day);
+    }
+    return days;
+  }, [weekCursor]);
 
   if (isLoading) {
     return <LoadingPage message="Cargando flujo operativo..." />;
@@ -325,21 +342,57 @@ export default function OperationsPage() {
               Fechas requeridas, entregas estimadas y programación de pedidos.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
+              <button
+                onClick={() => setCalendarMode('month')}
+                className={`px-3 py-1.5 text-xs transition-colors ${calendarMode === 'month' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+              >
+                Mes
+              </button>
+              <button
+                onClick={() => setCalendarMode('week')}
+                className={`px-3 py-1.5 text-xs transition-colors ${calendarMode === 'week' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+              >
+                Semana
+              </button>
+            </div>
             <button
-              onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+              onClick={() => {
+                if (calendarMode === 'month') {
+                  setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
+                } else {
+                  setWeekCursor((current) => {
+                    const next = new Date(current);
+                    next.setDate(next.getDate() - 7);
+                    return next;
+                  });
+                }
+              }}
               className="p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-cmyk-cyan transition-colors"
-              aria-label="Mes anterior"
+              aria-label={calendarMode === 'month' ? 'Mes anterior' : 'Semana anterior'}
             >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
             <div className="min-w-[12rem] text-center text-white font-medium">
-              {monthCursor.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+              {calendarMode === 'month'
+                ? monthCursor.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+                : `${weekDays[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDays[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
             </div>
             <button
-              onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+              onClick={() => {
+                if (calendarMode === 'month') {
+                  setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+                } else {
+                  setWeekCursor((current) => {
+                    const next = new Date(current);
+                    next.setDate(next.getDate() + 7);
+                    return next;
+                  });
+                }
+              }}
               className="p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-cmyk-cyan transition-colors"
-              aria-label="Mes siguiente"
+              aria-label={calendarMode === 'month' ? 'Mes siguiente' : 'Semana siguiente'}
             >
               <ChevronRightIcon className="h-4 w-4" />
             </button>
@@ -353,44 +406,82 @@ export default function OperationsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(6.5rem,1fr)]">
-            {calendarDays.map((day) => {
-              const key = toDateKey(day);
-              const events = calendarEventsByDate.get(key) || [];
-              const inMonth = day.getMonth() === monthCursor.getMonth();
+          {calendarMode === 'month' ? (
+            <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(6.5rem,1fr)]">
+              {calendarDays.map((day) => {
+                const key = toDateKey(day);
+                const events = calendarEventsByDate.get(key) || [];
+                const inMonth = day.getMonth() === monthCursor.getMonth();
 
-              return (
-                <div
-                  key={key}
-                  className={`rounded-xl border p-2 overflow-hidden ${inMonth ? 'border-neutral-800 bg-neutral-900/70' : 'border-neutral-800/40 bg-neutral-950/40 opacity-50'}`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-xs font-medium ${inMonth ? 'text-white' : 'text-neutral-500'}`}>{day.getDate()}</span>
-                    {events.length > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20">
-                        {events.length}
-                      </span>
-                    )}
+                return (
+                  <div
+                    key={key}
+                    className={`rounded-xl border p-2 overflow-hidden ${inMonth ? 'border-neutral-800 bg-neutral-900/70' : 'border-neutral-800/40 bg-neutral-950/40 opacity-50'}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-medium ${inMonth ? 'text-white' : 'text-neutral-500'}`}>{day.getDate()}</span>
+                      {events.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20">
+                          {events.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1 max-h-[4.6rem] overflow-hidden">
+                      {events.slice(0, 3).map((event) => (
+                        <Link
+                          key={event.id + event.kind}
+                          href={`/${locale}${event.href}`}
+                          className={`block text-[11px] leading-tight rounded-md border px-2 py-1 truncate ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
+                          title={`${event.title} · ${event.subtitle}`}
+                        >
+                          {event.title}
+                        </Link>
+                      ))}
+                      {events.length > 3 && (
+                        <div className="text-[10px] text-neutral-500 px-1">+{events.length - 3} más</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1 max-h-[4.6rem] overflow-hidden">
-                    {events.slice(0, 3).map((event) => (
-                      <Link
-                        key={event.id + event.kind}
-                        href={`/${locale}${event.href}`}
-                        className={`block text-[11px] leading-tight rounded-md border px-2 py-1 truncate ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
-                        title={`${event.title} · ${event.subtitle}`}
-                      >
-                        {event.title}
-                      </Link>
-                    ))}
-                    {events.length > 3 && (
-                      <div className="text-[10px] text-neutral-500 px-1">+{events.length - 3} más</div>
-                    )}
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(13rem,1fr)]">
+              {weekDays.map((day) => {
+                const key = toDateKey(day);
+                const events = calendarEventsByDate.get(key) || [];
+
+                return (
+                  <div key={key} className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 overflow-hidden">
+                    <div className="mb-2">
+                      <p className="text-[11px] text-neutral-500 uppercase">
+                        {day.toLocaleDateString('es-MX', { weekday: 'short' })}
+                      </p>
+                      <p className="text-sm text-white font-medium">
+                        {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                    <div className="space-y-1 max-h-[10rem] overflow-y-auto pr-1">
+                      {events.length === 0 ? (
+                        <p className="text-[11px] text-neutral-600">Sin eventos</p>
+                      ) : (
+                        events.map((event) => (
+                          <Link
+                            key={event.id + event.kind}
+                            href={`/${locale}${event.href}`}
+                            className={`block text-[11px] leading-tight rounded-md border px-2 py-1 ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
+                            title={`${event.title} · ${event.subtitle}`}
+                          >
+                            {event.title}
+                          </Link>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
