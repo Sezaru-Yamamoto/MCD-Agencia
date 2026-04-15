@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage } from '@/components/ui';
 import { getStaffOrderById, updateOrderStatus, Order } from '@/lib/api/orders';
 import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
+import { getWorkflowStatus, requiresManualPayment, getPaymentMethodLabel } from '@/lib/workflow';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500',
@@ -88,6 +89,13 @@ const nextStatusOptions: Record<string, { value: string; label: string }[]> = {
   completed: [
     { value: 'refunded', label: 'Reembolsar' },
   ],
+};
+
+const getAvailableTransitions = (workflowStatus: string, paymentMethod?: string) => {
+  if (workflowStatus === 'pending_payment' && !requiresManualPayment(paymentMethod)) {
+    return [];
+  }
+  return nextStatusOptions[workflowStatus] || [];
 };
 
 export default function StaffOrderDetailPage() {
@@ -201,8 +209,18 @@ export default function StaffOrderDetailPage() {
     return null;
   }
 
-  const StatusIcon = statusIcons[order.status] || ClockIcon;
-  const availableTransitions = nextStatusOptions[order.status] || [];
+  const workflowStatus = getWorkflowStatus(order.status, order.payment_method);
+  const StatusIcon = statusIcons[workflowStatus] || ClockIcon;
+  const availableTransitions = getAvailableTransitions(workflowStatus, order.payment_method);
+  const canManualConfirmPayment = workflowStatus === 'pending_payment' && requiresManualPayment(order.payment_method);
+  const workflowSteps = [
+    { key: 'created', label: 'Creación', active: true, date: order.created_at },
+    { key: 'payment', label: canManualConfirmPayment ? 'Esperando confirmación' : 'Pagado', active: order.is_fully_paid || ['paid', 'partially_paid', 'in_production', 'ready', 'in_delivery', 'completed'].includes(workflowStatus), date: order.paid_at },
+    { key: 'production', label: 'En producción', active: ['in_production', 'ready', 'in_delivery', 'completed'].includes(workflowStatus), date: order.status_history?.find((history) => history.to_status === 'in_production')?.created_at },
+    { key: 'ready', label: 'Listo', active: ['ready', 'in_delivery', 'completed'].includes(workflowStatus), date: order.status_history?.find((history) => history.to_status === 'ready')?.created_at },
+    { key: 'delivery', label: order.delivery_method === 'pickup' ? 'Listo para recoger' : 'Enviado', active: ['in_delivery', 'completed'].includes(workflowStatus), date: order.tracking_number ? order.completed_at || order.paid_at : undefined },
+    { key: 'done', label: 'Entregado', active: workflowStatus === 'completed', date: order.completed_at },
+  ];
 
   return (
     <div className="max-w-6xl">
@@ -218,9 +236,9 @@ export default function StaffOrderDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white">Pedido #{order.order_number}</h1>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${statusColors[order.status] || 'bg-neutral-500/20 text-neutral-400 border-neutral-500'}`}>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${statusColors[workflowStatus] || 'bg-neutral-500/20 text-neutral-400 border-neutral-500'}`}>
                 <StatusIcon className="h-4 w-4" />
-                {statusLabels[order.status] || order.status_display}
+                {statusLabels[workflowStatus] || order.status_display}
               </span>
             </div>
             <p className="text-neutral-400 mt-1">
@@ -292,6 +310,28 @@ export default function StaffOrderDetailPage() {
                   </div>
                 </>
               )}
+            </div>
+          </Card>
+
+          {/* Workflow */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h2 className="text-lg font-semibold text-white">Flujo operativo</h2>
+              <span className="text-xs text-neutral-400">{canManualConfirmPayment ? 'Validación manual requerida' : 'Pago confirmado automáticamente'}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+              {workflowSteps.map((step) => (
+                <div
+                  key={step.key}
+                  className={`rounded-xl border p-3 ${step.active ? 'border-cmyk-cyan/30 bg-cmyk-cyan/10' : 'border-neutral-800 bg-neutral-900/60'}`}
+                >
+                  <p className={`text-sm font-medium ${step.active ? 'text-white' : 'text-neutral-400'}`}>{step.label}</p>
+                  <p className="text-xs text-neutral-500 mt-1">{step.date ? formatDateTime(step.date) : '—'}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-neutral-400">
+              <span className="text-white font-medium">Método de pago:</span> {getPaymentMethodLabel(order.payment_method)}
             </div>
           </Card>
 
@@ -391,8 +431,8 @@ export default function StaffOrderDetailPage() {
               </div>
               <div>
                 <p className="text-neutral-500 text-sm">Estado de pago</p>
-                <p className={`font-medium ${order.is_fully_paid ? 'text-green-400' : 'text-cmyk-yellow'}`}>
-                  {order.is_fully_paid ? 'Pagado completamente' : 'Pendiente'}
+                <p className={`font-medium ${order.is_fully_paid ? 'text-green-400' : canManualConfirmPayment ? 'text-cmyk-yellow' : 'text-green-400'}`}>
+                  {order.is_fully_paid ? 'Pagado completamente' : canManualConfirmPayment ? 'Pendiente de validación' : 'Confirmado'}
                 </p>
               </div>
               {order.paid_at && (

@@ -1068,6 +1068,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             raise ValueError(_('This quote does not have a registered customer linked. Please link a customer before converting to order.'))
 
         order_payment_method = self._normalize_order_payment_method(quote, payment_method)
+        online_methods = {'mercadopago', 'paypal'}
 
         with transaction.atomic():
             order = Order.objects.create(
@@ -1131,6 +1132,21 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 changed_by=actor,
                 notes=_('Order created from quote %(quote_number)s') % {'quote_number': quote.quote_number}
             )
+
+            if order_payment_method in online_methods:
+                order.amount_paid = order.total
+                order.save(update_fields=['amount_paid', 'updated_at'])
+
+                order.transition_to(
+                    Order.STATUS_PAID,
+                    changed_by=actor,
+                    notes=_('Simulated online payment confirmation from quote conversion')
+                )
+                order.transition_to(
+                    Order.STATUS_IN_PRODUCTION,
+                    changed_by=actor,
+                    notes=_('Order moved to production after simulated online payment')
+                )
 
             quote.status = Quote.STATUS_CONVERTED
             quote.save(update_fields=['status', 'updated_at'])

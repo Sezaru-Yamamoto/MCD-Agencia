@@ -91,6 +91,41 @@ export interface DashboardStats {
   };
 }
 
+export interface WorkflowItem {
+  id: string;
+  kind: string;
+  title: string;
+  subtitle?: string;
+  status: string;
+  status_display: string;
+  payment_method?: string;
+  delivery_method?: string;
+  date?: string | null;
+  date_label?: string;
+  amount?: string | null;
+  href: string;
+  note?: string;
+}
+
+export interface WorkflowOverview {
+  generated_at: string;
+  window_start: string;
+  window_end: string;
+  stats: {
+    manual_payment_orders: number;
+    in_production_orders: number;
+    ready_orders: number;
+    completed_orders: number;
+    assigned_requests: number;
+    pending_requests: number;
+    calendar_items: number;
+  };
+  blocks: Record<'assigned' | 'to_pay' | 'in_production' | 'ready' | 'done' | 'quotes', WorkflowItem[]>;
+  calendar_events: WorkflowItem[];
+  quotes: Quote[];
+  quote_requests: QuoteRequest[];
+}
+
 // User Management
 export async function getAdminUsers(filters?: {
   role?: string;
@@ -211,6 +246,10 @@ export async function getAuditLogs(filters?: {
 // Dashboard
 export async function getDashboardStats(): Promise<DashboardStats> {
   return apiClient.get<DashboardStats>('/admin/dashboard/stats/');
+}
+
+export async function getWorkflowOverview(): Promise<WorkflowOverview> {
+  return apiClient.get<WorkflowOverview>('/admin/orders/workflow/');
 }
 
 // Catalog Admin

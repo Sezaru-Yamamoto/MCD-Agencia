@@ -39,6 +39,9 @@ from .serializers import (
     UpdateOrderStatusSerializer,
 )
 
+MANUAL_PAYMENT_METHODS = {'bank_transfer', 'cash'}
+ONLINE_PAYMENT_METHODS = {'mercadopago', 'paypal'}
+
 
 class CartView(APIView):
     """
@@ -384,7 +387,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
 
             # Temporary simulation: online methods are auto-confirmed as paid and moved to production.
-            if order.payment_method in ['mercadopago', 'paypal']:
+            if order.payment_method in ONLINE_PAYMENT_METHODS:
                 order.amount_paid = order.total
                 order.save(update_fields=['amount_paid', 'updated_at'])
 
@@ -555,12 +558,15 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
             )
 
         if new_status == Order.STATUS_IN_PRODUCTION and not order.is_fully_paid:
-            if not is_admin:
+            if order.payment_method in ONLINE_PAYMENT_METHODS:
+                order.amount_paid = order.total
+                order.save(update_fields=['amount_paid', 'updated_at'])
+            elif not is_admin:
                 return Response(
                     {'error': _('Order must be fully paid before starting production.')},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            if not str(notes or '').strip():
+            elif not str(notes or '').strip():
                 return Response(
                     {'error': _('Admin override requires notes to start production before full payment.')},
                     status=status.HTTP_400_BAD_REQUEST
@@ -687,3 +693,154 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         )
 
         return Response(OrderSerializer(order).data)
+
+
+class AdminWorkflowView(APIView):
+    """Unified workflow feed for admin and sales dashboards."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not is_internal_user(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        from datetime import timedelta
+
+        from apps.quotes.models import QuoteRequest, Quote
+        from apps.quotes.serializers import QuoteRequestAdminSerializer, QuoteAdminSerializer
+
+        today = timezone.localdate()
+        window_start = today - timedelta(days=14)
+        window_end = today + timedelta(days=90)
+
+        orders_qs = Order.objects.select_related('user', 'pickup_branch').prefetch_related('lines', 'status_history')
+        requests_qs = QuoteRequest.objects.select_related('assigned_to', 'pickup_branch', 'catalog_item').prefetch_related('attachments', 'services')
+        quotes_qs = Quote.objects.select_related('quote_request', 'created_by', 'pickup_branch').prefetch_related('lines', 'attachments')
+
+        manual_payment_orders = list(
+            orders_qs.filter(
+                status=Order.STATUS_PENDING_PAYMENT,
+                payment_method__in=MANUAL_PAYMENT_METHODS,
+            ).order_by('created_at')[:10]
+        )
+        production_orders = list(
+            orders_qs.filter(status=Order.STATUS_IN_PRODUCTION).order_by('scheduled_date', 'created_at')[:10]
+        )
+        ready_orders = list(
+            orders_qs.filter(status__in=[Order.STATUS_READY, Order.STATUS_IN_DELIVERY]).order_by('scheduled_date', 'created_at')[:10]
+        )
+        completed_orders = list(
+            orders_qs.filter(status=Order.STATUS_COMPLETED).order_by('-completed_at', '-created_at')[:10]
+        )
+
+        assigned_requests = list(
+            requests_qs.filter(
+                status__in=[QuoteRequest.STATUS_ASSIGNED, QuoteRequest.STATUS_IN_REVIEW, QuoteRequest.STATUS_QUOTED]
+            ).order_by('required_date', 'created_at')[:10]
+        )
+        pending_requests = list(
+            requests_qs.filter(
+                status=QuoteRequest.STATUS_PENDING,
+                assigned_to__isnull=True,
+            ).order_by('created_at')[:10]
+        )
+
+        accepted_quotes = list(
+            quotes_qs.filter(
+                status__in=[Quote.STATUS_ACCEPTED, Quote.STATUS_SENT, Quote.STATUS_VIEWED, Quote.STATUS_CHANGES_REQUESTED]
+            ).order_by('estimated_delivery_date', 'created_at')[:10]
+        )
+
+        def serialize_order(order, kind, date_value=None, date_label=''):
+            return {
+                'id': str(order.id),
+                'kind': kind,
+                'title': f'Pedido #{order.order_number}',
+                'subtitle': order.user.full_name if order.user and order.user.full_name else order.user.email if order.user else 'Cliente',
+                'status': order.status,
+                'status_display': order.get_status_display(),
+                'payment_method': order.payment_method,
+                'delivery_method': order.delivery_method,
+                'date': date_value.isoformat() if date_value else None,
+                'date_label': date_label,
+                'amount': str(order.total),
+                'href': f'/dashboard/pedidos/{order.id}',
+                'note': order.internal_notes or order.notes or '',
+            }
+
+        def serialize_request(request_obj, kind, date_value=None, date_label=''):
+            return {
+                'id': str(request_obj.id),
+                'kind': kind,
+                'title': f'Solicitud #{request_obj.request_number}',
+                'subtitle': request_obj.customer_name,
+                'status': request_obj.status,
+                'status_display': request_obj.get_status_display(),
+                'delivery_method': request_obj.delivery_method,
+                'date': date_value.isoformat() if date_value else None,
+                'date_label': date_label,
+                'amount': None,
+                'href': f'/dashboard/solicitudes/{request_obj.id}',
+                'note': request_obj.description or '',
+            }
+
+        def serialize_quote(quote, kind, date_value=None, date_label=''):
+            return {
+                'id': str(quote.id),
+                'kind': kind,
+                'title': f'Cotización #{quote.quote_number}',
+                'subtitle': quote.customer_name or quote.customer_email or 'Cliente',
+                'status': quote.status,
+                'status_display': quote.get_status_display(),
+                'delivery_method': quote.delivery_method,
+                'date': date_value.isoformat() if date_value else None,
+                'date_label': date_label,
+                'amount': str(quote.total),
+                'href': f'/dashboard/cotizaciones/{quote.id}',
+                'note': quote.payment_conditions or quote.customer_notes or '',
+            }
+
+        calendar_events = []
+        for request_obj in requests_qs.filter(required_date__isnull=False, required_date__gte=window_start, required_date__lte=window_end).order_by('required_date', 'created_at')[:50]:
+            calendar_events.append(serialize_request(request_obj, 'quote_request_required', request_obj.required_date, 'Fecha requerida'))
+
+        for quote in quotes_qs.filter(estimated_delivery_date__isnull=False, estimated_delivery_date__gte=window_start, estimated_delivery_date__lte=window_end).order_by('estimated_delivery_date', 'created_at')[:50]:
+            calendar_events.append(serialize_quote(quote, 'quote_estimated_delivery', quote.estimated_delivery_date, 'Entrega estimada'))
+
+        for order in orders_qs.filter(scheduled_date__isnull=False, scheduled_date__date__gte=window_start, scheduled_date__date__lte=window_end).order_by('scheduled_date', 'created_at')[:50]:
+            calendar_events.append(serialize_order(order, 'order_scheduled', order.scheduled_date.date(), 'Programado'))
+
+        for order in orders_qs.filter(completed_at__isnull=False, completed_at__date__gte=window_start, completed_at__date__lte=window_end).order_by('-completed_at', '-created_at')[:50]:
+            calendar_events.append(serialize_order(order, 'order_completed', order.completed_at.date(), 'Completado'))
+
+        calendar_events.sort(key=lambda item: (item['date'] or '', item['title']))
+
+        blocks = {
+            'assigned': [serialize_request(request_obj, 'quote_request_assigned', request_obj.required_date, 'Fecha requerida') for request_obj in assigned_requests],
+            'to_pay': [serialize_order(order, 'order_pending_payment') for order in manual_payment_orders],
+            'in_production': [serialize_order(order, 'order_in_production', order.scheduled_date.date() if order.scheduled_date else None, 'Programado') for order in production_orders],
+            'ready': [serialize_order(order, 'order_ready', order.scheduled_date.date() if order.scheduled_date else None, 'Programado') for order in ready_orders],
+            'done': [serialize_order(order, 'order_completed', order.completed_at.date() if order.completed_at else None, 'Completado') for order in completed_orders],
+            'quotes': [serialize_request(request_obj, 'quote_request_pending', request_obj.required_date, 'Fecha requerida') for request_obj in pending_requests],
+        }
+
+        stats = {
+            'manual_payment_orders': len(manual_payment_orders),
+            'in_production_orders': len(production_orders),
+            'ready_orders': len(ready_orders),
+            'completed_orders': len(completed_orders),
+            'assigned_requests': len(assigned_requests),
+            'pending_requests': len(pending_requests),
+            'calendar_items': len(calendar_events),
+        }
+
+        return Response({
+            'generated_at': timezone.now().isoformat(),
+            'window_start': window_start.isoformat(),
+            'window_end': window_end.isoformat(),
+            'stats': stats,
+            'blocks': blocks,
+            'calendar_events': calendar_events,
+            'quotes': QuoteAdminSerializer(accepted_quotes, many=True).data,
+            'quote_requests': QuoteRequestAdminSerializer(assigned_requests, many=True).data,
+        })

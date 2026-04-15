@@ -271,6 +271,12 @@ export default function DashboardPage() {
                   Ver Pedidos
                 </Link>
                 <Link
+                  href={`/${locale}/dashboard/operaciones`}
+                  className="block w-full px-4 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition-colors text-center"
+                >
+                  Flujo Operativo
+                </Link>
+                <Link
                   href={`/${locale}/catalogo`}
                   className="block w-full px-4 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition-colors text-center"
                 >

@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, LoadingPage } from '@/components/ui';
 import { getStaffOrders, updateOrderStatus, OrderListItem } from '@/lib/api/orders';
 import { PaginatedResponse } from '@/lib/api/catalog';
+import { getWorkflowStatus, requiresManualPayment } from '@/lib/workflow';
 
 // Status config matching backend Order.STATUS_CHOICES
 const statusColors: Record<string, string> = {
@@ -73,6 +74,13 @@ const nextStatusOptions: Record<string, { value: string; label: string }[]> = {
   completed: [
     { value: 'refunded', label: 'Reembolsar' },
   ],
+};
+
+const getAvailableTransitions = (status: string, paymentMethod?: string) => {
+  if (status === 'pending_payment' && !requiresManualPayment(paymentMethod)) {
+    return [];
+  }
+  return nextStatusOptions[status] || [];
 };
 
 export default function SalesOrdersPage() {
@@ -171,10 +179,10 @@ export default function SalesOrdersPage() {
   };
 
   // Stats from current page data
-  const pendingPayment = orders.filter(o => o.status === 'pending_payment').length;
-  const inProduction = orders.filter(o => o.status === 'in_production').length;
-  const readyOrders = orders.filter(o => ['ready', 'in_delivery'].includes(o.status)).length;
-  const completedOrders = orders.filter(o => o.status === 'completed').length;
+  const pendingPayment = orders.filter(o => o.status === 'pending_payment' && requiresManualPayment(o.payment_method)).length;
+  const inProduction = orders.filter(o => getWorkflowStatus(o.status, o.payment_method) === 'in_production').length;
+  const readyOrders = orders.filter(o => ['ready', 'in_delivery'].includes(getWorkflowStatus(o.status, o.payment_method))).length;
+  const completedOrders = orders.filter(o => getWorkflowStatus(o.status, o.payment_method) === 'completed').length;
 
   return (
     <div>
@@ -307,7 +315,8 @@ export default function SalesOrdersPage() {
               <tbody className="divide-y divide-neutral-800">
                 {orders.map((order) => {
                   const customer = (order as unknown as { customer?: { full_name: string; email: string } }).customer;
-                  const availableTransitions = nextStatusOptions[order.status] || [];
+                  const workflowStatus = getWorkflowStatus(order.status, order.payment_method);
+                  const availableTransitions = getAvailableTransitions(workflowStatus, order.payment_method);
 
                   return (
                     <tr key={order.id} className="hover:bg-neutral-800/30">
@@ -358,8 +367,8 @@ export default function SalesOrdersPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
-                          {statusLabels[order.status] || order.status_display || order.status}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[workflowStatus] || 'bg-neutral-500/20 text-neutral-400'}`}>
+                          {statusLabels[workflowStatus] || order.status_display || order.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-white">

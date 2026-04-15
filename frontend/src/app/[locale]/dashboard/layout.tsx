@@ -13,6 +13,7 @@ import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
   PhotoIcon,
+  CalendarDaysIcon,
   Bars3Icon,
   XMarkIcon,
   ArrowLeftOnRectangleIcon,
@@ -48,6 +49,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon, permission: 'canViewAllQuotes' },
   { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon, permission: 'canViewAllQuotes' },
   { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingBagIcon, permission: 'canViewAllOrders' },
+  { href: '/dashboard/operaciones', label: 'Operación', icon: CalendarDaysIcon, permission: 'canViewAllOrders' },
   { href: '/dashboard/clientes', label: 'Clientes', icon: UsersIcon, permission: 'canViewAllOrders' },
 
   // ── Admin-only ──────────────────────────────────────────────────────────

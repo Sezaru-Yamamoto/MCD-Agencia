@@ -20,6 +20,7 @@ from .views import (
     AddressViewSet,
     OrderViewSet,
     OrderAdminViewSet,
+    AdminWorkflowView,
 )
 
 app_name = 'orders'
@@ -48,4 +49,5 @@ admin_router.register('', OrderAdminViewSet, basename='admin-orders')
 
 admin_urlpatterns = [
     path('', include(admin_router.urls)),
+    path('workflow/', AdminWorkflowView.as_view(), name='workflow'),
 ]

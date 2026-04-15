@@ -57,6 +57,7 @@ import {
 import { convertQuoteToOrder } from '@/lib/api/orders';
 import { SERVICE_LABELS, type ServiceId, DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
+import { getDefaultQuoteConversionPaymentMethod, getPaymentMethodLabel } from '@/lib/workflow';
 
 const statusColors: Record<QuoteStatus, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500',
@@ -145,6 +146,7 @@ export default function QuoteDetailPage() {
   const [editedNotes, setEditedNotes] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
+  const [conversionPaymentMethod, setConversionPaymentMethod] = useState<'mercadopago' | 'paypal' | 'bank_transfer' | 'cash'>('bank_transfer');
 
   const toggleService = (key: string) => {
     setExpandedServices(prev => {
@@ -193,6 +195,12 @@ export default function QuoteDetailPage() {
 
     fetchQuote();
   }, [quoteId, isAuthenticated, isSalesOrAdmin, router, locale]);
+
+  useEffect(() => {
+    if (quote) {
+      setConversionPaymentMethod(getDefaultQuoteConversionPaymentMethod(quote.payment_methods));
+    }
+  }, [quote]);
 
   // -- Modal state --
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; variant: 'success' | 'error'; redirectTo?: string }>({ open: false, title: '', message: '', variant: 'success' });
@@ -283,7 +291,7 @@ export default function QuoteDetailPage() {
 
     setIsConverting(true);
     try {
-      const result = await convertQuoteToOrder(quote.id, { payment_method: 'bank_transfer' });
+      const result = await convertQuoteToOrder(quote.id, { payment_method: conversionPaymentMethod });
       const order = result.order;
       setModal({ open: true, title: 'Pedido creado', message: 'El pedido fue creado exitosamente a partir de la cotización.', variant: 'success', redirectTo: `/${locale}/dashboard/pedidos/${order.id}` });
     } catch (error: unknown) {
@@ -2189,14 +2197,33 @@ export default function QuoteDetailPage() {
                     );
                   })()}
                   {quote.status === 'accepted' && (
-                    <Button
-                      onClick={handleConvertToOrder}
-                      disabled={isConverting}
-                      leftIcon={<ShoppingCartIcon className="h-4 w-4" />}
-                      className="w-full justify-center bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      {isConverting ? 'Convirtiendo...' : 'Convertir a Pedido'}
-                    </Button>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-xs text-neutral-500 mb-2">Método al convertir</p>
+                              <select
+                                value={conversionPaymentMethod}
+                                onChange={(e) => setConversionPaymentMethod(e.target.value as typeof conversionPaymentMethod)}
+                                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm focus:border-cmyk-cyan focus:outline-none"
+                              >
+                                {(quote.payment_methods && quote.payment_methods.length > 0
+                                  ? Array.from(new Set(quote.payment_methods.map((method) => method.trim().toLowerCase())))
+                                  : ['mercadopago', 'paypal', 'bank_transfer', 'cash']
+                                ).map((method) => (
+                                  <option key={method} value={method}>
+                                    {getPaymentMethodLabel(method)}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <Button
+                              onClick={handleConvertToOrder}
+                              disabled={isConverting}
+                              leftIcon={<ShoppingCartIcon className="h-4 w-4" />}
+                              className="w-full justify-center bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              {isConverting ? 'Convirtiendo...' : 'Convertir a Pedido'}
+                            </Button>
+                          </div>
                   )}
                   {['sent', 'viewed', 'changes_requested'].includes(quote.status) && (
                     <Button
