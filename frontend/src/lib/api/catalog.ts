@@ -16,6 +16,7 @@ export interface Category {
   name: string;
   name_en: string;
   slug: string;
+  type: 'product' | 'service';
   description?: string;
   description_en?: string;
   image?: string;
