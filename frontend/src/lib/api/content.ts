@@ -484,10 +484,60 @@ export async function getBranches(): Promise<Branch[]> {
   };
 
   return cacheFirstFetch(
-    'branches-v2',
+    'branches-v3',
     async () => {
       const allBranches: Branch[] = [];
       let endpoint: string | null = '/content/branches/';
+
+      const normalizeText = (value: string): string =>
+        (value || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/\b(agencia|mcd|sucursal|cp|c\.p\.)\b/g, '')
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const normalizePhone = (value: string): string => {
+        const digits = (value || '').replace(/\D/g, '');
+        return digits.length > 10 ? digits.slice(-10) : digits;
+      };
+
+      const hasAddressOverlap = (a: string, b: string): boolean => {
+        if (!a || !b) return false;
+        if (a.includes(b) || b.includes(a)) return true;
+
+        const tokensA = new Set(a.split(' ').filter((token) => token.length >= 4));
+        const tokensB = new Set(b.split(' ').filter((token) => token.length >= 4));
+        let overlap = 0;
+
+        tokensA.forEach((token) => {
+          if (tokensB.has(token)) overlap += 1;
+        });
+
+        return overlap >= 3;
+      };
+
+      const isSameBranch = (a: Branch, b: Branch): boolean => {
+        const cityA = normalizeText(a.city || '');
+        const cityB = normalizeText(b.city || '');
+        const sameCity = !!cityA && !!cityB && (cityA === cityB || cityA.includes(cityB) || cityB.includes(cityA));
+
+        const nameA = normalizeText(a.name || '');
+        const nameB = normalizeText(b.name || '');
+        const sameName = !!nameA && !!nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
+
+        const phoneA = normalizePhone(a.phone || '');
+        const phoneB = normalizePhone(b.phone || '');
+        const samePhone = !!phoneA && !!phoneB && phoneA === phoneB;
+
+        const addressA = normalizeText(a.full_address || a.street || '');
+        const addressB = normalizeText(b.full_address || b.street || '');
+        const sameAddress = hasAddressOverlap(addressA, addressB);
+
+        return (samePhone && sameCity) || (sameAddress && sameCity) || (sameName && sameCity);
+      };
 
       while (endpoint) {
         const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
@@ -505,24 +555,28 @@ export async function getBranches(): Promise<Branch[]> {
       }
 
       const fallbackBranches = getFallbackBranches();
-      const merged = [...allBranches];
+      const merged: Array<{ branch: Branch; source: 'api' | 'fallback' }> = allBranches.map((branch) => ({
+        branch,
+        source: 'api',
+      }));
 
       for (const fallback of fallbackBranches) {
-        const exists = merged.some((branch) => {
-          const nameA = (branch.name || '').trim().toLowerCase();
-          const nameB = (fallback.name || '').trim().toLowerCase();
-          const addressA = (branch.full_address || '').trim().toLowerCase();
-          const addressB = (fallback.full_address || '').trim().toLowerCase();
+        const existingIndex = merged.findIndex((entry) => isSameBranch(entry.branch, fallback));
 
-          return nameA === nameB || (addressA && addressB && addressA === addressB);
-        });
+        if (existingIndex === -1) {
+          merged.push({ branch: fallback, source: 'fallback' });
+          continue;
+        }
 
-        if (!exists) {
-          merged.push(fallback);
+        if (merged[existingIndex].source === 'api') {
+          // Prefer canonical fallback naming when matching an API branch variant.
+          merged[existingIndex] = { branch: fallback, source: 'fallback' };
         }
       }
 
-      return merged.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      return merged
+        .map((entry) => entry.branch)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     },
     getFallbackBranches,
     1800
