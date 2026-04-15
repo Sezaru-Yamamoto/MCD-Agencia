@@ -58,7 +58,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 product_name: response.catalog_item?.name || 'Producto',
                 variant_name: response.name || '',
                 price: response.price,
-                image: response.images?.[0]?.image || '/images/placeholder-product.jpg',
+                image: response.images?.[0]?.image || '/images/logo.png',
               });
             } catch {
               // If variant fetch fails, add with placeholder data
@@ -68,7 +68,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 product_name: 'Producto',
                 variant_name: '',
                 price: '0.00',
-                image: '/images/placeholder-product.jpg',
+                image: '/images/logo.png',
               });
             }
           }
@@ -202,7 +202,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                               {/* Image */}
                               <div className="relative h-24 w-24 rounded-lg overflow-hidden bg-neutral-900 flex-shrink-0">
                                 <Image
-                                  src={item.variant.images?.[0]?.image || '/images/placeholder-product.jpg'}
+                                  src={item.variant.images?.[0]?.image || '/images/logo.png'}
                                   alt={item.product_name}
                                   fill
                                   className="object-cover"

@@ -20,7 +20,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
 
   const name = locale === 'en' && product.name_en ? product.name_en : product.name;
 
-  const imageUrl = product.primary_image?.image || '/images/placeholder-product.jpg';
+  const imageUrl = product.primary_image?.image || '/images/logo.png';
 
   const handleQuote = (e: React.MouseEvent) => {
     e.preventDefault();

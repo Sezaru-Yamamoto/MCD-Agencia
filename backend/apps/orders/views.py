@@ -322,9 +322,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                 id=serializer.validated_data['billing_address_id']
             )
 
-            # Calculate totals
+            # Calculate totals using Decimal to avoid Decimal*float runtime errors
             subtotal = sum(item.line_total for item in cart.items.all())
-            tax_amount = subtotal * settings.TAX_RATE
+            tax_rate = Decimal(str(settings.TAX_RATE))
+            tax_amount = subtotal * tax_rate
             total = subtotal + tax_amount
 
             # Create order
@@ -334,7 +335,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 shipping_address=shipping_address.full_address,
                 billing_address=billing_address.full_address,
                 subtotal=subtotal,
-                tax_rate=settings.TAX_RATE,
+                tax_rate=tax_rate,
                 tax_amount=tax_amount,
                 total=total,
                 payment_method=serializer.validated_data['payment_method'],

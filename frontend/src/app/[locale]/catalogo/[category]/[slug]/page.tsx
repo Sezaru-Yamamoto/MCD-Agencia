@@ -89,7 +89,7 @@ export default function ProductDetailPage() {
   const images =
     product.images?.length > 0
       ? product.images
-      : [{ id: '0', image: '/images/placeholder-product.jpg', alt_text: name }];
+      : [{ id: '0', image: '/images/logo.png', alt_text: name }];
 
   const nextImage = () => {
     if (images.length > 0) {
@@ -149,7 +149,7 @@ export default function ProductDetailPage() {
             <div className="flex flex-col lg:flex-row h-auto">
               <div className="lg:w-2/5 relative h-[350px] md:h-[550px] bg-neutral-800 flex-shrink-0">
                 <Image
-                  src={images[selectedImage]?.image || '/images/placeholder-product.jpg'}
+                  src={images[selectedImage]?.image || '/images/logo.png'}
                   alt={images[selectedImage]?.alt_text || name}
                   fill
                   className="object-contain p-4"
@@ -326,7 +326,7 @@ export default function ProductDetailPage() {
       >
         <div className="relative w-full h-[600px] bg-black flex items-center justify-center">
           <Image
-            src={images[selectedImage]?.image || '/images/placeholder-product.jpg'}
+            src={images[selectedImage]?.image || '/images/logo.png'}
             alt={images[selectedImage]?.alt_text || name}
             fill
             className="object-contain p-4"
