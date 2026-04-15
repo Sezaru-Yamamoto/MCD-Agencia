@@ -101,6 +101,11 @@ export default function CheckoutPage() {
     enabled: isAuthenticated,
   });
 
+  const checkoutBranches = branches.filter((branch) => {
+    const normalizedName = (branch.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    return normalizedName !== 'acapulco diamante';
+  });
+
   const {
     register,
     handleSubmit,
@@ -127,16 +132,16 @@ export default function CheckoutPage() {
 
   // Default pickup branch when user switches to pickup and no branch is selected yet.
   useEffect(() => {
-    if (deliveryMethod === 'pickup' && !selectedPickupBranchId && branches.length > 0) {
-      setSelectedPickupBranchId(branches[0].id);
+    if (deliveryMethod === 'pickup' && !selectedPickupBranchId && checkoutBranches.length > 0) {
+      setSelectedPickupBranchId(checkoutBranches[0].id);
     }
-  }, [deliveryMethod, selectedPickupBranchId, branches]);
+  }, [deliveryMethod, selectedPickupBranchId, checkoutBranches]);
 
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
 
   const isLocalShipping =
     !!selectedAddress &&
-    branches.some((branch) => branch.city?.trim().toLowerCase() === selectedAddress.city?.trim().toLowerCase());
+    checkoutBranches.some((branch) => branch.city?.trim().toLowerCase() === selectedAddress.city?.trim().toLowerCase());
 
   const shippingFee =
     deliveryMethod === 'pickup'
@@ -306,7 +311,7 @@ export default function CheckoutPage() {
                 <div className="space-y-3 mb-6">
                   <p className="text-sm text-neutral-300">Selecciona sucursal</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {branches.map((branch: Branch) => (
+                    {checkoutBranches.map((branch: Branch) => (
                       <button
                         key={branch.id}
                         type="button"
