@@ -1,12 +1,30 @@
 export const MANUAL_PAYMENT_METHODS = ['bank_transfer', 'cash'] as const;
 export const ONLINE_PAYMENT_METHODS = ['mercadopago', 'paypal'] as const;
 
+export function normalizePaymentMethod(paymentMethod?: string | null): string {
+  const raw = String(paymentMethod || '').trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    mercado_pago: 'mercadopago',
+    'mercado pago': 'mercadopago',
+    paypal: 'paypal',
+    bank_transfer: 'bank_transfer',
+    'bank transfer': 'bank_transfer',
+    transferencia: 'bank_transfer',
+    transfer: 'bank_transfer',
+    cash: 'cash',
+    efectivo: 'cash',
+  };
+  return aliases[raw] || raw;
+}
+
 export function requiresManualPayment(paymentMethod?: string | null): boolean {
-  return !!paymentMethod && MANUAL_PAYMENT_METHODS.includes(paymentMethod as (typeof MANUAL_PAYMENT_METHODS)[number]);
+  const normalized = normalizePaymentMethod(paymentMethod);
+  return !!normalized && MANUAL_PAYMENT_METHODS.includes(normalized as (typeof MANUAL_PAYMENT_METHODS)[number]);
 }
 
 export function isOnlinePayment(paymentMethod?: string | null): boolean {
-  return !!paymentMethod && ONLINE_PAYMENT_METHODS.includes(paymentMethod as (typeof ONLINE_PAYMENT_METHODS)[number]);
+  const normalized = normalizePaymentMethod(paymentMethod);
+  return !!normalized && ONLINE_PAYMENT_METHODS.includes(normalized as (typeof ONLINE_PAYMENT_METHODS)[number]);
 }
 
 export function getWorkflowStatus(status: string, paymentMethod?: string | null): string {
@@ -26,7 +44,7 @@ export function getDefaultQuoteConversionPaymentMethod(paymentMethods?: string[]
 }
 
 export function getPaymentMethodLabel(paymentMethod?: string | null): string {
-  switch (paymentMethod) {
+  switch (normalizePaymentMethod(paymentMethod)) {
     case 'mercadopago':
       return 'Mercado Pago';
     case 'paypal':

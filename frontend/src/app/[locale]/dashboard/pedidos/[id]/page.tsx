@@ -19,7 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage } from '@/components/ui';
 import { getStaffOrderById, updateOrderStatus, Order } from '@/lib/api/orders';
 import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
-import { getWorkflowStatus, requiresManualPayment, getPaymentMethodLabel } from '@/lib/workflow';
+import { getWorkflowStatus, requiresManualPayment, getPaymentMethodLabel, isOnlinePayment } from '@/lib/workflow';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-neutral-500/20 text-neutral-400 border-neutral-500',
@@ -162,10 +162,46 @@ export default function StaffOrderDetailPage() {
       setScheduledDate('');
       toast.success(`Estado actualizado a "${statusLabel}"`);
     } catch (error: unknown) {
-      console.error('Error updating status:', error);
       const errMsg = error && typeof error === 'object' && 'message' in error
         ? (error as { message: string }).message
         : 'Error al actualizar el estado';
+
+      const shouldRetryOnlineFlow =
+        newStatus === 'in_production' &&
+        order.status === 'pending_payment' &&
+        isOnlinePayment(order.payment_method) &&
+        /Cannot transition from pending_payment to in_production/i.test(errMsg);
+
+      if (shouldRetryOnlineFlow) {
+        try {
+          const markedPaid = await updateOrderStatus(
+            order.id,
+            'paid',
+            'Fallback UI: confirmar pago online antes de enviar a producción',
+            scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+          );
+          const movedToProduction = await updateOrderStatus(
+            order.id,
+            'in_production',
+            statusNotes || 'Fallback UI: enviar a producción tras confirmar pago online',
+            scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+          );
+          setOrder(movedToProduction || markedPaid);
+          setStatusNotes('');
+          setScheduledDate('');
+          toast.success('Pedido enviado a producción (flujo online aplicado)');
+          return;
+        } catch (retryError: unknown) {
+          console.error('Error in online fallback status update:', retryError);
+          const retryMsg = retryError && typeof retryError === 'object' && 'message' in retryError
+            ? (retryError as { message: string }).message
+            : errMsg;
+          toast.error(retryMsg);
+          return;
+        }
+      }
+
+      console.error('Error updating status:', error);
       toast.error(errMsg);
     } finally {
       setIsUpdating(false);

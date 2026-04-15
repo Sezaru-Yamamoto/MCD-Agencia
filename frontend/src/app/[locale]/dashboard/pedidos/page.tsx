@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, LoadingPage } from '@/components/ui';
 import { getStaffOrders, updateOrderStatus, OrderListItem } from '@/lib/api/orders';
 import { PaginatedResponse } from '@/lib/api/catalog';
-import { getWorkflowStatus, requiresManualPayment } from '@/lib/workflow';
+import { getWorkflowStatus, requiresManualPayment, isOnlinePayment } from '@/lib/workflow';
 
 // Status config matching backend Order.STATUS_CHOICES
 const statusColors: Record<string, string> = {
@@ -139,14 +139,42 @@ export default function SalesOrdersPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
+  const handleStatusChange = async (
+    orderId: string,
+    newStatus: string,
+    currentStatus?: string,
+    paymentMethod?: string,
+  ) => {
     setUpdatingOrderId(orderId);
     try {
       await updateOrderStatus(orderId, newStatus);
       await fetchOrders();
-    } catch (error) {
+    } catch (error: unknown) {
+      const errMsg = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'Error al actualizar el estado del pedido';
+
+      const shouldRetryOnlineFlow =
+        newStatus === 'in_production' &&
+        currentStatus === 'pending_payment' &&
+        isOnlinePayment(paymentMethod) &&
+        /Cannot transition from pending_payment to in_production/i.test(errMsg);
+
+      if (shouldRetryOnlineFlow) {
+        try {
+          await updateOrderStatus(orderId, 'paid', 'Fallback UI: confirmar pago online antes de enviar a producción');
+          await updateOrderStatus(orderId, 'in_production', 'Fallback UI: enviar a producción tras confirmar pago online');
+          await fetchOrders();
+          return;
+        } catch (retryError) {
+          console.error('Error updating order status with fallback:', retryError);
+          alert('No se pudo aplicar el flujo automático online para este pedido');
+          return;
+        }
+      }
+
       console.error('Error updating order status:', error);
-      alert('Error al actualizar el estado del pedido');
+      alert(errMsg);
     } finally {
       setUpdatingOrderId(null);
     }
@@ -335,7 +363,7 @@ export default function SalesOrdersPage() {
                               disabled={updatingOrderId === order.id}
                               onChange={(e) => {
                                 if (e.target.value) {
-                                  handleStatusChange(order.id, e.target.value);
+                                  handleStatusChange(order.id, e.target.value, order.status, order.payment_method);
                                   e.target.value = '';
                                 }
                               }}
