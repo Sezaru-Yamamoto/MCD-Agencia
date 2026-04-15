@@ -11,7 +11,17 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { getProducts, getCategories, type ProductListItem, type Category } from '@/lib/api/catalog';
-import { createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage, type CreateProductData } from '@/lib/api/admin';
+import {
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  uploadProductImages,
+  deleteProductImage,
+  createCategory,
+  createProductVariant,
+  createInventoryMovement,
+  type CreateProductData,
+} from '@/lib/api/admin';
 import toast from 'react-hot-toast';
 import { Card, Badge, Button, Input, Select, Modal, Pagination, LoadingPage } from '@/components/ui';
 import { Textarea } from '@/components/ui/Textarea';
@@ -58,8 +68,17 @@ interface ProductFormData {
   payment_mode: 'FULL' | 'DEPOSIT_ALLOWED';
   base_price: string;
   compare_at_price: string;
+  track_inventory: boolean;
+  sku: string;
+  initial_stock: string;
+  low_stock_threshold: string;
   is_active: boolean;
   is_featured: boolean;
+}
+
+interface CategoryFormData {
+  name: string;
+  description: string;
 }
 
 const initialFormData: ProductFormData = {
@@ -72,8 +91,17 @@ const initialFormData: ProductFormData = {
   payment_mode: 'FULL',
   base_price: '',
   compare_at_price: '',
+  track_inventory: false,
+  sku: '',
+  initial_stock: '0',
+  low_stock_threshold: '10',
   is_active: true,
   is_featured: false,
+};
+
+const initialCategoryFormData: CategoryFormData = {
+  name: '',
+  description: '',
 };
 
 export default function AdminCatalogPage() {
@@ -87,6 +115,8 @@ export default function AdminCatalogPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItem | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>(initialCategoryFormData);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
@@ -105,9 +135,8 @@ export default function AdminCatalogPage() {
 
   // Fetch categories for select (tree structure with children)
   const { data: categoriesData } = useQuery({
-    queryKey: ['categories'],
-     queryKey: ['categories', formData.type],
-     queryFn: () => getCategories(formData.type),
+    queryKey: ['categories', formData.type],
+    queryFn: () => getCategories(formData.type),
   });
 
   const products = productsData?.results || [];
@@ -118,6 +147,31 @@ export default function AdminCatalogPage() {
   const createMutation = useMutation({
     mutationFn: async (data: CreateProductData) => {
       const product = await createProduct(data) as { id: string };
+
+      // Phase 2: send new products to inventory by creating an initial variant + movement
+      if (formData.type === 'product' && formData.track_inventory && formData.sku) {
+        const variant = await createProductVariant({
+          catalog_item_id: product.id,
+          sku: formData.sku,
+          price: formData.base_price || '0',
+          compare_at_price: formData.compare_at_price || undefined,
+          stock: 0,
+          low_stock_threshold: Number(formData.low_stock_threshold || '10'),
+          is_active: true,
+        }) as { id: string };
+
+        const initialStock = Number(formData.initial_stock || '0');
+        if (initialStock > 0) {
+          await createInventoryMovement({
+            variant_id: variant.id,
+            movement_type: 'ADJUSTMENT',
+            quantity: initialStock,
+            reason: 'initial',
+            notes: 'Stock inicial al crear producto desde catálogo admin',
+          });
+        }
+      }
+
       // Upload images if any
       if (selectedImages.length > 0) {
         try {
@@ -138,6 +192,28 @@ export default function AdminCatalogPage() {
     onError: (error: { message?: string; data?: Record<string, unknown> }) => {
       const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
       toast.error(`Error al crear producto: ${error?.message || 'Solicitud inválida'}${detail}`);
+    },
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async () => {
+      return createCategory({
+        name: categoryFormData.name,
+        description: categoryFormData.description || undefined,
+        type: formData.type,
+        is_active: true,
+      });
+    },
+    onSuccess: (created: { id: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      setFormData((prev) => ({ ...prev, category_id: created.id }));
+      setCategoryFormData(initialCategoryFormData);
+      setIsCategoryModalOpen(false);
+      toast.success('Categoría creada');
+    },
+    onError: (error: { message?: string; data?: Record<string, unknown> }) => {
+      const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
+      toast.error(`Error al crear categoría: ${error?.message || 'Solicitud inválida'}${detail}`);
     },
   });
 
@@ -194,6 +270,10 @@ export default function AdminCatalogPage() {
       payment_mode: 'FULL',
       base_price: product.base_price,
       compare_at_price: product.compare_at_price || '',
+      track_inventory: false,
+      sku: '',
+      initial_stock: '0',
+      low_stock_threshold: '10',
       is_active: true,
       is_featured: product.is_featured,
     });
@@ -211,6 +291,8 @@ export default function AdminCatalogPage() {
     setIsModalOpen(false);
     setEditingProduct(null);
     setFormData(initialFormData);
+    setCategoryFormData(initialCategoryFormData);
+    setIsCategoryModalOpen(false);
     setSelectedImages([]);
     setImagePreview([]);
   };
@@ -242,6 +324,7 @@ export default function AdminCatalogPage() {
       payment_mode: formData.payment_mode,
       base_price: formData.base_price || undefined,
       compare_at_price: formData.compare_at_price || undefined,
+      track_inventory: formData.type === 'product' ? formData.track_inventory : false,
       is_active: formData.is_active,
       is_featured: formData.is_featured,
     };
@@ -511,7 +594,11 @@ export default function AdminCatalogPage() {
               </label>
               <Select
                 value={formData.type}
-                onChange={(value) => setFormData({ ...formData, type: value as 'product' | 'service' })}
+                onChange={(value) => setFormData({
+                  ...formData,
+                  type: value as 'product' | 'service',
+                  category_id: '',
+                })}
                 options={[
                   { value: 'product', label: 'Producto' },
                   { value: 'service', label: 'Servicio' },
@@ -524,14 +611,26 @@ export default function AdminCatalogPage() {
               </label>
               <select
                 value={formData.category_id}
-                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                onChange={(e) => {
+                  if (e.target.value === '__create_new__') {
+                    setIsCategoryModalOpen(true);
+                    return;
+                  }
+                  setFormData({ ...formData, category_id: e.target.value });
+                }}
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               >
                 <option value="">Seleccionar categoría...</option>
                 {categories.map((cat: Category) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
+                <option value="__create_new__">+ Crear nueva categoría</option>
               </select>
+              {categories.length === 0 && (
+                <p className="text-xs text-amber-400 mt-2">
+                  No hay categorías para tipo {formData.type === 'service' ? 'servicio' : 'producto'}. Usa "+ Crear nueva categoría".
+                </p>
+              )}
             </div>
           </div>
 
@@ -614,24 +713,24 @@ export default function AdminCatalogPage() {
                 <label className="flex items-center gap-2 cursor-pointer mb-3">
                   <input
                     type="checkbox"
-                    defaultChecked={false}
-                    onChange={(e) => {
-                      // This would track if inventory is manageable
-                      // For now, we'll keep it simple
-                    }}
+                    checked={formData.track_inventory}
+                    onChange={(e) => setFormData({ ...formData, track_inventory: e.target.checked })}
                     className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500"
                   />
                   <span className="text-sm text-neutral-300">Rastrear inventario</span>
                 </label>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
                     SKU (Código único)
                   </label>
                   <Input
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
                     placeholder="SKU-001"
                     className="text-xs"
+                    disabled={!formData.track_inventory}
                   />
                 </div>
                 <div>
@@ -641,14 +740,30 @@ export default function AdminCatalogPage() {
                   <Input
                     type="number"
                     min="0"
+                    value={formData.initial_stock}
+                    onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })}
                     placeholder="0"
-                    defaultValue="0"
                     className="text-xs"
+                    disabled={!formData.track_inventory}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Umbral stock bajo
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.low_stock_threshold}
+                    onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                    placeholder="10"
+                    className="text-xs"
+                    disabled={!formData.track_inventory}
                   />
                 </div>
               </div>
               <p className="text-xs text-neutral-500">
-                Los productos requieren at least one variant with stock information.
+                Al crear producto con inventario, se genera una variante inicial y movimiento de stock.
               </p>
             </div>
           )}
@@ -717,6 +832,58 @@ export default function AdminCatalogPage() {
             {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
           </Button>
         </div>
+      </Modal>
+
+      {/* Create Category Modal */}
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title={`Nueva categoría de ${formData.type === 'service' ? 'servicio' : 'producto'}`}
+        size="md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createCategoryMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-1">
+              Nombre de categoría *
+            </label>
+            <Input
+              value={categoryFormData.name}
+              onChange={(e) => setCategoryFormData((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Ej. Señalética vial"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-1">
+              Descripción
+            </label>
+            <Textarea
+              value={categoryFormData.description}
+              onChange={(e) => setCategoryFormData((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="Descripción breve de la categoría"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
+            <Button variant="ghost" type="button" onClick={() => setIsCategoryModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={createCategoryMutation.isPending || !categoryFormData.name.trim()}
+            >
+              {createCategoryMutation.isPending ? 'Creando...' : 'Crear categoría'}
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

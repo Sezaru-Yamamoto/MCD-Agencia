@@ -153,6 +153,12 @@ class CatalogImageSerializer(serializers.ModelSerializer):
 class ProductVariantSerializer(serializers.ModelSerializer):
     """Serializer for ProductVariant model."""
 
+    catalog_item_id = serializers.PrimaryKeyRelatedField(
+        queryset=CatalogItem.objects.all(),
+        source='catalog_item',
+        write_only=True,
+        required=False
+    )
     attribute_values = AttributeValueSerializer(many=True, read_only=True)
     attribute_value_ids = serializers.PrimaryKeyRelatedField(
         queryset=AttributeValue.objects.all(),
@@ -168,7 +174,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
         fields = [
-            'id', 'sku', 'name', 'attribute_values', 'attribute_value_ids',
+            'id', 'catalog_item_id', 'sku', 'name', 'attribute_values', 'attribute_value_ids',
             'price', 'compare_at_price', 'stock', 'low_stock_threshold',
             'weight', 'dimensions', 'barcode', 'is_active',
             'is_low_stock', 'is_out_of_stock', 'images'

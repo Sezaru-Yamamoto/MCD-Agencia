@@ -238,6 +238,26 @@ export interface CreateProductData {
   meta_description?: string;
 }
 
+export interface CreateCategoryData {
+  name: string;
+  name_en?: string;
+  description?: string;
+  description_en?: string;
+  type: 'product' | 'service';
+  parent_id?: string;
+  is_active?: boolean;
+}
+
+export interface CreateVariantData {
+  catalog_item_id: string;
+  sku: string;
+  price: string;
+  compare_at_price?: string;
+  stock?: number;
+  low_stock_threshold?: number;
+  is_active?: boolean;
+}
+
 export async function createProduct(data: CreateProductData): Promise<unknown> {
   return apiClient.post('/catalog/items/', data);
 }
@@ -248,6 +268,14 @@ export async function updateProduct(id: string, data: Partial<CreateProductData>
 
 export async function deleteProduct(id: string): Promise<void> {
   return apiClient.delete(`/catalog/items/${id}/`);
+}
+
+export async function createCategory(data: CreateCategoryData): Promise<{ id: string; name: string }> {
+  return apiClient.post('/catalog/categories/', data);
+}
+
+export async function createProductVariant(data: CreateVariantData): Promise<{ id: string; sku: string }> {
+  return apiClient.post('/catalog/variants/', data);
 }
 
 // Product Images
