@@ -36,6 +36,8 @@ import {
   type LowStockReport,
   type InventoryValueReport,
 } from '@/lib/api/inventory';
+import { getProductById, type Product } from '@/lib/api/catalog';
+import { updateProductVariant } from '@/lib/api/admin';
 import { Card, Button, Input, Modal, Badge, LoadingPage } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -289,18 +291,13 @@ function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, que
                 </thead>
                 <tbody>
                   {filtered.map((item) => (
-                    <tr key={item.variant_id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                    <tr
+                      key={item.variant_id}
+                      className="border-b border-neutral-800/50 hover:bg-neutral-800/30 cursor-pointer"
+                      onClick={() => setSelectedItem(item)}
+                    >
                       <td className="px-4 py-3 text-xs text-cyan-400 font-mono">{item.sku}</td>
-                      <td className="px-4 py-3 text-sm text-white">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedItem(item)}
-                          className="text-left hover:text-cyan-300 transition-colors"
-                          title="Ver detalle y gestionar inventario"
-                        >
-                          {item.product_name}
-                        </button>
-                      </td>
+                      <td className="px-4 py-3 text-sm text-white">{item.product_name}</td>
                       <td className="px-4 py-3 text-sm text-neutral-400">
                         {item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}
                       </td>
@@ -336,36 +333,34 @@ function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, que
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
             {filtered.map((item) => (
-              <Card key={item.variant_id} className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">{item.product_name}</p>
-                    <p className="text-xs text-neutral-400">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</p>
-                    <p className="text-[10px] text-cyan-400 font-mono mt-0.5">{item.sku}</p>
+              <Card key={item.variant_id} className="p-0 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setSelectedItem(item)}
+                  className="w-full p-3 text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">{item.product_name}</p>
+                      <p className="text-xs text-neutral-400">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</p>
+                      <p className="text-[10px] text-cyan-400 font-mono mt-0.5">{item.sku}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className={cn('text-lg font-bold',
+                        item.is_out_of_stock ? 'text-red-400' : item.is_low_stock ? 'text-yellow-400' : 'text-green-400')}>
+                        {item.current_stock}
+                      </p>
+                      {item.is_out_of_stock ? (
+                        <Badge variant="error" className="text-[10px]">Sin stock</Badge>
+                      ) : item.is_low_stock ? (
+                        <Badge variant="warning" className="text-[10px]">Bajo</Badge>
+                      ) : (
+                        <Badge variant="success" className="text-[10px]">OK</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className={cn('text-lg font-bold',
-                      item.is_out_of_stock ? 'text-red-400' : item.is_low_stock ? 'text-yellow-400' : 'text-green-400')}>
-                      {item.current_stock}
-                    </p>
-                    {item.is_out_of_stock ? (
-                      <Badge variant="error" className="text-[10px]">Sin stock</Badge>
-                    ) : item.is_low_stock ? (
-                      <Badge variant="warning" className="text-[10px]">Bajo</Badge>
-                    ) : (
-                      <Badge variant="success" className="text-[10px]">OK</Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-2 pt-2 border-t border-neutral-800">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedItem(item)}
-                    className="text-xs text-cyan-400 hover:text-cyan-300"
-                  >
-                    Ver detalle y gestionar inventario
-                  </button>
-                </div>
+                  <div className="mt-2 pt-2 border-t border-neutral-800 text-xs text-cyan-400">Ver detalle y gestionar inventario</div>
+                </button>
               </Card>
             ))}
           </div>
@@ -399,6 +394,15 @@ function InventoryItemModal({
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('purchase');
   const [notes, setNotes] = useState('');
+  const [editableSku, setEditableSku] = useState(item.sku);
+  const [editableThreshold, setEditableThreshold] = useState(item.low_stock_threshold);
+
+  const { data: productDetail, isLoading: productLoading } = useQuery({
+    queryKey: ['inventory-product-detail', item.product_id],
+    queryFn: () => getProductById(item.product_id),
+  });
+
+  const currentVariant = productDetail?.variants?.find((variant) => variant.id === item.variant_id);
 
   const { data: movementData, isLoading: movementsLoading } = useQuery({
     queryKey: ['inventory-movements-by-variant', item.variant_id],
@@ -410,6 +414,11 @@ function InventoryItemModal({
     if (movementType === 'OUT') setReason('sale');
     if (movementType === 'ADJUSTMENT') setReason('inventory_count');
   }, [movementType]);
+
+  useEffect(() => {
+    setEditableSku(currentVariant?.sku || item.sku);
+    setEditableThreshold(currentVariant?.low_stock_threshold ?? item.low_stock_threshold);
+  }, [currentVariant, item.sku, item.low_stock_threshold]);
 
   const createMut = useMutation({
     mutationFn: createMovement,
@@ -432,6 +441,26 @@ function InventoryItemModal({
     },
   });
 
+  const updateVariantMut = useMutation({
+    mutationFn: () =>
+      updateProductVariant(item.variant_id, {
+        sku: editableSku,
+        low_stock_threshold: editableThreshold,
+      }),
+    onSuccess: () => {
+      toast.success('Datos de inventario actualizados');
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-low-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-product-detail', item.product_id] });
+    },
+    onError: (err: { message?: string; data?: Record<string, unknown> }) => {
+      const msg = err?.data
+        ? Object.values(err.data).flat().join(', ')
+        : err?.message || 'No se pudo actualizar SKU/umbral';
+      toast.error(msg);
+    },
+  });
+
   const submitMovement = (e: React.FormEvent) => {
     e.preventDefault();
     createMut.mutate({
@@ -443,19 +472,53 @@ function InventoryItemModal({
     });
   };
 
+  const submitVariantData = () => {
+    if (!editableSku.trim()) {
+      toast.error('El SKU no puede quedar vacío');
+      return;
+    }
+    if (editableThreshold < 0) {
+      toast.error('El umbral no puede ser negativo');
+      return;
+    }
+    updateVariantMut.mutate();
+  };
+
   const movements = movementData?.results ?? [];
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Detalle y gestión de inventario" size="lg">
       <div className="space-y-4">
         <div className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4 space-y-2">
-          <p className="text-white font-semibold">{item.product_name}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            <p className="text-neutral-400">SKU: <span className="text-cyan-400 font-mono">{item.sku}</span></p>
-            <p className="text-neutral-400">Variante: <span className="text-neutral-200">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</span></p>
-            <p className="text-neutral-400">Stock actual: <span className="text-white font-semibold">{item.current_stock}</span></p>
-            <p className="text-neutral-400">Umbral bajo: <span className="text-white">{item.low_stock_threshold}</span></p>
-          </div>
+          {productLoading ? (
+            <p className="text-sm text-neutral-400">Cargando detalle del producto...</p>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="w-20 h-20 rounded-lg overflow-hidden bg-neutral-800 border border-neutral-700 flex-shrink-0">
+                {(productDetail as Product | undefined)?.images?.[0]?.image ? (
+                  <img
+                    src={(productDetail as Product).images[0].image}
+                    alt={item.product_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-neutral-500 text-xs">Sin imagen</div>
+                )}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <p className="text-white font-semibold">{item.product_name}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm">
+                  <p className="text-neutral-400">Tipo: <span className="text-neutral-200">{productDetail?.type === 'service' ? 'Servicio' : 'Producto'}</span></p>
+                  <p className="text-neutral-400">Categoría: <span className="text-neutral-200">{productDetail?.category?.name || 'Sin categoría'}</span></p>
+                  <p className="text-neutral-400">Precio base: <span className="text-neutral-200">{productDetail?.base_price ? `$${Number(productDetail.base_price).toLocaleString('es-MX')}` : 'No aplica'}</span></p>
+                  <p className="text-neutral-400">Variante: <span className="text-neutral-200">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</span></p>
+                  <p className="text-neutral-400">Stock actual: <span className="text-white font-semibold">{item.current_stock}</span></p>
+                  <p className="text-neutral-400">SKU: <span className="text-cyan-400 font-mono">{currentVariant?.sku || editableSku}</span></p>
+                  <p className="text-neutral-400">Umbral bajo: <span className="text-white">{currentVariant?.low_stock_threshold ?? editableThreshold}</span></p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 pt-2">
             <Link href={`/${locale}/dashboard/catalogo?edit=${item.product_id}`} className="inline-block">
               <Button size="sm" variant="outline">Editar producto en catálogo</Button>
@@ -500,6 +563,22 @@ function InventoryItemModal({
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="SKU"
+              value={editableSku}
+              onChange={(e) => setEditableSku(e.target.value.toUpperCase())}
+              placeholder="SKU único"
+            />
+            <Input
+              type="number"
+              min="0"
+              label="Umbral stock bajo"
+              value={String(editableThreshold)}
+              onChange={(e) => setEditableThreshold(Number(e.target.value || 0))}
+            />
+          </div>
+
           <div>
             <label className="block text-xs text-neutral-400 mb-1">Notas</label>
             <textarea
@@ -513,6 +592,9 @@ function InventoryItemModal({
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>Cerrar</Button>
+            <Button type="button" variant="outline" disabled={updateVariantMut.isPending} onClick={submitVariantData}>
+              {updateVariantMut.isPending ? 'Guardando SKU/umbral...' : 'Guardar SKU/umbral'}
+            </Button>
             <Button type="submit" disabled={createMut.isPending}>Aplicar movimiento</Button>
           </div>
         </form>

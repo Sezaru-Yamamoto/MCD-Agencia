@@ -103,6 +103,19 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
     setQuantity((prev) => Math.min(99, prev + 1));
   };
 
+  const onQuantityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const raw = e.target.value;
+    if (raw === '') {
+      setQuantity(1);
+      return;
+    }
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed)) return;
+    setQuantity(Math.max(1, Math.min(99, parsed)));
+  };
+
   // LIST VIEW - Horizontal compact layout (MercadoLibre style)
   if (viewMode === 'list') {
     return (
@@ -145,20 +158,31 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             <div className="flex items-end justify-end gap-2 mt-2 flex-wrap">
               {isDirectPurchase ? (
                 <>
-                  <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8">
+                  <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-7">
                     <button
                       type="button"
                       onClick={decreaseQuantity}
-                      className="px-2 text-white bg-neutral-800 hover:bg-neutral-700"
+                      className="px-2 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
                       aria-label="Disminuir cantidad"
                     >
                       -
                     </button>
-                    <span className="px-3 text-xs text-white bg-neutral-900 min-w-8 text-center">{quantity}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={quantity}
+                      onChange={onQuantityInputChange}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      className="w-11 h-full text-[11px] text-white bg-neutral-900 text-center border-0 focus:ring-0"
+                    />
                     <button
                       type="button"
                       onClick={increaseQuantity}
-                      className="px-2 text-white bg-neutral-800 hover:bg-neutral-700"
+                      className="px-2 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
                       aria-label="Aumentar cantidad"
                     >
                       +
@@ -239,20 +263,31 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
           <div className="mt-3 flex flex-col gap-2">
             {isDirectPurchase ? (
               <>
-                <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-9 w-full">
+                <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8 w-full max-w-[190px]">
                   <button
                     type="button"
                     onClick={decreaseQuantity}
-                    className="px-3 text-white bg-neutral-800 hover:bg-neutral-700"
+                    className="px-2.5 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
                     aria-label="Disminuir cantidad"
                   >
                     -
                   </button>
-                  <span className="flex-1 text-sm text-white bg-neutral-900 text-center">{quantity}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={quantity}
+                    onChange={onQuantityInputChange}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className="flex-1 h-full text-xs text-white bg-neutral-900 text-center border-0 focus:ring-0"
+                  />
                   <button
                     type="button"
                     onClick={increaseQuantity}
-                    className="px-3 text-white bg-neutral-800 hover:bg-neutral-700"
+                    className="px-2.5 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
                     aria-label="Aumentar cantidad"
                   >
                     +

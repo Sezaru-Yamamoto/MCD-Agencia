@@ -258,6 +258,12 @@ export interface CreateVariantData {
   is_active?: boolean;
 }
 
+export interface UpdateVariantData {
+  sku?: string;
+  low_stock_threshold?: number;
+  is_active?: boolean;
+}
+
 export async function createProduct(data: CreateProductData): Promise<unknown> {
   return apiClient.post('/catalog/items/', data);
 }
@@ -276,6 +282,10 @@ export async function createCategory(data: CreateCategoryData): Promise<{ id: st
 
 export async function createProductVariant(data: CreateVariantData): Promise<{ id: string; sku: string }> {
   return apiClient.post('/catalog/variants/', data);
+}
+
+export async function updateProductVariant(id: string, data: UpdateVariantData): Promise<unknown> {
+  return apiClient.patch(`/catalog/variants/${id}/`, data);
 }
 
 // Product Images

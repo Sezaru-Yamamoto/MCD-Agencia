@@ -139,6 +139,16 @@ export default function ProductDetailPage() {
 
   const decreaseQuantity = () => setQuantity((prev) => Math.max(1, prev - 1));
   const increaseQuantity = () => setQuantity((prev) => Math.min(99, prev + 1));
+  const onQuantityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === '') {
+      setQuantity(1);
+      return;
+    }
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed)) return;
+    setQuantity(Math.max(1, Math.min(99, parsed)));
+  };
 
   return (
     <>
@@ -304,20 +314,27 @@ export default function ProductDetailPage() {
                 <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
                     <div className="space-y-2">
-                      <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-9 w-full max-w-[220px]">
+                      <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8 w-full max-w-[185px]">
                         <button
                           type="button"
                           onClick={decreaseQuantity}
-                          className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700"
+                          className="px-2.5 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
                           aria-label="Disminuir cantidad"
                         >
                           -
                         </button>
-                        <span className="flex-1 text-xs text-white bg-neutral-900 text-center">{quantity}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={quantity}
+                          onChange={onQuantityInputChange}
+                          className="flex-1 h-full text-xs text-white bg-neutral-900 text-center border-0 focus:ring-0"
+                        />
                         <button
                           type="button"
                           onClick={increaseQuantity}
-                          className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700"
+                          className="px-2.5 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
                           aria-label="Aumentar cantidad"
                         >
                           +

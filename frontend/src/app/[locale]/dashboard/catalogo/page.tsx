@@ -84,7 +84,6 @@ interface ProductFormData {
 
 interface CategoryFormData {
   name: string;
-  description: string;
 }
 
 const initialFormData: ProductFormData = {
@@ -107,7 +106,6 @@ const initialFormData: ProductFormData = {
 
 const initialCategoryFormData: CategoryFormData = {
   name: '',
-  description: '',
 };
 
 export default function AdminCatalogPage() {
@@ -216,7 +214,6 @@ export default function AdminCatalogPage() {
     mutationFn: async () => {
       return createCategory({
         name: categoryFormData.name,
-        description: categoryFormData.description || undefined,
         type: formData.type,
         is_active: true,
       });
@@ -665,7 +662,7 @@ export default function AdminCatalogPage() {
 
       {/* Create/Edit Modal */}
       <Modal
-        isOpen={isModalOpen}
+        isOpen={isModalOpen && !isCategoryModalOpen}
         onClose={closeModal}
         title={editingProduct ? 'Editar producto' : 'Nuevo producto'}
         size="xl"
@@ -1021,6 +1018,7 @@ export default function AdminCatalogPage() {
         onClose={() => setIsCategoryModalOpen(false)}
         title={`Nueva categoría de ${formData.type === 'service' ? 'servicio' : 'producto'}`}
         size="md"
+        closeOnOverlayClick={false}
       >
         <form
           onSubmit={(e) => {
@@ -1038,18 +1036,6 @@ export default function AdminCatalogPage() {
               onChange={(e) => setCategoryFormData((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="Ej. Señalética vial"
               required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-1">
-              Descripción
-            </label>
-            <Textarea
-              value={categoryFormData.description}
-              onChange={(e) => setCategoryFormData((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Descripción breve de la categoría"
-              rows={3}
             />
           </div>
 
