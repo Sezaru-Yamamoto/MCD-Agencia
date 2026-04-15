@@ -60,7 +60,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ['name', 'name_en', 'description']
-    filterset_fields = ['is_active', 'parent']
+    filterset_fields = ['is_active', 'parent', 'type']
 
     def get_queryset(self):
         """Return categories based on user permissions."""

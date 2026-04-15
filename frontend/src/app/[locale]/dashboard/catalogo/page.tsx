@@ -106,7 +106,8 @@ export default function AdminCatalogPage() {
   // Fetch categories for select (tree structure with children)
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
-    queryFn: getCategories,
+     queryKey: ['categories', formData.type],
+     queryFn: () => getCategories(formData.type),
   });
 
   const products = productsData?.results || [];
@@ -259,7 +260,7 @@ export default function AdminCatalogPage() {
   // Build flat options from tree for filter Select component
   const categoryOptions = [
     { value: '', label: 'Sin categoría' },
-    ...categories.map((cat: Category) => ({ value: cat.id, label: cat.name })),
+    ...categories.filter(cat => !cat.type || cat.type === formData.type).map((cat: Category) => ({ value: cat.id, label: cat.name })),
   ];
 
   return (
@@ -604,6 +605,53 @@ export default function AdminCatalogPage() {
               />
             </div>
           </div>
+
+          {/* Inventory Management */}
+          {formData.type === 'product' && (
+            <div className="border border-neutral-700 rounded-lg p-4 space-y-4 bg-neutral-900/50">
+              <h3 className="text-sm font-semibold text-neutral-200">Gestión de Inventario</h3>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    defaultChecked={false}
+                    onChange={(e) => {
+                      // This would track if inventory is manageable
+                      // For now, we'll keep it simple
+                    }}
+                    className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <span className="text-sm text-neutral-300">Rastrear inventario</span>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    SKU (Código único)
+                  </label>
+                  <Input
+                    placeholder="SKU-001"
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">
+                    Stock inicial
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    defaultValue="0"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500">
+                Los productos requieren at least one variant with stock information.
+              </p>
+            </div>
+          )}
 
           {/* Flags */}
           <div className="flex items-center gap-6">

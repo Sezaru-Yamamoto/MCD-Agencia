@@ -49,6 +49,7 @@ class Category(MPTTModel, TimeStampedModel, SoftDeleteModel, SEOModel, OrderedMo
         description_en: Description in English
         parent: Parent category (null for root categories)
         image: Category image
+            type: Category type (product or service)
         is_active: Whether category is visible
     """
 
@@ -98,6 +99,16 @@ class Category(MPTTModel, TimeStampedModel, SoftDeleteModel, SEOModel, OrderedMo
         blank=True,
         null=True,
         help_text=_('Category image.')
+    )
+    type = models.CharField(
+        _('type'),
+        max_length=20,
+        choices=[
+            ('product', _('Product')),
+            ('service', _('Service')),
+        ],
+        default='product',
+        help_text=_('Category type: product or service.')
     )
     is_active = models.BooleanField(
         _('is active'),

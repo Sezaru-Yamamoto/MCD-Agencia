@@ -69,7 +69,7 @@ class CategoryTreeSerializer(serializers.ModelSerializer):
         model = Category
         fields = [
             'id', 'name', 'name_en', 'slug', 'description',
-            'description_en', 'image', 'is_active', 'position', 'children'
+            'description_en', 'image', 'type', 'is_active', 'position', 'children'
         ]
         read_only_fields = ['id', 'slug']
 
@@ -95,7 +95,7 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = [
             'id', 'name', 'name_en', 'slug', 'description', 'description_en',
-            'image', 'parent_id', 'is_active', 'position', 'breadcrumb',
+            'image', 'type', 'parent_id', 'is_active', 'position', 'breadcrumb',
             'meta_title', 'meta_description'
         ]
         read_only_fields = ['id', 'slug', 'breadcrumb']

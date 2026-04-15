@@ -32,6 +32,7 @@ export default function ProductDetailPage() {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [selectedImage, setSelectedImage] = useState(0);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const { data: product, isLoading, error } = useQuery({
     queryKey: ['product', slug],
@@ -91,18 +92,22 @@ export default function ProductDetailPage() {
   };
 
   const nextImage = () => {
-    setSelectedImage((prev) => (prev + 1) % images.length);
+    if (images.length > 0) {
+      setSelectedImage((prev) => (prev + 1) % images.length);
+    }
   };
 
   const prevImage = () => {
-    setSelectedImage((prev) => (prev - 1 + images.length) % images.length);
+    if (images.length > 0) {
+      setSelectedImage((prev) => (prev - 1 + images.length) % images.length);
+    }
   };
 
   return (
     <>
       {/* Main Container - Centered card layout */}
       <div className="min-h-screen pt-20 pb-8 px-4 lg:px-8 flex items-center justify-center">
-        <div className="w-full max-w-6xl">
+        <div className="w-full max-w-7xl">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 mb-6 text-sm">
             <Link href="/" className="text-neutral-400 hover:text-cyan-400 transition-colors">
@@ -129,7 +134,7 @@ export default function ProductDetailPage() {
           <div className="border border-neutral-700 rounded-xl bg-neutral-900/50 overflow-hidden">
             <div className="flex flex-col md:flex-row h-auto md:h-[450px]">
               {/* Image Section */}
-              <div className="md:w-2/5 relative h-[250px] md:h-full bg-neutral-800 flex-shrink-0">
+              <div className="md:w-2/5 relative h-[350px] md:h-[550px] bg-neutral-800 flex-shrink-0">
                 <Image
                   src={images[selectedImage]?.image || '/images/placeholder-product.jpg'}
                   alt={images[selectedImage]?.alt_text || name}
@@ -157,6 +162,14 @@ export default function ProductDetailPage() {
                       <ChevronLeftIcon className="h-4 w-4" />
                     </button>
                     <button
+                   {/* Click to open modal */}
+                   <button
+                     onClick={() => setShowImageModal(true)}
+                     className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center bg-black/50 z-5"
+                     aria-label="Ver imagen a pantalla completa"
+                   >
+                     <span className="text-white text-xs font-medium">Click para ampliar</span>
+                   </button>
                       onClick={nextImage}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors z-10"
                       aria-label="Siguiente imagen"
@@ -181,24 +194,71 @@ export default function ProductDetailPage() {
                   </>
                 )}
               </div>
+                  {/* Full Description */}
+                  {description && (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }} />
+                    </div>
+                  )}
 
-              {/* Info Section */}
-              <div className="md:w-3/5 flex flex-col p-5 overflow-hidden">
-                {/* Scrollable content */}
-                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                  {/* Name */}
-                  <h1 className="text-xl md:text-2xl font-bold text-white leading-tight">{name}</h1>
+                  {/* Specifications */}
+                  {product.specifications && Object.keys(product.specifications).length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-neutral-200">Especificaciones</h4>
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        {Object.entries(product.specifications).map(([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <dt className="text-neutral-400">{key}:</dt>
+                            <dd className="text-neutral-300 font-medium">{String(value)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
 
-                  {/* Short Description */}
-                  <p className="text-neutral-400 text-sm">{shortDescription}</p>
 
-                  {/* Info banner */}
-                  <div className="bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg p-2.5">
-                    <p className="text-xs text-neutral-300">
-                      Este producto requiere cotización personalizada.
-                    </p>
-                  </div>
+                  {/* Sale Mode Info Banner */}
+                  {(product.sale_mode === 'QUOTE' || product.sale_mode === 'HYBRID') && (
+                    <div className="bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg p-2.5">
+                      <p className="text-xs text-neutral-300">
+                        Este producto incluye opción de {product.sale_mode === 'QUOTE' ? 'cotización personalizada' : 'cotización personalizada'}.
+                      </p>
+                    </div>
+                  )}
 
+                  {/* Price Display for BUY mode */}
+                  {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && product.base_price && (
+                    <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 space-y-2">
+                      {product.compare_at_price && Number(product.compare_at_price) > Number(product.base_price) && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-neutral-500 line-through">
+                            ${parseFloat(product.compare_at_price).toLocaleString('es-MX')}
+                          </span>
+                          <Badge variant="success">Oferta</Badge>
+                        </div>
+                      )}
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm text-neutral-400">Precio:</span>
+                        <span className="text-lg font-semibold text-white">
+                          ${parseFloat(product.base_price).toLocaleString('es-MX')}
+                        </span>
+                      </div>
+                      <div className="border-t border-neutral-700 pt-2 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-neutral-400">IVA (16%):</span>
+                          <span className="text-neutral-300">
+                            ${(parseFloat(product.base_price) * 0.16).toLocaleString('es-MX', { maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span className="text-neutral-300">Total:</span>
+                          <span className="text-cyan-400">
+                            ${(parseFloat(product.base_price) * 1.16).toLocaleString('es-MX', { maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {/* Trust badges */}
                   <div className="flex gap-4">
                     <div className="flex items-center gap-1.5 text-neutral-400">
@@ -225,7 +285,33 @@ export default function ProductDetailPage() {
 
                 {/* Actions - Fixed at bottom */}
                 <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
-                  <Link href={`/?producto=${product.id}#cotizar`} className="block">
+                  {/* Direct Purchase Button (BUY or HYBRID mode) */}
+                  {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
+                    <Link href={`/checkout?producto=${product.id}`} className="block">
+                      <Button
+                        size="lg"
+                        className="w-full font-semibold bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Comprar ahora
+                      </Button>
+                    </Link>
+                  )}
+
+                  {/* Quote Request Button (QUOTE or HYBRID mode) */}
+                  {(product.sale_mode === 'QUOTE' || product.sale_mode === 'HYBRID') && (
+                    <Link href={`/?producto=${product.id}#cotizar`} className="block">
+                      <Button
+                        size="lg"
+                        className="w-full font-semibold bg-cmyk-cyan hover:bg-cmyk-cyan/90 text-white"
+                        leftIcon={<DocumentTextIcon className="h-5 w-5" />}
+                      >
+                        Solicitar cotización
+                      </Button>
+                    </Link>
+                  )}
+
+                  {/* Fallback for QUOTE only */}
+                  {product.sale_mode === 'QUOTE' && (
                     <Button
                       size="lg"
                       className="w-full font-semibold bg-cmyk-cyan hover:bg-cmyk-cyan/90 text-white"
@@ -233,7 +319,7 @@ export default function ProductDetailPage() {
                     >
                       Solicitar cotización
                     </Button>
-                  </Link>
+                  )}
 
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" className="flex-1 text-xs" leftIcon={<HeartIcon className="h-4 w-4" />}>
@@ -257,39 +343,75 @@ export default function ProductDetailPage() {
         title="Detalles del producto"
         size="xl"
       >
-        <div className="space-y-6 max-h-[70vh] overflow-y-auto">
-          {/* Description */}
-          {description && (
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-3">Descripción</h3>
-              <div className="prose prose-invert prose-sm max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }} />
-              </div>
+      </Modal>
+
+      {/* Image Fullscreen Modal */}
+      <Modal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        size="full"
+        className="max-w-5xl"
+      >
+        <div className="relative w-full h-[600px] bg-black flex items-center justify-center">
+          <Image
+            src={images[selectedImage]?.image || '/images/placeholder-product.jpg'}
+            alt={images[selectedImage]?.alt_text || name}
+            fill
+            className="object-contain p-4"
+            priority
+            sizes="100vw"
+          />
+
+          {/* Navigation Buttons */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Imagen anterior"
+              >
+                <ChevronLeftIcon className="h-6 w-6" />
+              </button>
+              <button
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Siguiente imagen"
+              >
+                <ChevronRightIcon className="h-6 w-6" />
+              </button>
+            </>
+          )}
+
+          {/* Image Counter */}
+          {images.length > 1 && (
+            <div className="absolute bottom-4 right-4 text-sm text-white bg-black/50 px-3 py-1 rounded">
+              {selectedImage + 1} / {images.length}
             </div>
           )}
 
-          {/* Specifications */}
-          {product.specifications && Object.keys(product.specifications).length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-3">Especificaciones</h3>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {Object.entries(product.specifications).map(([key, value]) => (
-                  <div key={key} className="flex justify-between col-span-2 sm:col-span-1 py-1 border-b border-neutral-800">
-                    <dt className="text-neutral-400 text-sm">{key}</dt>
-                    <dd className="text-white text-sm font-medium">{String(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
-
-          {/* Installation Info */}
-          {installationInfo && (
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-3">Información de instalación</h3>
-              <div className="prose prose-invert prose-sm max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(installationInfo) }} />
-              </div>
+          {/* Thumbnail Strip */}
+          {images.length > 1 && (
+            <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-2 flex gap-2 overflow-x-auto justify-center">
+              {images.map((img, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedImage(index)}
+                  className={cn(
+                    'relative flex-shrink-0 w-16 h-16 rounded overflow-hidden transition-all',
+                    selectedImage === index
+                      ? 'ring-2 ring-cyan-400 opacity-100'
+                      : 'opacity-50 hover:opacity-75'
+                  )}
+                >
+                  <Image
+                    src={img.image}
+                    alt={`Miniatura ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                </button>
+              ))}
             </div>
           )}
         </div>

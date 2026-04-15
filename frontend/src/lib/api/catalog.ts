@@ -192,8 +192,10 @@ export async function getCategoryTree(): Promise<Category[]> {
 /**
  * Get all categories (flat).
  */
-export async function getCategories(): Promise<PaginatedResponse<Category>> {
-  return apiClient.get<PaginatedResponse<Category>>('/catalog/categories/');
+export async function getCategories(type?: 'product' | 'service'): Promise<PaginatedResponse<Category>> {
+  const params: Record<string, string> = {};
+  if (type) params.type = type;
+  return apiClient.get<PaginatedResponse<Category>>('/catalog/categories/', params);
 }
 
 /**
