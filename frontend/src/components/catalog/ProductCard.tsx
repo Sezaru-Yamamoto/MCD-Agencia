@@ -21,10 +21,21 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
   const name = locale === 'en' && product.name_en ? product.name_en : product.name;
 
   const imageUrl = product.primary_image?.image || '/images/logo.png';
+  const isDirectPurchase = product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID';
+  const basePrice = Number(product.base_price || 0);
+  const taxAmount = basePrice * 0.16;
+  const totalWithTax = basePrice + taxAmount;
+
+  const formatMx = (value: number) =>
+    new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      maximumFractionDigits: 2,
+    }).format(value);
 
   const handleQuote = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Redirigir a la página de detalle para solicitar cotización
+    // Redirige al detalle para completar compra o cotización.
     router.push(`/catalogo/${product.category?.slug || 'productos'}/${product.slug}`);
   };
 
@@ -57,17 +68,26 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
               {product.category && (
                 <p className="text-xs text-neutral-500 mt-0.5">{product.category.name}</p>
               )}
+              {isDirectPurchase && basePrice > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-xs text-neutral-300">Precio: <span className="font-medium text-white">{formatMx(basePrice)}</span></p>
+                  <p className="text-xs text-neutral-400">IVA: {formatMx(taxAmount)}</p>
+                  <p className="text-xs text-cyan-400 font-semibold">Total: {formatMx(totalWithTax)}</p>
+                </div>
+              )}
             </div>
 
             {/* Footer: Button */}
             <div className="flex items-end justify-end gap-2 mt-2">
               <Button
                 size="xs"
-                className="bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs px-3 py-1.5"
+                className={isDirectPurchase
+                  ? 'bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5'
+                  : 'bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs px-3 py-1.5'}
                 onClick={handleQuote}
               >
                 <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-                Cotizar
+                {isDirectPurchase ? 'Comprar' : 'Cotizar'}
               </Button>
             </div>
           </div>
@@ -107,15 +127,25 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             <p className="text-xs text-neutral-500 mt-1">{product.category.name}</p>
           )}
 
+          {isDirectPurchase && basePrice > 0 && (
+            <div className="mt-2 space-y-0.5">
+              <p className="text-xs text-neutral-300">Precio: <span className="font-medium text-white">{formatMx(basePrice)}</span></p>
+              <p className="text-xs text-neutral-400">IVA: {formatMx(taxAmount)}</p>
+              <p className="text-xs text-cyan-400 font-semibold">Total: {formatMx(totalWithTax)}</p>
+            </div>
+          )}
+
           {/* Action Button - Minimal */}
           <div className="mt-3">
             <Button
               size="xs"
-              className="w-full bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs py-1.5"
+              className={isDirectPurchase
+                ? 'w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5'
+                : 'w-full bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs py-1.5'}
               onClick={handleQuote}
             >
               <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-              Cotizar
+              {isDirectPurchase ? 'Comprar' : 'Cotizar'}
             </Button>
           </div>
         </div>

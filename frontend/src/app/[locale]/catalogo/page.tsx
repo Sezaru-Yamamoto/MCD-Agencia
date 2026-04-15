@@ -230,8 +230,8 @@ export default function CatalogPage() {
             {/* Info Banner */}
             <div className="bg-cmyk-cyan/10 border border-cmyk-cyan/30 rounded-lg p-4 mb-6">
               <p className="text-neutral-300 text-sm">
-                Todos nuestros productos y servicios requieren cotización personalizada.
-                Selecciona el producto de tu interés y solicita tu presupuesto sin compromiso.
+                Encontrarás productos de compra directa y también productos cotizables.
+                En compra directa verás precio, IVA y total; en servicios cotizables podrás solicitar presupuesto.
               </p>
             </div>
 
