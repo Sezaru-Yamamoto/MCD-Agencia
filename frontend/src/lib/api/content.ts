@@ -484,7 +484,7 @@ export async function getBranches(): Promise<Branch[]> {
   };
 
   return cacheFirstFetch(
-    'branches',
+    'branches-v2',
     async () => {
       const allBranches: Branch[] = [];
       let endpoint: string | null = '/content/branches/';

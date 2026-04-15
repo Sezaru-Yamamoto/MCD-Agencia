@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -60,10 +61,17 @@ const PAYMENT_METHODS = [
     description: 'Crédito y débito',
     icon: CreditCardIcon,
   },
+  {
+    id: 'bank_transfer',
+    name: 'Transferencia',
+    description: 'Validación manual por administrador',
+    icon: BuildingLibraryIcon,
+  },
 ];
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const locale = useLocale();
   const { cart, isLoading: isCartLoading, refreshCart } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { openPrivacy, openTerms } = useLegalModal();
@@ -157,8 +165,15 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!selectedAddressId) {
+    const resolvedShippingAddressId = selectedAddressId || addresses[0]?.id || null;
+
+    if (deliveryMethod === 'shipping' && !resolvedShippingAddressId) {
       toast.error('Selecciona una dirección de envío');
+      return;
+    }
+
+    if (deliveryMethod === 'pickup' && !resolvedShippingAddressId) {
+      toast.error('Para finalizar tu pedido, agrega primero una dirección en tu cuenta.');
       return;
     }
 
@@ -180,9 +195,9 @@ export default function CheckoutPage() {
 
       // Create the order first
       const order = await createOrder({
-        shipping_address_id: selectedAddressId,
+        shipping_address_id: resolvedShippingAddressId as string,
         use_shipping_as_billing: true,
-        payment_method: normalizedPaymentMethod as 'mercadopago' | 'paypal',
+        payment_method: normalizedPaymentMethod as 'mercadopago' | 'paypal' | 'bank_transfer',
         delivery_method: deliveryMethod,
         pickup_branch_id: deliveryMethod === 'pickup' ? selectedPickupBranchId || undefined : undefined,
         shipping_fee: shippingFee.toFixed(2),
@@ -203,6 +218,9 @@ export default function CheckoutPage() {
       } else if (normalizedPaymentMethod === 'paypal') {
         const paypalOrder = await initiatePayPalPayment(order.id);
         window.location.href = paypalOrder.approval_url;
+      } else if (normalizedPaymentMethod === 'bank_transfer') {
+        toast.success('Orden creada. Completa tu transferencia desde el detalle del pedido.');
+        router.push(`/${locale}/mi-cuenta/pedidos/${order.id}`);
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -309,54 +327,64 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <TruckIcon className="h-6 w-6 text-cyan-400" />
-                  Dirección de envío
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsAddressModalOpen(true)}
-                >
-                  + Agregar nueva
-                </Button>
-              </div>
-
-              {addresses.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-neutral-400 mb-4">No tienes direcciones guardadas</p>
-                  <Button onClick={() => setIsAddressModalOpen(true)}>
-                    Agregar dirección
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {addresses.map((address) => (
-                    <button
-                      key={address.id}
-                      onClick={() => setSelectedAddressId(address.id)}
-                      className={cn(
-                        'text-left p-4 rounded-lg border transition-colors',
-                        selectedAddressId === address.id
-                          ? 'border-cyan-500 bg-cyan-500/10'
-                          : 'border-neutral-700 hover:border-neutral-600'
-                      )}
+              {deliveryMethod === 'shipping' && (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <TruckIcon className="h-6 w-6 text-cyan-400" />
+                      Dirección de envío
+                    </h2>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsAddressModalOpen(true)}
                     >
-                      <p className="text-white font-medium">{address.name}</p>
-                      <p className="text-sm text-neutral-400 mt-1">
-                        {address.street} {address.exterior_number}
-                        {address.interior_number && `, Int. ${address.interior_number}`}
-                      </p>
-                      <p className="text-sm text-neutral-400">
-                        {address.neighborhood}, {address.city}
-                      </p>
-                      <p className="text-sm text-neutral-400">
-                        {address.state}, CP {address.postal_code}
-                      </p>
-                      <p className="text-sm text-neutral-400 mt-1">{address.phone}</p>
-                    </button>
-                  ))}
+                      + Agregar nueva
+                    </Button>
+                  </div>
+
+                  {addresses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-neutral-400 mb-4">No tienes direcciones guardadas</p>
+                      <Button onClick={() => setIsAddressModalOpen(true)}>
+                        Agregar dirección
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {addresses.map((address) => (
+                        <button
+                          key={address.id}
+                          onClick={() => setSelectedAddressId(address.id)}
+                          className={cn(
+                            'text-left p-4 rounded-lg border transition-colors',
+                            selectedAddressId === address.id
+                              ? 'border-cyan-500 bg-cyan-500/10'
+                              : 'border-neutral-700 hover:border-neutral-600'
+                          )}
+                        >
+                          <p className="text-white font-medium">{address.name}</p>
+                          <p className="text-sm text-neutral-400 mt-1">
+                            {address.street} {address.exterior_number}
+                            {address.interior_number && `, Int. ${address.interior_number}`}
+                          </p>
+                          <p className="text-sm text-neutral-400">
+                            {address.neighborhood}, {address.city}
+                          </p>
+                          <p className="text-sm text-neutral-400">
+                            {address.state}, CP {address.postal_code}
+                          </p>
+                          <p className="text-sm text-neutral-400 mt-1">{address.phone}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {deliveryMethod === 'pickup' && (
+                <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 text-sm text-neutral-300">
+                  Has elegido recoger en sucursal. La dirección de envío no se mostrará para este método.
                 </div>
               )}
             </Card>
@@ -479,7 +507,11 @@ export default function CheckoutPage() {
                 size="lg"
                 onClick={handlePlaceOrder}
                 isLoading={isSubmitting}
-                disabled={!selectedAddressId || !termsAccepted}
+                disabled={
+                  (deliveryMethod === 'shipping' && !selectedAddressId) ||
+                  (deliveryMethod === 'pickup' && !(selectedAddressId || addresses[0]?.id)) ||
+                  !termsAccepted
+                }
                 leftIcon={<LockClosedIcon className="h-5 w-5" />}
               >
                 {`Pagar ${formatPrice(checkoutTotal)}`}
