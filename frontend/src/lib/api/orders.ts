@@ -19,6 +19,9 @@ export interface CartItem {
   unit_price: string;
   line_total: string;
   product_name: string;
+  product_slug?: string;
+  product_image?: string | null;
+  variant_display_name?: string;
 }
 
 export interface Cart {
@@ -134,6 +137,9 @@ export interface CreateOrderData {
   billing_address_id?: string;
   use_shipping_as_billing?: boolean;
   payment_method: 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash';
+  delivery_method?: 'pickup' | 'shipping';
+  pickup_branch_id?: string;
+  shipping_fee?: string;
   notes?: string;
   terms_accepted: boolean;
 }

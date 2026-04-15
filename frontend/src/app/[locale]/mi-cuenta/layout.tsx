@@ -7,6 +7,7 @@ import { useLocale } from 'next-intl';
 import {
   UserIcon,
   ShoppingBagIcon,
+  HeartIcon,
   DocumentTextIcon,
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
@@ -58,6 +59,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
     return [
       { href: `/${locale}/mi-cuenta`, label: 'Mi Perfil', icon: UserIcon, exact: true },
       { href: `/${locale}/mi-cuenta/pedidos`, label: 'Mis Pedidos', icon: ShoppingBagIcon },
+      { href: `/${locale}/mi-cuenta/favoritos`, label: 'Mis Favoritos', icon: HeartIcon },
       { href: `/${locale}/mi-cuenta/cotizaciones`, label: 'Mis Cotizaciones', icon: DocumentTextIcon },
     ];
   }, [locale, isStaff]);

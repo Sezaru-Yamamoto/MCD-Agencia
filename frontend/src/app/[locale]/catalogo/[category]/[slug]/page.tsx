@@ -16,6 +16,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
+import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 
 import { getProductBySlug, ProductVariant } from '@/lib/api/catalog';
 import { useCart } from '@/contexts/CartContext';
@@ -428,8 +429,17 @@ export default function ProductDetailPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="flex-1 text-xs"
-                      leftIcon={<HeartIcon className="h-4 w-4" />}
+                      className={cn(
+                        'flex-1 text-xs border transition-colors',
+                        isSaved
+                          ? 'text-red-300 border-red-500/40 bg-red-500/10 hover:bg-red-500/20'
+                          : 'text-neutral-300 border-neutral-700 hover:bg-neutral-800'
+                      )}
+                      leftIcon={
+                        isSaved
+                          ? <HeartIconSolid className="h-4 w-4 text-red-400" />
+                          : <HeartIcon className="h-4 w-4" />
+                      }
                       onClick={handleSaveProduct}
                     >
                       {isSaved ? 'Guardado' : 'Guardar'}

@@ -143,7 +143,7 @@ export default function CartPage() {
                         {/* Image */}
                         <div className="relative h-24 w-24 md:h-32 md:w-32 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
                           <Image
-                            src={item.variant.images?.[0]?.image || '/images/logo.png'}
+                            src={item.product_image || item.variant.images?.[0]?.image || '/images/logo.png'}
                             alt={item.product_name}
                             fill
                             className="object-cover"
@@ -158,7 +158,7 @@ export default function CartPage() {
                                 {item.product_name}
                               </h3>
                               <p className="text-sm text-neutral-400 mt-1">
-                                Variante: {item.variant.name}
+                                Variante: {item.variant_display_name || item.variant.name || 'Base'}
                               </p>
                               {item.variant.sku && (
                                 <p className="text-xs text-neutral-500 mt-1">

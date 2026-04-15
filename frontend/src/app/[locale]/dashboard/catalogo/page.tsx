@@ -35,7 +35,6 @@ const SALE_MODE_OPTIONS = [
   { value: '', label: 'Todos los modos' },
   { value: 'BUY', label: 'Compra directa' },
   { value: 'QUOTE', label: 'Cotizable' },
-  { value: 'HYBRID', label: 'Ambos' },
 ];
 
 const TYPE_OPTIONS = [
@@ -70,7 +69,7 @@ interface ProductFormData {
   short_description: string;
   description: string;
   category_id: string;
-  sale_mode: 'BUY' | 'QUOTE' | 'HYBRID';
+  sale_mode: 'BUY' | 'QUOTE';
   payment_mode: 'FULL' | 'DEPOSIT_ALLOWED';
   base_price: string;
   compare_at_price: string;
@@ -134,7 +133,7 @@ export default function AdminCatalogPage() {
   const { data: productsData, isLoading } = useQuery({
     queryKey: ['admin-products', filters],
     queryFn: () => getProducts({
-      sale_mode: filters.sale_mode as 'BUY' | 'QUOTE' | 'HYBRID' | undefined,
+      sale_mode: filters.sale_mode as 'BUY' | 'QUOTE' | undefined,
       type: filters.type as 'product' | 'service' | undefined,
       search: filters.search || undefined,
       page: filters.page,
@@ -299,7 +298,7 @@ export default function AdminCatalogPage() {
       short_description: product.short_description,
       description: product.short_description,
       category_id: product.category?.id || '',
-      sale_mode: product.sale_mode,
+      sale_mode: product.sale_mode === 'HYBRID' ? 'BUY' : product.sale_mode,
       payment_mode: 'FULL',
       base_price: product.base_price,
       compare_at_price: product.compare_at_price || '',
@@ -379,7 +378,7 @@ export default function AdminCatalogPage() {
     e.preventDefault();
 
     const isCreate = !editingProduct;
-    const isPurchasable = formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID';
+    const isPurchasable = formData.sale_mode === 'BUY';
     const basePrice = Number(formData.base_price || '0');
     const comparePrice = Number(formData.compare_at_price || '0');
 
@@ -801,17 +800,16 @@ export default function AdminCatalogPage() {
               </label>
               <Select
                 value={formData.sale_mode}
-                onChange={(value) => setFormData({ ...formData, sale_mode: value as 'BUY' | 'QUOTE' | 'HYBRID' })}
+                onChange={(value) => setFormData({ ...formData, sale_mode: value as 'BUY' | 'QUOTE' })}
                 options={[
                   { value: 'BUY', label: 'Compra directa' },
                   { value: 'QUOTE', label: 'Cotizable' },
-                  { value: 'HYBRID', label: 'Ambos' },
                 ]}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">
-                Precio base {(formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID') ? '*' : ''}
+                Precio base {formData.sale_mode === 'BUY' ? '*' : ''}
               </label>
               <Input
                 type="number"
@@ -820,12 +818,12 @@ export default function AdminCatalogPage() {
                 onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
                 placeholder="0.00"
                 disabled={formData.sale_mode === 'QUOTE'}
-                required={formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID'}
+                required={formData.sale_mode === 'BUY'}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">
-                Precio comparación {(formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID') ? '*' : ''}
+                Precio comparación {formData.sale_mode === 'BUY' ? '*' : ''}
               </label>
               <Input
                 type="number"
@@ -834,7 +832,7 @@ export default function AdminCatalogPage() {
                 onChange={(e) => setFormData({ ...formData, compare_at_price: e.target.value })}
                 placeholder="0.00"
                 disabled={formData.sale_mode === 'QUOTE'}
-                required={formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID'}
+                required={formData.sale_mode === 'BUY'}
               />
               <p className="text-xs text-neutral-500 mt-1">
                 Precio comparación: precio de referencia/lista para mostrar ahorro u oferta. Debe ser mayor o igual al precio base.

@@ -21,6 +21,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { getAddresses, createAddress, createOrder, Address } from '@/lib/api/orders';
+import { getBranches, type Branch } from '@/lib/api/content';
 import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
 import { Button, Input, Card, LoadingPage, Modal } from '@/components/ui';
 import { formatPrice, cn } from '@/lib/utils';
@@ -64,14 +65,19 @@ const PAYMENT_METHODS = [
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, isLoading: isCartLoading, refreshCart } = useCart();
-  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { openPrivacy, openTerms } = useLegalModal();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('mercadopago');
+  const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
+  const [selectedPickupBranchId, setSelectedPickupBranchId] = useState<string | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  const LOCAL_SHIPPING_FEE = 120;
+  const OUTSIDE_SHIPPING_FEE = 260;
 
   const { data: addressesData, refetch: refetchAddresses } = useQuery({
     queryKey: ['addresses'],
@@ -80,6 +86,12 @@ export default function CheckoutPage() {
   });
 
   const addresses = addressesData?.results || [];
+
+  const { data: branches = [] } = useQuery({
+    queryKey: ['branches-checkout'],
+    queryFn: getBranches,
+    enabled: isAuthenticated,
+  });
 
   const {
     register,
@@ -105,6 +117,28 @@ export default function CheckoutPage() {
     }
   }, [addresses, selectedAddressId]);
 
+  // Default pickup branch when user switches to pickup and no branch is selected yet.
+  useEffect(() => {
+    if (deliveryMethod === 'pickup' && !selectedPickupBranchId && branches.length > 0) {
+      setSelectedPickupBranchId(branches[0].id);
+    }
+  }, [deliveryMethod, selectedPickupBranchId, branches]);
+
+  const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
+
+  const isLocalShipping =
+    !!selectedAddress &&
+    branches.some((branch) => branch.city?.trim().toLowerCase() === selectedAddress.city?.trim().toLowerCase());
+
+  const shippingFee =
+    deliveryMethod === 'pickup'
+      ? 0
+      : isLocalShipping
+      ? LOCAL_SHIPPING_FEE
+      : OUTSIDE_SHIPPING_FEE;
+
+  const checkoutTotal = Number(cart.total) + shippingFee;
+
   const handleAddAddress = async (data: AddressFormData) => {
     try {
       await createAddress({
@@ -128,6 +162,11 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (deliveryMethod === 'pickup' && !selectedPickupBranchId) {
+      toast.error('Selecciona una sucursal para recoger tu pedido');
+      return;
+    }
+
     if (!termsAccepted) {
       toast.error('Debes aceptar los términos y condiciones');
       return;
@@ -144,6 +183,9 @@ export default function CheckoutPage() {
         shipping_address_id: selectedAddressId,
         use_shipping_as_billing: true,
         payment_method: normalizedPaymentMethod as 'mercadopago' | 'paypal',
+        delivery_method: deliveryMethod,
+        pickup_branch_id: deliveryMethod === 'pickup' ? selectedPickupBranchId || undefined : undefined,
+        shipping_fee: shippingFee.toFixed(2),
         terms_accepted: true,
       });
 
@@ -207,6 +249,66 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Shipping Address */}
             <Card>
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
+                <TruckIcon className="h-6 w-6 text-cyan-400" />
+                Método de entrega
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod('shipping')}
+                  className={cn(
+                    'text-left p-4 rounded-lg border transition-colors',
+                    deliveryMethod === 'shipping'
+                      ? 'border-cyan-500 bg-cyan-500/10'
+                      : 'border-neutral-700 hover:border-neutral-600'
+                  )}
+                >
+                  <p className="text-white font-medium">Envío a domicilio</p>
+                  <p className="text-sm text-neutral-400 mt-1">Costo de envío calculado por zona</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod('pickup')}
+                  className={cn(
+                    'text-left p-4 rounded-lg border transition-colors',
+                    deliveryMethod === 'pickup'
+                      ? 'border-cyan-500 bg-cyan-500/10'
+                      : 'border-neutral-700 hover:border-neutral-600'
+                  )}
+                >
+                  <p className="text-white font-medium">Recoger en sucursal</p>
+                  <p className="text-sm text-neutral-400 mt-1">Sin costo de envío</p>
+                </button>
+              </div>
+
+              {deliveryMethod === 'pickup' && (
+                <div className="space-y-3 mb-6">
+                  <p className="text-sm text-neutral-300">Selecciona sucursal</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {branches.map((branch: Branch) => (
+                      <button
+                        key={branch.id}
+                        type="button"
+                        onClick={() => setSelectedPickupBranchId(branch.id)}
+                        className={cn(
+                          'text-left p-4 rounded-lg border transition-colors',
+                          selectedPickupBranchId === branch.id
+                            ? 'border-cyan-500 bg-cyan-500/10'
+                            : 'border-neutral-700 hover:border-neutral-600'
+                        )}
+                      >
+                        <p className="text-white font-medium">{branch.name}</p>
+                        <p className="text-sm text-neutral-400 mt-1">{branch.full_address}</p>
+                        {branch.phone && <p className="text-xs text-neutral-500 mt-1">Tel. {branch.phone}</p>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                   <TruckIcon className="h-6 w-6 text-cyan-400" />
@@ -322,7 +424,7 @@ export default function CheckoutPage() {
                   <div key={item.id} className="flex gap-3">
                     <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
                       <Image
-                        src={item.variant.images?.[0]?.image || '/images/logo.png'}
+                        src={item.product_image || item.variant.images?.[0]?.image || '/images/logo.png'}
                         alt={item.product_name}
                         fill
                         className="object-cover"
@@ -333,7 +435,7 @@ export default function CheckoutPage() {
                         {item.product_name}
                       </p>
                       <p className="text-xs text-neutral-400">
-                        {item.variant.name} × {item.quantity}
+                        {(item.variant_display_name || item.variant.name) || 'Base'} x {item.quantity}
                       </p>
                     </div>
                     <p className="text-white text-sm font-medium">
@@ -355,13 +457,21 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-neutral-400">
                   <span>Envío</span>
-                  <span>Por calcular</span>
+                  <span>{shippingFee === 0 ? 'Gratis' : formatPrice(shippingFee)}</span>
                 </div>
                 <div className="flex justify-between text-xl font-bold text-white pt-2 border-t border-neutral-800">
                   <span>Total</span>
-                  <span>{formatPrice(cart.total)}</span>
+                  <span>{formatPrice(checkoutTotal)}</span>
                 </div>
               </div>
+
+              <p className="text-xs text-neutral-500 mt-3">
+                {deliveryMethod === 'pickup'
+                  ? 'Recogida en sucursal: sin costo de envío.'
+                  : isLocalShipping
+                  ? `Envío local: ${formatPrice(LOCAL_SHIPPING_FEE)}.`
+                  : `Envío fuera de zona local: ${formatPrice(OUTSIDE_SHIPPING_FEE)}.`}
+              </p>
 
               {/* Place Order */}
               <Button
@@ -372,7 +482,7 @@ export default function CheckoutPage() {
                 disabled={!selectedAddressId || !termsAccepted}
                 leftIcon={<LockClosedIcon className="h-5 w-5" />}
               >
-                {`Pagar ${formatPrice(cart.total)}`}
+                {`Pagar ${formatPrice(checkoutTotal)}`}
               </Button>
 
               <p className="text-xs text-neutral-500 text-center mt-4">

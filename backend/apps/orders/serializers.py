@@ -72,18 +72,39 @@ class CartItemSerializer(serializers.ModelSerializer):
         max_digits=12, decimal_places=2, read_only=True
     )
     product_name = serializers.SerializerMethodField()
+    product_slug = serializers.SerializerMethodField()
+    product_image = serializers.SerializerMethodField()
+    variant_display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
         fields = [
             'id', 'variant', 'variant_id', 'quantity',
-            'unit_price', 'line_total', 'product_name'
+            'unit_price', 'line_total', 'product_name',
+            'product_slug', 'product_image', 'variant_display_name'
         ]
         read_only_fields = ['id', 'unit_price', 'line_total']
 
     def get_product_name(self, obj):
         """Get parent product name."""
         return obj.variant.catalog_item.name
+
+    def get_product_slug(self, obj):
+        """Get parent product slug."""
+        return obj.variant.catalog_item.slug
+
+    def get_product_image(self, obj):
+        """Get catalog item's primary image URL (or first image)."""
+        catalog_item = obj.variant.catalog_item
+        primary = catalog_item.images.filter(is_primary=True).first() or catalog_item.images.first()
+        return primary.image.url if primary and primary.image else None
+
+    def get_variant_display_name(self, obj):
+        """Friendly variant label for UI."""
+        name = (obj.variant.name or '').strip()
+        if name.lower() == 'default' or not name:
+            return 'Base'
+        return name
 
     def validate_variant_id(self, value):
         """Validate variant exists and is active."""
@@ -337,6 +358,19 @@ class CreateOrderSerializer(serializers.Serializer):
         choices=Order.PAYMENT_METHOD_CHOICES,
         required=True
     )
+    delivery_method = serializers.ChoiceField(
+        choices=[Order.DELIVERY_PICKUP, Order.DELIVERY_SHIPPING],
+        required=False,
+        default=Order.DELIVERY_SHIPPING,
+    )
+    pickup_branch_id = serializers.UUIDField(required=False, allow_null=True)
+    shipping_fee = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0,
+        min_value=0,
+    )
     notes = serializers.CharField(required=False, allow_blank=True)
     terms_accepted = serializers.BooleanField(required=True)
 
@@ -362,7 +396,7 @@ class CreateOrderSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        """Validate cart has items."""
+        """Validate cart, billing behavior, and delivery constraints."""
         user = self.context['request'].user
         try:
             cart = Cart.objects.get(user=user)
@@ -374,6 +408,18 @@ class CreateOrderSerializer(serializers.Serializer):
         # Use shipping as billing if specified
         if attrs.get('use_shipping_as_billing'):
             attrs['billing_address_id'] = attrs['shipping_address_id']
+
+        delivery_method = attrs.get('delivery_method', Order.DELIVERY_SHIPPING)
+        pickup_branch_id = attrs.get('pickup_branch_id')
+
+        if delivery_method == Order.DELIVERY_PICKUP:
+            if not pickup_branch_id:
+                raise serializers.ValidationError({'pickup_branch_id': _('Pickup branch is required for pickup delivery.')})
+
+            from apps.content.models import Branch
+
+            if not Branch.objects.filter(id=pickup_branch_id, is_active=True).exists():
+                raise serializers.ValidationError({'pickup_branch_id': _('Invalid pickup branch.')})
 
         return attrs
 

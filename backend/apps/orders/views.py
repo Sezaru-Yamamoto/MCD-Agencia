@@ -23,6 +23,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.catalog.models import ProductVariant
+from apps.content.models import Branch
 from apps.core.pagination import StandardPagination
 from apps.core.views import is_internal_user
 from apps.inventory.models import InventoryMovement
@@ -326,7 +327,15 @@ class OrderViewSet(viewsets.ModelViewSet):
             subtotal = sum(item.line_total for item in cart.items.all())
             tax_rate = Decimal(str(settings.TAX_RATE))
             tax_amount = subtotal * tax_rate
-            total = subtotal + tax_amount
+            delivery_method = serializer.validated_data.get('delivery_method', Order.DELIVERY_SHIPPING)
+            shipping_fee = serializer.validated_data.get('shipping_fee', Decimal('0'))
+            if delivery_method == Order.DELIVERY_PICKUP:
+                shipping_fee = Decimal('0')
+            total = subtotal + tax_amount + shipping_fee
+
+            pickup_branch = None
+            if delivery_method == Order.DELIVERY_PICKUP and serializer.validated_data.get('pickup_branch_id'):
+                pickup_branch = Branch.objects.filter(id=serializer.validated_data['pickup_branch_id'], is_active=True).first()
 
             # Create order
             order = Order.objects.create(
@@ -339,7 +348,13 @@ class OrderViewSet(viewsets.ModelViewSet):
                 tax_amount=tax_amount,
                 total=total,
                 payment_method=serializer.validated_data['payment_method'],
-                notes=serializer.validated_data.get('notes', '')
+                notes=serializer.validated_data.get('notes', ''),
+                delivery_method=delivery_method,
+                pickup_branch=pickup_branch,
+                delivery_address={
+                    'shipping_fee': str(shipping_fee),
+                    'shipping_address_id': str(shipping_address.id),
+                },
             )
 
             # Create order lines
