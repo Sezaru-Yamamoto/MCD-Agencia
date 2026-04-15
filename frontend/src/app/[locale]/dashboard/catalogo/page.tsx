@@ -158,6 +158,16 @@ export default function AdminCatalogPage() {
     enabled: !!editingProduct,
   });
 
+  useEffect(() => {
+    if (!editingProduct || !editingProductDetail || !isModalOpen) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      description: editingProductDetail.description || prev.description,
+      short_description: editingProductDetail.short_description || prev.short_description,
+    }));
+  }, [editingProduct, editingProductDetail, isModalOpen]);
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: async (data: CreateProductData) => {
@@ -287,7 +297,7 @@ export default function AdminCatalogPage() {
       type: product.type,
       name: product.name,
       short_description: product.short_description,
-      description: '',
+      description: product.short_description,
       category_id: product.category?.id || '',
       sale_mode: product.sale_mode,
       payment_mode: 'FULL',
