@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
   const locale = useLocale();
   const router = useRouter();
   const { addItem } = useCart();
+  const [quantity, setQuantity] = useState(1);
 
   const name = locale === 'en' && product.name_en ? product.name_en : product.name;
 
@@ -64,8 +66,8 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
     }
 
     try {
-      await addItem(variantId, 1);
-      toast.success('Producto agregado al carrito');
+      await addItem(variantId, quantity);
+      toast.success(`Se agregaron ${quantity} unidad(es) al carrito`);
     } catch {
       toast.error('No se pudo agregar al carrito');
     }
@@ -87,6 +89,18 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
     } catch {
       toast.error('No se pudo procesar compra inmediata');
     }
+  };
+
+  const decreaseQuantity = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setQuantity((prev) => Math.max(1, prev - 1));
+  };
+
+  const increaseQuantity = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setQuantity((prev) => Math.min(99, prev + 1));
   };
 
   // LIST VIEW - Horizontal compact layout (MercadoLibre style)
@@ -131,6 +145,25 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             <div className="flex items-end justify-end gap-2 mt-2 flex-wrap">
               {isDirectPurchase ? (
                 <>
+                  <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8">
+                    <button
+                      type="button"
+                      onClick={decreaseQuantity}
+                      className="px-2 text-white bg-neutral-800 hover:bg-neutral-700"
+                      aria-label="Disminuir cantidad"
+                    >
+                      -
+                    </button>
+                    <span className="px-3 text-xs text-white bg-neutral-900 min-w-8 text-center">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={increaseQuantity}
+                      className="px-2 text-white bg-neutral-800 hover:bg-neutral-700"
+                      aria-label="Aumentar cantidad"
+                    >
+                      +
+                    </button>
+                  </div>
                   <Button
                     size="xs"
                     className="bg-neutral-700 hover:bg-neutral-600 text-white text-xs px-3 py-1.5"
@@ -206,6 +239,25 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
           <div className="mt-3 flex flex-col gap-2">
             {isDirectPurchase ? (
               <>
+                <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-9 w-full">
+                  <button
+                    type="button"
+                    onClick={decreaseQuantity}
+                    className="px-3 text-white bg-neutral-800 hover:bg-neutral-700"
+                    aria-label="Disminuir cantidad"
+                  >
+                    -
+                  </button>
+                  <span className="flex-1 text-sm text-white bg-neutral-900 text-center">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={increaseQuantity}
+                    className="px-3 text-white bg-neutral-800 hover:bg-neutral-700"
+                    aria-label="Aumentar cantidad"
+                  >
+                    +
+                  </button>
+                </div>
                 <Button
                   size="xs"
                   className="w-full bg-neutral-700 hover:bg-neutral-600 text-white text-xs py-1.5"
