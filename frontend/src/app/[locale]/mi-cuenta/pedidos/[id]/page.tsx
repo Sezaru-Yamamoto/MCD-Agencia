@@ -323,7 +323,18 @@ export default function OrderDetailPage() {
   const shippingAddressText = formatAddress(order.shipping_address);
   const paymentMethodText = toSafeText(order.payment_method);
   const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethodText] || paymentMethodText;
-  const canPay = ['pending_payment', 'partially_paid'].includes(order.status) && Number(order.balance_due) > 0;
+  const deliveryMethodFromNotes = (() => {
+    const notes = toSafeText(order.notes);
+    const match = notes.match(/Metodo de entrega:\s*(shipping|pickup|installation|digital|not_applicable)/i);
+    return (match?.[1] || '').toLowerCase();
+  })();
+
+  const resolvedDeliveryMethod = (toSafeText(order.delivery_method) || deliveryMethodFromNotes || '').toLowerCase();
+  const isManualPaymentMethod = paymentMethodText === 'bank_transfer' || paymentMethodText === 'cash';
+  const canPay =
+    ['pending_payment', 'partially_paid'].includes(order.status) &&
+    Number(order.balance_due) > 0 &&
+    isManualPaymentMethod;
   const shouldShowSelectedPaymentMethod = Boolean(paymentMethodText);
 
   const metadataRecords = orderLines
@@ -900,12 +911,12 @@ export default function OrderDetailPage() {
           )}
 
           {/* Delivery Method */}
-          {order.delivery_method && (
+          {resolvedDeliveryMethod && (
             <Card>
               <h3 className="text-lg font-semibold text-white mb-4">Método de Entrega</h3>
               <p className="text-white flex items-center gap-2">
-                <span>{DELIVERY_METHOD_ICONS[order.delivery_method as DeliveryMethod]}</span>
-                {DELIVERY_METHOD_LABELS[order.delivery_method as DeliveryMethod]?.es || order.delivery_method}
+                <span>{DELIVERY_METHOD_ICONS[resolvedDeliveryMethod as DeliveryMethod]}</span>
+                {DELIVERY_METHOD_LABELS[resolvedDeliveryMethod as DeliveryMethod]?.es || resolvedDeliveryMethod}
               </p>
               {order.pickup_branch_detail && (
                 <div className="mt-3">
@@ -913,13 +924,13 @@ export default function OrderDetailPage() {
                   <p className="text-white">{order.pickup_branch_detail.name} — {order.pickup_branch_detail.city}, {order.pickup_branch_detail.state}</p>
                 </div>
               )}
-              {order.delivery_address && Object.keys(order.delivery_address).length > 0 && (
+              {((order.delivery_address && Object.keys(order.delivery_address).length > 0) || shippingAddressText) && (
                 <div className="mt-3">
                   <p className="text-sm text-neutral-400">
-                    {order.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
+                    {resolvedDeliveryMethod === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
                   </p>
                   <p className="text-white text-sm">
-                    {[order.delivery_address.street || order.delivery_address.calle, order.delivery_address.exterior_number || order.delivery_address.numero_exterior, order.delivery_address.neighborhood || order.delivery_address.colonia, order.delivery_address.city || order.delivery_address.ciudad, order.delivery_address.state || order.delivery_address.estado, order.delivery_address.postal_code || order.delivery_address.codigo_postal].filter(Boolean).join(', ')}
+                    {[order.delivery_address?.street || order.delivery_address?.calle, order.delivery_address?.exterior_number || order.delivery_address?.numero_exterior, order.delivery_address?.neighborhood || order.delivery_address?.colonia, order.delivery_address?.city || order.delivery_address?.ciudad, order.delivery_address?.state || order.delivery_address?.estado, order.delivery_address?.postal_code || order.delivery_address?.codigo_postal].filter(Boolean).join(', ') || shippingAddressText}
                   </p>
                 </div>
               )}

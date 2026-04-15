@@ -475,6 +475,14 @@ export default function CheckoutPage() {
                       className="mt-1 w-full text-sm text-neutral-300 file:mr-3 file:rounded file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-white hover:file:bg-neutral-600"
                     />
                   </div>
+
+                  <div className="text-xs text-neutral-400 space-y-1">
+                    <p>Instrucciones:</p>
+                    <p>1) Realiza la transferencia desde tu banco.</p>
+                    <p>2) Captura la referencia exacta o sube imagen del comprobante.</p>
+                    <p>3) Debes proporcionar al menos uno: referencia o comprobante.</p>
+                    <p>4) Un administrador validará tu pago para continuar el proceso.</p>
+                  </div>
                 </div>
               )}
 
@@ -493,6 +501,14 @@ export default function CheckoutPage() {
                     )) : (
                       <p className="text-xs text-neutral-400">Cargando sucursales disponibles...</p>
                     )}
+                  </div>
+
+                  <div className="text-xs text-neutral-400 space-y-1">
+                    <p>Instrucciones:</p>
+                    <p>1) Acude a la sucursal de tu preferencia.</p>
+                    <p>2) Indica tu número de pedido al asesor.</p>
+                    <p>3) Realiza el pago en caja.</p>
+                    <p>4) El equipo administrativo confirmará el pago para iniciar producción.</p>
                   </div>
                 </div>
               )}
