@@ -18,6 +18,8 @@ import {
 
 import { Card, LoadingPage } from '@/components/ui';
 import { getWorkflowOverview, type WorkflowItem } from '@/lib/api/admin';
+import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
+import { getAdminQuoteRequests, getAdminQuotes, type Quote, type QuoteRequest } from '@/lib/api/quotes';
 import { getPaymentMethodLabel, requiresManualPayment } from '@/lib/workflow';
 
 const blockConfig: Record<string, {
@@ -108,6 +110,132 @@ export default function OperationsPage() {
   });
   const [weekCursor, setWeekCursor] = useState(() => new Date());
 
+  const getErrorStatus = (error: unknown): number | null => {
+    if (!error || typeof error !== 'object' || !('status' in error)) return null;
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : null;
+  };
+
+  const hasOverviewData = (data: Awaited<ReturnType<typeof getWorkflowOverview>> | null): boolean => {
+    if (!data) return false;
+    const blockItems = Object.values(data.blocks || {}).reduce((sum, items) => sum + (items?.length || 0), 0);
+    return blockItems > 0 || (data.calendar_events?.length || 0) > 0;
+  };
+
+  const buildFallbackWorkflowOverview = (
+    orders: OrderListItem[],
+    quoteRequests: QuoteRequest[],
+    quotes: Quote[],
+  ): Awaited<ReturnType<typeof getWorkflowOverview>> => {
+    const getOrderExtraDate = (order: OrderListItem, field: 'scheduled_date' | 'completed_at'): string | null => {
+      const value = (order as unknown as Record<string, unknown>)[field];
+      return typeof value === 'string' && value.length > 0 ? value : null;
+    };
+
+    const getOrderCustomerName = (order: OrderListItem) => {
+      const customer = (order as unknown as { customer?: { full_name?: string; email?: string } }).customer;
+      return customer?.full_name || customer?.email || 'Cliente';
+    };
+
+    const orderToItem = (order: OrderListItem, kind: string, date?: string | null, dateLabel?: string): WorkflowItem => ({
+      id: order.id,
+      kind,
+      title: `Pedido ${order.order_number}`,
+      subtitle: getOrderCustomerName(order),
+      status: order.status,
+      status_display: order.status_display || order.status,
+      payment_method: order.payment_method,
+      date: date || null,
+      date_label: dateLabel,
+      amount: order.total,
+      href: `/dashboard/pedidos/${order.id}`,
+    });
+
+    const quoteRequestToItem = (request: QuoteRequest, kind: string): WorkflowItem => ({
+      id: request.id,
+      kind,
+      title: request.request_number,
+      subtitle: request.customer_name || request.customer_email,
+      status: request.status,
+      status_display: request.status_display || request.status,
+      delivery_method: request.delivery_method,
+      date: request.required_date || null,
+      date_label: request.required_date ? 'Fecha requerida' : undefined,
+      href: `/dashboard/cotizaciones/solicitudes/${request.id}`,
+    });
+
+    const quoteToItem = (quote: Quote): WorkflowItem => ({
+      id: quote.id,
+      kind: 'quote_estimated_delivery',
+      title: quote.quote_number,
+      subtitle: quote.customer_name || quote.customer_email,
+      status: quote.status,
+      status_display: quote.status_display || quote.status,
+      date: quote.estimated_delivery_date || null,
+      date_label: quote.estimated_delivery_date ? 'Entrega estimada' : undefined,
+      amount: quote.total,
+      href: `/dashboard/cotizaciones/${quote.id}`,
+    });
+
+    const manualPendingOrders = orders.filter((order) => order.status === 'pending_payment' && requiresManualPayment(order.payment_method));
+    const inProductionOrders = orders.filter((order) => order.status === 'in_production');
+    const readyOrders = orders.filter((order) => ['ready', 'in_delivery'].includes(order.status));
+    const doneOrders = orders.filter((order) => order.status === 'completed');
+    const assignedRequests = quoteRequests.filter((request) => ['assigned', 'in_review', 'quoted'].includes(request.status));
+    const pendingRequests = quoteRequests.filter((request) => ['pending', 'info_requested'].includes(request.status));
+
+    const calendarEvents: WorkflowItem[] = [
+      ...quoteRequests
+        .filter((request) => !!request.required_date)
+        .map((request) => quoteRequestToItem(request, 'quote_request_required')),
+      ...quotes
+        .filter((quote) => !!quote.estimated_delivery_date)
+        .map(quoteToItem),
+      ...orders
+        .map((order) => ({ order, scheduledDate: getOrderExtraDate(order, 'scheduled_date') }))
+        .filter(({ scheduledDate }) => !!scheduledDate)
+        .map(({ order, scheduledDate }) => orderToItem(order, 'order_scheduled', scheduledDate, 'Programado')),
+      ...orders
+        .map((order) => ({ order, completedAt: getOrderExtraDate(order, 'completed_at') }))
+        .filter(({ completedAt }) => !!completedAt)
+        .map(({ order, completedAt }) => orderToItem(order, 'order_completed', completedAt, 'Completado')),
+    ].sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateA - dateB;
+    });
+
+    const now = new Date();
+    const windowStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const windowEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
+    return {
+      generated_at: now.toISOString(),
+      window_start: windowStart,
+      window_end: windowEnd,
+      stats: {
+        manual_payment_orders: manualPendingOrders.length,
+        in_production_orders: inProductionOrders.length,
+        ready_orders: readyOrders.length,
+        completed_orders: doneOrders.length,
+        assigned_requests: assignedRequests.length,
+        pending_requests: pendingRequests.length,
+        calendar_items: calendarEvents.length,
+      },
+      blocks: {
+        assigned: assignedRequests.map((request) => quoteRequestToItem(request, 'quote_request_assigned')),
+        to_pay: manualPendingOrders.map((order) => orderToItem(order, 'order_pending_payment', order.created_at, 'Alta')),
+        in_production: inProductionOrders.map((order) => orderToItem(order, 'order_in_production', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Producción')),
+        ready: readyOrders.map((order) => orderToItem(order, 'order_ready', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Entrega')),
+        done: doneOrders.map((order) => orderToItem(order, 'order_completed', getOrderExtraDate(order, 'completed_at') || order.created_at, 'Completado')),
+        quotes: pendingRequests.map((request) => quoteRequestToItem(request, 'quote_request_pending')),
+      },
+      calendar_events: calendarEvents,
+      quotes,
+      quote_requests: quoteRequests,
+    };
+  };
+
   const toDateKey = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -118,11 +246,42 @@ export default function OperationsPage() {
   useEffect(() => {
     const fetchOverview = async () => {
       setIsLoading(true);
+
+      const fetchFallbackOverview = async () => {
+        const [ordersResult, quoteRequestsResult, quotesResult] = await Promise.allSettled([
+          getStaffOrders({ page: 1 }),
+          getAdminQuoteRequests({ page: 1 }),
+          getAdminQuotes({ page: 1 }),
+        ]);
+
+        const orders = ordersResult.status === 'fulfilled' ? (ordersResult.value.results || []) : [];
+        const quoteRequests = quoteRequestsResult.status === 'fulfilled' ? (quoteRequestsResult.value.results || []) : [];
+        const quotes = quotesResult.status === 'fulfilled' ? (quotesResult.value.results || []) : [];
+
+        return buildFallbackWorkflowOverview(orders, quoteRequests, quotes);
+      };
+
       try {
         const data = await getWorkflowOverview();
-        setOverview(data);
-      } catch (error) {
-        console.error('Error fetching workflow overview:', error);
+        if (hasOverviewData(data)) {
+          setOverview(data);
+        } else {
+          const fallback = await fetchFallbackOverview();
+          setOverview(fallback);
+        }
+      } catch (error: unknown) {
+        const status = getErrorStatus(error);
+        try {
+          const fallback = await fetchFallbackOverview();
+          setOverview(fallback);
+        } catch (fallbackError) {
+          if (status === 404) {
+            console.error('Workflow endpoint unavailable and fallback failed:', fallbackError);
+          } else {
+            console.error('Error fetching workflow overview:', error);
+            console.error('Error building workflow fallback overview:', fallbackError);
+          }
+        }
       } finally {
         setIsLoading(false);
       }
@@ -224,20 +383,36 @@ export default function OperationsPage() {
             Vista unificada de solicitudes, validación de pago, producción y entregas.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/${locale}/dashboard/pedidos`}
-            className="px-4 py-2 rounded-lg border border-neutral-700 text-neutral-300 hover:text-white hover:border-cmyk-cyan transition-colors"
-          >
-            Pedidos
-          </Link>
-          <Link
-            href={`/${locale}/dashboard/cotizaciones`}
-            className="px-4 py-2 rounded-lg border border-neutral-700 text-neutral-300 hover:text-white hover:border-cmyk-cyan transition-colors"
-          >
-            Cotizaciones
-          </Link>
-        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Link
+          href={`/${locale}/dashboard/solicitudes`}
+          className="rounded-xl border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-4"
+        >
+          <p className="text-xs uppercase tracking-wide text-neutral-500">Rama</p>
+          <p className="text-white font-semibold mt-1">Solicitudes</p>
+          <p className="text-sm text-neutral-400 mt-1">Gestiona requerimientos de clientes y asignaciones.</p>
+          <p className="text-cmyk-cyan text-sm mt-3">Ir al detalle</p>
+        </Link>
+        <Link
+          href={`/${locale}/dashboard/cotizaciones`}
+          className="rounded-xl border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-4"
+        >
+          <p className="text-xs uppercase tracking-wide text-neutral-500">Rama</p>
+          <p className="text-white font-semibold mt-1">Cotizaciones</p>
+          <p className="text-sm text-neutral-400 mt-1">Revisa propuestas, envíos y aprobaciones.</p>
+          <p className="text-cmyk-cyan text-sm mt-3">Ir al detalle</p>
+        </Link>
+        <Link
+          href={`/${locale}/dashboard/pedidos`}
+          className="rounded-xl border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-4"
+        >
+          <p className="text-xs uppercase tracking-wide text-neutral-500">Rama</p>
+          <p className="text-white font-semibold mt-1">Pedidos</p>
+          <p className="text-sm text-neutral-400 mt-1">Da seguimiento a producción, entrega y cierre.</p>
+          <p className="text-cmyk-cyan text-sm mt-3">Ir al detalle</p>
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-6 gap-4">

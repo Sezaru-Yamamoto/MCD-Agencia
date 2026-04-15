@@ -43,13 +43,16 @@ interface MenuItem {
   separator?: boolean;
 }
 
+interface OperationBranchItem {
+  href: string;
+  label: string;
+  permission: keyof Permissions;
+}
+
 const MENU_ITEMS: MenuItem[] = [
   // ── Common (admin + sales) ──────────────────────────────────────────────
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, exact: true, permission: 'canAccessAdmin' },
-  { href: '/dashboard/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon, permission: 'canViewAllQuotes' },
-  { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon, permission: 'canViewAllQuotes' },
-  { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingBagIcon, permission: 'canViewAllOrders' },
-  { href: '/dashboard/operaciones', label: 'Operación', icon: CalendarDaysIcon, permission: 'canViewAllOrders' },
+  { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon, permission: 'canViewAllOrders' },
   { href: '/dashboard/clientes', label: 'Clientes', icon: UsersIcon, permission: 'canViewAllOrders' },
 
   // ── Admin-only ──────────────────────────────────────────────────────────
@@ -59,6 +62,12 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon, permission: 'canEditContent' },
   { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon, permission: 'canViewLeads' },
   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon, permission: 'canViewAudit' },
+];
+
+const OPERATION_BRANCHES: OperationBranchItem[] = [
+  { href: '/dashboard/solicitudes', label: 'Solicitudes', permission: 'canViewAllQuotes' },
+  { href: '/dashboard/cotizaciones', label: 'Cotizaciones', permission: 'canViewAllQuotes' },
+  { href: '/dashboard/pedidos', label: 'Pedidos', permission: 'canViewAllOrders' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -160,9 +169,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <nav className="p-4 space-y-1 overflow-y-auto flex-1 min-h-0">
           {MENU_ITEMS.map((item) => {
             const fullHref = `/${locale}${item.href}`;
+            const isOperationsParent = item.href === '/dashboard/operaciones';
+            const operationBranchActive = OPERATION_BRANCHES.some((branch) => pathname.startsWith(`/${locale}${branch.href}`));
             const isActive = item.exact
               ? pathname === fullHref || pathname === `${fullHref}/`
-              : pathname.startsWith(fullHref);
+              : pathname.startsWith(fullHref) || (isOperationsParent && operationBranchActive);
 
             const hasPermission = permissions[item.permission] as boolean;
 
@@ -174,19 +185,59 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
 
                 {hasPermission ? (
-                  <Link
-                    href={fullHref}
-                    onClick={() => setSidebarOpen(false)}
-                    className={cn(
-                      'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
-                      isActive
-                        ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
-                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                  <>
+                    <Link
+                      href={fullHref}
+                      onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                        isActive
+                          ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
+                          : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.label}
+                    </Link>
+
+                    {isOperationsParent && (
+                      <div className="ml-6 mt-1 space-y-1 border-l border-neutral-800 pl-3">
+                        {OPERATION_BRANCHES.map((branch) => {
+                          const branchHref = `/${locale}${branch.href}`;
+                          const branchActive = pathname.startsWith(branchHref);
+                          const branchAllowed = permissions[branch.permission] as boolean;
+
+                          if (!branchAllowed) {
+                            return (
+                              <div
+                                key={branch.href}
+                                className="flex items-center justify-between px-3 py-2 rounded-md text-xs text-neutral-600 cursor-not-allowed"
+                              >
+                                <span>{branch.label}</span>
+                                <LockClosedIcon className="h-3.5 w-3.5" />
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <Link
+                              key={branch.href}
+                              href={branchHref}
+                              onClick={() => setSidebarOpen(false)}
+                              className={cn(
+                                'block px-3 py-2 rounded-md text-xs transition-colors',
+                                branchActive
+                                  ? 'bg-cmyk-cyan/15 text-cmyk-cyan'
+                                  : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                              )}
+                            >
+                              {branch.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                  </Link>
+                  </>
                 ) : (
                   <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-neutral-600 cursor-not-allowed">
                     <item.icon className="h-5 w-5" />
