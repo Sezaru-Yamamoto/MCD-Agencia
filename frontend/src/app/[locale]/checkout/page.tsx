@@ -15,6 +15,7 @@ import {
   LockClosedIcon,
   TruckIcon,
   CreditCardIcon,
+  BanknotesIcon,
   BuildingLibraryIcon,
 } from '@heroicons/react/24/outline';
 
@@ -23,7 +24,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { getAddresses, createAddress, createOrder, Address } from '@/lib/api/orders';
 import { getBranches, type Branch } from '@/lib/api/content';
-import { initiateMercadoPagoPayment, initiatePayPalPayment } from '@/lib/api/payments';
 import { Button, Input, Card, LoadingPage, Modal } from '@/components/ui';
 import { formatPrice, cn } from '@/lib/utils';
 
@@ -42,30 +42,36 @@ const addressSchema = z.object({
 
 type AddressFormData = z.infer<typeof addressSchema>;
 
+type CheckoutPaymentMethod = 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash';
+
 const PAYMENT_METHODS = [
   {
     id: 'mercadopago',
     name: 'Mercado Pago',
-    description: 'Pago seguro con Mercado Pago',
+    description: 'Tarjetas y saldo disponible',
     icon: CreditCardIcon,
+    badge: 'MP',
   },
   {
     id: 'paypal',
     name: 'PayPal',
     description: 'Pago seguro con PayPal',
     icon: BuildingLibraryIcon,
-  },
-  {
-    id: 'card',
-    name: 'Tarjetas',
-    description: 'Crédito y débito',
-    icon: CreditCardIcon,
+    badge: 'PP',
   },
   {
     id: 'bank_transfer',
     name: 'Transferencia',
     description: 'Validación manual por administrador',
     icon: BuildingLibraryIcon,
+    badge: 'CLABE',
+  },
+  {
+    id: 'cash',
+    name: 'Efectivo',
+    description: 'Pago presencial y validación manual',
+    icon: BanknotesIcon,
+    badge: 'Cash',
   },
 ];
 
@@ -77,12 +83,14 @@ export default function CheckoutPage() {
   const { openPrivacy, openTerms } = useLegalModal();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('mercadopago');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CheckoutPaymentMethod>('mercadopago');
   const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
   const [selectedPickupBranchId, setSelectedPickupBranchId] = useState<string | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [transferReference, setTransferReference] = useState('');
+  const [transferFiles, setTransferFiles] = useState<File[]>([]);
 
   const LOCAL_SHIPPING_FEE = 120;
   const OUTSIDE_SHIPPING_FEE = 260;
@@ -192,41 +200,55 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (selectedPaymentMethod === 'bank_transfer') {
+      const hasReference = Boolean(transferReference.trim());
+      const hasReceiptImage = transferFiles.length > 0;
+      if (!hasReference && !hasReceiptImage) {
+        toast.error('Ingresa una referencia o sube una imagen del comprobante para continuar.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
-      const normalizedPaymentMethod = selectedPaymentMethod === 'card'
-        ? 'mercadopago'
-        : selectedPaymentMethod;
+      const normalizedPaymentMethod = selectedPaymentMethod;
+
+      const noteParts: string[] = [
+        `Metodo de pago: ${normalizedPaymentMethod}`,
+        `Metodo de entrega: ${deliveryMethod}`,
+      ];
+
+      if (selectedPaymentMethod === 'bank_transfer') {
+        noteParts.push(`Referencia transferencia: ${transferReference.trim() || 'sin referencia'}`);
+        if (transferFiles.length > 0) {
+          noteParts.push(`Comprobante(s): ${transferFiles.map((file) => file.name).join(', ')}`);
+        }
+      }
 
       // Create the order first
       const order = await createOrder({
         shipping_address_id: resolvedShippingAddressId as string,
         use_shipping_as_billing: true,
-        payment_method: normalizedPaymentMethod as 'mercadopago' | 'paypal' | 'bank_transfer',
+        payment_method: normalizedPaymentMethod,
         delivery_method: deliveryMethod,
         pickup_branch_id: deliveryMethod === 'pickup' ? selectedPickupBranchId || undefined : undefined,
         shipping_fee: shippingFee.toFixed(2),
+        notes: noteParts.join(' | '),
         terms_accepted: true,
       });
 
       // Refresh cart (should be empty now)
       await refreshCart();
 
-      // Redirect to payment gateway based on selected method
-      if (normalizedPaymentMethod === 'mercadopago') {
-        const preference = await initiateMercadoPagoPayment(order.id);
-        // Use sandbox in development, production in production
-        const redirectUrl = process.env.NODE_ENV === 'production'
-          ? preference.init_point
-          : preference.sandbox_init_point || preference.init_point;
-        window.location.href = redirectUrl;
-      } else if (normalizedPaymentMethod === 'paypal') {
-        const paypalOrder = await initiatePayPalPayment(order.id);
-        window.location.href = paypalOrder.approval_url;
+      if (normalizedPaymentMethod === 'mercadopago' || normalizedPaymentMethod === 'paypal') {
+        toast.success('Pago confirmado correctamente. Tu pedido ya está en proceso.');
       } else if (normalizedPaymentMethod === 'bank_transfer') {
         toast.success('Orden creada. Completa tu transferencia desde el detalle del pedido.');
-        router.push(`/${locale}/mi-cuenta/pedidos/${order.id}`);
+      } else {
+        toast.success('Orden creada. Realiza tu pago en efectivo en sucursal para confirmarla.');
       }
+
+      router.push(`/${locale}/mi-cuenta/pedidos/${order.id}`);
     } catch (error: unknown) {
       const err = error as { message?: string };
       toast.error(err.message || 'Error al crear la orden');
@@ -400,7 +422,7 @@ export default function CheckoutPage() {
                 {PAYMENT_METHODS.map((method) => (
                   <button
                     key={method.id}
-                    onClick={() => setSelectedPaymentMethod(method.id)}
+                    onClick={() => setSelectedPaymentMethod(method.id as CheckoutPaymentMethod)}
                     className={cn(
                       'w-full flex items-center gap-4 p-4 rounded-lg border transition-colors text-left',
                       selectedPaymentMethod === method.id
@@ -413,9 +435,67 @@ export default function CheckoutPage() {
                       <p className="text-white font-medium">{method.name}</p>
                       <p className="text-sm text-neutral-400">{method.description}</p>
                     </div>
+                    <span className="ml-auto text-[11px] font-semibold text-neutral-300 bg-neutral-800 px-2 py-1 rounded">
+                      {method.badge}
+                    </span>
                   </button>
                 ))}
               </div>
+
+              {selectedPaymentMethod === 'bank_transfer' && (
+                <div className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-xs text-neutral-300 space-y-1">
+                    <p><span className="text-neutral-500">Beneficiario:</span> MCD Agencia Publicitaria SA de CV</p>
+                    <p><span className="text-neutral-500">Banco:</span> BBVA México</p>
+                    <p><span className="text-neutral-500">Cuenta:</span> 012345678901234567</p>
+                    <p><span className="text-neutral-500">CLABE:</span> 012345678901234567</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-neutral-300 font-medium">Referencia:</p>
+                    <input
+                      type="text"
+                      value={transferReference}
+                      onChange={(e) => setTransferReference(e.target.value)}
+                      placeholder="Ejemplo: SPEI-58294011 (opcional si subes imagen)"
+                      className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-cmyk-cyan focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-neutral-300 font-medium">Comprobante de transferencia (imagen)</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files || []);
+                        setTransferFiles(files);
+                      }}
+                      className="mt-1 w-full text-sm text-neutral-300 file:mr-3 file:rounded file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-white hover:file:bg-neutral-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedPaymentMethod === 'cash' && (
+                <div className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
+                  <p className="text-sm text-neutral-300">
+                    Debes acercarte a cualquiera de nuestras sucursales para realizar el pago en efectivo.
+                  </p>
+                  <div className="space-y-2">
+                    {checkoutBranches.length > 0 ? checkoutBranches.map((branch) => (
+                      <div key={`cash-${branch.id}`} className="rounded border border-neutral-800 p-2">
+                        <p className="text-sm text-white font-medium">{branch.name}</p>
+                        <p className="text-xs text-neutral-400">{branch.full_address || `${branch.city || ''}`}</p>
+                        <p className="text-xs text-neutral-500">{branch.phone}</p>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-neutral-400">Cargando sucursales disponibles...</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Terms */}
@@ -514,7 +594,9 @@ export default function CheckoutPage() {
                 }
                 leftIcon={<LockClosedIcon className="h-5 w-5" />}
               >
-                {`Pagar ${formatPrice(checkoutTotal)}`}
+                {selectedPaymentMethod === 'mercadopago' || selectedPaymentMethod === 'paypal'
+                  ? `Confirmar pago ${formatPrice(checkoutTotal)}`
+                  : 'Generar pedido'}
               </Button>
 
               <p className="text-xs text-neutral-500 text-center mt-4">

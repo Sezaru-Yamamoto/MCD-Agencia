@@ -324,7 +324,7 @@ export default function OrderDetailPage() {
   const paymentMethodText = toSafeText(order.payment_method);
   const paymentMethodLabel = PAYMENT_METHOD_LABELS[paymentMethodText] || paymentMethodText;
   const canPay = ['pending_payment', 'partially_paid'].includes(order.status) && Number(order.balance_due) > 0;
-  const shouldShowSelectedPaymentMethod = Boolean(paymentMethodText) && !canPay;
+  const shouldShowSelectedPaymentMethod = Boolean(paymentMethodText);
 
   const metadataRecords = orderLines
     .map((line) => (line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
@@ -488,6 +488,12 @@ export default function OrderDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium">{toSafeText(line.name)}</p>
                     {(() => {
+                      const variantName = toSafeText(line.variant_name).trim();
+                      if (!variantName) return null;
+                      const friendlyVariant = variantName.toLowerCase() === 'default' ? 'Base' : variantName;
+                      return <p className="text-xs text-neutral-500 mt-1">Variante: {friendlyVariant}</p>;
+                    })()}
+                    {(() => {
                       const metadata = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
                         ? (line.metadata as Record<string, unknown>)
                         : null;
@@ -496,8 +502,7 @@ export default function OrderDetailPage() {
                       const fullDescription =
                         toSafeText(metadata?.quote_line_description) ||
                         toSafeText(quoteLine?.description) ||
-                        toSafeText(metadata?.description) ||
-                        toSafeText(line.variant_name);
+                        toSafeText(metadata?.description);
 
                       const metadataServiceDetails = parseJsonIfString(metadata?.service_details);
                       const quoteLineServiceDetails = parseJsonIfString(quoteLine?.service_details);
@@ -555,7 +560,19 @@ export default function OrderDetailPage() {
                       const customerComment = requestLevelDescription || fallbackRequestDescription || toSafeText(fullDescription);
 
                       const technicalItems = flattenTechnicalDetails(technicalSource)
-                        .filter((item) => item.label !== 'service_type' && item.label !== 'service_details')
+                        .filter((item) => {
+                          const label = item.label || '';
+                          return (
+                            label !== 'service_type' &&
+                            label !== 'service_details' &&
+                            label !== 'variant_id' &&
+                            label !== 'catalog_item_id' &&
+                            !label.endsWith(' · service_type') &&
+                            !label.endsWith(' · service_details') &&
+                            !label.endsWith(' · variant_id') &&
+                            !label.endsWith(' · catalog_item_id')
+                          );
+                        })
                         .slice(0, 20);
 
                       const hasServiceDetails = inferredServiceType && technicalSource && typeof technicalSource === 'object';

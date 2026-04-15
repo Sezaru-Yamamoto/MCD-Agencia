@@ -383,6 +383,22 @@ class OrderViewSet(viewsets.ModelViewSet):
                 notes=_('Order created')
             )
 
+            # Temporary simulation: online methods are auto-confirmed as paid and moved to production.
+            if order.payment_method in ['mercadopago', 'paypal']:
+                order.amount_paid = order.total
+                order.save(update_fields=['amount_paid', 'updated_at'])
+
+                order.transition_to(
+                    Order.STATUS_PAID,
+                    changed_by=request.user,
+                    notes=_('Simulated payment confirmation from checkout')
+                )
+                order.transition_to(
+                    Order.STATUS_IN_PRODUCTION,
+                    changed_by=request.user,
+                    notes=_('Order moved to production after simulated payment')
+                )
+
             # Log order creation
             AuditLog.log(
                 entity=order,
