@@ -43,6 +43,13 @@ export default function ProductDetailPage() {
     queryFn: () => getProductBySlug(slug),
   });
 
+  useEffect(() => {
+    if (!product?.id) return;
+    const raw = localStorage.getItem('savedProducts');
+    const saved: string[] = raw ? JSON.parse(raw) : [];
+    setIsSaved(saved.includes(product.id));
+  }, [product?.id]);
+
   const matchingVariant = useMemo(() => {
     if (!product?.variants?.length || Object.keys(selectedAttributes).length === 0) {
       return product?.variants?.[0] || null;
@@ -151,12 +158,6 @@ export default function ProductDetailPage() {
     if (Number.isNaN(parsed)) return;
     setQuantity(Math.max(1, Math.min(99, parsed)));
   };
-
-  useEffect(() => {
-    const raw = localStorage.getItem('savedProducts');
-    const saved: string[] = raw ? JSON.parse(raw) : [];
-    setIsSaved(saved.includes(product.id));
-  }, [product.id]);
 
   const handleSaveProduct = () => {
     const raw = localStorage.getItem('savedProducts');
