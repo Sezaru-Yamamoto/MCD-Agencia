@@ -48,7 +48,7 @@ export default function CatalogPage() {
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
-    queryFn: getCategories,
+    queryFn: () => getCategories(),
   });
 
   const { data: attributesData } = useQuery({
