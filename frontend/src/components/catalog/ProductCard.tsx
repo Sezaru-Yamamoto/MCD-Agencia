@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useLocale } from 'next-intl';
+import toast from 'react-hot-toast';
 
-import { ProductListItem } from '@/lib/api/catalog';
+import { getProductBySlug, ProductListItem } from '@/lib/api/catalog';
+import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui';
 
 interface ProductCardProps {
@@ -17,6 +19,7 @@ interface ProductCardProps {
 export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
   const locale = useLocale();
   const router = useRouter();
+  const { addItem } = useCart();
 
   const name = locale === 'en' && product.name_en ? product.name_en : product.name;
 
@@ -35,8 +38,55 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
 
   const handleQuote = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     // Redirige al detalle para completar compra o cotización.
     router.push(`/catalogo/${product.category?.slug || 'productos'}/${product.slug}`);
+  };
+
+  const resolveVariantId = async (): Promise<string | null> => {
+    try {
+      const detail = await getProductBySlug(product.slug);
+      const variantId = detail.variants?.[0]?.id || null;
+      return variantId;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const variantId = await resolveVariantId();
+    if (!variantId) {
+      toast.error('No hay variante disponible para este producto');
+      return;
+    }
+
+    try {
+      await addItem(variantId, 1);
+      toast.success('Producto agregado al carrito');
+    } catch {
+      toast.error('No se pudo agregar al carrito');
+    }
+  };
+
+  const handleBuyNow = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const variantId = await resolveVariantId();
+    if (!variantId) {
+      toast.error('No hay variante disponible para este producto');
+      return;
+    }
+
+    try {
+      await addItem(variantId, 1);
+      router.push('/checkout');
+    } catch {
+      toast.error('No se pudo procesar compra inmediata');
+    }
   };
 
   // LIST VIEW - Horizontal compact layout (MercadoLibre style)
@@ -77,18 +127,35 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
               )}
             </div>
 
-            {/* Footer: Button */}
-            <div className="flex items-end justify-end gap-2 mt-2">
-              <Button
-                size="xs"
-                className={isDirectPurchase
-                  ? 'bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5'
-                  : 'bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs px-3 py-1.5'}
-                onClick={handleQuote}
-              >
-                <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-                {isDirectPurchase ? 'Comprar' : 'Cotizar'}
-              </Button>
+            {/* Footer: Buttons */}
+            <div className="flex items-end justify-end gap-2 mt-2 flex-wrap">
+              {isDirectPurchase ? (
+                <>
+                  <Button
+                    size="xs"
+                    className="bg-neutral-700 hover:bg-neutral-600 text-white text-xs px-3 py-1.5"
+                    onClick={handleAddToCart}
+                  >
+                    Agregar carrito
+                  </Button>
+                  <Button
+                    size="xs"
+                    className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5"
+                    onClick={handleBuyNow}
+                  >
+                    Comprar ahora
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="xs"
+                  className="bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs px-3 py-1.5"
+                  onClick={handleQuote}
+                >
+                  <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
+                  Cotizar
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -135,18 +202,35 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             </div>
           )}
 
-          {/* Action Button - Minimal */}
-          <div className="mt-3">
-            <Button
-              size="xs"
-              className={isDirectPurchase
-                ? 'w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5'
-                : 'w-full bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs py-1.5'}
-              onClick={handleQuote}
-            >
-              <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
-              {isDirectPurchase ? 'Comprar' : 'Cotizar'}
-            </Button>
+          {/* Action Buttons */}
+          <div className="mt-3 flex flex-col gap-2">
+            {isDirectPurchase ? (
+              <>
+                <Button
+                  size="xs"
+                  className="w-full bg-neutral-700 hover:bg-neutral-600 text-white text-xs py-1.5"
+                  onClick={handleAddToCart}
+                >
+                  Agregar carrito
+                </Button>
+                <Button
+                  size="xs"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5"
+                  onClick={handleBuyNow}
+                >
+                  Comprar ahora
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="xs"
+                className="w-full bg-cmyk-cyan hover:bg-cmyk-cyan text-white text-xs py-1.5"
+                onClick={handleQuote}
+              >
+                <DocumentTextIcon className="h-3.5 w-3.5 mr-1" />
+                Cotizar
+              </Button>
+            )}
           </div>
         </div>
       </div>

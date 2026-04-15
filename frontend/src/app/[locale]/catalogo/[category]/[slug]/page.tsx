@@ -120,6 +120,22 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleAddToCart = async () => {
+    const variant = selectedVariant || product.variants?.[0] || null;
+
+    if (!variant) {
+      toast.error('Este producto no tiene variante disponible para compra directa');
+      return;
+    }
+
+    try {
+      await addItem(variant.id, 1);
+      toast.success('Producto agregado al carrito');
+    } catch {
+      toast.error('No se pudo agregar el producto al carrito');
+    }
+  };
+
   return (
     <>
       <div className="min-h-screen pt-20 pb-8 px-4 lg:px-8 flex items-center justify-center">
@@ -283,13 +299,22 @@ export default function ProductDetailPage() {
 
                 <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
-                    <Button
-                      size="lg"
-                      className="w-full font-semibold bg-green-600 hover:bg-green-700 text-white"
-                      onClick={handleBuyNow}
-                    >
-                      Comprar ahora
-                    </Button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Button
+                        size="lg"
+                        className="w-full font-semibold bg-neutral-700 hover:bg-neutral-600 text-white"
+                        onClick={handleAddToCart}
+                      >
+                        Agregar carrito
+                      </Button>
+                      <Button
+                        size="lg"
+                        className="w-full font-semibold bg-green-600 hover:bg-green-700 text-white"
+                        onClick={handleBuyNow}
+                      >
+                        Comprar ahora
+                      </Button>
+                    </div>
                   )}
 
                   {(product.sale_mode === 'QUOTE' || product.sale_mode === 'HYBRID') && (
