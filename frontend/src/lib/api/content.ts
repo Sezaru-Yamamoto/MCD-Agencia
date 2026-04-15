@@ -504,7 +504,25 @@ export async function getBranches(): Promise<Branch[]> {
         endpoint = response.next || null;
       }
 
-      return allBranches;
+      const fallbackBranches = getFallbackBranches();
+      const merged = [...allBranches];
+
+      for (const fallback of fallbackBranches) {
+        const exists = merged.some((branch) => {
+          const nameA = (branch.name || '').trim().toLowerCase();
+          const nameB = (fallback.name || '').trim().toLowerCase();
+          const addressA = (branch.full_address || '').trim().toLowerCase();
+          const addressB = (fallback.full_address || '').trim().toLowerCase();
+
+          return nameA === nameB || (addressA && addressB && addressA === addressB);
+        });
+
+        if (!exists) {
+          merged.push(fallback);
+        }
+      }
+
+      return merged.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     },
     getFallbackBranches,
     1800

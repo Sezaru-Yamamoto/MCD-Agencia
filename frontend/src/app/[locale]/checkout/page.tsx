@@ -382,11 +382,6 @@ export default function CheckoutPage() {
                 </>
               )}
 
-              {deliveryMethod === 'pickup' && (
-                <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 text-sm text-neutral-300">
-                  Has elegido recoger en sucursal. La dirección de envío no se mostrará para este método.
-                </div>
-              )}
             </Card>
 
             {/* Payment Method */}
