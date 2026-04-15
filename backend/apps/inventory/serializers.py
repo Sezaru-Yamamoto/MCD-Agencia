@@ -156,6 +156,8 @@ class StockSummarySerializer(serializers.Serializer):
     """Serializer for stock summary report."""
 
     variant_id = serializers.UUIDField()
+    product_id = serializers.UUIDField()
+    product_slug = serializers.CharField()
     sku = serializers.CharField()
     product_name = serializers.CharField()
     variant_name = serializers.CharField()

@@ -69,6 +69,8 @@ export interface StockAlert {
 
 export interface StockSummaryItem {
   variant_id: string;
+  product_id: string;
+  product_slug: string;
   sku: string;
   product_name: string;
   variant_name: string;

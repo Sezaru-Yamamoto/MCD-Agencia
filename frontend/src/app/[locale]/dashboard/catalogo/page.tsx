@@ -1,6 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useLocale } from 'next-intl';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   PlusIcon,
@@ -8,9 +11,10 @@ import {
   TrashIcon,
   MagnifyingGlassIcon,
   PhotoIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 
-import { getProducts, getCategories, type ProductListItem, type Category } from '@/lib/api/catalog';
+import { getProducts, getCategories, getProductById, type ProductListItem, type Category } from '@/lib/api/catalog';
 import {
   createProduct,
   updateProduct,
@@ -39,6 +43,8 @@ const TYPE_OPTIONS = [
   { value: 'product', label: 'Producto' },
   { value: 'service', label: 'Servicio' },
 ];
+
+const MAX_IMAGES = 8;
 
 const getSaleModeVariant = (mode: string): 'success' | 'warning' | 'info' | 'default' => {
   const variants: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
@@ -106,6 +112,10 @@ const initialCategoryFormData: CategoryFormData = {
 
 export default function AdminCatalogPage() {
   const queryClient = useQueryClient();
+  const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editProductId = searchParams.get('edit');
   const [filters, setFilters] = useState({
     sale_mode: '',
     type: '',
@@ -120,6 +130,7 @@ export default function AdminCatalogPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
+  const [inventoryWarning, setInventoryWarning] = useState<string>('');
 
   // Fetch products
   const { data: productsData, isLoading } = useQuery({
@@ -142,6 +153,12 @@ export default function AdminCatalogPage() {
   const products = productsData?.results || [];
   const totalPages = Math.ceil((productsData?.count || 0) / 20);
   const categories = categoriesData?.results || [];
+
+  const { data: editingProductDetail } = useQuery({
+    queryKey: ['admin-product-detail', editingProduct?.id],
+    queryFn: () => getProductById(editingProduct!.id),
+    enabled: !!editingProduct,
+  });
 
   // Mutations
   const createMutation = useMutation({
@@ -250,9 +267,18 @@ export default function AdminCatalogPage() {
     },
   });
 
+  useEffect(() => {
+    if (!editProductId || products.length === 0 || isModalOpen) return;
+    const productToEdit = products.find((p) => p.id === editProductId);
+    if (!productToEdit) return;
+    openEditModal(productToEdit);
+    router.replace(`/${locale}/dashboard/catalogo`);
+  }, [editProductId, products, isModalOpen, router, locale]);
+
   const openCreateModal = () => {
     setEditingProduct(null);
     setFormData(initialFormData);
+    setInventoryWarning('');
     setSelectedImages([]);
     setImagePreview([]);
     setIsModalOpen(true);
@@ -284,6 +310,7 @@ export default function AdminCatalogPage() {
       setImagePreview([]);
     }
     setSelectedImages([]);
+    setInventoryWarning('');
     setIsModalOpen(true);
   };
 
@@ -293,17 +320,33 @@ export default function AdminCatalogPage() {
     setFormData(initialFormData);
     setCategoryFormData(initialCategoryFormData);
     setIsCategoryModalOpen(false);
+    setInventoryWarning('');
     setSelectedImages([]);
     setImagePreview([]);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setSelectedImages(prev => [...prev, ...files]);
+    const availableSlots = MAX_IMAGES - selectedImages.length;
+
+    if (availableSlots <= 0) {
+      toast.error(`Máximo ${MAX_IMAGES} imágenes por producto`);
+      return;
+    }
+
+    if (files.length > availableSlots) {
+      toast.error(`Solo puedes agregar ${availableSlots} imagen(es) más`);
+    }
+
+    const filesToAdd = files.slice(0, availableSlots);
+    setSelectedImages(prev => [...prev, ...filesToAdd]);
 
     // Create preview URLs
-    const newPreviews = files.map(file => URL.createObjectURL(file));
+    const newPreviews = filesToAdd.map(file => URL.createObjectURL(file));
     setImagePreview(prev => [...prev, ...newPreviews]);
+
+    // Reset input so selecting the same file again triggers onChange
+    e.target.value = '';
   };
 
   const removeImage = (index: number) => {
@@ -311,13 +354,95 @@ export default function AdminCatalogPage() {
     setImagePreview(prev => prev.filter((_, i) => i !== index));
   };
 
+  const updateInventoryWarning = (nextInitialStock: string, nextThreshold: string) => {
+    const initial = Number(nextInitialStock || '0');
+    const threshold = Number(nextThreshold || '0');
+
+    if (!Number.isNaN(initial) && !Number.isNaN(threshold) && initial < threshold) {
+      setInventoryWarning(
+        'El stock inicial es menor que el umbral de stock bajo. El producto quedará marcado en alerta al crearse.'
+      );
+      return;
+    }
+
+    setInventoryWarning('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const isCreate = !editingProduct;
+    const isPurchasable = formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID';
+    const basePrice = Number(formData.base_price || '0');
+    const comparePrice = Number(formData.compare_at_price || '0');
+
+    if (!formData.name.trim()) {
+      toast.error('El nombre es obligatorio');
+      return;
+    }
+
+    if (!formData.type) {
+      toast.error('El tipo es obligatorio');
+      return;
+    }
+
+    if (!formData.category_id) {
+      toast.error('La categoría es obligatoria');
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      toast.error('La descripción completa es obligatoria');
+      return;
+    }
+
+    if (isCreate && imagePreview.length === 0) {
+      toast.error('Debes subir al menos una imagen');
+      return;
+    }
+
+    if (isCreate && imagePreview.length > MAX_IMAGES) {
+      toast.error(`Máximo ${MAX_IMAGES} imágenes por producto`);
+      return;
+    }
+
+    if (isPurchasable) {
+      if (!formData.base_price || Number.isNaN(basePrice) || basePrice <= 0) {
+        toast.error('Para venta directa, el precio base es obligatorio y debe ser mayor a 0');
+        return;
+      }
+      if (!formData.compare_at_price || Number.isNaN(comparePrice) || comparePrice <= 0) {
+        toast.error('Para venta directa, el precio comparación es obligatorio y debe ser mayor a 0');
+        return;
+      }
+      if (comparePrice < basePrice) {
+        toast.error('El precio comparación debe ser mayor o igual al precio base');
+        return;
+      }
+    }
+
+    if (isCreate && formData.type === 'product') {
+      if (!formData.track_inventory) {
+        toast.error('Para productos nuevos debes activar gestión de inventario');
+        return;
+      }
+      if (!formData.sku.trim()) {
+        toast.error('El SKU es obligatorio para productos con inventario');
+        return;
+      }
+      if (Number(formData.initial_stock || '0') < 0 || Number(formData.low_stock_threshold || '0') < 0) {
+        toast.error('Stock inicial y umbral deben ser valores positivos');
+        return;
+      }
+      if (Number(formData.initial_stock || '0') < Number(formData.low_stock_threshold || '0')) {
+        toast('El sistema marcará este producto como stock bajo desde su creación.', { icon: '⚠️' });
+      }
+    }
 
     const data: CreateProductData = {
       type: formData.type,
       name: formData.name,
-      short_description: formData.short_description,
+      short_description: formData.short_description || formData.description.slice(0, 140),
       description: formData.description || undefined,
       category_id: formData.category_id || undefined,
       sale_mode: formData.sale_mode,
@@ -491,6 +616,17 @@ export default function AdminCatalogPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-end gap-2">
+                        {product.type === 'product' && (
+                          <Link href={`/${locale}/dashboard/inventario`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Ir a inventario"
+                            >
+                              <ArchiveBoxIcon className="h-5 w-5" />
+                            </Button>
+                          </Link>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -538,7 +674,7 @@ export default function AdminCatalogPage() {
           {/* Images */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-2">
-              Imágenes del producto
+              Imágenes del producto *
             </label>
             <div className="flex flex-wrap gap-3 mb-3">
               {imagePreview.map((url, index) => (
@@ -563,13 +699,14 @@ export default function AdminCatalogPage() {
                   accept="image/*"
                   multiple
                   onChange={handleImageChange}
+                  disabled={imagePreview.length >= MAX_IMAGES}
                   className="hidden"
                 />
                 <PlusIcon className="h-8 w-8 text-neutral-500" />
               </label>
             </div>
             <p className="text-xs text-neutral-500">
-              Formatos: JPG, PNG, WebP. Máximo 5MB por imagen.
+              Formatos: JPG, PNG, WebP. Máximo 5MB por imagen. Mínimo 1 imagen, máximo {MAX_IMAGES}.
             </p>
           </div>
 
@@ -607,7 +744,7 @@ export default function AdminCatalogPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">
-                Categoría
+                Categoría *
               </label>
               <select
                 value={formData.category_id}
@@ -618,6 +755,7 @@ export default function AdminCatalogPage() {
                   }
                   setFormData({ ...formData, category_id: e.target.value });
                 }}
+                required
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               >
                 <option value="">Seleccionar categoría...</option>
@@ -637,27 +775,28 @@ export default function AdminCatalogPage() {
           {/* Short Description */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-1">
-              Descripción corta *
+              Descripción corta
             </label>
             <Textarea
               value={formData.short_description}
               onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
               placeholder="Descripción breve del producto (aparece en listados)"
               rows={2}
-              required
             />
+            <p className="text-xs text-neutral-500 mt-1">Si la dejas vacía, se genera automáticamente a partir de la descripción completa.</p>
           </div>
 
           {/* Full Description */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-1">
-              Descripción completa
+              Descripción completa *
             </label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Descripción detallada del producto (aparece en la página del producto)"
               rows={4}
+              required
             />
           </div>
 
@@ -679,7 +818,7 @@ export default function AdminCatalogPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">
-                Precio base
+                Precio base {(formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID') ? '*' : ''}
               </label>
               <Input
                 type="number"
@@ -688,11 +827,12 @@ export default function AdminCatalogPage() {
                 onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
                 placeholder="0.00"
                 disabled={formData.sale_mode === 'QUOTE'}
+                required={formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID'}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-1">
-                Precio comparación
+                Precio comparación {(formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID') ? '*' : ''}
               </label>
               <Input
                 type="number"
@@ -701,20 +841,28 @@ export default function AdminCatalogPage() {
                 onChange={(e) => setFormData({ ...formData, compare_at_price: e.target.value })}
                 placeholder="0.00"
                 disabled={formData.sale_mode === 'QUOTE'}
+                required={formData.sale_mode === 'BUY' || formData.sale_mode === 'HYBRID'}
               />
+              <p className="text-xs text-neutral-500 mt-1">
+                Precio comparación: precio de referencia/lista para mostrar ahorro u oferta. Debe ser mayor o igual al precio base.
+              </p>
             </div>
           </div>
 
           {/* Inventory Management */}
-          {formData.type === 'product' && (
+          {formData.type === 'product' && !editingProduct && (
             <div className="border border-neutral-700 rounded-lg p-4 space-y-4 bg-neutral-900/50">
-              <h3 className="text-sm font-semibold text-neutral-200">Gestión de Inventario</h3>
+              <h3 className="text-sm font-semibold text-neutral-200">Gestión de Inventario (solo alta inicial)</h3>
               <div>
                 <label className="flex items-center gap-2 cursor-pointer mb-3">
                   <input
                     type="checkbox"
                     checked={formData.track_inventory}
-                    onChange={(e) => setFormData({ ...formData, track_inventory: e.target.checked })}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setFormData({ ...formData, track_inventory: enabled });
+                      if (!enabled) setInventoryWarning('');
+                    }}
                     className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500"
                   />
                   <span className="text-sm text-neutral-300">Rastrear inventario</span>
@@ -723,7 +871,7 @@ export default function AdminCatalogPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    SKU (Código único)
+                    SKU (Código único) *
                   </label>
                   <Input
                     value={formData.sku}
@@ -735,13 +883,17 @@ export default function AdminCatalogPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Stock inicial
+                    Stock inicial *
                   </label>
                   <Input
                     type="number"
                     min="0"
                     value={formData.initial_stock}
-                    onChange={(e) => setFormData({ ...formData, initial_stock: e.target.value })}
+                    onChange={(e) => {
+                      const nextInitial = e.target.value;
+                      setFormData({ ...formData, initial_stock: nextInitial });
+                      updateInventoryWarning(nextInitial, formData.low_stock_threshold);
+                    }}
                     placeholder="0"
                     className="text-xs"
                     disabled={!formData.track_inventory}
@@ -749,13 +901,17 @@ export default function AdminCatalogPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Umbral stock bajo
+                    Umbral stock bajo *
                   </label>
                   <Input
                     type="number"
                     min="0"
                     value={formData.low_stock_threshold}
-                    onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                    onChange={(e) => {
+                      const nextThreshold = e.target.value;
+                      setFormData({ ...formData, low_stock_threshold: nextThreshold });
+                      updateInventoryWarning(formData.initial_stock, nextThreshold);
+                    }}
                     placeholder="10"
                     className="text-xs"
                     disabled={!formData.track_inventory}
@@ -763,8 +919,33 @@ export default function AdminCatalogPage() {
                 </div>
               </div>
               <p className="text-xs text-neutral-500">
+                Recomendación: define umbral según rotación del producto. Si el stock inicial queda debajo del umbral, el sistema lo marcará como stock bajo.
+              </p>
+              {inventoryWarning && (
+                <p className="text-xs text-amber-400">{inventoryWarning}</p>
+              )}
+              <p className="text-xs text-neutral-500">
                 Al crear producto con inventario, se genera una variante inicial y movimiento de stock.
               </p>
+            </div>
+          )}
+
+          {formData.type === 'product' && !!editingProduct && (
+            <div className="border border-neutral-700 rounded-lg p-4 space-y-3 bg-neutral-900/50">
+              <h3 className="text-sm font-semibold text-neutral-200">Inventario</h3>
+              <p className="text-xs text-neutral-400">
+                La gestión de inventario no se edita desde catálogo para evitar inconsistencias. Usa el módulo de inventario para entradas, salidas y ajustes.
+              </p>
+              <div>
+                <Link
+                  href={`/${locale}/dashboard/inventario${editingProductDetail?.variants?.[0]?.id ? `?variant=${editingProductDetail.variants[0].id}` : ''}`}
+                  className="inline-block"
+                >
+                  <Button type="button" size="sm" variant="outline">
+                    Ir a inventario de este producto
+                  </Button>
+                </Link>
+              </div>
             </div>
           )}
 

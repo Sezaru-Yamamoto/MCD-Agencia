@@ -255,6 +255,8 @@ class StockSummaryView(APIView):
 
             summary.append({
                 'variant_id': str(variant.id),
+                'product_id': str(variant.catalog_item.id),
+                'product_slug': variant.catalog_item.slug,
                 'sku': variant.sku,
                 'product_name': variant.catalog_item.name,
                 'variant_name': variant.name,
@@ -311,8 +313,6 @@ class LowStockReportView(APIView):
 class InventoryValueReportView(APIView):
     """
     Get inventory value report.
-
-    GET /api/v1/inventory/value/
     """
 
     permission_classes = [permissions.IsAdminUser]

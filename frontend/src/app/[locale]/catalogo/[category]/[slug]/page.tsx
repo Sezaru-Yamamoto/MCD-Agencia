@@ -304,20 +304,20 @@ export default function ProductDetailPage() {
                 <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
                     <div className="space-y-2">
-                      <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-11 w-full">
+                      <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-9 w-full max-w-[220px]">
                         <button
                           type="button"
                           onClick={decreaseQuantity}
-                          className="px-4 text-white bg-neutral-800 hover:bg-neutral-700"
+                          className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700"
                           aria-label="Disminuir cantidad"
                         >
                           -
                         </button>
-                        <span className="flex-1 text-sm text-white bg-neutral-900 text-center">{quantity}</span>
+                        <span className="flex-1 text-xs text-white bg-neutral-900 text-center">{quantity}</span>
                         <button
                           type="button"
                           onClick={increaseQuantity}
-                          className="px-4 text-white bg-neutral-800 hover:bg-neutral-700"
+                          className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700"
                           aria-label="Aumentar cantidad"
                         >
                           +

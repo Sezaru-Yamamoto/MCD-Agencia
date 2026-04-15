@@ -26,7 +26,7 @@ def create_default_variant(sender, instance, created, **kwargs):
         **kwargs: Additional arguments
     """
     # Only create default variant for products that can be purchased
-    if instance.sale_mode in ['BUY', 'HYBRID']:
+    if instance.sale_mode in ['BUY', 'HYBRID'] and not instance.track_inventory:
         # Check if product has any variants
         if not instance.variants.exists():
             # Generate a unique SKU

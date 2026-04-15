@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocale } from 'next-intl';
 import toast from 'react-hot-toast';
 import {
   PlusIcon,
@@ -16,6 +19,7 @@ import {
 
 import {
   getMovements,
+  getMovementsByVariant,
   createMovement,
   getActiveAlerts,
   getAlertCounts,
@@ -73,7 +77,10 @@ const ADJUSTMENT_REASONS = ['inventory_count', 'correction', 'initial'];
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function InventoryPage() {
   const queryClient = useQueryClient();
+  const locale = useLocale();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<InventoryTab>('summary');
+  const variantToOpen = searchParams.get('variant');
 
   const { data: summary = [], isLoading: l1 } = useQuery({
     queryKey: ['inventory-summary'],
@@ -175,7 +182,16 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {activeTab === 'summary' && <SummaryTab summary={summary} lowStock={lowStock} valueReport={valueReport} />}
+      {activeTab === 'summary' && (
+        <SummaryTab
+          summary={summary}
+          lowStock={lowStock}
+          valueReport={valueReport}
+          locale={locale}
+          variantToOpen={variantToOpen}
+          queryClient={queryClient}
+        />
+      )}
       {activeTab === 'movements' && <MovementsTab queryClient={queryClient} />}
       {activeTab === 'alerts' && <AlertsTab queryClient={queryClient} />}
     </div>
@@ -185,12 +201,25 @@ export default function InventoryPage() {
 // ═══════════════════════════════════════════════════════════════════════════
 // SUMMARY TAB
 // ═══════════════════════════════════════════════════════════════════════════
-function SummaryTab({ summary, lowStock, valueReport }: {
+function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, queryClient }: {
   summary: StockSummaryItem[];
   lowStock?: LowStockReport;
   valueReport?: InventoryValueReport;
+  locale: string;
+  variantToOpen?: string | null;
+  queryClient: ReturnType<typeof useQueryClient>;
 }) {
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [selectedItem, setSelectedItem] = useState<StockSummaryItem | null>(null);
+
+  useEffect(() => {
+    if (!variantToOpen || selectedItem || summary.length === 0) return;
+    const found = summary.find((item) => item.variant_id === variantToOpen);
+    if (found) {
+      setSelectedItem(found);
+      setFilter('all');
+    }
+  }, [variantToOpen, summary, selectedItem]);
 
   const filtered = summary.filter((item) => {
     if (filter === 'low') return item.is_low_stock && !item.is_out_of_stock;
@@ -262,8 +291,19 @@ function SummaryTab({ summary, lowStock, valueReport }: {
                   {filtered.map((item) => (
                     <tr key={item.variant_id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
                       <td className="px-4 py-3 text-xs text-cyan-400 font-mono">{item.sku}</td>
-                      <td className="px-4 py-3 text-sm text-white">{item.product_name}</td>
-                      <td className="px-4 py-3 text-sm text-neutral-400">{item.variant_name}</td>
+                      <td className="px-4 py-3 text-sm text-white">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedItem(item)}
+                          className="text-left hover:text-cyan-300 transition-colors"
+                          title="Ver detalle y gestionar inventario"
+                        >
+                          {item.product_name}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-neutral-400">
+                        {item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}
+                      </td>
                       <td className={cn('px-4 py-3 text-sm text-right font-semibold',
                         item.is_out_of_stock ? 'text-red-400' : item.is_low_stock ? 'text-yellow-400' : 'text-green-400')}>
                         {item.current_stock}
@@ -288,6 +328,9 @@ function SummaryTab({ summary, lowStock, valueReport }: {
                 </tbody>
               </table>
             </Card>
+            <p className="text-xs text-neutral-500 mt-2">
+              Variante = presentacion del producto (por ejemplo, color, medida o material). Si aparece "Base", no tiene atributos extra.
+            </p>
           </div>
 
           {/* Mobile cards */}
@@ -297,7 +340,7 @@ function SummaryTab({ summary, lowStock, valueReport }: {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-white truncate">{item.product_name}</p>
-                    <p className="text-xs text-neutral-400">{item.variant_name}</p>
+                    <p className="text-xs text-neutral-400">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</p>
                     <p className="text-[10px] text-cyan-400 font-mono mt-0.5">{item.sku}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -314,12 +357,187 @@ function SummaryTab({ summary, lowStock, valueReport }: {
                     )}
                   </div>
                 </div>
+                <div className="mt-2 pt-2 border-t border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItem(item)}
+                    className="text-xs text-cyan-400 hover:text-cyan-300"
+                  >
+                    Ver detalle y gestionar inventario
+                  </button>
+                </div>
               </Card>
             ))}
           </div>
         </>
       )}
+
+      {selectedItem && (
+        <InventoryItemModal
+          item={selectedItem}
+          locale={locale}
+          queryClient={queryClient}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function InventoryItemModal({
+  item,
+  locale,
+  queryClient,
+  onClose,
+}: {
+  item: StockSummaryItem;
+  locale: string;
+  queryClient: ReturnType<typeof useQueryClient>;
+  onClose: () => void;
+}) {
+  const [movementType, setMovementType] = useState<'IN' | 'OUT' | 'ADJUSTMENT'>('IN');
+  const [quantity, setQuantity] = useState(1);
+  const [reason, setReason] = useState('purchase');
+  const [notes, setNotes] = useState('');
+
+  const { data: movementData, isLoading: movementsLoading } = useQuery({
+    queryKey: ['inventory-movements-by-variant', item.variant_id],
+    queryFn: () => getMovementsByVariant(item.variant_id),
+  });
+
+  useEffect(() => {
+    if (movementType === 'IN') setReason('purchase');
+    if (movementType === 'OUT') setReason('sale');
+    if (movementType === 'ADJUSTMENT') setReason('inventory_count');
+  }, [movementType]);
+
+  const createMut = useMutation({
+    mutationFn: createMovement,
+    onSuccess: () => {
+      toast.success('Inventario actualizado');
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-low-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-value'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements-by-variant', item.variant_id] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-alert-counts'] });
+      setNotes('');
+      setQuantity(1);
+    },
+    onError: (err: { message?: string; data?: Record<string, unknown> }) => {
+      const msg = err?.data
+        ? Object.values(err.data).flat().join(', ')
+        : err?.message || 'No se pudo actualizar inventario';
+      toast.error(msg);
+    },
+  });
+
+  const submitMovement = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMut.mutate({
+      variant_id: item.variant_id,
+      movement_type: movementType,
+      quantity,
+      reason,
+      notes,
+    });
+  };
+
+  const movements = movementData?.results ?? [];
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Detalle y gestión de inventario" size="lg">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4 space-y-2">
+          <p className="text-white font-semibold">{item.product_name}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <p className="text-neutral-400">SKU: <span className="text-cyan-400 font-mono">{item.sku}</span></p>
+            <p className="text-neutral-400">Variante: <span className="text-neutral-200">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</span></p>
+            <p className="text-neutral-400">Stock actual: <span className="text-white font-semibold">{item.current_stock}</span></p>
+            <p className="text-neutral-400">Umbral bajo: <span className="text-white">{item.low_stock_threshold}</span></p>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Link href={`/${locale}/dashboard/catalogo?edit=${item.product_id}`} className="inline-block">
+              <Button size="sm" variant="outline">Editar producto en catálogo</Button>
+            </Link>
+          </div>
+        </div>
+
+        <form onSubmit={submitMovement} className="rounded-lg border border-neutral-700 p-4 space-y-4">
+          <h4 className="text-sm font-semibold text-neutral-200">Modificar inventario</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Movimiento</label>
+              <select
+                value={movementType}
+                onChange={(e) => setMovementType(e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT')}
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm"
+              >
+                <option value="IN">Entrada (sumar stock)</option>
+                <option value="OUT">Salida (restar stock)</option>
+                <option value="ADJUSTMENT">Ajuste (stock final)</option>
+              </select>
+            </div>
+            <Input
+              type="number"
+              min="0"
+              label={movementType === 'ADJUSTMENT' ? 'Stock final' : 'Cantidad'}
+              value={String(quantity)}
+              onChange={(e) => setQuantity(Number(e.target.value || 0))}
+              required
+            />
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Razón</label>
+              <select
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm"
+              >
+                {(movementType === 'IN' ? IN_REASONS : movementType === 'OUT' ? OUT_REASONS : ADJUSTMENT_REASONS).map((r) => (
+                  <option key={r} value={r}>{REASON_LABELS[r]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-neutral-400 mb-1">Notas</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm resize-none"
+              placeholder="Opcional: proveedor, folio, motivo del ajuste..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cerrar</Button>
+            <Button type="submit" disabled={createMut.isPending}>Aplicar movimiento</Button>
+          </div>
+        </form>
+
+        <div className="rounded-lg border border-neutral-700 p-4">
+          <h4 className="text-sm font-semibold text-neutral-200 mb-2">Últimos movimientos</h4>
+          {movementsLoading ? (
+            <p className="text-sm text-neutral-400">Cargando movimientos...</p>
+          ) : movements.length === 0 ? (
+            <p className="text-sm text-neutral-500">Sin movimientos registrados.</p>
+          ) : (
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {movements.slice(0, 8).map((mov) => (
+                <div key={mov.id} className="text-xs text-neutral-300 border-b border-neutral-800 pb-2">
+                  <p>
+                    {new Date(mov.created_at).toLocaleString('es-MX')} · {MOVEMENT_TYPE_LABELS[mov.movement_type]} · {mov.quantity > 0 ? '+' : ''}{mov.quantity}
+                  </p>
+                  <p className="text-neutral-500">{REASON_LABELS[mov.reason] || mov.reason} · {mov.stock_before} → {mov.stock_after}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
   );
 }
 
