@@ -43,6 +43,22 @@ MANUAL_PAYMENT_METHODS = {'bank_transfer', 'cash'}
 ONLINE_PAYMENT_METHODS = {'mercadopago', 'paypal'}
 
 
+def normalize_payment_method(value: str | None) -> str:
+    raw = str(value or '').strip().lower()
+    aliases = {
+        'mercado_pago': 'mercadopago',
+        'mercado pago': 'mercadopago',
+        'paypal': 'paypal',
+        'bank_transfer': 'bank_transfer',
+        'bank transfer': 'bank_transfer',
+        'transferencia': 'bank_transfer',
+        'transfer': 'bank_transfer',
+        'cash': 'cash',
+        'efectivo': 'cash',
+    }
+    return aliases.get(raw, raw)
+
+
 class CartView(APIView):
     """
     Handle cart operations.
@@ -557,8 +573,10 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        normalized_payment_method = normalize_payment_method(order.payment_method)
+
         if new_status == Order.STATUS_IN_PRODUCTION and not order.is_fully_paid:
-            if order.payment_method in ONLINE_PAYMENT_METHODS:
+            if normalized_payment_method in ONLINE_PAYMENT_METHODS:
                 order.amount_paid = order.total
                 order.save(update_fields=['amount_paid', 'updated_at'])
             elif not is_admin:
@@ -577,7 +595,7 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
             if (
                 old_status == Order.STATUS_PENDING_PAYMENT
                 and new_status == Order.STATUS_IN_PRODUCTION
-                and order.payment_method in ONLINE_PAYMENT_METHODS
+                and (normalize_payment_method(order.payment_method) in ONLINE_PAYMENT_METHODS or order.is_fully_paid)
             ):
                 order.transition_to(
                     Order.STATUS_PAID,

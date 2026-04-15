@@ -431,14 +431,32 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
     scheduled_date = serializers.DateTimeField(required=False, allow_null=True)
 
+    @staticmethod
+    def _normalize_payment_method(value: str | None) -> str:
+        raw = str(value or '').strip().lower()
+        aliases = {
+            'mercado_pago': 'mercadopago',
+            'mercado pago': 'mercadopago',
+            'paypal': 'paypal',
+            'bank_transfer': 'bank_transfer',
+            'bank transfer': 'bank_transfer',
+            'transferencia': 'bank_transfer',
+            'transfer': 'bank_transfer',
+            'cash': 'cash',
+            'efectivo': 'cash',
+        }
+        return aliases.get(raw, raw)
+
     def validate_status(self, value):
         """Validate status transition is allowed."""
         order = self.context.get('order')
+        payment_method = self._normalize_payment_method(getattr(order, 'payment_method', '')) if order else ''
+        is_online = payment_method in {'mercadopago', 'paypal'}
         if (
             order
             and order.status == Order.STATUS_PENDING_PAYMENT
             and value == Order.STATUS_IN_PRODUCTION
-            and order.payment_method in ['mercadopago', 'paypal']
+            and (is_online or order.is_fully_paid)
         ):
             return value
         if order and not order.can_transition_to(value):
