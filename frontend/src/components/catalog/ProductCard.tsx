@@ -158,7 +158,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
             <div className="flex items-end justify-end gap-2 mt-2 flex-wrap">
               {isDirectPurchase ? (
                 <>
-                  <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-7">
+                  <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8 w-[124px]">
                     <button
                       type="button"
                       onClick={decreaseQuantity}
@@ -177,7 +177,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
                         e.preventDefault();
                         e.stopPropagation();
                       }}
-                      className="w-11 h-full text-[11px] text-white bg-neutral-900 text-center border-0 focus:ring-0"
+                      className="w-[44px] h-full text-xs text-white bg-neutral-900 text-center border-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <button
                       type="button"
@@ -263,7 +263,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
           <div className="mt-3 flex flex-col gap-2">
             {isDirectPurchase ? (
               <>
-                <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8 w-full max-w-[190px]">
+                <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-10 w-[130px]">
                   <button
                     type="button"
                     onClick={decreaseQuantity}
@@ -282,7 +282,7 @@ export function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
                       e.preventDefault();
                       e.stopPropagation();
                     }}
-                    className="flex-1 h-full text-xs text-white bg-neutral-900 text-center border-0 focus:ring-0"
+                    className="flex-1 h-full text-xs text-white bg-neutral-900 text-center border-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <button
                     type="button"

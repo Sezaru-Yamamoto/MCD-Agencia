@@ -314,48 +314,48 @@ export default function ProductDetailPage() {
                 <div className="pt-4 mt-auto border-t border-neutral-700 space-y-2">
                   {(product.sale_mode === 'BUY' || product.sale_mode === 'HYBRID') && (
                     <div className="space-y-2">
-                      <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-8 w-full max-w-[185px]">
-                        <button
-                          type="button"
-                          onClick={decreaseQuantity}
-                          className="px-2.5 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
-                          aria-label="Disminuir cantidad"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          max={99}
-                          value={quantity}
-                          onChange={onQuantityInputChange}
-                          className="flex-1 h-full text-xs text-white bg-neutral-900 text-center border-0 focus:ring-0"
-                        />
-                        <button
-                          type="button"
-                          onClick={increaseQuantity}
-                          className="px-2.5 text-xs text-white bg-neutral-800 hover:bg-neutral-700"
-                          aria-label="Aumentar cantidad"
-                        >
-                          +
-                        </button>
-                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-[132px,1fr,1fr] gap-2 items-stretch">
+                        <div className="flex items-center rounded-md border border-neutral-600 overflow-hidden h-11 w-[132px]">
+                          <button
+                            type="button"
+                            onClick={decreaseQuantity}
+                            className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700 h-full"
+                            aria-label="Disminuir cantidad"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={99}
+                            value={quantity}
+                            onChange={onQuantityInputChange}
+                            className="w-[48px] h-full text-sm text-white bg-neutral-900 text-center border-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={increaseQuantity}
+                            className="px-3 text-sm text-white bg-neutral-800 hover:bg-neutral-700 h-full"
+                            aria-label="Aumentar cantidad"
+                          >
+                            +
+                          </button>
+                        </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <Button
-                        size="lg"
-                        className="w-full font-semibold bg-neutral-700 hover:bg-neutral-600 text-white"
-                        onClick={handleAddToCart}
-                      >
-                        Agregar carrito
-                      </Button>
-                      <Button
-                        size="lg"
-                        className="w-full font-semibold bg-green-600 hover:bg-green-700 text-white"
-                        onClick={handleBuyNow}
-                      >
-                        Comprar ahora
-                      </Button>
+                        <Button
+                          size="lg"
+                          className="w-full font-semibold bg-neutral-700 hover:bg-neutral-600 text-white"
+                          onClick={handleAddToCart}
+                        >
+                          Agregar carrito
+                        </Button>
+                        <Button
+                          size="lg"
+                          className="w-full font-semibold bg-green-600 hover:bg-green-700 text-white"
+                          onClick={handleBuyNow}
+                        >
+                          Comprar ahora
+                        </Button>
                       </div>
                     </div>
                   )}

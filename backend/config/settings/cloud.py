@@ -304,7 +304,7 @@ REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = [
 # =============================================================================
 
 from datetime import timedelta as _td
-SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = _td(minutes=30)
+SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = _td(minutes=60)
 SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = _td(days=3)
 
 

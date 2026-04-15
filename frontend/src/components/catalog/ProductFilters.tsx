@@ -17,9 +17,8 @@ type SaleMode = 'BUY' | 'QUOTE' | 'HYBRID';
 
 const SALE_MODE_OPTIONS: { value: SaleMode | ''; label: string }[] = [
   { value: '', label: 'Todos los modos' },
-  { value: 'BUY', label: 'Compra directa' },
-  { value: 'QUOTE', label: 'Solo cotización' },
-  { value: 'HYBRID', label: 'Compra o cotización' },
+  { value: 'BUY', label: 'Compra' },
+  { value: 'QUOTE', label: 'Cotización' },
 ];
 
 interface ProductFiltersProps {

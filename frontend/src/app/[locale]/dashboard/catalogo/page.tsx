@@ -769,20 +769,6 @@ export default function AdminCatalogPage() {
             </div>
           </div>
 
-          {/* Short Description */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-1">
-              Descripción corta
-            </label>
-            <Textarea
-              value={formData.short_description}
-              onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-              placeholder="Descripción breve del producto (aparece en listados)"
-              rows={2}
-            />
-            <p className="text-xs text-neutral-500 mt-1">Si la dejas vacía, se genera automáticamente a partir de la descripción completa.</p>
-          </div>
-
           {/* Full Description */}
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-1">

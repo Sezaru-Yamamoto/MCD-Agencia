@@ -391,7 +391,7 @@ function InventoryItemModal({
   onClose: () => void;
 }) {
   const [movementType, setMovementType] = useState<'IN' | 'OUT' | 'ADJUSTMENT'>('IN');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0);
   const [reason, setReason] = useState('purchase');
   const [notes, setNotes] = useState('');
   const [editableSku, setEditableSku] = useState(item.sku);
@@ -420,59 +420,61 @@ function InventoryItemModal({
     setEditableThreshold(currentVariant?.low_stock_threshold ?? item.low_stock_threshold);
   }, [currentVariant, item.sku, item.low_stock_threshold]);
 
-  const createMut = useMutation({
-    mutationFn: createMovement,
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const variantSku = currentVariant?.sku || item.sku;
+      const variantThreshold = currentVariant?.low_stock_threshold ?? item.low_stock_threshold;
+      const skuChanged = editableSku.trim() !== variantSku;
+      const thresholdChanged = editableThreshold !== variantThreshold;
+      const hasMovement = quantity > 0;
+
+      if (!skuChanged && !thresholdChanged && !hasMovement && !notes.trim()) {
+        throw new Error('No hay cambios para guardar');
+      }
+
+      if (skuChanged || thresholdChanged) {
+        await updateProductVariant(item.variant_id, {
+          sku: editableSku.trim().toUpperCase(),
+          low_stock_threshold: editableThreshold,
+        });
+      }
+
+      if (hasMovement) {
+        await createMovement({
+          variant_id: item.variant_id,
+          movement_type: movementType,
+          quantity,
+          reason,
+          notes,
+        });
+      }
+    },
     onSuccess: () => {
-      toast.success('Inventario actualizado');
+      toast.success('Cambios de inventario guardados');
       queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-low-stock'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-value'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-movements-by-variant', item.variant_id] });
       queryClient.invalidateQueries({ queryKey: ['inventory-alert-counts'] });
-      setNotes('');
-      setQuantity(1);
-    },
-    onError: (err: { message?: string; data?: Record<string, unknown> }) => {
-      const msg = err?.data
-        ? Object.values(err.data).flat().join(', ')
-        : err?.message || 'No se pudo actualizar inventario';
-      toast.error(msg);
-    },
-  });
-
-  const updateVariantMut = useMutation({
-    mutationFn: () =>
-      updateProductVariant(item.variant_id, {
-        sku: editableSku,
-        low_stock_threshold: editableThreshold,
-      }),
-    onSuccess: () => {
-      toast.success('Datos de inventario actualizados');
-      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-low-stock'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-product-detail', item.product_id] });
+      setNotes('');
+      setQuantity(0);
     },
     onError: (err: { message?: string; data?: Record<string, unknown> }) => {
+      if (err?.message === 'No hay cambios para guardar') {
+        toast('No hay cambios para guardar', { icon: 'ℹ️' });
+        return;
+      }
       const msg = err?.data
         ? Object.values(err.data).flat().join(', ')
-        : err?.message || 'No se pudo actualizar SKU/umbral';
+        : err?.message || 'No se pudieron guardar los cambios';
       toast.error(msg);
     },
   });
 
-  const submitMovement = (e: React.FormEvent) => {
+  const submitChanges = (e: React.FormEvent) => {
     e.preventDefault();
-    createMut.mutate({
-      variant_id: item.variant_id,
-      movement_type: movementType,
-      quantity,
-      reason,
-      notes,
-    });
-  };
-
-  const submitVariantData = () => {
     if (!editableSku.trim()) {
       toast.error('El SKU no puede quedar vacío');
       return;
@@ -481,7 +483,8 @@ function InventoryItemModal({
       toast.error('El umbral no puede ser negativo');
       return;
     }
-    updateVariantMut.mutate();
+
+    saveMut.mutate();
   };
 
   const movements = movementData?.results ?? [];
@@ -526,35 +529,38 @@ function InventoryItemModal({
           </div>
         </div>
 
-        <form onSubmit={submitMovement} className="rounded-lg border border-neutral-700 p-4 space-y-4">
+        <form onSubmit={submitChanges} className="rounded-lg border border-neutral-700 p-4 space-y-4">
           <h4 className="text-sm font-semibold text-neutral-200">Modificar inventario</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Movimiento</label>
               <select
                 value={movementType}
                 onChange={(e) => setMovementType(e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT')}
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm"
+                className="w-full h-11 rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 text-sm"
               >
                 <option value="IN">Entrada (sumar stock)</option>
                 <option value="OUT">Salida (restar stock)</option>
                 <option value="ADJUSTMENT">Ajuste (stock final)</option>
               </select>
             </div>
-            <Input
-              type="number"
-              min="0"
-              label={movementType === 'ADJUSTMENT' ? 'Stock final' : 'Cantidad'}
-              value={String(quantity)}
-              onChange={(e) => setQuantity(Number(e.target.value || 0))}
-              required
-            />
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">{movementType === 'ADJUSTMENT' ? 'Stock final' : 'Cantidad'}</label>
+              <input
+                type="number"
+                min="0"
+                value={String(quantity)}
+                onChange={(e) => setQuantity(Number(e.target.value || 0))}
+                className="w-full h-11 rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                placeholder="0"
+              />
+            </div>
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Razón</label>
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm"
+                className="w-full h-11 rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 text-sm"
               >
                 {(movementType === 'IN' ? IN_REASONS : movementType === 'OUT' ? OUT_REASONS : ADJUSTMENT_REASONS).map((r) => (
                   <option key={r} value={r}>{REASON_LABELS[r]}</option>
@@ -563,20 +569,26 @@ function InventoryItemModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="SKU"
-              value={editableSku}
-              onChange={(e) => setEditableSku(e.target.value.toUpperCase())}
-              placeholder="SKU único"
-            />
-            <Input
-              type="number"
-              min="0"
-              label="Umbral stock bajo"
-              value={String(editableThreshold)}
-              onChange={(e) => setEditableThreshold(Number(e.target.value || 0))}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">SKU</label>
+              <input
+                value={editableSku}
+                onChange={(e) => setEditableSku(e.target.value.toUpperCase())}
+                placeholder="SKU único"
+                className="w-full h-11 rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Umbral stock bajo</label>
+              <input
+                type="number"
+                min="0"
+                value={String(editableThreshold)}
+                onChange={(e) => setEditableThreshold(Number(e.target.value || 0))}
+                className="w-full h-11 rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </div>
           </div>
 
           <div>
@@ -590,12 +602,13 @@ function InventoryItemModal({
             />
           </div>
 
+          <p className="text-xs text-neutral-500">
+            Si cantidad = 0, solo se guardarán SKU/umbral. Si cantidad &gt; 0, además se aplicará el movimiento.
+          </p>
+
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>Cerrar</Button>
-            <Button type="button" variant="outline" disabled={updateVariantMut.isPending} onClick={submitVariantData}>
-              {updateVariantMut.isPending ? 'Guardando SKU/umbral...' : 'Guardar SKU/umbral'}
-            </Button>
-            <Button type="submit" disabled={createMut.isPending}>Aplicar movimiento</Button>
+            <Button type="submit" disabled={saveMut.isPending}>{saveMut.isPending ? 'Guardando...' : 'Guardar cambios'}</Button>
           </div>
         </form>
 
