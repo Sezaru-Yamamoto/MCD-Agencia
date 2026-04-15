@@ -137,7 +137,7 @@ export default function CheckoutPage() {
       ? LOCAL_SHIPPING_FEE
       : OUTSIDE_SHIPPING_FEE;
 
-  const checkoutTotal = Number(cart.total) + shippingFee;
+  const checkoutTotal = Number(cart?.total ?? 0) + shippingFee;
 
   const handleAddAddress = async (data: AddressFormData) => {
     try {
