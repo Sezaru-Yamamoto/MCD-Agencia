@@ -11,7 +11,6 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { getProducts, getCategories, type ProductListItem, type Category } from '@/lib/api/catalog';
-import { LANDING_SERVICE_IDS, SERVICE_LABELS, SERVICE_SUBCATEGORIES, type ServiceSubcategory } from '@/lib/service-ids';
 import { createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage, type CreateProductData } from '@/lib/api/admin';
 import toast from 'react-hot-toast';
 import { Card, Badge, Button, Input, Select, Modal, Pagination, LoadingPage } from '@/components/ui';
@@ -135,8 +134,9 @@ export default function AdminCatalogPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       closeModal();
     },
-    onError: () => {
-      toast.error('Error al crear producto');
+    onError: (error: { message?: string; data?: Record<string, unknown> }) => {
+      const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
+      toast.error(`Error al crear producto: ${error?.message || 'Solicitud inválida'}${detail}`);
     },
   });
 
@@ -527,17 +527,9 @@ export default function AdminCatalogPage() {
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               >
                 <option value="">Seleccionar categoría...</option>
-                {LANDING_SERVICE_IDS.map((serviceId) => {
-                  const subs = SERVICE_SUBCATEGORIES[serviceId] || [];
-                  return (
-                    <optgroup key={serviceId} label={`📁 ${SERVICE_LABELS[serviceId]}`}>
-                      <option value={serviceId}>{SERVICE_LABELS[serviceId]} (general)</option>
-                      {subs.filter((s: ServiceSubcategory) => s.id !== 'otro').map((sub: ServiceSubcategory) => (
-                        <option key={`${serviceId}-${sub.id}`} value={`${serviceId}::${sub.id}`}>↳ {sub.label}</option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
+                {categories.map((cat: Category) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
               </select>
             </div>
           </div>
