@@ -353,6 +353,9 @@ export interface CreateProductData {
   is_featured?: boolean;
   meta_title?: string;
   meta_description?: string;
+  initial_sku?: string;
+  initial_stock?: number;
+  initial_low_stock_threshold?: number;
 }
 
 export interface CreateCategoryData {
