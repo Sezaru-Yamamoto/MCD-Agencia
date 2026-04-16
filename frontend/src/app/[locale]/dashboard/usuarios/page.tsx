@@ -275,7 +275,6 @@ export default function AdminUsersPage() {
                           <EyeIcon className="h-5 w-5" />
                         </Button>
 
-                        {/* Botón para asignar grupo si es rol interno */}
                         {['sales', 'admin', 'superadmin'].includes(user.role?.name || '') && (
                           <Button
                             variant="ghost"
@@ -284,9 +283,10 @@ export default function AdminUsersPage() {
                               setUserToAssignGroup({ id: user.id, name: user.full_name || user.email });
                               setShowAssignGroupModal(true);
                             }}
-                            title="Asignar a grupo"
+                            title="Asignar a grupo de producción u ოპeraciones"
                           >
                             <ShieldCheckIcon className="h-5 w-5 text-blue-400" />
+                            <span className="ml-1 hidden xl:inline text-xs text-blue-400">Grupo</span>
                           </Button>
                         )}
 
