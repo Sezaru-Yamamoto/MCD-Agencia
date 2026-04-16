@@ -12,7 +12,8 @@ This module provides serializers for catalog operations:
 
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
-from django.db import transaction
+from django.db import transaction, IntegrityError
+import logging
 
 from .models import (
     Category,
@@ -23,6 +24,9 @@ from .models import (
     ProductVariant,
     CatalogImage,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -366,14 +370,30 @@ class CatalogItemAdminSerializer(CatalogItemDetailSerializer):
 
                 if initial_stock > 0:
                     from apps.inventory.models import InventoryMovement
+                    stock_before = variant.stock if variant.stock is not None else 0
+                    target_stock = max(0, initial_stock)
 
-                    InventoryMovement.objects.create(
-                        variant=variant,
-                        movement_type=InventoryMovement.MOVEMENT_ADJUSTMENT,
-                        quantity=initial_stock,
-                        reason='initial',
-                        notes='Stock inicial al crear producto desde catálogo admin',
-                        created_by=self.context.get('request').user if self.context.get('request') else None,
-                    )
+                    try:
+                        # Use an inner savepoint so movement failures don't abort product creation.
+                        with transaction.atomic():
+                            InventoryMovement.objects.create(
+                                variant=variant,
+                                movement_type=InventoryMovement.MOVEMENT_ADJUSTMENT,
+                                quantity=target_stock - stock_before,
+                                reason='initial',
+                                notes='Stock inicial al crear producto desde catálogo admin',
+                                created_by=self.context.get('request').user if self.context.get('request') else None,
+                                stock_before=stock_before,
+                                stock_after=target_stock,
+                            )
+                    except IntegrityError as exc:
+                        logger.warning(
+                            'Initial inventory movement failed for item %s / variant %s. Applying direct stock fallback. Error: %s',
+                            item.id,
+                            variant.id,
+                            exc,
+                        )
+                        variant.stock = target_stock
+                        variant.save(update_fields=['stock', 'updated_at'])
 
         return item
