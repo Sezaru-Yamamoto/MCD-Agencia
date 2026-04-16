@@ -552,7 +552,7 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             request=self.request,
             metadata={'admin_action': True}
         )
-        instance.soft_delete()
+        instance.delete()
 
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
