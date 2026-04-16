@@ -207,6 +207,10 @@ export async function updateAdminUser(id: string, data: Partial<AdminUser>): Pro
   return apiClient.patch<AdminUser>(`/admin/users/${id}/`, data);
 }
 
+export async function deleteAdminUser(id: string): Promise<void> {
+  return apiClient.delete<void>(`/admin/users/${id}/`);
+}
+
 export async function activateUser(id: string): Promise<AdminUser> {
   return apiClient.post<AdminUser>(`/admin/users/${id}/activate/`);
 }

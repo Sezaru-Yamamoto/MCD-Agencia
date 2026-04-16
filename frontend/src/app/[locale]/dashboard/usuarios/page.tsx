@@ -11,9 +11,10 @@ import {
   UserPlusIcon,
   ArrowPathIcon,
   ShieldCheckIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAdminUsers, activateUser, deactivateUser, changeUserRole, assignUserGroup, createUserWithPassword, AdminUser } from '@/lib/api/admin';
+import { getAdminUsers, activateUser, deactivateUser, changeUserRole, assignUserGroup, createUserWithPassword, deleteAdminUser, AdminUser } from '@/lib/api/admin';
 import { apiClient } from '@/lib/api/client';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage, Modal } from '@/components/ui';
 import { formatDate, getInitials } from '@/lib/utils';
@@ -55,6 +56,8 @@ export default function AdminUsersPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [showAssignGroupModal, setShowAssignGroupModal] = useState(false);
   const [userToAssignGroup, setUserToAssignGroup] = useState<{ id: string; name: string } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<'production_supervisors' | 'operations_supervisors'>('production_supervisors');
   
   const [createUserForm, setCreateUserForm] = useState({
@@ -139,6 +142,17 @@ export default function AdminUsersPage() {
       setUserToAssignGroup(null);
     },
     onError: () => toast.error('Error al asignar grupo'),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteAdminUser,
+    onSuccess: () => {
+      toast.success('Usuario eliminado');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    },
+    onError: () => toast.error('Error al eliminar usuario'),
   });
 
   const handlePromoteToSales = () => {
@@ -289,6 +303,18 @@ export default function AdminUsersPage() {
                             <span className="ml-1 hidden xl:inline text-xs text-blue-400">Grupo</span>
                           </Button>
                         )}
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setUserToDelete({ id: user.id, name: user.full_name || user.email });
+                            setShowDeleteModal(true);
+                          }}
+                          title="Eliminar usuario"
+                        >
+                          <TrashIcon className="h-5 w-5 text-red-400" />
+                        </Button>
 
                         {/* Solo mostrar activar/desactivar para vendedores */}
                         {user.role?.name === 'sales' && (
@@ -556,6 +582,46 @@ export default function AdminUsersPage() {
               isLoading={assignGroupMutation.isPending}
             >
               Asignar Grupo
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setUserToDelete(null);
+        }}
+        title="Eliminar Usuario"
+      >
+        <div className="space-y-4">
+          <p className="text-neutral-300">
+            ¿Quieres eliminar a <strong className="text-white">{userToDelete?.name}</strong>?
+          </p>
+          <p className="text-sm text-neutral-400">
+            Esta acción aplica soft delete y quita el acceso del usuario.
+          </p>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteModal(false);
+                setUserToDelete(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (userToDelete) {
+                  deleteUserMutation.mutate(userToDelete.id);
+                }
+              }}
+              isLoading={deleteUserMutation.isPending}
+            >
+              Eliminar
             </Button>
           </div>
         </div>

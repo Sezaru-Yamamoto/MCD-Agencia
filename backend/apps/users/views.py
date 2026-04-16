@@ -879,6 +879,7 @@ class AdminCreateUserView(APIView):
                 'email': user.email,
                 'success': True,
                 'email_sent': True,
+                'temporary_password': temporary_password,
             }, status=status.HTTP_201_CREATED)
 
         return Response({
