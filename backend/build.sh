@@ -27,6 +27,9 @@ python manage.py collectstatic --noinput
 echo "=== Running database migrations ==="
 python manage.py migrate --noinput
 
+echo "=== Backfilling operational tracks for existing orders ==="
+python manage.py backfill_operational_tracks --max-orders 500
+
 echo "=== Migrating request numbers to sequential format ==="
 python manage.py migrate_request_numbers
 
