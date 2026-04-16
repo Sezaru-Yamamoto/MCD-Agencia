@@ -129,7 +129,7 @@ export default function InventoryPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-white">{summary.length}</p>
-              <p className="text-xs text-neutral-400">Variantes</p>
+              <p className="text-xs text-neutral-400">Productos con inventario</p>
             </div>
           </div>
         </Card>
@@ -282,7 +282,6 @@ function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, que
                   <tr className="border-b border-neutral-800 bg-neutral-900/50">
                     <th className="text-left text-xs font-medium text-neutral-400 px-4 py-3">SKU</th>
                     <th className="text-left text-xs font-medium text-neutral-400 px-4 py-3">Producto</th>
-                    <th className="text-left text-xs font-medium text-neutral-400 px-4 py-3">Variante</th>
                     <th className="text-right text-xs font-medium text-neutral-400 px-4 py-3">Stock</th>
                     <th className="text-right text-xs font-medium text-neutral-400 px-4 py-3">Umbral</th>
                     <th className="text-center text-xs font-medium text-neutral-400 px-4 py-3">Estado</th>
@@ -298,9 +297,6 @@ function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, que
                     >
                       <td className="px-4 py-3 text-xs text-cyan-400 font-mono">{item.sku}</td>
                       <td className="px-4 py-3 text-sm text-white">{item.product_name}</td>
-                      <td className="px-4 py-3 text-sm text-neutral-400">
-                        {item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}
-                      </td>
                       <td className={cn('px-4 py-3 text-sm text-right font-semibold',
                         item.is_out_of_stock ? 'text-red-400' : item.is_low_stock ? 'text-yellow-400' : 'text-green-400')}>
                         {item.current_stock}
@@ -325,9 +321,6 @@ function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, que
                 </tbody>
               </table>
             </Card>
-            <p className="text-xs text-neutral-500 mt-2">
-              Variante = presentacion del producto (por ejemplo, color, medida o material). Si aparece "Base", no tiene atributos extra.
-            </p>
           </div>
 
           {/* Mobile cards */}
@@ -342,7 +335,6 @@ function SummaryTab({ summary, lowStock, valueReport, locale, variantToOpen, que
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-white truncate">{item.product_name}</p>
-                      <p className="text-xs text-neutral-400">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</p>
                       <p className="text-[10px] text-cyan-400 font-mono mt-0.5">{item.sku}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -490,7 +482,7 @@ function InventoryItemModal({
   const movements = movementData?.results ?? [];
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Detalle y gestión de inventario" size="lg">
+    <Modal isOpen={true} onClose={onClose} title="Detalle y gestión de inventario" size="full">
       <div className="space-y-4">
         <div className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4 space-y-2">
           {productLoading ? (
@@ -514,7 +506,6 @@ function InventoryItemModal({
                   <p className="text-neutral-400">Tipo: <span className="text-neutral-200">{productDetail?.type === 'service' ? 'Servicio' : 'Producto'}</span></p>
                   <p className="text-neutral-400">Categoría: <span className="text-neutral-200">{productDetail?.category?.name || 'Sin categoría'}</span></p>
                   <p className="text-neutral-400">Precio base: <span className="text-neutral-200">{productDetail?.base_price ? `$${Number(productDetail.base_price).toLocaleString('es-MX')}` : 'No aplica'}</span></p>
-                  <p className="text-neutral-400">Variante: <span className="text-neutral-200">{item.variant_name === 'Default' ? 'Base (sin atributos)' : item.variant_name}</span></p>
                   <p className="text-neutral-400">Stock actual: <span className="text-white font-semibold">{item.current_stock}</span></p>
                   <p className="text-neutral-400">SKU: <span className="text-cyan-400 font-mono">{currentVariant?.sku || editableSku}</span></p>
                   <p className="text-neutral-400">Umbral bajo: <span className="text-white">{currentVariant?.low_stock_threshold ?? editableThreshold}</span></p>
@@ -529,8 +520,9 @@ function InventoryItemModal({
           </div>
         </div>
 
-        <form onSubmit={submitChanges} className="rounded-lg border border-neutral-700 p-4 space-y-4">
-          <h4 className="text-sm font-semibold text-neutral-200">Modificar inventario</h4>
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <form onSubmit={submitChanges} className="xl:col-span-3 rounded-lg border border-neutral-700 p-4 space-y-4 h-fit">
+            <h4 className="text-sm font-semibold text-neutral-200">Modificar inventario</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-neutral-400 mb-1">Movimiento</label>
@@ -610,26 +602,27 @@ function InventoryItemModal({
             <Button type="button" variant="outline" onClick={onClose}>Cerrar</Button>
             <Button type="submit" disabled={saveMut.isPending}>{saveMut.isPending ? 'Guardando...' : 'Guardar cambios'}</Button>
           </div>
-        </form>
+          </form>
 
-        <div className="rounded-lg border border-neutral-700 p-4">
-          <h4 className="text-sm font-semibold text-neutral-200 mb-2">Últimos movimientos</h4>
-          {movementsLoading ? (
-            <p className="text-sm text-neutral-400">Cargando movimientos...</p>
-          ) : movements.length === 0 ? (
-            <p className="text-sm text-neutral-500">Sin movimientos registrados.</p>
-          ) : (
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              {movements.slice(0, 8).map((mov) => (
-                <div key={mov.id} className="text-xs text-neutral-300 border-b border-neutral-800 pb-2">
-                  <p>
-                    {new Date(mov.created_at).toLocaleString('es-MX')} · {MOVEMENT_TYPE_LABELS[mov.movement_type]} · {mov.quantity > 0 ? '+' : ''}{mov.quantity}
-                  </p>
-                  <p className="text-neutral-500">{REASON_LABELS[mov.reason] || mov.reason} · {mov.stock_before} → {mov.stock_after}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="xl:col-span-2 rounded-lg border border-neutral-700 p-4 h-fit">
+            <h4 className="text-sm font-semibold text-neutral-200 mb-2">Últimos movimientos</h4>
+            {movementsLoading ? (
+              <p className="text-sm text-neutral-400">Cargando movimientos...</p>
+            ) : movements.length === 0 ? (
+              <p className="text-sm text-neutral-500">Sin movimientos registrados.</p>
+            ) : (
+              <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+                {movements.slice(0, 12).map((mov) => (
+                  <div key={mov.id} className="text-xs text-neutral-300 border-b border-neutral-800 pb-2">
+                    <p>
+                      {new Date(mov.created_at).toLocaleString('es-MX')} · {MOVEMENT_TYPE_LABELS[mov.movement_type]} · {mov.quantity > 0 ? '+' : ''}{mov.quantity}
+                    </p>
+                    <p className="text-neutral-500">{REASON_LABELS[mov.reason] || mov.reason} · {mov.stock_before} → {mov.stock_after}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Modal>
@@ -681,7 +674,7 @@ function MovementsTab({ queryClient }: { queryClient: ReturnType<typeof useQuery
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.variant_id) { toast.error('Ingresa el ID de la variante'); return; }
+    if (!form.variant_id) { toast.error('Ingresa el ID del registro de inventario'); return; }
     createMut.mutate(form);
   };
 
@@ -813,10 +806,10 @@ function MovementsTab({ queryClient }: { queryClient: ReturnType<typeof useQuery
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo Movimiento de Inventario" size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="ID de Variante"
+            label="ID de inventario"
             value={form.variant_id}
             onChange={(e) => setForm({ ...form, variant_id: e.target.value })}
-            placeholder="UUID de la variante del catálogo"
+            placeholder="UUID del registro de inventario"
             required
           />
 
@@ -937,7 +930,7 @@ function AlertsTab({ queryClient }: { queryClient: ReturnType<typeof useQueryCli
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white">{alert.variant?.product_name || 'Producto'}</p>
-                <p className="text-xs text-neutral-400">{alert.variant?.name} · SKU: {alert.variant?.sku}</p>
+                <p className="text-xs text-neutral-400">SKU: {alert.variant?.sku}</p>
                 <p className="text-xs text-red-400 mt-1">
                   Stock actual: <strong>{alert.current_stock}</strong> · Umbral: {alert.threshold}
                 </p>

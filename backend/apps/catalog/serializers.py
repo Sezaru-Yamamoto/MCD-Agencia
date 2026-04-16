@@ -206,7 +206,7 @@ class CatalogItemListSerializer(serializers.ModelSerializer):
             'id', 'type', 'name', 'name_en', 'slug', 'short_description',
             'short_description_en', 'category', 'sale_mode', 'base_price',
             'compare_at_price', 'price_range', 'has_discount',
-            'discount_percentage', 'primary_image', 'is_featured'
+            'discount_percentage', 'primary_image', 'is_active', 'is_featured'
         ]
         read_only_fields = ['id', 'slug']
 

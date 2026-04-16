@@ -595,11 +595,14 @@ export default function AdminCatalogPage() {
                       )}
                     </td>
                     <td className="py-4 px-4">
-                      {product.is_featured ? (
-                        <Badge variant="success">Destacado</Badge>
-                      ) : (
-                        <span className="text-neutral-500">-</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge variant={product.is_active ? 'success' : 'default'}>
+                          {product.is_active ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                        {product.is_featured && (
+                          <Badge variant="info">Destacado</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-end gap-2">
@@ -908,6 +911,20 @@ export default function AdminCatalogPage() {
               <p className="text-xs text-neutral-400">
                 La gestión de inventario no se edita desde catálogo para evitar inconsistencias. Usa el módulo de inventario para entradas, salidas y ajustes.
               </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-md border border-neutral-700 bg-neutral-800/40 p-3">
+                  <p className="text-neutral-400 mb-1">SKU</p>
+                  <p className="text-cyan-400 font-mono break-all">{editingProductDetail?.variants?.[0]?.sku || 'Sin SKU'}</p>
+                </div>
+                <div className="rounded-md border border-neutral-700 bg-neutral-800/40 p-3">
+                  <p className="text-neutral-400 mb-1">Stock actual</p>
+                  <p className="text-white font-semibold">{editingProductDetail?.variants?.[0]?.stock ?? 0}</p>
+                </div>
+                <div className="rounded-md border border-neutral-700 bg-neutral-800/40 p-3">
+                  <p className="text-neutral-400 mb-1">Umbral stock bajo</p>
+                  <p className="text-white">{editingProductDetail?.variants?.[0]?.low_stock_threshold ?? 0}</p>
+                </div>
+              </div>
               <div>
                 <Link
                   href={`/${locale}/dashboard/inventario${editingProductDetail?.variants?.[0]?.id ? `?variant=${editingProductDetail.variants[0].id}` : ''}`}
