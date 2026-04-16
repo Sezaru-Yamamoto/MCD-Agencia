@@ -11,7 +11,7 @@ This module provides ViewSets for order operations:
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status
@@ -19,6 +19,7 @@ from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
@@ -74,6 +75,21 @@ def normalize_payment_method(value: str | None) -> str:
         'efectivo': 'cash',
     }
     return aliases.get(raw, raw)
+
+
+# Permission helpers for operation groups
+def user_has_production_permission(user) -> bool:
+    """Check if user is production supervisor or admin."""
+    if not user or not user.is_authenticated:
+        return False
+    return user.groups.filter(name='production_supervisors').exists() or is_internal_user(user)
+
+
+def user_has_operations_permission(user) -> bool:
+    """Check if user is operations supervisor or admin."""
+    if not user or not user.is_authenticated:
+        return False
+    return user.groups.filter(name='operations_supervisors').exists() or is_internal_user(user)
 
 
 class CartView(APIView):
@@ -564,30 +580,57 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         return getattr(getattr(user, 'role', None), 'name', '')
 
     def _assert_track_permission(self, request, track: str, target_status: str) -> Response | None:
-        """Return a forbidden response when role cannot apply the requested track transition."""
-        role = self._role_name(request.user)
-        if role == 'admin':
+        """
+        Validate group-based permissions for track updates.
+        
+        Permissions:
+        - admin (is_internal_user): Can update any track any status
+        - production_supervisors: Can only update production track (except blocked/cancelled)
+        - operations_supervisors: Can only update logistics and field_ops tracks (except blocked/cancelled/etc)
+        - others: Forbidden
+        """
+        user = request.user
+        
+        # Admin can do anything
+        if is_internal_user(user):
             return None
-
-        # Sales can move operational flow forward, but exceptional/failure transitions are admin-only.
+        
+        # Restricted target statuses by track type (only admin can set these)
         restricted_by_track = {
             'production': {ProductionJob.STATUS_BLOCKED, ProductionJob.STATUS_CANCELLED},
             'logistics': {LogisticsJob.STATUS_DELIVERY_FAILED, LogisticsJob.STATUS_CANCELLED},
             'field_ops': {FieldOperationJob.STATUS_PAUSED, FieldOperationJob.STATUS_REQUIRES_REVISIT, FieldOperationJob.STATUS_CANCELLED},
         }
-
-        if role != 'sales':
-            return Response(
-                {'error': _('Only internal roles can update operational tracks.')},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
+        
+        # Check if target status is restricted
         if target_status in restricted_by_track.get(track, set()):
             return Response(
                 {'error': _('Only admin can apply this transition for %(track)s.') % {'track': track}},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
+        
+        # Production supervisors can only update production
+        if track == 'production':
+            if not user_has_production_permission(user):
+                return Response(
+                    {'error': _('Only production supervisors can update production tracks.')},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        
+        # Operations supervisors can update logistics and field ops
+        elif track in ('logistics', 'field_ops'):
+            if not user_has_operations_permission(user):
+                return Response(
+                    {'error': _('Only operations supervisors can update logistics and field operations tracks.')},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        
+        else:
+            return Response(
+                {'error': _('Invalid track type.')},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
         return None
 
     def _audit_track_status_change(
@@ -965,6 +1008,101 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
             'job': FieldOperationJobSerializer(job).data,
             'order_operational_rollup': order.operational_rollup,
         })
+
+    @action(detail=False, methods=['get'], url_path='production-jobs')
+    def production_jobs(self, request):
+        """
+        GET /api/v1/orders/production-jobs/ 
+        List all production jobs for production supervisors.
+        """
+        if not user_has_production_permission(request.user):
+            raise PermissionDenied(_('Only production supervisors can access production jobs.'))
+        
+        jobs = ProductionJob.objects.select_related('order', 'order__user').order_by('-updated_at')
+        
+        # Filter by status if provided
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            jobs = jobs.filter(status=status_filter)
+        
+        # Filter by status__in for multiple statuses
+        statuses = request.query_params.getlist('statuses')
+        if statuses:
+            jobs = jobs.filter(status__in=statuses)
+        
+        # Paginate
+        paginator = StandardPagination()
+        paginated_jobs = paginator.paginate_queryset(jobs, request)
+        serializer = ProductionJobSerializer(paginated_jobs, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='operations-jobs')
+    def operations_jobs(self, request):
+        """
+        GET /api/v1/orders/operations-jobs/
+        List all logistics and field operations jobs for operations supervisors.
+        """
+        if not user_has_operations_permission(request.user):
+            raise PermissionDenied(_('Only operations supervisors can access operations jobs.'))
+        
+        from django.db.models import Q
+        
+        # Get both logistics and field ops jobs
+        logistics_jobs = LogisticsJob.objects.select_related('order', 'order__user').annotate(
+            job_type=models.Value('logistics', output_field=models.CharField())
+        )
+        field_ops_jobs = FieldOperationJob.objects.select_related('order', 'order__user').annotate(
+            job_type=models.Value('field_ops', output_field=models.CharField())
+        )
+        
+        # Filter by status if provided
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            logistics_jobs = logistics_jobs.filter(status=status_filter)
+            field_ops_jobs = field_ops_jobs.filter(status=status_filter)
+        
+        # Filter by job_type if provided
+        job_type_filter = request.query_params.get('job_type')  # 'logistics' or 'field_ops'
+        if job_type_filter == 'logistics':
+            field_ops_jobs = field_ops_jobs.none()
+        elif job_type_filter == 'field_ops':
+            logistics_jobs = logistics_jobs.none()
+        
+        # Combine and order
+        all_jobs = list(logistics_jobs) + list(field_ops_jobs)
+        all_jobs.sort(key=lambda x: x.updated_at, reverse=True)
+        
+        # Paginate combined results
+        paginator = StandardPagination()
+        # Convert to dict for serializer
+        jobs_data = []
+        for job in all_jobs:
+            if isinstance(job, LogisticsJob):
+                jobs_data.append({
+                    'job_type': 'logistics',
+                    'job': job,
+                })
+            else:
+                jobs_data.append({
+                    'job_type': 'field_ops',
+                    'job': job,
+                })
+        
+        paginated = paginator.paginate_queryset(jobs_data, request)
+        result = []
+        for item in paginated:
+            if item['job_type'] == 'logistics':
+                result.append({
+                    'job_type': 'logistics',
+                    **LogisticsJobSerializer(item['job']).data
+                })
+            else:
+                result.append({
+                    'job_type': 'field_ops',
+                    **FieldOperationJobSerializer(item['job']).data
+                })
+        
+        return paginator.get_paginated_response(result)
 
 
 class AdminWorkflowView(APIView):

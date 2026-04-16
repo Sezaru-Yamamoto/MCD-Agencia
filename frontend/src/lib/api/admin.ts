@@ -110,6 +110,59 @@ export interface WorkflowItem {
   is_range?: boolean;
 }
 
+// Operational Track Types
+export interface ProductionJob {
+  id: string;
+  order_id: string;
+  order_number: string;
+  status: string;
+  status_display: string;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
+  actual_start?: string | null;
+  actual_end?: string | null;
+  assigned_to?: string | null;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LogisticsJob {
+  id: string;
+  order_id: string;
+  order_number: string;
+  status: string;
+  status_display: string;
+  delivery_method: string;
+  delivery_method_display: string;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
+  delivered_at?: string | null;
+  tracking_number?: string | null;
+  assigned_to?: string | null;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FieldOperationJob {
+  id: string;
+  order_id: string;
+  order_number: string;
+  status: string;
+  status_display: string;
+  operation_type: string;
+  operation_type_display: string;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
+  actual_start?: string | null;
+  actual_end?: string | null;
+  assigned_to?: string | null;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkflowOverview {
   generated_at: string;
   window_start: string;
@@ -436,4 +489,74 @@ export async function createCarouselSlide(data: FormData): Promise<unknown> {
   );
   if (!response.ok) throw new Error('Failed to create slide');
   return response.json();
+}
+
+// Operational Tracks - Production
+export async function getProductionJobs(filters?: {
+  status?: string;
+  statuses?: string[];
+  page?: number;
+}): Promise<PaginatedResponse<ProductionJob>> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.statuses) {
+    filters.statuses.forEach(s => params.append('statuses', s));
+  }
+  if (filters?.page) params.append('page', filters.page.toString());
+  
+  const queryString = params.toString();
+  const url = `/admin/orders/production-jobs/${queryString ? '?' + queryString : ''}`;
+  return apiClient.get<PaginatedResponse<ProductionJob>>(url);
+}
+
+export async function updateProductionJobStatus(
+  orderId: string,
+  jobId: string,
+  status: string,
+  notes?: string
+): Promise<{ job: ProductionJob; order_operational_rollup: string }> {
+  return apiClient.post(
+    `/admin/orders/${orderId}/production-jobs/${jobId}/update-status/`,
+    { status, notes }
+  );
+}
+
+// Operational Tracks - Operations (Logistics + Field Ops)
+export async function getOperationsJobs(filters?: {
+  status?: string;
+  job_type?: 'logistics' | 'field_ops';
+  page?: number;
+}): Promise<PaginatedResponse<LogisticsJob | FieldOperationJob>> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.job_type) params.append('job_type', filters.job_type);
+  if (filters?.page) params.append('page', filters.page.toString());
+  
+  const queryString = params.toString();
+  const url = `/admin/orders/operations-jobs/${queryString ? '?' + queryString : ''}`;
+  return apiClient.get<PaginatedResponse<LogisticsJob | FieldOperationJob>>(url);
+}
+
+export async function updateLogisticsJobStatus(
+  orderId: string,
+  jobId: string,
+  status: string,
+  notes?: string
+): Promise<{ job: LogisticsJob; order_operational_rollup: string }> {
+  return apiClient.post(
+    `/admin/orders/${orderId}/logistics-jobs/${jobId}/update-status/`,
+    { status, notes }
+  );
+}
+
+export async function updateFieldOperationJobStatus(
+  orderId: string,
+  jobId: string,
+  status: string,
+  notes?: string
+): Promise<{ job: FieldOperationJob; order_operational_rollup: string }> {
+  return apiClient.post(
+    `/admin/orders/${orderId}/field-ops-jobs/${jobId}/update-status/`,
+    { status, notes }
+  );
 }
