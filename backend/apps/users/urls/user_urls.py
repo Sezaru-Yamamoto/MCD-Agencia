@@ -48,4 +48,7 @@ admin_router.register('', UserAdminViewSet, basename='admin-users')
 
 admin_urlpatterns = [
     path('', include(admin_router.urls)),
+    # Explicit paths for custom actions (fallback if router doesn't generate them)
+    path('create_with_password/', UserAdminViewSet.as_view({'post': 'create_with_password'}), name='admin-users-create-with-password'),
+    path('<str:pk>/assign_group/', UserAdminViewSet.as_view({'post': 'assign_group'}), name='admin-users-assign-group'),
 ]
