@@ -22,8 +22,6 @@ import {
   uploadProductImages,
   deleteProductImage,
   createCategory,
-  createProductVariant,
-  createInventoryMovement,
   type CreateProductData,
 } from '@/lib/api/admin';
 import toast from 'react-hot-toast';
@@ -171,57 +169,17 @@ export default function AdminCatalogPage() {
   const createMutation = useMutation({
     mutationFn: async (data: CreateProductData) => {
       const product = await createProduct(data) as { id: string };
-      const warnings: string[] = [];
-
-      // Phase 2: send new products to inventory by creating an initial variant + movement
-      if (formData.type === 'product' && formData.track_inventory && formData.sku) {
-        try {
-          const variant = await createProductVariant({
-            catalog_item_id: product.id,
-            sku: formData.sku,
-            price: formData.base_price || '0',
-            compare_at_price: formData.compare_at_price || undefined,
-            stock: 0,
-            low_stock_threshold: Number(formData.low_stock_threshold || '10'),
-            is_active: true,
-          }) as { id: string };
-
-          const initialStock = Number(formData.initial_stock || '0');
-          if (initialStock > 0) {
-            await createInventoryMovement({
-              variant_id: variant.id,
-              movement_type: 'ADJUSTMENT',
-              quantity: initialStock,
-              reason: 'initial',
-              notes: 'Stock inicial al crear producto desde catálogo admin',
-            });
-          }
-        } catch {
-          warnings.push('No se pudo inicializar inventario automáticamente. Puedes ajustarlo desde el módulo de inventario.');
-        }
-      }
 
       // Upload images if any
       if (selectedImages.length > 0) {
         try {
           await uploadProductImages(product.id, selectedImages);
-          if (warnings.length > 0) {
-            toast.success('Producto e imágenes creados');
-            toast(warnings.join(' '), { icon: '⚠️' });
-          } else {
-            toast.success('Producto e imágenes creados');
-          }
+          toast.success('Producto e imágenes creados');
         } catch {
           toast.error('Producto creado, pero hubo error al subir imágenes');
-          if (warnings.length > 0) {
-            toast(warnings.join(' '), { icon: '⚠️' });
-          }
         }
       } else {
         toast.success('Producto creado');
-        if (warnings.length > 0) {
-          toast(warnings.join(' '), { icon: '⚠️' });
-        }
       }
       return product;
     },
@@ -474,6 +432,13 @@ export default function AdminCatalogPage() {
       track_inventory: formData.type === 'product' ? formData.track_inventory : false,
       is_active: formData.is_active,
       is_featured: formData.is_featured,
+      ...(formData.type === 'product' && formData.track_inventory && !editingProduct
+        ? {
+            initial_sku: formData.sku.trim().toUpperCase(),
+            initial_stock: Number(formData.initial_stock || '0'),
+            initial_low_stock_threshold: Number(formData.low_stock_threshold || '10'),
+          }
+        : {}),
     };
 
     if (editingProduct) {

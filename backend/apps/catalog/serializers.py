@@ -12,6 +12,7 @@ This module provides serializers for catalog operations:
 
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
+from django.db import transaction
 
 from .models import (
     Category,
@@ -320,7 +321,59 @@ class CatalogItemAdminSerializer(CatalogItemDetailSerializer):
     Includes additional admin-only fields.
     """
 
+    initial_sku = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    initial_stock = serializers.IntegerField(write_only=True, required=False, min_value=0, default=0)
+    initial_low_stock_threshold = serializers.IntegerField(write_only=True, required=False, min_value=0, default=10)
+
     class Meta(CatalogItemDetailSerializer.Meta):
         fields = CatalogItemDetailSerializer.Meta.fields + [
-            'external_system', 'external_id', 'last_sync_at', 'sync_status'
+            'external_system', 'external_id', 'last_sync_at', 'sync_status',
+            'initial_sku', 'initial_stock', 'initial_low_stock_threshold'
         ]
+
+    def create(self, validated_data):
+        """Create catalog item and initialize inventory variant when required."""
+        initial_sku = validated_data.pop('initial_sku', '')
+        initial_stock = int(validated_data.pop('initial_stock', 0) or 0)
+        initial_low_stock_threshold = int(validated_data.pop('initial_low_stock_threshold', 10) or 10)
+
+        with transaction.atomic():
+            item = super().create(validated_data)
+
+            if item.type == 'product' and item.track_inventory:
+                sku = (initial_sku or f"{item.slug}-001").strip().upper()
+                if not sku:
+                    sku = f"{item.slug}-001"
+
+                # Keep SKU unique even when admins reuse a code by mistake.
+                if ProductVariant.objects.filter(sku=sku).exists():
+                    base_sku = sku
+                    suffix = 2
+                    while ProductVariant.objects.filter(sku=f"{base_sku}-{suffix:02d}").exists():
+                        suffix += 1
+                    sku = f"{base_sku}-{suffix:02d}"
+
+                variant = ProductVariant.objects.create(
+                    catalog_item=item,
+                    sku=sku,
+                    name='Default',
+                    price=item.base_price or 0,
+                    compare_at_price=item.compare_at_price,
+                    stock=0,
+                    low_stock_threshold=max(0, initial_low_stock_threshold),
+                    is_active=True,
+                )
+
+                if initial_stock > 0:
+                    from apps.inventory.models import InventoryMovement
+
+                    InventoryMovement.objects.create(
+                        variant=variant,
+                        movement_type=InventoryMovement.MOVEMENT_ADJUSTMENT,
+                        quantity=initial_stock,
+                        reason='initial',
+                        notes='Stock inicial al crear producto desde catálogo admin',
+                        created_by=self.context.get('request').user if self.context.get('request') else None,
+                    )
+
+        return item
