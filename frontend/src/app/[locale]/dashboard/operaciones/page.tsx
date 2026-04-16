@@ -126,6 +126,7 @@ export default function OperationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
   const [boardDensity, setBoardDensity] = useState<'compact' | 'comfortable'>('comfortable');
+  const [viewMode, setViewMode] = useState<'hybrid' | 'board' | 'calendar'>('hybrid');
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -357,9 +358,23 @@ export default function OperationsPage() {
     return `${startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
   };
 
+  const effectiveCalendarEvents = useMemo(() => {
+    const directEvents = overview?.calendar_events || [];
+    if (directEvents.length > 0) {
+      return directEvents;
+    }
+
+    const blockEvents = Object.values(overview?.blocks || {})
+      .flat()
+      .filter((item) => !!item.date)
+      .slice(0, 150);
+
+    return blockEvents;
+  }, [overview]);
+
   const calendarEventsByDate = useMemo(() => {
     const map = new Map<string, WorkflowItem[]>();
-    for (const item of overview?.calendar_events || []) {
+    for (const item of effectiveCalendarEvents) {
       if (!item.date) continue;
       const key = item.date.slice(0, 10);
       const current = map.get(key) || [];
@@ -367,7 +382,9 @@ export default function OperationsPage() {
       map.set(key, current);
     }
     return map;
-  }, [overview]);
+  }, [effectiveCalendarEvents]);
+
+  const calendarItemsCount = Math.max(overview?.stats.calendar_items ?? 0, effectiveCalendarEvents.length);
 
   const calendarDays = useMemo(() => {
     const year = monthCursor.getFullYear();
@@ -436,9 +453,32 @@ export default function OperationsPage() {
                 Compacta
               </button>
             </div>
+            <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
+              <button
+                onClick={() => setViewMode('board')}
+                className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'board' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                title="Mostrar solo tablero"
+              >
+                Tablero
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'calendar' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                title="Mostrar solo calendario"
+              >
+                Calendario
+              </button>
+              <button
+                onClick={() => setViewMode('hybrid')}
+                className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'hybrid' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                title="Mostrar ambos"
+              >
+                Ambos
+              </button>
+            </div>
             <span className="inline-flex items-center gap-2 text-xs text-neutral-300 border border-neutral-700 rounded-lg px-3 py-1.5 bg-neutral-900/70">
               <Squares2X2Icon className="h-4 w-4 text-cmyk-cyan" />
-              Modo tablero
+              Vista {viewMode}
             </span>
           </div>
         </div>
@@ -497,10 +537,11 @@ export default function OperationsPage() {
         </Card>
         <Card className="p-4">
           <p className="text-neutral-500 text-xs uppercase tracking-wide">Calendario</p>
-          <p className="text-2xl font-bold text-white mt-2">{overview?.stats.calendar_items ?? 0}</p>
+          <p className="text-2xl font-bold text-white mt-2">{calendarItemsCount}</p>
         </Card>
       </div>
 
+      {viewMode !== 'calendar' && (
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {blockEntries.map(([key, config]) => {
           const Icon = config.icon;
@@ -569,7 +610,9 @@ export default function OperationsPage() {
           );
         })}
       </div>
+      )}
 
+      {viewMode !== 'board' && (
       <Card className="p-5">
         <div className="flex items-center justify-between gap-3 mb-5">
           <div>
@@ -638,87 +681,95 @@ export default function OperationsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 text-xs text-neutral-500 mb-2">
-          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
-            <div key={day} className="text-center py-2 uppercase tracking-wide">{day}</div>
-          ))}
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {calendarMode === 'month' ? (
-            <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(6.5rem,1fr)]">
-              {calendarDays.map((day) => {
-                const key = toDateKey(day);
-                const events = calendarEventsByDate.get(key) || [];
-                const inMonth = day.getMonth() === monthCursor.getMonth();
+            <div>
+              <div className="grid grid-cols-7 gap-2 text-xs text-neutral-500 mb-2">
+                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+                  <div key={day} className="text-center py-2 uppercase tracking-wide">{day}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(6.5rem,1fr)]">
+                {calendarDays.map((day) => {
+                  const key = toDateKey(day);
+                  const events = calendarEventsByDate.get(key) || [];
+                  const inMonth = day.getMonth() === monthCursor.getMonth();
 
-                return (
-                  <div
-                    key={key}
-                    className={`rounded-xl border p-2 overflow-hidden ${inMonth ? 'border-neutral-800 bg-neutral-900/70' : 'border-neutral-800/40 bg-neutral-950/40 opacity-50'}`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-xs font-medium ${inMonth ? 'text-white' : 'text-neutral-500'}`}>{day.getDate()}</span>
-                      {events.length > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20">
-                          {events.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-1 max-h-[4.6rem] overflow-hidden">
-                      {events.slice(0, 3).map((event) => (
-                        <Link
-                          key={event.id + event.kind}
-                          href={`/${locale}${event.href}`}
-                          className={`block text-[11px] leading-tight rounded-md border px-2 py-1 truncate ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
-                          title={`${event.title} · ${event.subtitle}`}
-                        >
-                          {event.title}
-                        </Link>
-                      ))}
-                      {events.length > 3 && (
-                        <div className="text-[10px] text-neutral-500 px-1">+{events.length - 3} más</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(13rem,1fr)]">
-              {weekDays.map((day) => {
-                const key = toDateKey(day);
-                const events = calendarEventsByDate.get(key) || [];
-
-                return (
-                  <div key={key} className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 overflow-hidden">
-                    <div className="mb-2">
-                      <p className="text-[11px] text-neutral-500 uppercase">
-                        {day.toLocaleDateString('es-MX', { weekday: 'short' })}
-                      </p>
-                      <p className="text-sm text-white font-medium">
-                        {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                      </p>
-                    </div>
-                    <div className="space-y-1 max-h-[10rem] overflow-y-auto pr-1">
-                      {events.length === 0 ? (
-                        <p className="text-[11px] text-neutral-600">Sin eventos</p>
-                      ) : (
-                        events.map((event) => (
+                  return (
+                    <div
+                      key={key}
+                      className={`rounded-xl border p-2 overflow-hidden ${inMonth ? 'border-neutral-800 bg-neutral-900/70' : 'border-neutral-800/40 bg-neutral-950/40 opacity-50'}`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-medium ${inMonth ? 'text-white' : 'text-neutral-500'}`}>{day.getDate()}</span>
+                        {events.length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20">
+                            {events.length}
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1 max-h-[4.6rem] overflow-hidden">
+                        {events.slice(0, 3).map((event) => (
                           <Link
                             key={event.id + event.kind}
                             href={`/${locale}${event.href}`}
-                            className={`block text-[11px] leading-tight rounded-md border px-2 py-1 ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
+                            className={`block text-[11px] leading-tight rounded-md border px-2 py-1 truncate ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
                             title={`${event.title} · ${event.subtitle}`}
                           >
                             {event.title}
                           </Link>
-                        ))
-                      )}
+                        ))}
+                        {events.length > 3 && (
+                          <div className="text-[10px] text-neutral-500 px-1">+{events.length - 3} más</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-7 gap-2 text-xs text-neutral-500 mb-2">
+                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+                  <div key={day} className="text-center py-2 uppercase tracking-wide">{day}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(13rem,1fr)]">
+                {weekDays.map((day) => {
+                  const key = toDateKey(day);
+                  const events = calendarEventsByDate.get(key) || [];
+
+                  return (
+                    <div key={key} className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 overflow-hidden">
+                      <div className="mb-2">
+                        <p className="text-[11px] text-neutral-500 uppercase">
+                          {day.toLocaleDateString('es-MX', { weekday: 'short' })}
+                        </p>
+                        <p className="text-sm text-white font-medium">
+                          {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                      <div className="space-y-1 max-h-[10rem] overflow-y-auto pr-1">
+                        {events.length === 0 ? (
+                          <p className="text-[11px] text-neutral-600">Sin eventos</p>
+                        ) : (
+                          events.map((event) => (
+                            <Link
+                              key={event.id + event.kind}
+                              href={`/${locale}${event.href}`}
+                              className={`block text-[11px] leading-tight rounded-md border px-2 py-1 ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
+                              title={`${event.title} · ${event.subtitle}`}
+                            >
+                              {event.title}
+                            </Link>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -727,8 +778,11 @@ export default function OperationsPage() {
               <ClockIcon className="h-4 w-4 text-cmyk-cyan" />
               Próximos eventos
             </h3>
+              {effectiveCalendarEvents.length === 0 && (
+                <p className="text-xs text-neutral-500">No hay eventos con fecha disponible por ahora.</p>
+              )}
             <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
-              {(overview?.calendar_events || []).slice(0, 20).map((event) => (
+              {effectiveCalendarEvents.slice(0, 20).map((event) => (
                 <Link
                   key={`${event.kind}-${event.id}-${event.date}`}
                   href={`/${locale}${event.href}`}
@@ -762,6 +816,7 @@ export default function OperationsPage() {
           </div>
         </div>
       </Card>
+      )}
     </div>
   );
 }
