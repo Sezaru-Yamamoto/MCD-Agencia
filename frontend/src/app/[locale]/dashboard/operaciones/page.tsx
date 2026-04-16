@@ -83,6 +83,10 @@ const itemToneClasses: Record<string, string> = {
   order_completed: 'bg-green-500/10 text-green-300 border-green-500/20',
   quote_estimated_delivery: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20',
   order_scheduled: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
+  production_job: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
+  logistics_job: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
+  field_operation_job: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+  mobile_campaign: 'bg-orange-500/10 text-orange-300 border-orange-500/20',
 };
 
 const statusToneClasses: Record<string, string> = {
@@ -97,6 +101,21 @@ const statusToneClasses: Record<string, string> = {
   in_review: 'bg-blue-500/15 text-blue-300 border-blue-500/20',
   quoted: 'bg-blue-500/15 text-blue-300 border-blue-500/20',
   pending: 'bg-neutral-700/50 text-neutral-300 border-neutral-700',
+  queued: 'bg-neutral-700/50 text-neutral-300 border-neutral-700',
+  preparing: 'bg-purple-500/15 text-purple-300 border-purple-500/20',
+  quality_check: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/20',
+  released: 'bg-green-500/15 text-green-300 border-green-500/20',
+  blocked: 'bg-red-500/15 text-red-300 border-red-500/20',
+  pending_dispatch: 'bg-neutral-700/50 text-neutral-300 border-neutral-700',
+  scheduled: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20',
+  in_transit: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/20',
+  ready_for_pickup: 'bg-cmyk-cyan/15 text-cmyk-cyan border-cmyk-cyan/20',
+  delivered: 'bg-green-500/15 text-green-300 border-green-500/20',
+  delivery_failed: 'bg-red-500/15 text-red-300 border-red-500/20',
+  crew_assigned: 'bg-amber-500/15 text-amber-300 border-amber-500/20',
+  in_progress: 'bg-purple-500/15 text-purple-300 border-purple-500/20',
+  paused: 'bg-orange-500/15 text-orange-300 border-orange-500/20',
+  requires_revisit: 'bg-red-500/15 text-red-300 border-red-500/20',
 };
 
 export default function OperationsPage() {
@@ -325,6 +344,16 @@ export default function OperationsPage() {
     });
   };
 
+  const formatDateRange = (start?: string | null, end?: string | null) => {
+    const startDate = parseDateSafe(start);
+    const endDate = parseDateSafe(end);
+    if (!startDate && !endDate) return '-';
+    if (startDate && !endDate) return formatCalendarDate(start);
+    if (!startDate && endDate) return formatCalendarDate(end);
+    if (!startDate || !endDate) return '-';
+    return `${startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
+  };
+
   const calendarEventsByDate = useMemo(() => {
     const map = new Map<string, WorkflowItem[]>();
     for (const item of overview?.calendar_events || []) {
@@ -489,6 +518,11 @@ export default function OperationsPage() {
                         {item.date && (
                           <span className="px-2 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
                             {item.date_label || 'Fecha'}: {formatDate(item.date)}
+                          </span>
+                        )}
+                        {item.is_range && (
+                          <span className="px-2 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                            Rango: {formatDateRange(item.start, item.end)}
                           </span>
                         )}
                         {item.payment_method && requiresManualPayment(item.payment_method) && (
@@ -686,6 +720,11 @@ export default function OperationsPage() {
                     <span className={`px-2 py-0.5 rounded-full border ${statusToneClasses[event.status] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}>
                       {event.status_display}
                     </span>
+                    {event.is_range && (
+                      <span className="px-2 py-0.5 rounded-full border bg-neutral-800 text-neutral-300 border-neutral-700">
+                        {formatDateRange(event.start, event.end)}
+                      </span>
+                    )}
                   </div>
                 </Link>
               ))}

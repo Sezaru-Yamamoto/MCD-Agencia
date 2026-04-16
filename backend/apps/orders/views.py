@@ -27,7 +27,17 @@ from apps.content.models import Branch
 from apps.core.pagination import StandardPagination
 from apps.core.views import is_internal_user
 from apps.inventory.models import InventoryMovement
-from .models import Cart, CartItem, Address, Order, OrderLine, OrderStatusHistory
+from .models import (
+    Cart,
+    CartItem,
+    Address,
+    Order,
+    OrderLine,
+    OrderStatusHistory,
+    ProductionJob,
+    LogisticsJob,
+    FieldOperationJob,
+)
 from .serializers import (
     CartSerializer,
     CartItemSerializer,
@@ -40,6 +50,9 @@ from .serializers import (
     ProductionJobSerializer,
     LogisticsJobSerializer,
     FieldOperationJobSerializer,
+    UpdateProductionJobStatusSerializer,
+    UpdateLogisticsJobStatusSerializer,
+    UpdateFieldOperationJobStatusSerializer,
 )
 from .services.operations import build_operational_plan, sync_operational_rollup
 
@@ -749,6 +762,101 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
 
         return Response(OrderSerializer(order).data)
 
+    @action(detail=True, methods=['post'], url_path='production-jobs/(?P<job_id>[^/.]+)/update-status')
+    def update_production_job_status(self, request, pk=None, job_id=None):
+        """Update status for a production job linked to this order."""
+        order = self.get_object()
+        job = order.production_jobs.filter(id=job_id).first()
+        if not job:
+            return Response({'error': _('Production job not found for this order.')}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateProductionJobStatusSerializer(data=request.data, context={'job': job})
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data['status']
+
+        job.status = new_status
+        if new_status in {ProductionJob.STATUS_PREPARING, ProductionJob.STATUS_IN_PRODUCTION} and not job.actual_start:
+            job.actual_start = timezone.now()
+        if new_status == ProductionJob.STATUS_RELEASED:
+            job.actual_end = timezone.now()
+        job.save(update_fields=['status', 'actual_start', 'actual_end', 'updated_at'])
+
+        sync_operational_rollup(order)
+        return Response({
+            'job': ProductionJobSerializer(job).data,
+            'order_operational_rollup': order.operational_rollup,
+        })
+
+    @action(detail=True, methods=['post'], url_path='logistics-jobs/(?P<job_id>[^/.]+)/update-status')
+    def update_logistics_job_status(self, request, pk=None, job_id=None):
+        """Update status for a logistics job linked to this order."""
+        order = self.get_object()
+        job = order.logistics_jobs.filter(id=job_id).first()
+        if not job:
+            return Response({'error': _('Logistics job not found for this order.')}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateLogisticsJobStatusSerializer(data=request.data, context={'job': job})
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data['status']
+
+        # Logistics cannot move to transit/pickup while production track still open.
+        if new_status in {LogisticsJob.STATUS_IN_TRANSIT, LogisticsJob.STATUS_READY_FOR_PICKUP}:
+            has_open_production = order.production_jobs.exclude(
+                status__in=[ProductionJob.STATUS_RELEASED, ProductionJob.STATUS_CANCELLED]
+            ).exists()
+            if has_open_production:
+                return Response(
+                    {'error': _('Cannot start logistics until production jobs are released.')},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        job.status = new_status
+        if new_status == LogisticsJob.STATUS_DELIVERED:
+            job.delivered_at = timezone.now()
+        job.save(update_fields=['status', 'delivered_at', 'updated_at'])
+
+        sync_operational_rollup(order)
+        return Response({
+            'job': LogisticsJobSerializer(job).data,
+            'order_operational_rollup': order.operational_rollup,
+        })
+
+    @action(detail=True, methods=['post'], url_path='field-ops-jobs/(?P<job_id>[^/.]+)/update-status')
+    def update_field_ops_job_status(self, request, pk=None, job_id=None):
+        """Update status for a field operation job linked to this order."""
+        order = self.get_object()
+        job = order.field_ops_jobs.filter(id=job_id).first()
+        if not job:
+            return Response({'error': _('Field operation job not found for this order.')}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateFieldOperationJobStatusSerializer(data=request.data, context={'job': job})
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data['status']
+
+        # Field installation cannot start while production track still open.
+        if new_status == FieldOperationJob.STATUS_IN_PROGRESS and job.operation_type == FieldOperationJob.TYPE_INSTALLATION:
+            has_open_production = order.production_jobs.exclude(
+                status__in=[ProductionJob.STATUS_RELEASED, ProductionJob.STATUS_CANCELLED]
+            ).exists()
+            if has_open_production:
+                return Response(
+                    {'error': _('Cannot start installation until production jobs are released.')},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        job.status = new_status
+        if new_status == FieldOperationJob.STATUS_IN_PROGRESS and not job.actual_start:
+            job.actual_start = timezone.now()
+        if new_status == FieldOperationJob.STATUS_COMPLETED:
+            job.actual_end = timezone.now()
+        job.save(update_fields=['status', 'actual_start', 'actual_end', 'updated_at'])
+
+        sync_operational_rollup(order)
+        return Response({
+            'job': FieldOperationJobSerializer(job).data,
+            'order_operational_rollup': order.operational_rollup,
+        })
+
 
 class AdminWorkflowView(APIView):
     """Unified workflow feed for admin and sales dashboards."""
@@ -768,9 +876,14 @@ class AdminWorkflowView(APIView):
         window_start = today - timedelta(days=14)
         window_end = today + timedelta(days=90)
 
-        orders_qs = Order.objects.select_related('user', 'pickup_branch').prefetch_related('lines', 'status_history')
+        orders_qs = Order.objects.select_related('user', 'pickup_branch').prefetch_related(
+            'lines', 'status_history', 'production_jobs', 'logistics_jobs', 'field_ops_jobs'
+        )
         requests_qs = QuoteRequest.objects.select_related('assigned_to', 'pickup_branch', 'catalog_item').prefetch_related('attachments', 'services')
         quotes_qs = Quote.objects.select_related('quote_request', 'created_by', 'pickup_branch').prefetch_related('lines', 'attachments')
+        production_qs = ProductionJob.objects.select_related('order', 'order__user', 'order_line')
+        logistics_qs = LogisticsJob.objects.select_related('order', 'order__user')
+        field_ops_qs = FieldOperationJob.objects.select_related('order', 'order__user')
 
         manual_payment_orders = list(
             orders_qs.filter(
@@ -778,11 +891,22 @@ class AdminWorkflowView(APIView):
                 payment_method__in=MANUAL_PAYMENT_METHODS,
             ).order_by('created_at')[:10]
         )
-        production_orders = list(
-            orders_qs.filter(status=Order.STATUS_IN_PRODUCTION).order_by('scheduled_date', 'created_at')[:10]
+        production_jobs = list(
+            production_qs.exclude(status__in=[ProductionJob.STATUS_RELEASED, ProductionJob.STATUS_CANCELLED])
+            .order_by('planned_end', 'created_at')[:20]
+        )
+        logistics_jobs = list(
+            logistics_qs.exclude(status__in=[LogisticsJob.STATUS_DELIVERED, LogisticsJob.STATUS_CANCELLED])
+            .order_by('window_end', 'created_at')[:20]
+        )
+        field_ops_jobs = list(
+            field_ops_qs.exclude(status__in=[FieldOperationJob.STATUS_COMPLETED, FieldOperationJob.STATUS_CANCELLED])
+            .order_by('scheduled_start', 'created_at')[:20]
         )
         ready_orders = list(
-            orders_qs.filter(status__in=[Order.STATUS_READY, Order.STATUS_IN_DELIVERY]).order_by('scheduled_date', 'created_at')[:10]
+            orders_qs.filter(
+                operational_rollup__in=[Order.OP_ROLLUP_AWAITING_FINALIZATION, Order.OP_ROLLUP_IN_EXECUTION]
+            ).exclude(status=Order.STATUS_PENDING_PAYMENT).order_by('scheduled_date', 'created_at')[:10]
         )
         completed_orders = list(
             orders_qs.filter(status=Order.STATUS_COMPLETED).order_by('-completed_at', '-created_at')[:10]
@@ -821,6 +945,73 @@ class AdminWorkflowView(APIView):
                 'amount': str(order.total),
                 'href': f'/dashboard/pedidos/{order.id}',
                 'note': order.internal_notes or order.notes or '',
+                'start': date_value.isoformat() if date_value else None,
+                'end': None,
+                'is_range': False,
+            }
+
+        def serialize_production_job(job):
+            order = job.order
+            line_name = job.order_line.name if job.order_line else 'Trabajo de producción'
+            date_value = job.planned_end or job.planned_start
+            return {
+                'id': f'prod-{job.id}',
+                'kind': 'production_job',
+                'title': f'{line_name} · {order.order_number}',
+                'subtitle': order.user.full_name if order.user and order.user.full_name else order.user.email if order.user else 'Cliente',
+                'status': job.status,
+                'status_display': job.get_status_display(),
+                'delivery_method': order.delivery_method,
+                'date': date_value.date().isoformat() if date_value else None,
+                'date_label': 'Producción',
+                'amount': str(order.total),
+                'href': f'/dashboard/pedidos/{order.id}',
+                'note': '',
+                'start': job.planned_start.isoformat() if job.planned_start else None,
+                'end': job.planned_end.isoformat() if job.planned_end else None,
+                'is_range': bool(job.planned_start and job.planned_end),
+            }
+
+        def serialize_logistics_job(job):
+            order = job.order
+            date_value = job.window_end or job.window_start
+            return {
+                'id': f'log-{job.id}',
+                'kind': 'logistics_job',
+                'title': f'Logística · {order.order_number}',
+                'subtitle': order.user.full_name if order.user and order.user.full_name else order.user.email if order.user else 'Cliente',
+                'status': job.status,
+                'status_display': job.get_status_display(),
+                'delivery_method': order.delivery_method,
+                'date': date_value.date().isoformat() if date_value else None,
+                'date_label': 'Logística',
+                'amount': str(order.total),
+                'href': f'/dashboard/pedidos/{order.id}',
+                'note': '',
+                'start': job.window_start.isoformat() if job.window_start else None,
+                'end': job.window_end.isoformat() if job.window_end else None,
+                'is_range': bool(job.window_start and job.window_end),
+            }
+
+        def serialize_field_job(job):
+            order = job.order
+            date_value = job.scheduled_end or job.scheduled_start
+            return {
+                'id': f'field-{job.id}',
+                'kind': 'field_operation_job' if job.operation_type != FieldOperationJob.TYPE_MOBILE_CAMPAIGN else 'mobile_campaign',
+                'title': f'Operación en campo · {order.order_number}',
+                'subtitle': order.user.full_name if order.user and order.user.full_name else order.user.email if order.user else 'Cliente',
+                'status': job.status,
+                'status_display': job.get_status_display(),
+                'delivery_method': order.delivery_method,
+                'date': date_value.date().isoformat() if date_value else None,
+                'date_label': 'Operación',
+                'amount': str(order.total),
+                'href': f'/dashboard/pedidos/{order.id}',
+                'note': '',
+                'start': job.scheduled_start.isoformat() if job.scheduled_start else None,
+                'end': job.scheduled_end.isoformat() if job.scheduled_end else None,
+                'is_range': bool(job.scheduled_start and job.scheduled_end),
             }
 
         def serialize_request(request_obj, kind, date_value=None, date_label=''):
@@ -862,8 +1053,14 @@ class AdminWorkflowView(APIView):
         for quote in quotes_qs.filter(estimated_delivery_date__isnull=False, estimated_delivery_date__gte=window_start, estimated_delivery_date__lte=window_end).order_by('estimated_delivery_date', 'created_at')[:50]:
             calendar_events.append(serialize_quote(quote, 'quote_estimated_delivery', quote.estimated_delivery_date, 'Entrega estimada'))
 
-        for order in orders_qs.filter(scheduled_date__isnull=False, scheduled_date__date__gte=window_start, scheduled_date__date__lte=window_end).order_by('scheduled_date', 'created_at')[:50]:
-            calendar_events.append(serialize_order(order, 'order_scheduled', order.scheduled_date.date(), 'Programado'))
+        for job in production_qs.filter(planned_end__isnull=False, planned_end__date__gte=window_start, planned_end__date__lte=window_end).order_by('planned_end', 'created_at')[:50]:
+            calendar_events.append(serialize_production_job(job))
+
+        for job in logistics_qs.filter(window_end__isnull=False, window_end__date__gte=window_start, window_end__date__lte=window_end).order_by('window_end', 'created_at')[:50]:
+            calendar_events.append(serialize_logistics_job(job))
+
+        for job in field_ops_qs.filter(scheduled_start__isnull=False, scheduled_start__date__gte=window_start, scheduled_start__date__lte=window_end).order_by('scheduled_start', 'created_at')[:50]:
+            calendar_events.append(serialize_field_job(job))
 
         for order in orders_qs.filter(completed_at__isnull=False, completed_at__date__gte=window_start, completed_at__date__lte=window_end).order_by('-completed_at', '-created_at')[:50]:
             calendar_events.append(serialize_order(order, 'order_completed', order.completed_at.date(), 'Completado'))
@@ -873,16 +1070,19 @@ class AdminWorkflowView(APIView):
         blocks = {
             'assigned': [serialize_request(request_obj, 'quote_request_assigned', request_obj.required_date, 'Fecha requerida') for request_obj in assigned_requests],
             'to_pay': [serialize_order(order, 'order_pending_payment') for order in manual_payment_orders],
-            'in_production': [serialize_order(order, 'order_in_production', order.scheduled_date.date() if order.scheduled_date else None, 'Programado') for order in production_orders],
+            'in_production': [serialize_production_job(job) for job in production_jobs[:10]],
             'ready': [serialize_order(order, 'order_ready', order.scheduled_date.date() if order.scheduled_date else None, 'Programado') for order in ready_orders],
             'done': [serialize_order(order, 'order_completed', order.completed_at.date() if order.completed_at else None, 'Completado') for order in completed_orders],
             'quotes': [serialize_request(request_obj, 'quote_request_pending', request_obj.required_date, 'Fecha requerida') for request_obj in pending_requests],
         }
 
+        blocks['in_production'].extend([serialize_field_job(job) for job in field_ops_jobs[:10]])
+        blocks['ready'].extend([serialize_logistics_job(job) for job in logistics_jobs[:10]])
+
         stats = {
             'manual_payment_orders': len(manual_payment_orders),
-            'in_production_orders': len(production_orders),
-            'ready_orders': len(ready_orders),
+            'in_production_orders': len(production_jobs) + len(field_ops_jobs),
+            'ready_orders': len(ready_orders) + len(logistics_jobs),
             'completed_orders': len(completed_orders),
             'assigned_requests': len(assigned_requests),
             'pending_requests': len(pending_requests),

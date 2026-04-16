@@ -521,3 +521,96 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
                 }
             )
         return value
+
+
+class UpdateProductionJobStatusSerializer(serializers.Serializer):
+    """Serializer for production job status updates."""
+
+    ALLOWED_TRANSITIONS = {
+        ProductionJob.STATUS_QUEUED: {ProductionJob.STATUS_PREPARING, ProductionJob.STATUS_BLOCKED, ProductionJob.STATUS_CANCELLED},
+        ProductionJob.STATUS_PREPARING: {ProductionJob.STATUS_IN_PRODUCTION, ProductionJob.STATUS_BLOCKED, ProductionJob.STATUS_CANCELLED},
+        ProductionJob.STATUS_IN_PRODUCTION: {ProductionJob.STATUS_QUALITY_CHECK, ProductionJob.STATUS_BLOCKED, ProductionJob.STATUS_CANCELLED},
+        ProductionJob.STATUS_QUALITY_CHECK: {ProductionJob.STATUS_RELEASED, ProductionJob.STATUS_BLOCKED, ProductionJob.STATUS_CANCELLED},
+        ProductionJob.STATUS_RELEASED: set(),
+        ProductionJob.STATUS_BLOCKED: {ProductionJob.STATUS_PREPARING, ProductionJob.STATUS_IN_PRODUCTION, ProductionJob.STATUS_CANCELLED},
+        ProductionJob.STATUS_CANCELLED: set(),
+    }
+
+    status = serializers.ChoiceField(choices=ProductionJob.STATUS_CHOICES, required=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_status(self, value):
+        job = self.context.get('job')
+        if not job:
+            return value
+        allowed = self.ALLOWED_TRANSITIONS.get(job.status, set())
+        if value not in allowed:
+            raise serializers.ValidationError(
+                _('Cannot transition production job from %(from)s to %(to)s.') % {
+                    'from': job.status,
+                    'to': value,
+                }
+            )
+        return value
+
+
+class UpdateLogisticsJobStatusSerializer(serializers.Serializer):
+    """Serializer for logistics job status updates."""
+
+    ALLOWED_TRANSITIONS = {
+        LogisticsJob.STATUS_PENDING_DISPATCH: {LogisticsJob.STATUS_SCHEDULED, LogisticsJob.STATUS_CANCELLED},
+        LogisticsJob.STATUS_SCHEDULED: {LogisticsJob.STATUS_IN_TRANSIT, LogisticsJob.STATUS_READY_FOR_PICKUP, LogisticsJob.STATUS_CANCELLED},
+        LogisticsJob.STATUS_IN_TRANSIT: {LogisticsJob.STATUS_DELIVERED, LogisticsJob.STATUS_DELIVERY_FAILED, LogisticsJob.STATUS_CANCELLED},
+        LogisticsJob.STATUS_READY_FOR_PICKUP: {LogisticsJob.STATUS_DELIVERED, LogisticsJob.STATUS_DELIVERY_FAILED, LogisticsJob.STATUS_CANCELLED},
+        LogisticsJob.STATUS_DELIVERED: set(),
+        LogisticsJob.STATUS_DELIVERY_FAILED: {LogisticsJob.STATUS_SCHEDULED, LogisticsJob.STATUS_CANCELLED},
+        LogisticsJob.STATUS_CANCELLED: set(),
+    }
+
+    status = serializers.ChoiceField(choices=LogisticsJob.STATUS_CHOICES, required=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_status(self, value):
+        job = self.context.get('job')
+        if not job:
+            return value
+        allowed = self.ALLOWED_TRANSITIONS.get(job.status, set())
+        if value not in allowed:
+            raise serializers.ValidationError(
+                _('Cannot transition logistics job from %(from)s to %(to)s.') % {
+                    'from': job.status,
+                    'to': value,
+                }
+            )
+        return value
+
+
+class UpdateFieldOperationJobStatusSerializer(serializers.Serializer):
+    """Serializer for field operation job status updates."""
+
+    ALLOWED_TRANSITIONS = {
+        FieldOperationJob.STATUS_SCHEDULED: {FieldOperationJob.STATUS_CREW_ASSIGNED, FieldOperationJob.STATUS_CANCELLED},
+        FieldOperationJob.STATUS_CREW_ASSIGNED: {FieldOperationJob.STATUS_IN_PROGRESS, FieldOperationJob.STATUS_PAUSED, FieldOperationJob.STATUS_CANCELLED},
+        FieldOperationJob.STATUS_IN_PROGRESS: {FieldOperationJob.STATUS_COMPLETED, FieldOperationJob.STATUS_PAUSED, FieldOperationJob.STATUS_REQUIRES_REVISIT, FieldOperationJob.STATUS_CANCELLED},
+        FieldOperationJob.STATUS_PAUSED: {FieldOperationJob.STATUS_IN_PROGRESS, FieldOperationJob.STATUS_CANCELLED},
+        FieldOperationJob.STATUS_REQUIRES_REVISIT: {FieldOperationJob.STATUS_CREW_ASSIGNED, FieldOperationJob.STATUS_IN_PROGRESS, FieldOperationJob.STATUS_CANCELLED},
+        FieldOperationJob.STATUS_COMPLETED: set(),
+        FieldOperationJob.STATUS_CANCELLED: set(),
+    }
+
+    status = serializers.ChoiceField(choices=FieldOperationJob.STATUS_CHOICES, required=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_status(self, value):
+        job = self.context.get('job')
+        if not job:
+            return value
+        allowed = self.ALLOWED_TRANSITIONS.get(job.status, set())
+        if value not in allowed:
+            raise serializers.ValidationError(
+                _('Cannot transition field operation job from %(from)s to %(to)s.') % {
+                    'from': job.status,
+                    'to': value,
+                }
+            )
+        return value

@@ -147,31 +147,24 @@ export default function SalesOrdersPage() {
   ) => {
     setUpdatingOrderId(orderId);
     try {
+      const shouldUseOnlineTwoStep =
+        newStatus === 'in_production' &&
+        currentStatus === 'pending_payment' &&
+        isOnlinePayment(paymentMethod);
+
+      if (shouldUseOnlineTwoStep) {
+        await updateOrderStatus(orderId, 'paid', 'UI: confirmar pago online antes de enviar a producción');
+        await updateOrderStatus(orderId, 'in_production', 'UI: enviar a producción tras confirmar pago online');
+        await fetchOrders();
+        return;
+      }
+
       await updateOrderStatus(orderId, newStatus);
       await fetchOrders();
     } catch (error: unknown) {
       const errMsg = error && typeof error === 'object' && 'message' in error
         ? (error as { message: string }).message
         : 'Error al actualizar el estado del pedido';
-
-      const shouldRetryOnlineFlow =
-        newStatus === 'in_production' &&
-        currentStatus === 'pending_payment' &&
-        isOnlinePayment(paymentMethod) &&
-        /Cannot transition from pending_payment to in_production/i.test(errMsg);
-
-      if (shouldRetryOnlineFlow) {
-        try {
-          await updateOrderStatus(orderId, 'paid', 'Fallback UI: confirmar pago online antes de enviar a producción');
-          await updateOrderStatus(orderId, 'in_production', 'Fallback UI: enviar a producción tras confirmar pago online');
-          await fetchOrders();
-          return;
-        } catch (retryError) {
-          console.error('Error updating order status with fallback:', retryError);
-          alert('No se pudo aplicar el flujo automático online para este pedido');
-          return;
-        }
-      }
 
       console.error('Error updating order status:', error);
       alert(errMsg);
