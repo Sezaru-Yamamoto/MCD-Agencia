@@ -872,7 +872,9 @@ class AdminCreateUserView(APIView):
         from apps.users.tasks import send_setup_email
         email_sent = False
         try:
-            email_sent = bool(send_setup_email(user.id, temporary_password))
+            # Execute task synchronously to avoid relying on external workers.
+            task_result = send_setup_email.apply(args=[str(user.id), temporary_password])
+            email_sent = bool(task_result.get())
         except Exception:
             logger.exception('Setup email delivery failed for user_id=%s email=%s', user.id, user.email)
 
