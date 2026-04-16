@@ -68,7 +68,7 @@ class InventoryMovementViewSet(viewsets.ModelViewSet):
             quantity = serializer.validated_data['quantity']
             reason = serializer.validated_data['reason']
 
-            stock_before = variant.stock
+            stock_before = variant.stock if variant.stock is not None else 0
 
             # Validate stock-out against current stock
             if movement_type == InventoryMovement.MOVEMENT_OUT and stock_before < quantity:
@@ -249,6 +249,7 @@ class StockSummaryView(APIView):
 
         summary = []
         for variant in variants:
+            current_stock = variant.stock if variant.stock is not None else 0
             last_movement = InventoryMovement.objects.filter(
                 variant=variant
             ).order_by('-created_at').first()
@@ -260,7 +261,7 @@ class StockSummaryView(APIView):
                 'sku': variant.sku,
                 'product_name': variant.catalog_item.name,
                 'variant_name': variant.name,
-                'current_stock': variant.stock,
+                'current_stock': current_stock,
                 'low_stock_threshold': variant.low_stock_threshold,
                 'is_low_stock': variant.is_low_stock,
                 'is_out_of_stock': variant.is_out_of_stock,

@@ -81,10 +81,11 @@ class InventoryMovementSerializer(serializers.ModelSerializer):
         if movement_type == InventoryMovement.MOVEMENT_OUT:
             from apps.catalog.models import ProductVariant
             variant = ProductVariant.objects.get(id=attrs['variant_id'])
-            if variant.stock < abs(quantity):
+            current_stock = variant.stock if variant.stock is not None else 0
+            if current_stock < abs(quantity):
                 raise serializers.ValidationError({
                     'quantity': _('Insufficient stock. Available: %(stock)s') % {
-                        'stock': variant.stock
+                        'stock': current_stock
                     }
                 })
 

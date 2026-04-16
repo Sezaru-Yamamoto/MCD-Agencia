@@ -528,6 +528,27 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             last_order_date=Max('orders__created_at', filter=Q(orders__is_deleted=False)),
         )
 
+    @action(detail=False, methods=['get'])
+    def clients(self, request):
+        """List customer users for clients dashboard."""
+        queryset = self.get_queryset().filter(role__name=Role.CUSTOMER)
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(email__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(company__icontains=search)
+            )
+
+        page = self.paginate_queryset(queryset)
+        serializer = ClientSummarySerializer(page if page is not None else queryset, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
     def perform_update(self, serializer):
         """Log user update by admin."""
         before_state = UserAdminSerializer(self.get_object()).data

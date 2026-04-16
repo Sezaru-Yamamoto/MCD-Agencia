@@ -169,10 +169,11 @@ class InventoryMovement(TimeStampedModel):
     def save(self, *args, **kwargs):
         """Validate and record stock levels."""
         is_new = not self.pk
+        current_stock = self.variant.stock if self.variant.stock is not None else 0
 
         if is_new:
             # Record stock before
-            self.stock_before = self.variant.stock
+            self.stock_before = current_stock
 
             # Calculate stock after based on movement type
             if self.movement_type == self.MOVEMENT_IN:
