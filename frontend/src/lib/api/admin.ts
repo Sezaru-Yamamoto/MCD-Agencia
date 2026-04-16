@@ -219,6 +219,24 @@ export async function changeUserRole(id: string, roleId: string): Promise<AdminU
   return apiClient.post<AdminUser>(`/admin/users/${id}/change_role/`, { role_id: roleId });
 }
 
+export async function assignUserGroup(
+  id: string,
+  group: 'production_supervisors' | 'operations_supervisors'
+): Promise<{ message: string; user: AdminUser; groups: string[] }> {
+  return apiClient.post(`/admin/users/${id}/assign_group/`, { group });
+}
+
+export async function createUserWithPassword(data: {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  role_id?: string;
+  groups?: string[];
+}): Promise<{ message: string; user: AdminUser; temporary_password: string; groups: string[] }> {
+  return apiClient.post('/admin/users/create_with_password/', data);
+}
+
 // Order Management
 export async function getAdminOrders(filters?: {
   status?: string;

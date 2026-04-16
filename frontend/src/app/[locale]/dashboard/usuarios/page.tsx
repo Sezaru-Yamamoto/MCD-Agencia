@@ -10,9 +10,10 @@ import {
   XCircleIcon,
   UserPlusIcon,
   ArrowPathIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
-import { getAdminUsers, activateUser, deactivateUser, changeUserRole, AdminUser } from '@/lib/api/admin';
+import { getAdminUsers, activateUser, deactivateUser, changeUserRole, assignUserGroup, createUserWithPassword, AdminUser } from '@/lib/api/admin';
 import { apiClient } from '@/lib/api/client';
 import { Card, Badge, Button, Input, Select, Pagination, LoadingPage, Modal } from '@/components/ui';
 import { formatDate, getInitials } from '@/lib/utils';
@@ -48,6 +49,21 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [userToPromote, setUserToPromote] = useState<{ id: string; name: string } | null>(null);
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [showTemporaryPasswordModal, setShowTemporaryPasswordModal] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [showAssignGroupModal, setShowAssignGroupModal] = useState(false);
+  const [userToAssignGroup, setUserToAssignGroup] = useState<{ id: string; name: string } | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<'production_supervisors' | 'operations_supervisors'>('production_supervisors');
+  
+  const [createUserForm, setCreateUserForm] = useState({
+    email: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role_id: '',
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users', filters],
@@ -95,6 +111,34 @@ export default function AdminUsersPage() {
     onError: () => toast.error('Error al cambiar rol'),
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: (data: typeof createUserForm) => createUserWithPassword(data),
+    onSuccess: (data) => {
+      toast.success('Usuario creado exitosamente');
+      setTemporaryPassword(data.temporary_password);
+      setNewUserEmail(data.user.email);
+      setShowTemporaryPasswordModal(true);
+      setShowCreateUserModal(false);
+      setCreateUserForm({ email: '', first_name: '', last_name: '', phone: '', role_id: '' });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Error al crear usuario');
+    },
+  });
+
+  const assignGroupMutation = useMutation({
+    mutationFn: ({ userId, group }: { userId: string; group: 'production_supervisors' | 'operations_supervisors' }) =>
+      assignUserGroup(userId, group),
+    onSuccess: (data) => {
+      toast.success(`Usuario asignado al grupo`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setShowAssignGroupModal(false);
+      setUserToAssignGroup(null);
+    },
+    onError: () => toast.error('Error al asignar grupo'),
+  });
+
   const handlePromoteToSales = () => {
     if (userToPromote && salesRole) {
       promoteToSalesMutation.mutate({
@@ -117,12 +161,13 @@ export default function AdminUsersPage() {
             Gestiona los usuarios del sistema
           </p>
         </div>
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3">
-          <p className="text-sm text-yellow-400">
-            <UserPlusIcon className="h-4 w-4 inline mr-2" />
-            Para agregar vendedores: usa el botón <ArrowPathIcon className="h-4 w-4 inline mx-1" /> en un cliente registrado
-          </p>
-        </div>
+        <Button
+          onClick={() => setShowCreateUserModal(true)}
+          className="flex items-center gap-2"
+        >
+          <UserPlusIcon className="h-5 w-5" />
+          Crear Usuario
+        </Button>
       </div>
 
       {/* Filters */}
@@ -228,6 +273,21 @@ export default function AdminUsersPage() {
                           <EyeIcon className="h-5 w-5" />
                         </Button>
 
+                        {/* Botón para asignar grupo si es vendedor */}
+                        {user.role?.name === 'sales' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setUserToAssignGroup({ id: user.id, name: user.full_name || user.email });
+                              setShowAssignGroupModal(true);
+                            }}
+                            title="Asignar a grupo"
+                          >
+                            <ShieldCheckIcon className="h-5 w-5 text-blue-400" />
+                          </Button>
+                        )}
+
                         {/* Solo mostrar activar/desactivar para vendedores */}
                         {user.role?.name === 'sales' && (
                           user.is_active ? (
@@ -315,6 +375,185 @@ export default function AdminUsersPage() {
               isLoading={promoteToSalesMutation.isPending}
             >
               Promover a Vendedor
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal para crear usuario */}
+      <Modal
+        isOpen={showCreateUserModal}
+        onClose={() => setShowCreateUserModal(false)}
+        title="Crear Nuevo Usuario"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-1">Email *</label>
+            <Input
+              type="email"
+              placeholder="usuario@empresa.com"
+              value={createUserForm.email}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Nombre</label>
+              <Input
+                placeholder="Juan"
+                value={createUserForm.first_name}
+                onChange={(e) => setCreateUserForm({ ...createUserForm, first_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-1">Apellido</label>
+              <Input
+                placeholder="Pérez"
+                value={createUserForm.last_name}
+                onChange={(e) => setCreateUserForm({ ...createUserForm, last_name: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-1">Teléfono</label>
+            <Input
+              placeholder="+54 9 11 1234-5678"
+              value={createUserForm.phone}
+              onChange={(e) => setCreateUserForm({ ...createUserForm, phone: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-1">Rol</label>
+            <Select
+              value={createUserForm.role_id}
+              onChange={(value) => setCreateUserForm({ ...createUserForm, role_id: value })}
+              options={[
+                { value: '', label: 'Selecciona un rol' },
+                ...(rolesData?.results?.map((role) => ({ value: role.id.toString(), label: role.display_name })) || []),
+              ]}
+            />
+          </div>
+          <p className="text-xs text-neutral-400">
+            Se generará una contraseña temporal automáticamente.
+          </p>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateUserModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createUserMutation.mutate(createUserForm)}
+              isLoading={createUserMutation.isPending}
+              disabled={!createUserForm.email}
+            >
+              Crear Usuario
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal para mostrar contraseña temporal */}
+      <Modal
+        isOpen={showTemporaryPasswordModal}
+        onClose={() => setShowTemporaryPasswordModal(false)}
+        title="Usuario Creado"
+      >
+        <div className="space-y-4">
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+            <h3 className="font-semibold text-green-400 mb-2">✓ Usuario creado exitosamente</h3>
+            <p className="text-sm text-green-300">
+              Email: <span className="font-mono text-white">{newUserEmail}</span>
+            </p>
+          </div>
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+            <p className="text-sm text-yellow-300 font-semibold mb-2">Contraseña Temporal:</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={temporaryPassword}
+                readOnly
+                className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white font-mono text-sm"
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  navigator.clipboard.writeText(temporaryPassword);
+                  toast.success('Contraseña copiada');
+                }}
+              >
+                Copiar
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-neutral-400">
+            Comparte esta contraseña con el usuario. Debe cambiarla en su primer acceso.
+          </p>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              onClick={() => setShowTemporaryPasswordModal(false)}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal para asignar grupo */}
+      <Modal
+        isOpen={showAssignGroupModal}
+        onClose={() => {
+          setShowAssignGroupModal(false);
+          setUserToAssignGroup(null);
+        }}
+        title="Asignar Grupo"
+      >
+        <div className="space-y-4">
+          <p className="text-neutral-300">
+            Asignar <strong className="text-white">{userToAssignGroup?.name}</strong> a un grupo operacional:
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">Grupo</label>
+            <select
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value as 'production_supervisors' | 'operations_supervisors')}
+              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white"
+            >
+              <option value="production_supervisors">Supervisores de Producción</option>
+              <option value="operations_supervisors">Supervisores de Operaciones (Logística e Instalación)</option>
+            </select>
+          </div>
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+            <p className="text-xs text-blue-300">
+              {selectedGroup === 'production_supervisors'
+                ? 'Este usuario podrá gestionar y actualizar el estado de trabajos de producción.'
+                : 'Este usuario podrá gestionar y actualizar el estado de entregas e instalaciones.'}
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAssignGroupModal(false);
+                setUserToAssignGroup(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (userToAssignGroup) {
+                  assignGroupMutation.mutate({
+                    userId: userToAssignGroup.id,
+                    group: selectedGroup,
+                  });
+                }
+              }}
+              isLoading={assignGroupMutation.isPending}
+            >
+              Asignar Grupo
             </Button>
           </div>
         </div>

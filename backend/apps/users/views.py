@@ -630,8 +630,139 @@ class UserAdminViewSet(viewsets.ModelViewSet):
 
         return Response(UserAdminSerializer(user).data)
 
-    @action(detail=False, methods=['get'])
-    def clients(self, request):
+    @action(detail=True, methods=['post'])
+    def assign_group(self, request, pk=None):
+        """Assign user to an operational group."""
+        from django.contrib.auth.models import Group
+        
+        user = self.get_object()
+        group_name = request.data.get('group')
+        
+        if not group_name:
+            return Response(
+                {'error': _('group is required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Only allow production_supervisors and operations_supervisors groups
+        if group_name not in ['production_supervisors', 'operations_supervisors']:
+            return Response(
+                {'error': _('Invalid group. Must be one of: production_supervisors, operations_supervisors')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            group = Group.objects.get(name=group_name)
+        except Group.DoesNotExist:
+            return Response(
+                {'error': _('Group not found.')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Add user to group (if already in group, it's idempotent)
+        user.groups.add(group)
+        
+        AuditLog.log(
+            entity=user,
+            action=AuditLog.ACTION_PERMISSION_CHANGED,
+            actor=request.user,
+            after_state={'group_added': group_name},
+            request=request,
+            metadata={'group_action': 'assign', 'group': group_name}
+        )
+        
+        return Response({
+            'message': _('User assigned to group.'),
+            'user': UserAdminSerializer(user).data,
+            'groups': list(user.groups.values_list('name', flat=True))
+        })
+
+    @action(detail=False, methods=['post'])
+    def create_with_password(self, request):
+        """Create a new user with a temporary password."""
+        import secrets
+        import string
+        
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        phone = request.data.get('phone', '')
+        role_id = request.data.get('role_id')
+        groups = request.data.get('groups', [])  # List of group names
+        
+        if not email:
+            return Response(
+                {'error': _('email is required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user already exists
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {'error': _('User with this email already exists.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get role if provided
+        role = None
+        if role_id:
+            try:
+                role = Role.objects.get(id=role_id)
+            except Role.DoesNotExist:
+                return Response(
+                    {'error': _('Role not found.')},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        # Generate temporary password
+        alphabet = string.ascii_letters + string.digits
+        temporary_password = ''.join(secrets.choice(alphabet) for i in range(12))
+        
+        with transaction.atomic():
+            # Create user
+            user = User.objects.create_user(
+                email=email,
+                password=temporary_password,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                role=role,
+                is_active=True,
+                is_email_verified=True,  # Admin-created users are pre-verified
+            )
+            
+            # Set is_staff if role is admin or sales
+            if role and role.name in (Role.ADMIN, Role.SALES):
+                user.is_staff = True
+                user.save(update_fields=['is_staff'])
+            
+            # Add to groups if provided
+            if groups:
+                from django.contrib.auth.models import Group
+                for group_name in groups:
+                    if group_name in ['production_supervisors', 'operations_supervisors']:
+                        try:
+                            group = Group.objects.get(name=group_name)
+                            user.groups.add(group)
+                        except Group.DoesNotExist:
+                            pass
+            
+            # Log action
+            AuditLog.log(
+                entity=user,
+                action=AuditLog.ACTION_CREATED,
+                actor=request.user,
+                after_state={'email': email, 'role': str(role.id) if role else None},
+                request=request,
+                metadata={'admin_action': 'create_with_password', 'groups': groups}
+            )
+        
+        return Response({
+            'message': _('User created successfully.'),
+            'user': UserAdminSerializer(user).data,
+            'temporary_password': temporary_password,
+            'groups': list(user.groups.values_list('name', flat=True))
+        }, status=status.HTTP_201_CREATED)
         """List customer users with commercial metrics for dashboard/clients."""
         queryset = self.get_queryset().filter(
             Q(role__name=Role.CUSTOMER) | Q(role__isnull=True)
