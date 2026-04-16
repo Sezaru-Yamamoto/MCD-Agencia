@@ -116,6 +116,10 @@ export default function AdminUsersPage() {
     onSuccess: (data) => {
       toast.success(data.message);
       setNewUserEmail(data.email);
+      if (!data.email_sent && data.temporary_password) {
+        setTemporaryPassword(data.temporary_password);
+        setShowTemporaryPasswordModal(true);
+      }
       setShowCreateUserModal(false);
       setCreateUserForm({ email: '', first_name: '', last_name: '', phone: '', role_id: '' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
@@ -271,8 +275,8 @@ export default function AdminUsersPage() {
                           <EyeIcon className="h-5 w-5" />
                         </Button>
 
-                        {/* Botón para asignar grupo si es vendedor */}
-                        {user.role?.name === 'sales' && (
+                        {/* Botón para asignar grupo si es rol interno */}
+                        {['sales', 'admin', 'superadmin'].includes(user.role?.name || '') && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -432,7 +436,7 @@ export default function AdminUsersPage() {
             />
           </div>
           <p className="text-xs text-neutral-400">
-            Se generará una contraseña temporal automáticamente.
+            Se enviará un correo al usuario para completar su registro y crear su contraseña final.
           </p>
           <div className="flex justify-end gap-3 pt-4">
             <Button

@@ -828,6 +828,7 @@ class AdminCreateUserView(APIView):
         # Generate temporary password
         alphabet = string.ascii_letters + string.digits
         temporary_password = ''.join(secrets.choice(alphabet) for i in range(12))
+        user = None
         
         with transaction.atomic():
             user = User.objects.create_user(
@@ -838,7 +839,7 @@ class AdminCreateUserView(APIView):
                 phone=phone,
                 role=role,
                 is_active=True,
-                     is_email_verified=False,
+                is_email_verified=False,
             )
             
             if role and role.name in (Role.ADMIN, Role.SALES):
@@ -862,15 +863,30 @@ class AdminCreateUserView(APIView):
                 after_state={'email': email},
                 request=request
             )
-            
-            # Send verification email with temporary password
-            from apps.users.tasks import send_setup_email
-            send_setup_email.delay(user.id, temporary_password)
-        
-        return Response({
+
+        # IMPORTANT: send synchronously from API process so delivery does not depend on a Celery worker.
+        # If the provider fails, keep the user and return a safe fallback with temporary password.
+        from apps.users.tasks import send_setup_email
+        email_sent = False
+        try:
+            email_sent = bool(send_setup_email(user.id, temporary_password))
+        except Exception:
+            logger.exception('Setup email delivery failed for user_id=%s email=%s', user.id, user.email)
+
+        if email_sent:
+            return Response({
                 'message': _('Usuario creado exitosamente. Se envió un correo de verificación.'),
                 'email': user.email,
-                'success': True
+                'success': True,
+                'email_sent': True,
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            'message': _('Usuario creado, pero no se pudo enviar correo. Comparte la contraseña temporal manualmente.'),
+            'email': user.email,
+            'success': True,
+            'email_sent': False,
+            'temporary_password': temporary_password,
         }, status=status.HTTP_201_CREATED)
 
 
