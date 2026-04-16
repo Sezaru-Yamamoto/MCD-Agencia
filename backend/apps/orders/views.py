@@ -559,6 +559,64 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
     search_fields = ['order_number', 'user__email', 'user__first_name', 'user__last_name']
     ordering = ['-created_at']
 
+    @staticmethod
+    def _role_name(user) -> str:
+        return getattr(getattr(user, 'role', None), 'name', '')
+
+    def _assert_track_permission(self, request, track: str, target_status: str) -> Response | None:
+        """Return a forbidden response when role cannot apply the requested track transition."""
+        role = self._role_name(request.user)
+        if role == 'admin':
+            return None
+
+        # Sales can move operational flow forward, but exceptional/failure transitions are admin-only.
+        restricted_by_track = {
+            'production': {ProductionJob.STATUS_BLOCKED, ProductionJob.STATUS_CANCELLED},
+            'logistics': {LogisticsJob.STATUS_DELIVERY_FAILED, LogisticsJob.STATUS_CANCELLED},
+            'field_ops': {FieldOperationJob.STATUS_PAUSED, FieldOperationJob.STATUS_REQUIRES_REVISIT, FieldOperationJob.STATUS_CANCELLED},
+        }
+
+        if role != 'sales':
+            return Response(
+                {'error': _('Only internal roles can update operational tracks.')},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if target_status in restricted_by_track.get(track, set()):
+            return Response(
+                {'error': _('Only admin can apply this transition for %(track)s.') % {'track': track}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return None
+
+    def _audit_track_status_change(
+        self,
+        *,
+        request,
+        job,
+        order: Order,
+        previous_status: str,
+        new_status: str,
+        notes: str,
+        track_type: str,
+    ) -> None:
+        AuditLog.log(
+            entity=job,
+            action=AuditLog.ACTION_STATE_CHANGED,
+            actor=request.user,
+            before_state={'status': previous_status},
+            after_state={'status': new_status},
+            request=request,
+            metadata={
+                'track_type': track_type,
+                'job_id': str(job.id),
+                'order_id': str(order.id),
+                'order_number': order.order_number,
+                'notes': notes or '',
+            },
+        )
+
     def check_permissions(self, request):
         """Only admin and sales staff can access."""
         super().check_permissions(request)
@@ -773,6 +831,13 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         serializer = UpdateProductionJobStatusSerializer(data=request.data, context={'job': job})
         serializer.is_valid(raise_exception=True)
         new_status = serializer.validated_data['status']
+        notes = serializer.validated_data.get('notes', '')
+
+        denied = self._assert_track_permission(request, 'production', new_status)
+        if denied:
+            return denied
+
+        old_status = job.status
 
         job.status = new_status
         if new_status in {ProductionJob.STATUS_PREPARING, ProductionJob.STATUS_IN_PRODUCTION} and not job.actual_start:
@@ -780,6 +845,16 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         if new_status == ProductionJob.STATUS_RELEASED:
             job.actual_end = timezone.now()
         job.save(update_fields=['status', 'actual_start', 'actual_end', 'updated_at'])
+
+        self._audit_track_status_change(
+            request=request,
+            job=job,
+            order=order,
+            previous_status=old_status,
+            new_status=new_status,
+            notes=notes,
+            track_type='production',
+        )
 
         sync_operational_rollup(order)
         return Response({
@@ -798,6 +873,13 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         serializer = UpdateLogisticsJobStatusSerializer(data=request.data, context={'job': job})
         serializer.is_valid(raise_exception=True)
         new_status = serializer.validated_data['status']
+        notes = serializer.validated_data.get('notes', '')
+
+        denied = self._assert_track_permission(request, 'logistics', new_status)
+        if denied:
+            return denied
+
+        old_status = job.status
 
         # Logistics cannot move to transit/pickup while production track still open.
         if new_status in {LogisticsJob.STATUS_IN_TRANSIT, LogisticsJob.STATUS_READY_FOR_PICKUP}:
@@ -814,6 +896,16 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         if new_status == LogisticsJob.STATUS_DELIVERED:
             job.delivered_at = timezone.now()
         job.save(update_fields=['status', 'delivered_at', 'updated_at'])
+
+        self._audit_track_status_change(
+            request=request,
+            job=job,
+            order=order,
+            previous_status=old_status,
+            new_status=new_status,
+            notes=notes,
+            track_type='logistics',
+        )
 
         sync_operational_rollup(order)
         return Response({
@@ -832,6 +924,13 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         serializer = UpdateFieldOperationJobStatusSerializer(data=request.data, context={'job': job})
         serializer.is_valid(raise_exception=True)
         new_status = serializer.validated_data['status']
+        notes = serializer.validated_data.get('notes', '')
+
+        denied = self._assert_track_permission(request, 'field_ops', new_status)
+        if denied:
+            return denied
+
+        old_status = job.status
 
         # Field installation cannot start while production track still open.
         if new_status == FieldOperationJob.STATUS_IN_PROGRESS and job.operation_type == FieldOperationJob.TYPE_INSTALLATION:
@@ -850,6 +949,16 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
         if new_status == FieldOperationJob.STATUS_COMPLETED:
             job.actual_end = timezone.now()
         job.save(update_fields=['status', 'actual_start', 'actual_end', 'updated_at'])
+
+        self._audit_track_status_change(
+            request=request,
+            job=job,
+            order=order,
+            previous_status=old_status,
+            new_status=new_status,
+            notes=notes,
+            track_type='field_ops',
+        )
 
         sync_operational_rollup(order)
         return Response({
