@@ -789,6 +789,136 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class AdminCreateUserView(APIView):
+    """Create a new user with temporary password."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        """POST /api/v1/admin/users/create_with_password/"""
+        from apps.core.views import is_internal_user
+        import secrets
+        import string
+        
+        if not is_internal_user(request.user):
+            return Response(
+                {'error': _('Only internal users can create users.')},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        phone = request.data.get('phone', '')
+        role_id = request.data.get('role_id')
+        groups = request.data.get('groups', [])
+        
+        if not email:
+            return Response({'error': _('email is required.')}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if User.objects.filter(email=email).exists():
+            return Response({'error': _('User already exists.')}, status=status.HTTP_400_BAD_REQUEST)
+        
+        role = None
+        if role_id:
+            try:
+                role = Role.objects.get(id=role_id)
+            except Role.DoesNotExist:
+                return Response({'error': _('Role not found.')}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Generate temporary password
+        alphabet = string.ascii_letters + string.digits
+        temporary_password = ''.join(secrets.choice(alphabet) for i in range(12))
+        
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=email,
+                password=temporary_password,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                role=role,
+                is_active=True,
+                is_email_verified=True,
+            )
+            
+            if role and role.name in (Role.ADMIN, Role.SALES):
+                user.is_staff = True
+                user.save(update_fields=['is_staff'])
+            
+            if groups:
+                from django.contrib.auth.models import Group
+                for group_name in groups:
+                    if group_name in ['production_supervisors', 'operations_supervisors']:
+                        try:
+                            group = Group.objects.get(name=group_name)
+                            user.groups.add(group)
+                        except Group.DoesNotExist:
+                            pass
+            
+            AuditLog.log(
+                entity=user,
+                action=AuditLog.ACTION_CREATED,
+                actor=request.user,
+                after_state={'email': email},
+                request=request
+            )
+        
+        return Response({
+            'message': _('User created successfully.'),
+            'user': UserAdminSerializer(user).data,
+            'temporary_password': temporary_password,
+            'groups': list(user.groups.values_list('name', flat=True))
+        }, status=status.HTTP_201_CREATED)
+
+
+class AdminAssignGroupView(APIView):
+    """Assign user to operational group."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, user_id):
+        """POST /api/v1/admin/users/{user_id}/assign_group/"""
+        from apps.core.views import is_internal_user
+        from django.contrib.auth.models import Group
+        
+        if not is_internal_user(request.user):
+            return Response(
+                {'error': _('Only internal users can assign groups.')},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': _('User not found.')}, status=status.HTTP_404_NOT_FOUND)
+        
+        group_name = request.data.get('group')
+        if not group_name or group_name not in ['production_supervisors', 'operations_supervisors']:
+            return Response(
+                {'error': _('Invalid group.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            group = Group.objects.get(name=group_name)
+            user.groups.add(group)
+        except Group.DoesNotExist:
+            return Response({'error': _('Group not found.')}, status=status.HTTP_404_NOT_FOUND)
+        
+        AuditLog.log(
+            entity=user,
+            action=AuditLog.ACTION_PERMISSION_CHANGED,
+            actor=request.user,
+            metadata={'group': group_name},
+            request=request
+        )
+        
+        return Response({
+            'message': _('User assigned to group.'),
+            'user': UserAdminSerializer(user).data,
+            'groups': list(user.groups.values_list('name', flat=True))
+        })
+
+
 class SalesRepsView(APIView):
     """
     Get list of available sales representatives.
