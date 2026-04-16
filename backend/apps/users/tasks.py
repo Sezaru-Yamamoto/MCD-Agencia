@@ -193,12 +193,7 @@ def send_welcome_email(self, user_id: str):
         return False
 
 
-@shared_task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-)
-def send_setup_email(self, user_id: str, temporary_password: str):
+def send_setup_email_sync(user_id: str, temporary_password: str) -> bool:
     """
     Send setup email with temporary password to newly created user.
 
@@ -231,7 +226,6 @@ def send_setup_email(self, user_id: str, temporary_password: str):
         html_message = render_to_string('emails/setup_email.html', context)
         plain_message = strip_tags(html_message)
 
-        # Send email
         send_mail(
             subject='Completa tu registro en MCD Agencia',
             message=plain_message,
@@ -247,6 +241,16 @@ def send_setup_email(self, user_id: str, temporary_password: str):
     except User.DoesNotExist:
         logger.error(f"User {user_id} not found for setup email")
         return False
+
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+)
+def send_setup_email(self, user_id: str, temporary_password: str):
+    try:
+        return send_setup_email_sync(user_id=user_id, temporary_password=temporary_password)
     except Exception as e:
         logger.error(f"Error sending setup email to user {user_id}: {str(e)}")
         raise

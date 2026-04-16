@@ -869,13 +869,13 @@ class AdminCreateUserView(APIView):
 
         # IMPORTANT: send synchronously from API process so delivery does not depend on a Celery worker.
         # If the provider fails, keep the user and return a safe fallback with temporary password.
-        from apps.users.tasks import send_setup_email
+        from apps.users.tasks import send_setup_email_sync
         email_sent = False
+        email_error = None
         try:
-            # Execute task synchronously to avoid relying on external workers.
-            task_result = send_setup_email.apply(args=[str(user.id), temporary_password])
-            email_sent = bool(task_result.get())
-        except Exception:
+            email_sent = bool(send_setup_email_sync(user_id=str(user.id), temporary_password=temporary_password))
+        except Exception as exc:
+            email_error = str(exc)
             logger.exception('Setup email delivery failed for user_id=%s email=%s', user.id, user.email)
 
         if email_sent:
@@ -893,6 +893,7 @@ class AdminCreateUserView(APIView):
             'success': True,
             'email_sent': False,
             'temporary_password': temporary_password,
+            'email_error': email_error,
         }, status=status.HTTP_201_CREATED)
 
 
