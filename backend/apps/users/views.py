@@ -517,7 +517,7 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             self.permission_denied(request)
 
     def get_queryset(self):
-        return User.objects.select_related('role').annotate(
+        return User.objects.select_related('role').filter(is_deleted=False).annotate(
             orders_count=Count('orders', filter=Q(orders__is_deleted=False), distinct=True),
             quotes_count=Count('quote_requests', filter=Q(quote_requests__is_deleted=False), distinct=True),
             total_spent=Coalesce(
@@ -552,6 +552,9 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             request=self.request,
             metadata={'admin_action': True}
         )
+        if instance.is_active:
+            instance.is_active = False
+            instance.save(update_fields=['is_active', 'updated_at'])
         instance.delete()
 
     @action(detail=True, methods=['post'])
