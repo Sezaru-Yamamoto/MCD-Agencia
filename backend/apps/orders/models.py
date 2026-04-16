@@ -378,6 +378,28 @@ class Order(TimeStampedModel, SoftDeleteModel):
         ('cash', _('Cash')),
     ]
 
+    ORIGIN_QUOTE = 'quote_conversion'
+    ORIGIN_DIRECT_PURCHASE = 'direct_purchase'
+    ORIGIN_MANUAL = 'manual'
+    ORIGIN_CHOICES = [
+        (ORIGIN_QUOTE, _('Quote Conversion')),
+        (ORIGIN_DIRECT_PURCHASE, _('Direct Purchase')),
+        (ORIGIN_MANUAL, _('Manual')),
+    ]
+
+    OP_ROLLUP_PLANNED = 'planned'
+    OP_ROLLUP_IN_EXECUTION = 'in_execution'
+    OP_ROLLUP_AWAITING_FINALIZATION = 'awaiting_finalization'
+    OP_ROLLUP_COMPLETED = 'completed'
+    OP_ROLLUP_ON_HOLD = 'on_hold'
+    OPERATIONAL_ROLLUP_CHOICES = [
+        (OP_ROLLUP_PLANNED, _('Planned')),
+        (OP_ROLLUP_IN_EXECUTION, _('In Execution')),
+        (OP_ROLLUP_AWAITING_FINALIZATION, _('Awaiting Finalization')),
+        (OP_ROLLUP_COMPLETED, _('Completed')),
+        (OP_ROLLUP_ON_HOLD, _('On Hold')),
+    ]
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -489,6 +511,36 @@ class Order(TimeStampedModel, SoftDeleteModel):
         blank=True,
         related_name='orders',
         help_text=_('Source quotation (if converted from quote).')
+    )
+    origin = models.CharField(
+        _('origin'),
+        max_length=30,
+        choices=ORIGIN_CHOICES,
+        default=ORIGIN_DIRECT_PURCHASE,
+        db_index=True,
+        help_text=_('How this order was created (quote conversion or direct purchase).')
+    )
+
+    # Operational orchestration
+    operational_rollup = models.CharField(
+        _('operational rollup'),
+        max_length=30,
+        choices=OPERATIONAL_ROLLUP_CHOICES,
+        default=OP_ROLLUP_PLANNED,
+        db_index=True,
+        help_text=_('Aggregated operational progress across production, logistics and field operations.')
+    )
+    operation_plan = models.JSONField(
+        _('operation plan'),
+        default=dict,
+        blank=True,
+        help_text=_('Computed operation plan and dependency map for this order.')
+    )
+    service_snapshot = models.JSONField(
+        _('service snapshot'),
+        default=list,
+        blank=True,
+        help_text=_('Frozen service-level data used for operational routing.')
     )
 
     # Tracking
@@ -813,3 +865,138 @@ class OrderStatusHistory(TimeStampedModel):
 
     def __str__(self):
         return f"{self.order.order_number}: {self.from_status} → {self.to_status}"
+
+
+class ProductionJob(TimeStampedModel):
+    """Production track item for a specific order line or service group."""
+
+    STATUS_QUEUED = 'queued'
+    STATUS_PREPARING = 'preparing'
+    STATUS_IN_PRODUCTION = 'in_production'
+    STATUS_QUALITY_CHECK = 'quality_check'
+    STATUS_RELEASED = 'released'
+    STATUS_BLOCKED = 'blocked'
+    STATUS_CANCELLED = 'cancelled'
+
+    STATUS_CHOICES = [
+        (STATUS_QUEUED, _('Queued')),
+        (STATUS_PREPARING, _('Preparing')),
+        (STATUS_IN_PRODUCTION, _('In Production')),
+        (STATUS_QUALITY_CHECK, _('Quality Check')),
+        (STATUS_RELEASED, _('Released')),
+        (STATUS_BLOCKED, _('Blocked')),
+        (STATUS_CANCELLED, _('Cancelled')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='production_jobs')
+    order_line = models.ForeignKey(
+        OrderLine,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='production_jobs'
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_QUEUED, db_index=True)
+    planned_start = models.DateTimeField(null=True, blank=True)
+    planned_end = models.DateTimeField(null=True, blank=True)
+    actual_start = models.DateTimeField(null=True, blank=True)
+    actual_end = models.DateTimeField(null=True, blank=True)
+    requires_quality_check = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = _('production job')
+        verbose_name_plural = _('production jobs')
+        ordering = ['created_at']
+
+
+class LogisticsJob(TimeStampedModel):
+    """Logistics track item for shipping, pickup or digital handoff."""
+
+    TYPE_SHIPPING = 'shipping'
+    TYPE_PICKUP = 'pickup'
+    TYPE_DIGITAL = 'digital_delivery'
+    TYPE_CHOICES = [
+        (TYPE_SHIPPING, _('Shipping')),
+        (TYPE_PICKUP, _('Pickup')),
+        (TYPE_DIGITAL, _('Digital Delivery')),
+    ]
+
+    STATUS_PENDING_DISPATCH = 'pending_dispatch'
+    STATUS_SCHEDULED = 'scheduled'
+    STATUS_IN_TRANSIT = 'in_transit'
+    STATUS_READY_FOR_PICKUP = 'ready_for_pickup'
+    STATUS_DELIVERED = 'delivered'
+    STATUS_DELIVERY_FAILED = 'delivery_failed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (STATUS_PENDING_DISPATCH, _('Pending Dispatch')),
+        (STATUS_SCHEDULED, _('Scheduled')),
+        (STATUS_IN_TRANSIT, _('In Transit')),
+        (STATUS_READY_FOR_PICKUP, _('Ready For Pickup')),
+        (STATUS_DELIVERED, _('Delivered')),
+        (STATUS_DELIVERY_FAILED, _('Delivery Failed')),
+        (STATUS_CANCELLED, _('Cancelled')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='logistics_jobs')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default=STATUS_PENDING_DISPATCH, db_index=True)
+    logistics_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_SHIPPING)
+    window_start = models.DateTimeField(null=True, blank=True)
+    window_end = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    address_snapshot = models.JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = _('logistics job')
+        verbose_name_plural = _('logistics jobs')
+        ordering = ['created_at']
+
+
+class FieldOperationJob(TimeStampedModel):
+    """Field operation track for installations and date-ranged campaigns."""
+
+    TYPE_INSTALLATION = 'installation'
+    TYPE_MOBILE_CAMPAIGN = 'mobile_campaign'
+    TYPE_SERVICE_WINDOW = 'service_window'
+    TYPE_CHOICES = [
+        (TYPE_INSTALLATION, _('Installation')),
+        (TYPE_MOBILE_CAMPAIGN, _('Mobile Campaign')),
+        (TYPE_SERVICE_WINDOW, _('Service Window')),
+    ]
+
+    STATUS_SCHEDULED = 'scheduled'
+    STATUS_CREW_ASSIGNED = 'crew_assigned'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_PAUSED = 'paused'
+    STATUS_COMPLETED = 'completed'
+    STATUS_REQUIRES_REVISIT = 'requires_revisit'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (STATUS_SCHEDULED, _('Scheduled')),
+        (STATUS_CREW_ASSIGNED, _('Crew Assigned')),
+        (STATUS_IN_PROGRESS, _('In Progress')),
+        (STATUS_PAUSED, _('Paused')),
+        (STATUS_COMPLETED, _('Completed')),
+        (STATUS_REQUIRES_REVISIT, _('Requires Revisit')),
+        (STATUS_CANCELLED, _('Cancelled')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='field_ops_jobs')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default=STATUS_SCHEDULED, db_index=True)
+    operation_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_INSTALLATION)
+    scheduled_start = models.DateTimeField(null=True, blank=True)
+    scheduled_end = models.DateTimeField(null=True, blank=True)
+    actual_start = models.DateTimeField(null=True, blank=True)
+    actual_end = models.DateTimeField(null=True, blank=True)
+    location_snapshot = models.JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = _('field operation job')
+        verbose_name_plural = _('field operation jobs')
+        ordering = ['created_at']

@@ -37,7 +37,11 @@ from .serializers import (
     OrderListSerializer,
     CreateOrderSerializer,
     UpdateOrderStatusSerializer,
+    ProductionJobSerializer,
+    LogisticsJobSerializer,
+    FieldOperationJobSerializer,
 )
+from .services.operations import build_operational_plan, sync_operational_rollup
 
 MANUAL_PAYMENT_METHODS = {'bank_transfer', 'cash'}
 ONLINE_PAYMENT_METHODS = {'mercadopago', 'paypal'}
@@ -360,6 +364,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             order = Order.objects.create(
                 user=request.user,
                 status=Order.STATUS_PENDING_PAYMENT,
+                origin=Order.ORIGIN_DIRECT_PURCHASE,
                 shipping_address=shipping_address.full_address,
                 billing_address=billing_address.full_address,
                 subtotal=subtotal,
@@ -417,6 +422,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                     changed_by=request.user,
                     notes=_('Order moved to production after simulated payment')
                 )
+
+            build_operational_plan(order)
 
             # Log order creation
             AuditLog.log(
@@ -692,7 +699,25 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
             except Exception:
                 pass
 
+            sync_operational_rollup(order)
+
         return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['get'])
+    def operational_tracks(self, request, pk=None):
+        """Return production, logistics and field operation tracks for an order."""
+        order = self.get_object()
+        sync_operational_rollup(order)
+        return Response({
+            'order_id': str(order.id),
+            'order_number': order.order_number,
+            'origin': order.origin,
+            'operational_rollup': order.operational_rollup,
+            'operation_plan': order.operation_plan,
+            'production_jobs': ProductionJobSerializer(order.production_jobs.all(), many=True).data,
+            'logistics_jobs': LogisticsJobSerializer(order.logistics_jobs.all(), many=True).data,
+            'field_ops_jobs': FieldOperationJobSerializer(order.field_ops_jobs.all(), many=True).data,
+        })
 
     @action(detail=True, methods=['post'])
     def add_tracking(self, request, pk=None):

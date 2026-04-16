@@ -1059,6 +1059,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             tuple(order, created)
         """
         from apps.orders.models import Order, OrderLine, OrderStatusHistory
+        from apps.orders.services.operations import build_operational_plan
 
         existing_order = Order.objects.filter(quote=quote).first()
         if existing_order:
@@ -1074,6 +1075,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             order = Order.objects.create(
                 user=quote.customer,
                 status=Order.STATUS_PENDING_PAYMENT,
+                origin=Order.ORIGIN_QUOTE,
                 subtotal=quote.subtotal,
                 tax_rate=quote.tax_rate,
                 tax_amount=quote.tax_amount,
@@ -1147,6 +1149,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
                     changed_by=actor,
                     notes=_('Order moved to production after simulated online payment')
                 )
+
+            build_operational_plan(order)
 
             quote.status = Quote.STATUS_CONVERTED
             quote.save(update_fields=['status', 'updated_at'])

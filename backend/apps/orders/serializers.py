@@ -15,7 +15,17 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.catalog.serializers import ProductVariantSerializer
-from .models import Cart, CartItem, Address, Order, OrderLine, OrderStatusHistory
+from .models import (
+    Cart,
+    CartItem,
+    Address,
+    Order,
+    OrderLine,
+    OrderStatusHistory,
+    ProductionJob,
+    LogisticsJob,
+    FieldOperationJob,
+)
 
 
 QUOTE_NUMBER_REGEX = re.compile(r'(COT-\d{8}-\d+)', flags=re.IGNORECASE)
@@ -255,6 +265,7 @@ class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.SerializerMethodField()
     pickup_branch_detail = serializers.SerializerMethodField()
     quote = serializers.SerializerMethodField()
+    operational_rollup_display = serializers.CharField(source='get_operational_rollup_display', read_only=True)
 
     class Meta:
         model = Order
@@ -270,6 +281,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_method', 'pickup_branch', 'pickup_branch_detail',
             'delivery_address',
             'scheduled_date',
+            'origin', 'operational_rollup', 'operational_rollup_display', 'operation_plan', 'service_snapshot',
             'lines', 'status_history',
             'created_at', 'paid_at', 'completed_at'
         ]
@@ -317,12 +329,14 @@ class OrderListSerializer(serializers.ModelSerializer):
         source='get_payment_method_display', read_only=True
     )
     quote = serializers.SerializerMethodField()
+    operational_rollup_display = serializers.CharField(source='get_operational_rollup_display', read_only=True)
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'status', 'status_display',
             'quote',
+            'origin', 'operational_rollup', 'operational_rollup_display',
             'total', 'amount_paid', 'currency', 'payment_method',
             'payment_method_display', 'item_count', 'customer',
             'created_at'
@@ -422,6 +436,46 @@ class CreateOrderSerializer(serializers.Serializer):
                 raise serializers.ValidationError({'pickup_branch_id': _('Invalid pickup branch.')})
 
         return attrs
+
+
+class ProductionJobSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = ProductionJob
+        fields = [
+            'id', 'order_line', 'status', 'status_display',
+            'planned_start', 'planned_end', 'actual_start', 'actual_end',
+            'requires_quality_check', 'metadata', 'created_at', 'updated_at',
+        ]
+
+
+class LogisticsJobSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    logistics_type_display = serializers.CharField(source='get_logistics_type_display', read_only=True)
+
+    class Meta:
+        model = LogisticsJob
+        fields = [
+            'id', 'status', 'status_display',
+            'logistics_type', 'logistics_type_display',
+            'window_start', 'window_end', 'delivered_at',
+            'address_snapshot', 'metadata', 'created_at', 'updated_at',
+        ]
+
+
+class FieldOperationJobSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    operation_type_display = serializers.CharField(source='get_operation_type_display', read_only=True)
+
+    class Meta:
+        model = FieldOperationJob
+        fields = [
+            'id', 'status', 'status_display',
+            'operation_type', 'operation_type_display',
+            'scheduled_start', 'scheduled_end', 'actual_start', 'actual_end',
+            'location_snapshot', 'metadata', 'created_at', 'updated_at',
+        ]
 
 
 class UpdateOrderStatusSerializer(serializers.Serializer):
