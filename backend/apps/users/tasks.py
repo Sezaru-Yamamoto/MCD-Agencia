@@ -193,6 +193,65 @@ def send_welcome_email(self, user_id: str):
         return False
 
 
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+)
+def send_setup_email(self, user_id: str, temporary_password: str):
+    """
+    Send setup email with temporary password to newly created user.
+
+    Args:
+        user_id: UUID of the user.
+        temporary_password: The temporary password for setup.
+
+    Returns:
+        bool: True if email was sent successfully.
+    """
+    from apps.users.models import User
+
+    try:
+        user = User.objects.get(id=user_id)
+
+        # Build setup URL
+        frontend_url = settings.FRONTEND_URL
+        lang = user.preferred_language or 'es'
+        setup_url = f"{frontend_url}/{lang}/completar-registro?email={user.email}"
+
+        # Prepare email content
+        context = {
+            'user': user,
+            'temporary_password': temporary_password,
+            'setup_url': setup_url,
+            'company_name': 'MCD Agencia',
+            'support_email': settings.DEFAULT_FROM_EMAIL,
+        }
+
+        html_message = render_to_string('emails/setup_email.html', context)
+        plain_message = strip_tags(html_message)
+
+        # Send email
+        send_mail(
+            subject='Completa tu registro en MCD Agencia',
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info(f"Setup email sent to {user.email}")
+        return True
+
+    except User.DoesNotExist:
+        logger.error(f"User {user_id} not found for setup email")
+        return False
+    except Exception as e:
+        logger.error(f"Error sending setup email to user {user_id}: {str(e)}")
+        raise
+
+
 @shared_task
 def cleanup_unverified_users():
     """

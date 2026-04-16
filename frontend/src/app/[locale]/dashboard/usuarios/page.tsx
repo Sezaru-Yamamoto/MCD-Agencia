@@ -114,10 +114,8 @@ export default function AdminUsersPage() {
   const createUserMutation = useMutation({
     mutationFn: (data: typeof createUserForm) => createUserWithPassword(data),
     onSuccess: (data) => {
-      toast.success('Usuario creado exitosamente');
-      setTemporaryPassword(data.temporary_password);
-      setNewUserEmail(data.user.email);
-      setShowTemporaryPasswordModal(true);
+      toast.success(data.message);
+      setNewUserEmail(data.email);
       setShowCreateUserModal(false);
       setCreateUserForm({ email: '', first_name: '', last_name: '', phone: '', role_id: '' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });

@@ -838,7 +838,7 @@ class AdminCreateUserView(APIView):
                 phone=phone,
                 role=role,
                 is_active=True,
-                is_email_verified=True,
+                     is_email_verified=False,
             )
             
             if role and role.name in (Role.ADMIN, Role.SALES):
@@ -862,12 +862,15 @@ class AdminCreateUserView(APIView):
                 after_state={'email': email},
                 request=request
             )
+            
+            # Send verification email with temporary password
+            from apps.users.tasks import send_setup_email
+            send_setup_email.delay(user.id, temporary_password)
         
         return Response({
-            'message': _('User created successfully.'),
-            'user': UserAdminSerializer(user).data,
-            'temporary_password': temporary_password,
-            'groups': list(user.groups.values_list('name', flat=True))
+                'message': _('Usuario creado exitosamente. Se envió un correo de verificación.'),
+                'email': user.email,
+                'success': True
         }, status=status.HTTP_201_CREATED)
 
 
@@ -1014,4 +1017,119 @@ class GoogleOAuthCallbackView(APIView):
         logger.info(f"OAuth callback: Redirecting user (id={user.id}) to frontend")
 
         return redirect(redirect_url)
+
+
+
+class VerifyTemporaryPasswordView(APIView):
+    """Verify temporary password and get setup token."""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        """POST /api/v1/users/verify-temp-password/"""
+        email = request.data.get('email')
+        temporary_password = request.data.get('temporary_password')
+        
+        if not email or not temporary_password:
+            return Response(
+                {'error': _('Email and temporary password are required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {'error': _('Invalid email or temporary password.')},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Verify the temporary password
+        if not user.check_password(temporary_password):
+            return Response(
+                {'error': _('Invalid email or temporary password.')},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Generate a setup token (valid for 24 hours)
+        from django.contrib.auth.tokens import default_token_generator
+        setup_token = default_token_generator.make_token(user)
+        
+        return Response({
+            'message': _('Verification successful. Proceed to set your password.'),
+            'setup_token': setup_token,
+            'user': {
+                'id': str(user.id),
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class CompleteUserSetupView(APIView):
+    """Complete user setup by setting final password."""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        """POST /api/v1/users/complete-setup/"""
+        email = request.data.get('email')
+        setup_token = request.data.get('setup_token')
+        new_password = request.data.get('password')
+        
+        if not all([email, setup_token, new_password]):
+            return Response(
+                {'error': _('Email, setup token, and password are required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {'error': _('User not found.')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Verify the setup token
+        from django.contrib.auth.tokens import default_token_generator
+        if not default_token_generator.check_token(user, setup_token):
+            return Response(
+                {'error': _('Setup token is invalid or expired.')},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Validate password requirements
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            return Response(
+                {'error': _('Password does not meet requirements.'), 'details': e.messages},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set new password and verify email
+        user.set_password(new_password)
+        user.is_email_verified = True
+        user.save(update_fields=['password', 'is_email_verified', 'updated_at'])
+        
+        # Log the action
+        AuditLog.log(
+            entity=user,
+            action=AuditLog.ACTION_PERMISSION_CHANGED,
+            actor=user,
+            metadata={'action': 'completed_account_setup'},
+            request=request
+        )
+        
+        # Generate authentication token
+        from rest_framework.authtoken.models import Token
+        token, created = Token.objects.get_or_create(user=user)
+        
+        return Response({
+            'message': _('Account setup completed successfully.'),
+            'token': token.key,
+            'user': UserAdminSerializer(user).data
+        }, status=status.HTTP_200_OK)
 

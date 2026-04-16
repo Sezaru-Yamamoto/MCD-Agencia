@@ -233,7 +233,7 @@ export async function createUserWithPassword(data: {
   phone?: string;
   role_id?: string;
   groups?: string[];
-}): Promise<{ message: string; user: AdminUser; temporary_password: string; groups: string[] }> {
+}): Promise<{ message: string; email: string; success: boolean }> {
   return apiClient.post('/admin/users/create_with_password/', data);
 }
 
@@ -577,4 +577,19 @@ export async function updateFieldOperationJobStatus(
     `/admin/orders/${orderId}/field-ops-jobs/${jobId}/update-status/`,
     { status, notes }
   );
+}
+
+export async function verifyTemporaryPassword(data: {
+  email: string;
+  temporary_password: string;
+}): Promise<{ message: string; setup_token: string; user: Omit<AdminUser, 'is_active' | 'last_login' | 'orders_count' | 'quotes_count' | 'total_spent' | 'last_order_date'> }> {
+  return apiClient.post('/users/verify-temp-password/', data);
+}
+
+export async function completeUserSetup(data: {
+  email: string;
+  setup_token: string;
+  password: string;
+}): Promise<{ message: string; token: string; user: AdminUser }> {
+  return apiClient.post('/users/complete-setup/', data);
 }

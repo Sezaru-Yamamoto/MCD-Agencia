@@ -21,6 +21,8 @@ from ..views import (
     SalesRepsView,
     AdminCreateUserView,
     AdminAssignGroupView,
+    VerifyTemporaryPasswordView,
+    CompleteUserSetupView,
 )
 
 app_name = 'users'
@@ -38,6 +40,10 @@ urlpatterns = [
 
     # Sales Reps (for quote assignment)
     path('sales-reps/', SalesRepsView.as_view(), name='sales_reps'),
+    
+    # User setup and verification
+    path('verify-temp-password/', VerifyTemporaryPasswordView.as_view(), name='verify-temp-password'),
+    path('complete-setup/', CompleteUserSetupView.as_view(), name='complete-setup'),
 
     # ViewSets
     path('', include(router.urls)),
