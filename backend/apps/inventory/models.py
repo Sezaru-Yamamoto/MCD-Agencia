@@ -168,7 +168,9 @@ class InventoryMovement(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         """Validate and record stock levels."""
-        is_new = not self.pk
+        # UUID primary keys are assigned before first save, so pk presence
+        # cannot be used to detect inserts.
+        is_new = self._state.adding
         current_stock = self.variant.stock if self.variant.stock is not None else 0
 
         if is_new:
