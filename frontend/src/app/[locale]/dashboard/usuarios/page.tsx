@@ -118,6 +118,9 @@ export default function AdminUsersPage() {
     mutationFn: (data: typeof createUserForm) => createUserWithPassword(data),
     onSuccess: (data) => {
       toast.success(data.message);
+      if (!data.email_sent && data.email_error) {
+        toast.error(`Error de correo: ${data.email_error}`);
+      }
       setNewUserEmail(data.email);
       if (!data.email_sent && data.temporary_password) {
         setTemporaryPassword(data.temporary_password);

@@ -237,7 +237,7 @@ export async function createUserWithPassword(data: {
   phone?: string;
   role_id?: string;
   groups?: string[];
-}): Promise<{ message: string; email: string; success: boolean; email_sent?: boolean; temporary_password?: string }> {
+}): Promise<{ message: string; email: string; success: boolean; email_sent?: boolean; temporary_password?: string; email_error?: string }> {
   return apiClient.post('/admin/users/create_with_password/', data);
 }
 
