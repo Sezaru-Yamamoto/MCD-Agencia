@@ -105,6 +105,9 @@ export interface WorkflowItem {
   amount?: string | null;
   href: string;
   note?: string;
+  start?: string | null;
+  end?: string | null;
+  is_range?: boolean;
 }
 
 export interface WorkflowOverview {
