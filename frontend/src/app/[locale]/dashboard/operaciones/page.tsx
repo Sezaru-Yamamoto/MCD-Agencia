@@ -607,16 +607,19 @@ export default function OperationsPage() {
       {viewMode !== 'calendar' && (
       <>
       <div className="xl:hidden space-y-3">
-        <div className="overflow-x-auto pb-1">
+        <div className="overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-neutral-700 p-1 bg-neutral-900/70">
             {blockEntries.map(([key, config], index) => (
               <button
                 key={key}
                 ref={(el) => { mobileBoardTabRefs.current[index] = el; }}
                 onClick={() => goToBoardIndex(index)}
-                className={`px-3 py-1.5 text-xs rounded-md whitespace-nowrap transition-colors ${activeBoardIndex === index ? 'text-cmyk-cyan bg-cmyk-cyan/10' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                className={`relative px-3 py-1.5 text-xs rounded-md whitespace-nowrap transition-colors ${activeBoardIndex === index ? 'text-cmyk-cyan bg-cmyk-cyan/10' : 'text-neutral-300 hover:bg-neutral-800'}`}
               >
                 {config.title}
+                {activeBoardIndex === index && (
+                  <span className="absolute left-2 right-2 -bottom-0.5 h-0.5 bg-cmyk-cyan rounded-full" />
+                )}
               </button>
             ))}
           </div>
@@ -625,7 +628,7 @@ export default function OperationsPage() {
         <div
           ref={mobileBoardRef}
           onScroll={handleMobileBoardScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory gap-3"
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {blockEntries.map(([key, config], index) => {
             const items = overview?.blocks[key as keyof typeof overview.blocks] || [];
