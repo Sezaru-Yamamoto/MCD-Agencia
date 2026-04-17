@@ -539,6 +539,18 @@ export async function getBranches(): Promise<Branch[]> {
         return (samePhone && sameCity) || (sameAddress && sameCity) || (sameName && sameCity);
       };
 
+      const branchCompletenessScore = (branch: Branch): number => {
+        let score = 0;
+        if (branch.google_maps_url) score += 3;
+        if (branch.latitude && branch.longitude) score += 2;
+        if (branch.full_address) score += 2;
+        if (branch.street) score += 1;
+        if (branch.phone) score += 1;
+        if (branch.email) score += 1;
+        if (branch.hours) score += 1;
+        return score;
+      };
+
       while (endpoint) {
         const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
           endpoint,
@@ -554,8 +566,25 @@ export async function getBranches(): Promise<Branch[]> {
         endpoint = response.next || null;
       }
 
+      // First dedupe branches returned by API itself (the previous logic only deduped fallback vs API).
+      const dedupedApiBranches: Branch[] = [];
+      for (const apiBranch of allBranches) {
+        const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
+
+        if (existingIndex === -1) {
+          dedupedApiBranches.push(apiBranch);
+          continue;
+        }
+
+        // If there is a duplicate, keep the richer record.
+        const existing = dedupedApiBranches[existingIndex];
+        if (branchCompletenessScore(apiBranch) > branchCompletenessScore(existing)) {
+          dedupedApiBranches[existingIndex] = apiBranch;
+        }
+      }
+
       const fallbackBranches = getFallbackBranches();
-      const merged: Array<{ branch: Branch; source: 'api' | 'fallback' }> = allBranches.map((branch) => ({
+      const merged: Array<{ branch: Branch; source: 'api' | 'fallback' }> = dedupedApiBranches.map((branch) => ({
         branch,
         source: 'api',
       }));
