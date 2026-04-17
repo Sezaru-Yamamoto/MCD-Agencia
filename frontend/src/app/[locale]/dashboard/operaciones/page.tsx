@@ -817,6 +817,11 @@ export default function OperationsPage() {
             </div>
           ) : (
             <div>
+              <div className="grid grid-cols-7 gap-1.5 text-[10px] text-neutral-500 mb-2">
+                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+                  <div key={`week-head-${day}`} className="text-center py-1 uppercase tracking-wide">{day}</div>
+                ))}
+              </div>
               <div className="grid grid-cols-7 gap-1.5">
                 {weekDays.map((day) => {
                   const key = toDateKey(day);
@@ -827,26 +832,17 @@ export default function OperationsPage() {
                       type="button"
                       onClick={() => setSelectedDateKey(key)}
                       key={key}
-                      className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 text-left hover:bg-neutral-800/80 transition-colors min-h-[7.5rem]"
+                      className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 hover:bg-neutral-800/80 transition-colors min-h-[5.25rem]"
                     >
-                      <div className="mb-2 flex items-start justify-between gap-1">
-                        <div>
-                          <p className="text-[10px] text-neutral-500 uppercase tracking-wide leading-tight">
-                          {day.toLocaleDateString('es-MX', { weekday: 'short' })}
-                          </p>
-                          <p className="text-sm text-white font-semibold leading-tight">
-                          {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                          </p>
-                        </div>
-                        {events.length > 0 && <span className="inline-block h-2 w-2 rounded-full bg-cmyk-cyan mt-1" />}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] text-neutral-400">{events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}</p>
-                        {events.slice(0, 1).map((event) => (
-                          <p key={`${event.kind}-${event.id}-mini`} className="text-[10px] text-neutral-300 truncate">
-                            {event.title}
-                          </p>
-                        ))}
+                      <div className="h-full flex flex-col items-center justify-between py-1">
+                        <span className="text-base text-white font-semibold leading-none">
+                          {day.getDate()}
+                        </span>
+                        {events.length > 0 ? (
+                          <span className="inline-block h-2 w-2 rounded-full bg-cmyk-cyan" aria-label={`${events.length} evento(s)`} />
+                        ) : (
+                          <span className="inline-block h-2 w-2 rounded-full bg-transparent border border-neutral-700" aria-hidden="true" />
+                        )}
                       </div>
                     </button>
                   );
