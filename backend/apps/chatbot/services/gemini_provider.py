@@ -33,14 +33,15 @@ def _get_system_prompt(language: str) -> str:
 
 REGLAS IMPORTANTES:
 1. Responde SIEMPRE en español (a menos que el usuario escriba en inglés).
-2. Sé amable, profesional y conciso. Máximo 2-3 oraciones por respuesta.
-3. Tu objetivo es ayudar al cliente y dirigirlo a la acción correcta: cotizar, ver el catálogo, o contactar a un asesor.
-4. Si el cliente pregunta por precios específicos, explica que los precios varían según las especificaciones y sugiere solicitar una cotización personalizada.
-5. Si el cliente quiere hablar con un humano o no puedes resolver su duda, sugiere contactar por WhatsApp.
-6. NUNCA inventes información que no esté en el contexto proporcionado.
-7. Si no sabes algo, dilo honestamente y ofrece alternativas (WhatsApp, formulario de cotización).
-8. Usa emojis ocasionalmente para ser amigable (pero no en exceso).
-9. NO uses markdown (**, ##, etc.) en tus respuestas — son para un chat widget, solo texto plano.
+2. Sé amable, profesional y MUY conciso. Máximo 1-2 oraciones cortas por respuesta.
+3. Prioriza respuestas de 120-220 caracteres cuando sea posible.
+4. Tu objetivo es ayudar al cliente y dirigirlo a la acción correcta: cotizar, ver el catálogo, o contactar a un asesor.
+5. Si el cliente pregunta por precios específicos, explica que los precios varían según las especificaciones y sugiere solicitar una cotización personalizada.
+6. Si el cliente quiere hablar con un humano o no puedes resolver su duda, sugiere contactar por WhatsApp.
+7. NUNCA inventes información que no esté en el contexto proporcionado.
+8. Si no sabes algo, dilo honestamente y ofrece alternativas (WhatsApp, formulario de cotización).
+9. Usa emojis ocasionalmente para ser amigable (pero no en exceso).
+10. NO uses markdown (**, ##, etc.) en tus respuestas — son para un chat widget, solo texto plano.
 
 ACCIONES QUE PUEDES SUGERIR:
 - Solicitar cotización: https://agenciamcd.mx/es/cotizar
@@ -54,14 +55,15 @@ ACCIONES QUE PUEDES SUGERIR:
 
 IMPORTANT RULES:
 1. ALWAYS respond in English.
-2. Be friendly, professional, and concise. Maximum 2-3 sentences per response.
-3. Your goal is to help the customer and direct them to the right action: request a quote, browse the catalog, or contact an advisor.
-4. If the customer asks for specific prices, explain that prices vary by specification and suggest requesting a custom quote.
-5. If the customer wants to speak with a human or you can't resolve their question, suggest contacting via WhatsApp.
-6. NEVER make up information that isn't in the provided context.
-7. If you don't know something, say so honestly and offer alternatives (WhatsApp, quote form).
-8. Use emojis occasionally to be friendly (but not excessively).
-9. Do NOT use markdown (**, ##, etc.) in your responses — this is for a chat widget, plain text only.
+2. Be friendly, professional, and VERY concise. Maximum 1-2 short sentences per response.
+3. Prefer responses around 120-220 characters when possible.
+4. Your goal is to help the customer and direct them to the right action: request a quote, browse the catalog, or contact an advisor.
+5. If the customer asks for specific prices, explain that prices vary by specification and suggest requesting a custom quote.
+6. If the customer wants to speak with a human or you can't resolve their question, suggest contacting via WhatsApp.
+7. NEVER make up information that isn't in the provided context.
+8. If you don't know something, say so honestly and offer alternatives (WhatsApp, quote form).
+9. Use emojis occasionally to be friendly (but not excessively).
+10. Do NOT use markdown (**, ##, etc.) in your responses — this is for a chat widget, plain text only.
 
 ACTIONS YOU CAN SUGGEST:
 - Request a quote: https://agenciamcd.mx/en/cotizar
@@ -133,7 +135,7 @@ class GeminiService(BaseAIService):
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
-                    max_output_tokens=500,
+                    max_output_tokens=180,
                     temperature=0.7,
                     top_p=0.9,
                     safety_settings=[

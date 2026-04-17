@@ -144,9 +144,28 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   const [showWhatsAppOptions, setShowWhatsAppOptions] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const initializedRef = useRef(false);
   const bodyLockRef = useRef<{ overflow: string; overscrollBehavior: string; htmlOverscrollBehavior: string } | null>(null);
+  const userDetachedFromBottomRef = useRef(false);
+
+  const isNearBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceToBottom < 80;
+  }, []);
+
+  const shouldAutoScrollToBottom = useCallback(() => {
+    if (messages.length <= 1) return true;
+    return !userDetachedFromBottomRef.current;
+  }, [messages.length]);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (!shouldAutoScrollToBottom()) return;
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, [shouldAutoScrollToBottom]);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 639px)');
@@ -182,6 +201,19 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       window.removeEventListener('resize', update);
     };
   }, [isMobile, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || isMinimized) return;
+    // On open, start with chat pinned to latest message.
+    userDetachedFromBottomRef.current = false;
+    requestAnimationFrame(() => scrollToBottom('auto'));
+  }, [isOpen, isMinimized, scrollToBottom]);
+
+  useEffect(() => {
+    if (!isOpen || isMinimized) return;
+    // Keyboard/viewport changes should only autoscroll when user is at start or already near bottom.
+    scrollToBottom('auto');
+  }, [mobileViewportHeight, isOpen, isMinimized, scrollToBottom]);
 
   useEffect(() => {
     onStateChange?.({ open: isOpen, minimized: isMinimized });
@@ -332,13 +364,24 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
 
   // ---- Scroll to bottom ----
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+    if (!isOpen || isMinimized) return;
+    scrollToBottom(messages.length <= 1 ? 'auto' : 'smooth');
+  }, [messages, isLoading, isOpen, isMinimized, scrollToBottom]);
 
   // ---- Focus input ----
   useEffect(() => {
     if (isOpen && !isMinimized) setTimeout(() => inputRef.current?.focus(), 150);
   }, [isOpen, isMinimized]);
+
+  const handleInputFocus = useCallback(() => {
+    if (!isOpen || isMinimized) return;
+    // If user is reading older messages, keep their position; otherwise keep the latest visible.
+    scrollToBottom('auto');
+  }, [isOpen, isMinimized, scrollToBottom]);
+
+  const handleMessagesScroll = useCallback(() => {
+    userDetachedFromBottomRef.current = !isNearBottom();
+  }, [isNearBottom]);
 
   // ---- Send message ----
   const sendMessage = useCallback(async (messageText: string) => {
@@ -488,7 +531,11 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
           {!isMinimized && (
             <>
               {/* Messages */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-slate-50">
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+                className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-slate-50"
+              >
                 <div className="flex flex-col p-4 gap-4">
                     {messages.map((message, index) => (
                     <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -597,6 +644,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+                    onFocus={handleInputFocus}
                     placeholder={texts.placeholder}
                     maxLength={MAX_MESSAGE_LENGTH}
                     className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-900 placeholder-slate-400 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cmyk-cyan focus:bg-white border border-slate-200 transition-all"
