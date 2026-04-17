@@ -41,6 +41,7 @@ const STORAGE_KEY = 'mcd_chat_state';
 const MAX_MESSAGE_LENGTH = 1000;
 const DETACH_FROM_BOTTOM_PX = 320;
 const REATTACH_TO_BOTTOM_PX = 120;
+const CHAT_REQUEST_TIMEOUT_MS = 15000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -150,14 +151,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   const inputRef = useRef<HTMLInputElement>(null);
   const initializedRef = useRef(false);
   const bodyLockRef = useRef<{ overflow: string; overscrollBehavior: string; htmlOverscrollBehavior: string } | null>(null);
-  const userDetachedFromBottomRef = useRef(false);
-
-  const isNearBottom = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return true;
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    return distanceToBottom <= REATTACH_TO_BOTTOM_PX;
-  }, []);
+  const stickToBottomWhileTypingRef = useRef(false);
 
   const getDistanceToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -165,10 +159,15 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
     return container.scrollHeight - container.scrollTop - container.clientHeight;
   }, []);
 
+  const isFarFromBottom = useCallback(() => {
+    return getDistanceToBottom() > DETACH_FROM_BOTTOM_PX;
+  }, [getDistanceToBottom]);
+
   const shouldAutoScrollToBottom = useCallback(() => {
     if (messages.length <= 1) return true;
-    return !userDetachedFromBottomRef.current;
-  }, [messages.length]);
+    if (stickToBottomWhileTypingRef.current) return true;
+    return !isFarFromBottom();
+  }, [messages.length, isFarFromBottom]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!shouldAutoScrollToBottom()) return;
@@ -213,7 +212,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   useEffect(() => {
     if (!isOpen || isMinimized) return;
     // On open, start with chat pinned to latest message.
-    userDetachedFromBottomRef.current = false;
+    stickToBottomWhileTypingRef.current = false;
     requestAnimationFrame(() => scrollToBottom('auto'));
   }, [isOpen, isMinimized, scrollToBottom]);
 
@@ -383,23 +382,19 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
 
   const handleInputFocus = useCallback(() => {
     if (!isOpen || isMinimized) return;
-    // If user is reading older messages, keep their position; otherwise keep the latest visible.
-    scrollToBottom('auto');
-  }, [isOpen, isMinimized, scrollToBottom]);
+    const shouldStick = !isFarFromBottom();
+    stickToBottomWhileTypingRef.current = shouldStick;
 
-  const handleMessagesScroll = useCallback(() => {
-    const distanceToBottom = getDistanceToBottom();
+    if (!shouldStick) return;
 
-    // WhatsApp-like: keep pinned unless the user goes significantly up.
-    if (distanceToBottom >= DETACH_FROM_BOTTOM_PX) {
-      userDetachedFromBottomRef.current = true;
-      return;
-    }
+    // Keyboard open can shift layout after focus; do an immediate and delayed snap.
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 140);
+  }, [isOpen, isMinimized, isFarFromBottom]);
 
-    if (distanceToBottom <= REATTACH_TO_BOTTOM_PX) {
-      userDetachedFromBottomRef.current = false;
-    }
-  }, [getDistanceToBottom]);
+  const handleInputBlur = useCallback(() => {
+    stickToBottomWhileTypingRef.current = false;
+  }, []);
 
   // ---- Send message ----
   const sendMessage = useCallback(async (messageText: string) => {
@@ -413,14 +408,20 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
     setIsLoading(true);
     setShowWhatsAppOptions(false);
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
       const history = messages.slice(-8).map(m => ({
         role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content,
       }));
 
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
+
       const res = await fetch(`${API_BASE_URL}/chatbot/web-chat/message/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ message: trimmed, session_id: sessionId, language: locale, history }),
       });
 
@@ -446,6 +447,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       }]);
       setShowWhatsAppOptions(true);
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setIsLoading(false);
     }
   }, [isLoading, messages, sessionId, locale]);
@@ -551,7 +553,6 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
               {/* Messages */}
               <div
                 ref={messagesContainerRef}
-                onScroll={handleMessagesScroll}
                 className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-slate-50"
               >
                 <div className="flex flex-col p-4 gap-4">
@@ -663,6 +664,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
                     onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
                     placeholder={texts.placeholder}
                     maxLength={MAX_MESSAGE_LENGTH}
                     className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-900 placeholder-slate-400 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cmyk-cyan focus:bg-white border border-slate-200 transition-all"
