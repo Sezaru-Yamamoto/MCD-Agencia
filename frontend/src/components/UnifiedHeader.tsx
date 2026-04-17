@@ -154,17 +154,17 @@ export function UnifiedHeader() {
       ref={headerRef}
       className={`fixed top-0 left-0 right-0 ${hasDesktopSidebarOffset ? 'lg:left-64' : ''} z-50 transition-all duration-500 ${
         isScrolled
-          ? 'py-2'
-          : 'py-3 sm:py-4'
+          ? 'py-0 lg:py-2'
+          : 'py-0 lg:py-3 lg:sm:py-4'
       }`}
     >
       {/* Inner container — floating pill shape */}
-      <div className={`container-custom px-4 sm:px-6 transition-all duration-500 ${
+      <div className={`w-full lg:container-custom lg:px-4 xl:px-6 transition-all duration-500 ${
         isScrolled
-          ? 'bg-black/70 backdrop-blur-xl shadow-2xl shadow-cmyk-cyan/5 rounded-2xl border border-white/10 mx-4 sm:mx-6 lg:mx-auto'
-          : 'bg-black/30 backdrop-blur-md rounded-2xl border border-white/5 mx-4 sm:mx-6 lg:mx-auto'
+          ? 'bg-black/85 backdrop-blur-xl border-b border-white/10 lg:bg-black/70 lg:shadow-2xl lg:shadow-cmyk-cyan/5 lg:rounded-2xl lg:border lg:border-white/10 lg:border-b lg:mx-auto'
+          : 'bg-black/80 backdrop-blur-md border-b border-white/5 lg:bg-black/30 lg:rounded-2xl lg:border lg:border-white/5 lg:border-b lg:mx-auto'
       }`}>
-        <div className="flex items-center justify-between py-2.5 sm:py-3 px-2 sm:px-4">
+        <div className="flex items-center justify-between py-2 px-3 sm:px-4 lg:py-2.5">
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center space-x-2 lg:space-x-3 mr-4 flex-shrink-0">
             <div className="w-28 h-10 rounded-lg flex items-center justify-center flex-shrink-0">

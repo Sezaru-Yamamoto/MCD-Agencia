@@ -167,8 +167,8 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
 
       <div className="lg:pl-64 pt-[var(--app-header-height,4rem)]">
         <div
-          className="lg:hidden sticky z-20 bg-neutral-950/80 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex justify-end"
-          style={{ top: 'var(--app-header-height, 4rem)' }}
+          className="lg:hidden sticky z-20 bg-neutral-950/92 backdrop-blur-sm border-t border-white/10 border-b border-white/5 px-3 py-1.5 flex justify-end"
+          style={{ top: 'calc(var(--app-header-height, 4rem) - 1px)' }}
         >
           <button
             className="p-2 text-neutral-400 hover:text-white"
