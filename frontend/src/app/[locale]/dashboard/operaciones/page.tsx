@@ -718,19 +718,21 @@ export default function OperationsPage() {
             </h2>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
+            <div className="flex justify-center">
+              <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
               <button
                 onClick={() => setCalendarMode('month')}
-                className={`px-3 py-1.5 text-xs transition-colors ${calendarMode === 'month' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                className={`px-2.5 py-1 text-[11px] transition-colors ${calendarMode === 'month' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
               >
                 Mes
               </button>
               <button
                 onClick={() => setCalendarMode('week')}
-                className={`px-3 py-1.5 text-xs transition-colors ${calendarMode === 'week' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                className={`px-2.5 py-1 text-[11px] transition-colors ${calendarMode === 'week' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
               >
                 Semana
               </button>
+            </div>
             </div>
             <div className="flex items-center gap-2 w-full rounded-xl border border-neutral-800 bg-neutral-950/50 p-2">
             <button
@@ -756,7 +758,6 @@ export default function OperationsPage() {
               className="flex-1 min-w-0 rounded-lg border border-neutral-800 bg-neutral-900/70 px-3 py-2 text-center text-white font-medium text-sm hover:border-cmyk-cyan/40 hover:bg-neutral-900 transition-colors"
             >
               <span className="block truncate">{calendarMode === 'month' ? monthLabel : weekLabel}</span>
-              <span className="block text-[10px] text-neutral-400 mt-0.5">Tocar para navegar rápido</span>
             </button>
             <button
               onClick={() => {
@@ -816,7 +817,7 @@ export default function OperationsPage() {
             </div>
           ) : (
             <div>
-              <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className="grid grid-cols-7 gap-1.5">
                 {weekDays.map((day) => {
                   const key = toDateKey(day);
                   const events = calendarEventsByDate.get(key) || [];
@@ -826,23 +827,23 @@ export default function OperationsPage() {
                       type="button"
                       onClick={() => setSelectedDateKey(key)}
                       key={key}
-                      className="w-[11.5rem] md:w-[12.5rem] shrink-0 rounded-xl border border-neutral-800 bg-neutral-900/70 p-3 text-left hover:bg-neutral-800/80 transition-colors"
+                      className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 text-left hover:bg-neutral-800/80 transition-colors min-h-[7.5rem]"
                     >
-                      <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="mb-2 flex items-start justify-between gap-1">
                         <div>
-                          <p className="text-[11px] text-neutral-500 uppercase tracking-wide">
+                          <p className="text-[10px] text-neutral-500 uppercase tracking-wide leading-tight">
                           {day.toLocaleDateString('es-MX', { weekday: 'short' })}
                           </p>
-                          <p className="text-base text-white font-semibold">
+                          <p className="text-sm text-white font-semibold leading-tight">
                           {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                           </p>
                         </div>
-                        {events.length > 0 && <span className="inline-block h-2.5 w-2.5 rounded-full bg-cmyk-cyan mt-1" />}
+                        {events.length > 0 && <span className="inline-block h-2 w-2 rounded-full bg-cmyk-cyan mt-1" />}
                       </div>
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] text-neutral-400">{events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}</p>
-                        {events.slice(0, 2).map((event) => (
-                          <p key={`${event.kind}-${event.id}-mini`} className="text-xs text-neutral-300 truncate">
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-neutral-400">{events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}</p>
+                        {events.slice(0, 1).map((event) => (
+                          <p key={`${event.kind}-${event.id}-mini`} className="text-[10px] text-neutral-300 truncate">
                             {event.title}
                           </p>
                         ))}
