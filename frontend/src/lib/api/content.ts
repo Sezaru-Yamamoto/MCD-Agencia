@@ -551,6 +551,51 @@ export async function getBranches(): Promise<Branch[]> {
         return score;
       };
 
+      const canonicalBranchConfigs: Array<{
+        key: 'diamante' | 'yamaha' | 'tecoanapa';
+        name: string;
+        matcher: (normalizedName: string, normalizedAddress: string) => boolean;
+      }> = [
+        {
+          key: 'diamante',
+          name: 'Acapulco Diamante',
+          matcher: (normalizedName, normalizedAddress) =>
+            normalizedName.includes('diamante') ||
+            normalizedAddress.includes('diamante') ||
+            normalizedAddress.includes('granjas marquez') ||
+            normalizedAddress.includes('plaza diamante'),
+        },
+        {
+          key: 'yamaha',
+          name: 'Acapulco Yamaha',
+          matcher: (normalizedName, normalizedAddress) =>
+            normalizedName.includes('yamaha') ||
+            normalizedAddress.includes('yamaha') ||
+            normalizedName.includes('costa azul') ||
+            normalizedAddress.includes('costa azul'),
+        },
+        {
+          key: 'tecoanapa',
+          name: 'Tecoanapa',
+          matcher: (normalizedName, normalizedAddress) =>
+            normalizedName.includes('tecoanapa') ||
+            normalizedAddress.includes('tecoanapa') ||
+            normalizedAddress.includes('tierra colorada') ||
+            normalizedAddress.includes('ayutla'),
+        },
+      ];
+
+      const toCanonicalKey = (branch: Branch): 'diamante' | 'yamaha' | 'tecoanapa' | null => {
+        const normalizedName = normalizeText(branch.name || '');
+        const normalizedAddress = normalizeText(branch.full_address || branch.street || '');
+
+        const match = canonicalBranchConfigs.find((config) =>
+          config.matcher(normalizedName, normalizedAddress)
+        );
+
+        return match?.key || null;
+      };
+
       while (endpoint) {
         const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
           endpoint,
@@ -603,9 +648,39 @@ export async function getBranches(): Promise<Branch[]> {
         }
       }
 
-      return merged
-        .map((entry) => entry.branch)
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      // Enforce exactly 3 canonical branches to avoid duplicate/variant records from API data.
+      const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
+
+      for (const entry of merged.map((item) => item.branch)) {
+        const canonicalKey = toCanonicalKey(entry);
+        if (!canonicalKey) continue;
+
+        const existing = canonicalByKey.get(canonicalKey);
+        if (!existing || branchCompletenessScore(entry) > branchCompletenessScore(existing)) {
+          canonicalByKey.set(canonicalKey, entry);
+        }
+      }
+
+      // Guarantee all three branches exist using fallback if one canonical bucket is missing.
+      for (const fallback of fallbackBranches) {
+        const canonicalKey = toCanonicalKey(fallback);
+        if (!canonicalKey) continue;
+        if (!canonicalByKey.has(canonicalKey)) {
+          canonicalByKey.set(canonicalKey, fallback);
+        }
+      }
+
+      return canonicalBranchConfigs
+        .map((config, index) => {
+          const branch = canonicalByKey.get(config.key);
+          if (!branch) return null;
+          return {
+            ...branch,
+            name: config.name,
+            position: index,
+          } as Branch;
+        })
+        .filter((branch): branch is Branch => !!branch);
     },
     getFallbackBranches,
     1800
