@@ -483,8 +483,7 @@ export async function getBranches(): Promise<Branch[]> {
     results: Branch[];
   };
 
-  const allBranches: Branch[] = [];
-  let endpoint: string | null = '/content/branches/';
+  const FLY_BRANCH_ENDPOINT = 'https://mcd-agencia-api.fly.dev/api/v1/content/branches/';
 
   const isUuid = (value: string): boolean =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
@@ -606,70 +605,97 @@ export async function getBranches(): Promise<Branch[]> {
     return match?.key || null;
   };
 
-  while (endpoint) {
-    const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
-      endpoint,
-      { page_size: 100 }
-    );
+  const fetchAllRawBranches = async (initialEndpoint: string): Promise<Branch[]> => {
+    const rawBranches: Branch[] = [];
+    let endpoint: string | null = initialEndpoint;
 
-    if (Array.isArray(response)) {
-      allBranches.push(...response);
-      break;
+    while (endpoint) {
+      const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
+        endpoint,
+        { page_size: 100 }
+      );
+
+      if (Array.isArray(response)) {
+        rawBranches.push(...response);
+        break;
+      }
+
+      rawBranches.push(...(response.results || []));
+      endpoint = response.next || null;
     }
 
-    allBranches.push(...(response.results || []));
-    endpoint = response.next || null;
+    return rawBranches;
+  };
+
+  const toCanonicalBranches = (rawBranches: Branch[]): Branch[] => {
+    const uuidApiBranches = rawBranches.filter((branch) => isUuid(branch.id));
+
+    const dedupedApiBranches: Branch[] = [];
+    for (const apiBranch of uuidApiBranches) {
+      const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
+
+      if (existingIndex === -1) {
+        dedupedApiBranches.push(apiBranch);
+        continue;
+      }
+
+      const existing = dedupedApiBranches[existingIndex];
+      if (branchCompletenessScore(apiBranch) > branchCompletenessScore(existing)) {
+        dedupedApiBranches[existingIndex] = apiBranch;
+      }
+    }
+
+    const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
+
+    for (const entry of dedupedApiBranches) {
+      const canonicalKey = toCanonicalKey(entry);
+      if (!canonicalKey) continue;
+
+      const existing = canonicalByKey.get(canonicalKey);
+      if (!existing || branchCompletenessScore(entry) > branchCompletenessScore(existing)) {
+        canonicalByKey.set(canonicalKey, entry);
+      }
+    }
+
+    return canonicalBranchConfigs
+      .map((config, index) => {
+        const branch = canonicalByKey.get(config.key);
+        if (!branch) return null;
+        return {
+          ...branch,
+          name: config.name,
+          position: index,
+        } as Branch;
+      })
+      .filter((branch): branch is Branch => !!branch);
+  };
+
+  const primaryRawBranches = await fetchAllRawBranches('/content/branches/');
+  let canonicalBranches = toCanonicalBranches(primaryRawBranches);
+
+  const hasYamaha = canonicalBranches.some((branch) => {
+    const normalizedName = normalizeText(branch.name || '');
+    const normalizedAddress = normalizeText(branch.street || branch.full_address || '');
+    return normalizedName.includes('yamaha') || normalizedAddress.includes('yamaha') || normalizedAddress.includes('costa azul');
+  });
+
+  if (!hasYamaha) {
+    try {
+      const flyRawBranches = await fetchAllRawBranches(FLY_BRANCH_ENDPOINT);
+      const mergedById = new Map<string, Branch>();
+
+      for (const branch of [...primaryRawBranches, ...flyRawBranches]) {
+        if (!branch?.id) continue;
+        mergedById.set(branch.id, branch);
+      }
+
+      canonicalBranches = toCanonicalBranches(Array.from(mergedById.values()));
+    } catch {
+      // If Fly fallback is unavailable, keep primary source result.
+    }
   }
 
-  // Use only canonical API records with real UUIDs.
-  const uuidApiBranches = allBranches.filter((branch) => isUuid(branch.id));
-
-  // First dedupe branches returned by API itself.
-  const dedupedApiBranches: Branch[] = [];
-  for (const apiBranch of uuidApiBranches) {
-    const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
-
-    if (existingIndex === -1) {
-      dedupedApiBranches.push(apiBranch);
-      continue;
-    }
-
-    // If there is a duplicate, keep the richer record.
-    const existing = dedupedApiBranches[existingIndex];
-    if (branchCompletenessScore(apiBranch) > branchCompletenessScore(existing)) {
-      dedupedApiBranches[existingIndex] = apiBranch;
-    }
-  }
-
-  const merged: Array<{ branch: Branch; source: 'api' }> = dedupedApiBranches.map((branch) => ({
-    branch,
-    source: 'api',
-  }));
-
-  // Enforce exactly 3 canonical branches to avoid duplicate/variant records from API data.
-  const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
-
-  for (const entry of merged.map((item) => item.branch)) {
-    const canonicalKey = toCanonicalKey(entry);
-    if (!canonicalKey) continue;
-
-    const existing = canonicalByKey.get(canonicalKey);
-    if (!existing || branchCompletenessScore(entry) > branchCompletenessScore(existing)) {
-      canonicalByKey.set(canonicalKey, entry);
-    }
-  }
-
-  return canonicalBranchConfigs
-    .map((config, index) => {
-      const branch = canonicalByKey.get(config.key);
-      if (!branch) return null;
-      return {
-        ...branch,
-        name: config.name,
-        position: index,
-      } as Branch;
-    })
-    .filter((branch): branch is Branch => !!branch);
+  return canonicalBranches;
 }
 
 /**
