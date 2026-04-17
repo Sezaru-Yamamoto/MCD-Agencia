@@ -483,7 +483,7 @@ export async function getBranches(): Promise<Branch[]> {
     results: Branch[];
   };
 
-  const FLY_BRANCH_ENDPOINT = 'https://mcd-agencia-api.fly.dev/api/v1/content/branches/';
+  const FRONTEND_BRANCH_PROXY = '/api/branches?preferFly=1';
 
   const isUuid = (value: string): boolean =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
@@ -497,56 +497,6 @@ export async function getBranches(): Promise<Branch[]> {
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-
-  const normalizePhone = (value: string): string => {
-    const digits = (value || '').replace(/\D/g, '');
-    return digits.length > 10 ? digits.slice(-10) : digits;
-  };
-
-  const hasAddressOverlap = (a: string, b: string): boolean => {
-    if (!a || !b) return false;
-    if (a.includes(b) || b.includes(a)) return true;
-
-    const ignoredTokens = new Set([
-      'acapulco', 'juarez', 'tecoanapa', 'guerrero',
-      'calle', 'avenida', 'av', 'fracc', 'colonia', 'col',
-      'centro', 'estado', 'mexico',
-    ]);
-
-    const tokensA = new Set(
-      a.split(' ').filter((token) => token.length >= 4 && !ignoredTokens.has(token))
-    );
-    const tokensB = new Set(
-      b.split(' ').filter((token) => token.length >= 4 && !ignoredTokens.has(token))
-    );
-    let overlap = 0;
-
-    tokensA.forEach((token) => {
-      if (tokensB.has(token)) overlap += 1;
-    });
-
-    return overlap >= 2;
-  };
-
-  const isSameBranch = (a: Branch, b: Branch): boolean => {
-    const cityA = normalizeText(a.city || '');
-    const cityB = normalizeText(b.city || '');
-    const sameCity = !!cityA && !!cityB && (cityA === cityB || cityA.includes(cityB) || cityB.includes(cityA));
-
-      const nameA = normalizeText(a.name || '');
-      const nameB = normalizeText(b.name || '');
-      const sameName = !!nameA && !!nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
-
-      const phoneA = normalizePhone(a.phone || '');
-      const phoneB = normalizePhone(b.phone || '');
-      const samePhone = !!phoneA && !!phoneB && phoneA === phoneB;
-
-    const addressA = normalizeText(a.street || a.full_address || '');
-    const addressB = normalizeText(b.street || b.full_address || '');
-    const sameAddress = hasAddressOverlap(addressA, addressB);
-
-    return (samePhone && sameCity) || (sameAddress && sameCity) || (sameName && sameCity);
-  };
 
   const branchCompletenessScore = (branch: Branch): number => {
     let score = 0;
@@ -627,27 +577,28 @@ export async function getBranches(): Promise<Branch[]> {
     return rawBranches;
   };
 
+  const fetchFromFrontendBranchProxy = async (): Promise<Branch[]> => {
+    if (typeof window === 'undefined') return [];
+
+    const response = await fetch(`${FRONTEND_BRANCH_PROXY}&page_size=100`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`branch proxy failed: ${response.status}`);
+    }
+
+    const payload = await response.json() as BranchListResponse | Branch[];
+    return Array.isArray(payload) ? payload : (payload.results || []);
+  };
+
   const toCanonicalBranches = (rawBranches: Branch[]): Branch[] => {
     const uuidApiBranches = rawBranches.filter((branch) => isUuid(branch.id));
 
-    const dedupedApiBranches: Branch[] = [];
-    for (const apiBranch of uuidApiBranches) {
-      const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
-
-      if (existingIndex === -1) {
-        dedupedApiBranches.push(apiBranch);
-        continue;
-      }
-
-      const existing = dedupedApiBranches[existingIndex];
-      if (branchCompletenessScore(apiBranch) > branchCompletenessScore(existing)) {
-        dedupedApiBranches[existingIndex] = apiBranch;
-      }
-    }
-
     const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
 
-    for (const entry of dedupedApiBranches) {
+    for (const entry of uuidApiBranches) {
       const canonicalKey = toCanonicalKey(entry);
       if (!canonicalKey) continue;
 
@@ -681,7 +632,7 @@ export async function getBranches(): Promise<Branch[]> {
 
   if (!hasYamaha) {
     try {
-      const flyRawBranches = await fetchAllRawBranches(FLY_BRANCH_ENDPOINT);
+      const flyRawBranches = await fetchFromFrontendBranchProxy();
       const mergedById = new Map<string, Branch>();
 
       for (const branch of [...primaryRawBranches, ...flyRawBranches]) {
