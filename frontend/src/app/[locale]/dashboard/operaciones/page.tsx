@@ -710,78 +710,78 @@ export default function OperationsPage() {
 
       {viewMode !== 'board' && (
       <Card className="p-5">
-        <div className="space-y-3 mb-5">
-          <div>
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <CalendarDaysIcon className="h-5 w-5 text-cmyk-cyan" />
-              Calendario
-            </h2>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-center">
-              <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
-              <button
-                onClick={() => setCalendarMode('month')}
-                className={`px-2.5 py-1 text-[11px] transition-colors ${calendarMode === 'month' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-              >
-                Mes
-              </button>
-              <button
-                onClick={() => setCalendarMode('week')}
-                className={`px-2.5 py-1 text-[11px] transition-colors ${calendarMode === 'week' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-              >
-                Semana
-              </button>
-            </div>
-            </div>
-            <div className="flex items-center gap-2 w-full rounded-xl border border-neutral-800 bg-neutral-950/50 p-2">
-            <button
-              onClick={() => {
-                if (calendarMode === 'month') {
-                  setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
-                } else {
-                  setWeekCursor((current) => {
-                    const next = new Date(current);
-                    next.setDate(next.getDate() - 7);
-                    return next;
-                  });
-                }
-              }}
-              className="p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-cmyk-cyan transition-colors"
-              aria-label={calendarMode === 'month' ? 'Mes anterior' : 'Semana anterior'}
-            >
-              <ChevronLeftIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={openCalendarNavigator}
-              className="flex-1 min-w-0 rounded-lg border border-neutral-800 bg-neutral-900/70 px-3 py-2 text-center text-white font-medium text-sm hover:border-cmyk-cyan/40 hover:bg-neutral-900 transition-colors"
-            >
-              <span className="block truncate">{calendarMode === 'month' ? monthLabel : weekLabel}</span>
-            </button>
-            <button
-              onClick={() => {
-                if (calendarMode === 'month') {
-                  setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
-                } else {
-                  setWeekCursor((current) => {
-                    const next = new Date(current);
-                    next.setDate(next.getDate() + 7);
-                    return next;
-                  });
-                }
-              }}
-              className="p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-cmyk-cyan transition-colors"
-              aria-label={calendarMode === 'month' ? 'Mes siguiente' : 'Semana siguiente'}
-            >
-              <ChevronRightIcon className="h-4 w-4" />
-            </button>
-            </div>
-          </div>
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <CalendarDaysIcon className="h-5 w-5 text-cmyk-cyan" />
+            Calendario
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {calendarMode === 'month' ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-center">
+                <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
+                  <button
+                    onClick={() => setCalendarMode('month')}
+                    className={`px-2.5 py-1 text-[11px] transition-colors ${calendarMode === 'month' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                  >
+                    Mes
+                  </button>
+                  <button
+                    onClick={() => setCalendarMode('week')}
+                    className={`px-2.5 py-1 text-[11px] transition-colors ${calendarMode === 'week' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                  >
+                    Semana
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full rounded-xl border border-neutral-800 bg-neutral-950/50 p-2">
+                <button
+                  onClick={() => {
+                    if (calendarMode === 'month') {
+                      setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
+                    } else {
+                      setWeekCursor((current) => {
+                        const next = new Date(current);
+                        next.setDate(next.getDate() - 7);
+                        return next;
+                      });
+                    }
+                  }}
+                  className="p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-cmyk-cyan transition-colors"
+                  aria-label={calendarMode === 'month' ? 'Mes anterior' : 'Semana anterior'}
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={openCalendarNavigator}
+                  className="flex-1 min-w-0 rounded-lg border border-neutral-800 bg-neutral-900/70 px-3 py-2 text-center text-white font-medium text-sm hover:border-cmyk-cyan/40 hover:bg-neutral-900 transition-colors"
+                >
+                  <span className="block truncate">{calendarMode === 'month' ? monthLabel : weekLabel}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (calendarMode === 'month') {
+                      setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+                    } else {
+                      setWeekCursor((current) => {
+                        const next = new Date(current);
+                        next.setDate(next.getDate() + 7);
+                        return next;
+                      });
+                    }
+                  }}
+                  className="p-2 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-cmyk-cyan transition-colors"
+                  aria-label={calendarMode === 'month' ? 'Mes siguiente' : 'Semana siguiente'}
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {calendarMode === 'month' ? (
             <div>
               <div className="grid grid-cols-7 gap-2 text-xs text-neutral-500 mb-2">
                 {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
@@ -850,6 +850,7 @@ export default function OperationsPage() {
               </div>
             </div>
           )}
+          </div>
 
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
