@@ -484,10 +484,13 @@ export async function getBranches(): Promise<Branch[]> {
   };
 
   return cacheFirstFetch(
-    'branches-v3',
+    'branches-v7',
     async () => {
       const allBranches: Branch[] = [];
       let endpoint: string | null = '/content/branches/';
+
+      const isUuid = (value: string): boolean =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
 
       const normalizeText = (value: string): string =>
         (value || '')
@@ -611,9 +614,12 @@ export async function getBranches(): Promise<Branch[]> {
         endpoint = response.next || null;
       }
 
+      // Use only canonical API records with real UUIDs.
+      const uuidApiBranches = allBranches.filter((branch) => isUuid(branch.id));
+
       // First dedupe branches returned by API itself (the previous logic only deduped fallback vs API).
       const dedupedApiBranches: Branch[] = [];
-      for (const apiBranch of allBranches) {
+      for (const apiBranch of uuidApiBranches) {
         const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
 
         if (existingIndex === -1) {
@@ -628,25 +634,10 @@ export async function getBranches(): Promise<Branch[]> {
         }
       }
 
-      const fallbackBranches = getFallbackBranches();
-      const merged: Array<{ branch: Branch; source: 'api' | 'fallback' }> = dedupedApiBranches.map((branch) => ({
+      const merged: Array<{ branch: Branch; source: 'api' }> = dedupedApiBranches.map((branch) => ({
         branch,
         source: 'api',
       }));
-
-      for (const fallback of fallbackBranches) {
-        const existingIndex = merged.findIndex((entry) => isSameBranch(entry.branch, fallback));
-
-        if (existingIndex === -1) {
-          merged.push({ branch: fallback, source: 'fallback' });
-          continue;
-        }
-
-        if (merged[existingIndex].source === 'api') {
-          // Prefer canonical fallback naming when matching an API branch variant.
-          merged[existingIndex] = { branch: fallback, source: 'fallback' };
-        }
-      }
 
       // Enforce exactly 3 canonical branches to avoid duplicate/variant records from API data.
       const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
@@ -658,15 +649,6 @@ export async function getBranches(): Promise<Branch[]> {
         const existing = canonicalByKey.get(canonicalKey);
         if (!existing || branchCompletenessScore(entry) > branchCompletenessScore(existing)) {
           canonicalByKey.set(canonicalKey, entry);
-        }
-      }
-
-      // Guarantee all three branches exist using fallback if one canonical bucket is missing.
-      for (const fallback of fallbackBranches) {
-        const canonicalKey = toCanonicalKey(fallback);
-        if (!canonicalKey) continue;
-        if (!canonicalByKey.has(canonicalKey)) {
-          canonicalByKey.set(canonicalKey, fallback);
         }
       }
 
@@ -682,7 +664,7 @@ export async function getBranches(): Promise<Branch[]> {
         })
         .filter((branch): branch is Branch => !!branch);
     },
-    getFallbackBranches,
+    () => [],
     1800
   );
 }
