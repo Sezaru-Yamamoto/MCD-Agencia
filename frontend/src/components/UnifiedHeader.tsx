@@ -23,7 +23,6 @@ import {
   UserCircleIcon,
   Bars3Icon,
   XMarkIcon,
-  HomeIcon,
   DocumentTextIcon,
   ShoppingBagIcon,
   UsersIcon,
@@ -31,6 +30,7 @@ import {
   PhotoIcon,
   ChartBarIcon,
   ArchiveBoxIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/outline';
 
 export function UnifiedHeader() {
@@ -332,7 +332,7 @@ export function UnifiedHeader() {
                           onMouseLeave={() => setOpenSubmenu(null)}
                         >
                           <Link
-                            href={`/${locale}/dashboard`}
+                            href={`/${locale}/dashboard/operaciones`}
                             onClick={() => { setIsUserMenuOpen(false); setOpenSubmenu(null); }}
                             className="w-full px-4 py-3 text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors flex items-center gap-3"
                           >
@@ -344,7 +344,7 @@ export function UnifiedHeader() {
                           {openSubmenu === 'dashboard' && (
                             <div className="bg-cmyk-black/50 border-t border-cmyk-cyan/10">
                               {[
-                                { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
+                                { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon },
                                 { href: '/dashboard/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon },
                                 { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
                                 { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
@@ -506,7 +506,7 @@ export function UnifiedHeader() {
                       </summary>
                       <div className="ml-6 space-y-1 pb-1">
                         {[
-                          { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
+                          { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon },
                           { href: '/dashboard/solicitudes', label: 'Solicitudes', icon: ClipboardDocumentListIcon },
                           { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: DocumentTextIcon },
                           { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },

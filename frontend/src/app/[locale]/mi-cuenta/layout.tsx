@@ -52,7 +52,7 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
       // Staff users: account + dashboard access only
       return [
         { href: `/${locale}/mi-cuenta`, label: 'Mi Perfil', icon: UserIcon, exact: true },
-        { href: `/${locale}/dashboard`, label: 'Panel de Control', icon: Cog6ToothIcon },
+        { href: `/${locale}/dashboard/operaciones`, label: 'Panel de Control', icon: Cog6ToothIcon },
       ];
     }
     // Customers: account + own orders/quotes

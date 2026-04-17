@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import {
-  HomeIcon,
   CubeIcon,
   ShoppingBagIcon,
   DocumentTextIcon,
@@ -51,8 +50,7 @@ interface OperationBranchItem {
 
 const MENU_ITEMS: MenuItem[] = [
   // ── Common (admin + sales) ──────────────────────────────────────────────
-  { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, exact: true, permission: 'canAccessAdmin' },
-  { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon, permission: 'canViewAllOrders' },
+  { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon, permission: 'canAccessAdmin' },
   { href: '/dashboard/clientes', label: 'Clientes', icon: UsersIcon, permission: 'canViewAllOrders' },
 
   // ── Admin-only ──────────────────────────────────────────────────────────
@@ -107,6 +105,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [isLoading, isAuthenticated, permissions.canAccessAdmin, router, locale]);
 
+  useEffect(() => {
+    if (pathname === `/${locale}/dashboard` || pathname === `/${locale}/dashboard/`) {
+      router.replace(`/${locale}/dashboard/operaciones`);
+    }
+  }, [pathname, locale, router]);
+
   if (isLoading) {
     return <LoadingPage message="Cargando..." />;
   }
@@ -146,7 +150,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
         {/* Sidebar header */}
         <div className="h-24 flex items-center justify-center px-4 pt-2 border-b border-neutral-800 flex-shrink-0">
-          <Link href={`/${locale}/dashboard`} className="flex items-center gap-3 flex-1">
+          <Link href={`/${locale}/dashboard/operaciones`} className="flex items-center gap-3 flex-1">
             <div className="w-8 h-8 bg-gradient-to-br from-cmyk-cyan to-cmyk-magenta rounded-lg flex items-center justify-center font-bold text-white text-sm">
               MCD
             </div>
