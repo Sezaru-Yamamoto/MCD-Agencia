@@ -12,8 +12,6 @@ import {
   MagnifyingGlassIcon,
   PhotoIcon,
   ArchiveBoxIcon,
-  EyeIcon,
-  EyeSlashIcon,
 } from '@heroicons/react/24/outline';
 
 import { getProducts, getCategories, getProductById, type ProductListItem, type Category } from '@/lib/api/catalog';
@@ -253,49 +251,6 @@ export default function AdminCatalogPage() {
     onError: (error: { message?: string; data?: Record<string, unknown> }) => {
       const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
       toast.error(`Error al eliminar producto: ${error?.message || 'Solicitud inválida'}${detail}`);
-    },
-  });
-
-  const toggleActiveMutation = useMutation({
-    mutationFn: (id: string) => {
-      // Find the current product to toggle its state
-      const product = products.find((p) => p.id === id);
-      const newState = !product?.is_active;
-      return updateProduct(id, { is_active: newState });
-    },
-    onMutate: async (id: string) => {
-      // Cancel any ongoing refetches
-      await queryClient.cancelQueries({ queryKey: ['admin-products', filters] });
-
-      // Snapshot the previous data
-      const previousData = queryClient.getQueryData(['admin-products', filters]);
-
-      // Optimistically update the cache
-      queryClient.setQueryData(['admin-products', filters], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          results: old.results.map((product: ProductListItem) =>
-            product.id === id ? { ...product, is_active: !product.is_active } : product
-          ),
-        };
-      });
-
-      // Return a context with the snapshot for rollback
-      return { previousData };
-    },
-    onSuccess: (_, id) => {
-      const product = products.find((p) => p.id === id);
-      const status = product?.is_active ? 'activado' : 'desactivado';
-      toast.success(`Producto ${status}. Permanece en inventario.`);
-    },
-    onError: (error: { message?: string; data?: Record<string, unknown> } | null, _, context: any) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(['admin-products', filters], context.previousData);
-      }
-      const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
-      toast.error(`Error al cambiar estado: ${error?.message || 'Solicitud inválida'}${detail}`);
     },
   });
 
@@ -704,20 +659,6 @@ export default function AdminCatalogPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleActiveMutation.mutate(product.id)}
-                          title={product.is_active ? 'Desactivar' : 'Activar'}
-                          disabled={toggleActiveMutation.isPending}
-                          className={product.is_active ? 'text-cyan-400 hover:text-cyan-300' : 'text-amber-400 hover:text-amber-300'}
-                        >
-                          {product.is_active ? (
-                            <EyeIcon className="h-5 w-5" />
-                          ) : (
-                            <EyeSlashIcon className="h-5 w-5" />
-                          )}
-                        </Button>
                         {product.type === 'product' && (
                           <Link href={`/${locale}/dashboard/inventario`}>
                             <Button
@@ -800,20 +741,6 @@ export default function AdminCatalogPage() {
                   </span>
                 </div>
                 <div className="mt-2 flex items-center justify-end gap-1 border-t border-neutral-800 pt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleActiveMutation.mutate(product.id)}
-                    title={product.is_active ? 'Desactivar' : 'Activar'}
-                    disabled={toggleActiveMutation.isPending}
-                    className={product.is_active ? 'text-cyan-400 hover:text-cyan-300' : 'text-amber-400 hover:text-amber-300'}
-                  >
-                    {product.is_active ? (
-                      <EyeIcon className="h-5 w-5" />
-                    ) : (
-                      <EyeSlashIcon className="h-5 w-5" />
-                    )}
-                  </Button>
                   {product.type === 'product' && (
                     <Link href={`/${locale}/dashboard/inventario`}>
                       <Button variant="ghost" size="sm" title="Ir a inventario">
@@ -1150,14 +1077,17 @@ export default function AdminCatalogPage() {
               />
               <span className="text-sm text-neutral-300">Activo</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className={`flex items-center gap-2 ${formData.is_active ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
               <input
                 type="checkbox"
                 checked={formData.is_featured}
                 onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
                 className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-cyan-500 focus:ring-cyan-500"
+                disabled={!formData.is_active}
               />
-              <span className="text-sm text-neutral-300">Destacado</span>
+              <span className={`text-sm ${formData.is_active ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                Destacado {!formData.is_active && '(requiere activo)'}
+              </span>
             </label>
           </div>
 
