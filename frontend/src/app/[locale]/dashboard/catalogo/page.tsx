@@ -135,7 +135,6 @@ export default function AdminCatalogPage() {
       sale_mode: filters.sale_mode as 'BUY' | 'QUOTE' | undefined,
       type: filters.type as 'product' | 'service' | undefined,
       search: filters.search || undefined,
-      is_active: true,
       page: filters.page,
       page_size: 20,
     }),
@@ -575,7 +574,7 @@ export default function AdminCatalogPage() {
                 {products.map((product) => (
                   <tr
                     key={product.id}
-                    className="border-b border-neutral-800 hover:bg-neutral-900/50"
+                    className={`border-b border-neutral-800 hover:bg-neutral-900/50 ${product.is_active ? '' : 'opacity-55'}`}
                   >
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
