@@ -141,9 +141,10 @@ export default function AdminCatalogPage() {
   });
 
   // Fetch categories for select (tree structure with children)
+  const categoryTypeFilter = formData.type === 'service' ? undefined : formData.type;
   const { data: categoriesData } = useQuery({
-    queryKey: ['categories', formData.type],
-    queryFn: () => getCategories(formData.type),
+    queryKey: ['categories', categoryTypeFilter || 'all'],
+    queryFn: () => getCategories(categoryTypeFilter),
   });
 
   const products = productsData?.results || [];
@@ -537,9 +538,16 @@ export default function AdminCatalogPage() {
     : null;
 
   // Build flat options from tree for filter Select component
+  const formatCategoryLabel = (category: Category) => {
+    if (category.breadcrumb && category.breadcrumb.length > 1) {
+      return category.breadcrumb.map((item) => item.name).join(' / ');
+    }
+    return category.name;
+  };
+
   const categoryOptions = [
     { value: '', label: 'Sin categoría' },
-    ...categories.filter(cat => !cat.type || cat.type === formData.type).map((cat: Category) => ({ value: cat.id, label: cat.name })),
+    ...categories.map((cat: Category) => ({ value: cat.id, label: formatCategoryLabel(cat) })),
   ];
 
   return (
@@ -909,13 +917,13 @@ export default function AdminCatalogPage() {
               >
                 <option value="">Seleccionar categoría...</option>
                 {categories.map((cat: Category) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  <option key={cat.id} value={cat.id}>{formatCategoryLabel(cat)}</option>
                 ))}
                 <option value="__create_new__">+ Crear nueva categoría</option>
               </select>
               {categories.length === 0 && (
                 <p className="text-xs text-amber-400 mt-2">
-                  No hay categorías para tipo {formData.type === 'service' ? 'servicio' : 'producto'}. Usa "+ Crear nueva categoría".
+                  No hay categorías disponibles. Usa "+ Crear nueva categoría".
                 </p>
               )}
             </div>
