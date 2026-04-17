@@ -865,7 +865,7 @@ export default function AdminCatalogPage() {
         isOpen={isModalOpen && !isCategoryModalOpen}
         onClose={closeModal}
         title={editingProduct ? 'Editar producto' : 'Nuevo producto'}
-        size="xl"
+        size="full"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Images */}
