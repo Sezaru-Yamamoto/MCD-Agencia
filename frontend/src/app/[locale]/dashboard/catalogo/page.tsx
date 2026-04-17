@@ -231,11 +231,43 @@ export default function AdminCatalogPage() {
       }
       return product;
     },
+    onMutate: async ({ id, data }) => {
+      // Cancel any ongoing refetches
+      await queryClient.cancelQueries({ queryKey: ['admin-products', filters] });
+
+      // Snapshot the previous data
+      const previousData = queryClient.getQueryData(['admin-products', filters]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(['admin-products', filters], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          results: old.results.map((product: ProductListItem) =>
+            product.id === id 
+              ? { 
+                  ...product, 
+                  is_active: data.is_active !== undefined ? data.is_active : product.is_active,
+                  is_featured: data.is_featured !== undefined ? data.is_featured : product.is_featured,
+                  name: data.name || product.name,
+                  short_description: data.short_description || product.short_description,
+                }
+              : product
+          ),
+        };
+      });
+
+      // Return a context with the snapshot for rollback
+      return { previousData };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       closeModal();
     },
-    onError: () => {
+    onError: (_, __, context: any) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['admin-products', filters], context.previousData);
+      }
       toast.error('Error al actualizar producto');
     },
   });
