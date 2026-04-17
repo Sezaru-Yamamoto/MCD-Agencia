@@ -10,9 +10,9 @@ import { trackCTA } from '@/lib/tracking';
  * Quote (with clean spinning cyan border + "Cotiza ya" label) + WhatsApp + Chat toggle
  * Always visible, stacked vertically on the right edge
  */
-export function StickyActions({ onChatToggle, isChatOpen }: {
+export function StickyActions({ onChatToggle, chatState }: {
   onChatToggle: () => void;
-  isChatOpen: boolean;
+  chatState: 'closed' | 'open' | 'minimized';
 }) {
   const [showLabel, setShowLabel] = useState(true);
   const handleQuoteClick = () => { trackCTA('quote', 'sticky-actions'); };
@@ -25,7 +25,11 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const bottomOffset = isChatOpen ? '34rem' : '1.5rem';
+  const bottomOffset = chatState === 'open'
+    ? '40rem'
+    : chatState === 'minimized'
+      ? '8.5rem'
+      : '1.5rem';
 
   return (
     <>
@@ -132,7 +136,7 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
         </a>
 
         {/* ─── Chat toggle button ────────────────────────────────────── */}
-        {!isChatOpen && (
+        {chatState === 'closed' && (
           <button
             onClick={onChatToggle}
             className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-yellow-400 text-neutral-900 flex items-center justify-center shadow-2xl shadow-yellow-400/30 hover:scale-110 transition-all duration-300 relative"

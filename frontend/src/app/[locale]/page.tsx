@@ -145,6 +145,7 @@ function ParallaxShift({
 
 export default function HomePage() {
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMinimized, setChatMinimized] = useState(false);
 
   useEffect(() => {
     // Track page view
@@ -207,13 +208,14 @@ export default function HomePage() {
       </ScrollReveal>
       <StickyActions
         onChatToggle={() => setChatOpen(true)}
-        isChatOpen={chatOpen}
+        chatState={chatOpen ? (chatMinimized ? 'minimized' : 'open') : 'closed'}
       />
       <ChatWidget
         externalOpen={chatOpen}
         onOpenChange={setChatOpen}
-        onStateChange={({ open }) => {
+        onStateChange={({ open, minimized }) => {
           setChatOpen(open);
+          setChatMinimized(minimized);
         }}
       />
     </div>
