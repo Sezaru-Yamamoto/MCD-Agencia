@@ -386,7 +386,8 @@ export default function QuoteRequestsListPage() {
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-neutral-800/50">
                       <tr>
@@ -615,6 +616,54 @@ export default function QuoteRequestsListPage() {
                     </tbody>
                   </table>
                 </div>
+
+                <div className="md:hidden space-y-2 p-3">
+                  {sortedRequests.map((request) => {
+                    const StatusIcon = statusIcons[request.status];
+                    return (
+                      <div key={request.id} className="rounded-lg border border-neutral-800 p-3 bg-neutral-900/40">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-white text-sm font-semibold">{request.request_number}</p>
+                            <p className="text-xs text-neutral-500 truncate">{request.customer_name}</p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-neutral-800 text-neutral-200">
+                            <StatusIcon className="h-3.5 w-3.5" />
+                            {statusLabels[request.status] || request.status}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-xs text-neutral-500">
+                          {request.customer_email}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-xs">
+                          <span className={`px-2 py-1 rounded-full font-medium ${urgencyColors[request.urgency] || 'bg-neutral-700/30 text-neutral-300'}`}>
+                            {urgencyLabels[request.urgency] || request.urgency}
+                          </span>
+                          <span className="text-neutral-500">{formatDate(request.created_at)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-end gap-1 border-t border-neutral-800 pt-2">
+                          <Link
+                            href={`/${locale}/dashboard/solicitudes/${request.id}`}
+                            className="p-2 text-neutral-400 hover:text-white transition-colors"
+                            title="Ver detalle"
+                          >
+                            <EyeIcon className="h-5 w-5" />
+                          </Link>
+                          {['pending', 'assigned', 'in_review'].includes(request.status) && (isAdmin || request.assigned_to === user?.id || request.urgency === 'high') && (
+                            <Link
+                              href={`/${locale}/dashboard/cotizaciones/nueva?solicitud=${request.id}`}
+                              className="p-2 text-cmyk-cyan hover:text-cmyk-cyan/80 transition-colors"
+                              title="Crear cotización"
+                            >
+                              <DocumentPlusIcon className="h-5 w-5" />
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                </>
               )}
             </Card>
 

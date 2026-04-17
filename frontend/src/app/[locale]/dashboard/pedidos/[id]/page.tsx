@@ -280,7 +280,7 @@ export default function StaffOrderDetailPage() {
           {/* Line Items */}
           <Card className="p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Conceptos del Pedido</h2>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-neutral-500 text-sm border-b border-neutral-700">
@@ -308,6 +308,40 @@ export default function StaffOrderDetailPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="md:hidden space-y-2">
+              {order.lines?.map((line) => (
+                <div key={line.id} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-white font-medium truncate">{line.name}</p>
+                      {line.variant_name && (
+                        <p className="text-neutral-500 text-xs truncate">{line.variant_name}</p>
+                      )}
+                    </div>
+                    <p className="text-white font-medium text-sm">{formatCurrency(line.line_total)}</p>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-neutral-500">SKU</p>
+                      <p className="text-neutral-300 font-mono truncate">{line.sku}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-500">Cantidad</p>
+                      <p className="text-white">{line.quantity}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-500">P. Unit.</p>
+                      <p className="text-white">{formatCurrency(line.unit_price)}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-500">Total</p>
+                      <p className="text-white font-medium">{formatCurrency(line.line_total)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Totals */}

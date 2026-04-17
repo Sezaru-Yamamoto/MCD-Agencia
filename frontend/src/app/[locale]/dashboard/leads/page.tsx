@@ -255,7 +255,8 @@ export default function AdminLeadsPage() {
                   <p className="text-neutral-400">No se encontraron leads</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-neutral-800/50">
                       <tr>
@@ -301,6 +302,37 @@ export default function AdminLeadsPage() {
                     </tbody>
                   </table>
                 </div>
+
+                <div className="md:hidden space-y-2 p-3">
+                  {leads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      onClick={() => setSelectedLead(lead)}
+                      className={`rounded-lg border p-3 cursor-pointer transition-colors ${
+                        selectedLead?.id === lead.id
+                          ? 'border-cyan-500/40 bg-neutral-800/70'
+                          : 'border-neutral-800 bg-neutral-900/40 hover:bg-neutral-800/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-white truncate">{lead.name}</p>
+                          <p className="text-xs text-neutral-400 truncate">{lead.email}</p>
+                        </div>
+                        <Badge variant={getStatusColor(lead.status)}>
+                          {lead.status_display}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className="text-neutral-400 truncate">
+                          {getSourceIcon(lead.source)} {lead.source_display}
+                        </span>
+                        <span className="text-neutral-500">{formatDate(lead.created_at)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                </>
               )}
 
               {/* Pagination */}

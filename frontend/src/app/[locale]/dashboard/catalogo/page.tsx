@@ -543,7 +543,7 @@ export default function AdminCatalogPage() {
         </Card>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-neutral-800">
@@ -669,6 +669,81 @@ export default function AdminCatalogPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="md:hidden space-y-2">
+            {products.map((product) => (
+              <Card
+                key={product.id}
+                padding="sm"
+                className={`${product.is_active ? '' : 'opacity-55'} border border-neutral-800`}
+              >
+                <div className="flex items-start gap-3">
+                  {product.primary_image ? (
+                    <img
+                      src={product.primary_image.image}
+                      alt={product.name}
+                      className="w-12 h-12 rounded-lg object-cover bg-neutral-800 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0">
+                      <PhotoIcon className="h-6 w-6 text-neutral-600" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-white font-medium truncate">{product.name}</p>
+                    <p className="text-xs text-neutral-500 truncate">{product.short_description}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Badge variant={product.type === 'product' ? 'info' : 'default'}>
+                        {product.type === 'product' ? 'Producto' : 'Servicio'}
+                      </Badge>
+                      <Badge variant={getSaleModeVariant(product.sale_mode)}>
+                        {getSaleModeLabel(product.sale_mode)}
+                      </Badge>
+                      <Badge variant={product.is_active ? 'success' : 'default'}>
+                        {product.is_active ? 'Activo' : 'Inactivo'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-neutral-500 truncate max-w-[55%]">
+                    {product.category?.name || 'Sin categoría'}
+                  </span>
+                  <span className="text-white font-medium">
+                    {product.sale_mode === 'QUOTE'
+                      ? 'A cotizar'
+                      : formatCurrency(parseFloat(product.base_price))}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-end gap-1 border-t border-neutral-800 pt-2">
+                  {product.type === 'product' && (
+                    <Link href={`/${locale}/dashboard/inventario`}>
+                      <Button variant="ghost" size="sm" title="Ir a inventario">
+                        <ArchiveBoxIcon className="h-5 w-5" />
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEditModal(product)}
+                    title="Editar"
+                  >
+                    <PencilIcon className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleteConfirm(product.id)}
+                    title="Eliminar"
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
           </div>
 
           {/* Pagination */}

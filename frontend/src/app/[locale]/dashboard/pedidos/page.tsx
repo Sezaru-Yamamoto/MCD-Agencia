@@ -309,7 +309,8 @@ export default function SalesOrdersPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-800/50">
                 <tr>
@@ -404,6 +405,36 @@ export default function SalesOrdersPage() {
               </tbody>
             </table>
           </div>
+
+          <div className="md:hidden space-y-2 p-3">
+            {orders.map((order) => {
+              const customer = (order as unknown as { customer?: { full_name: string; email: string } }).customer;
+              const workflowStatus = getWorkflowStatus(order.status, order.payment_method);
+              return (
+                <div key={order.id} className="rounded-lg border border-neutral-800 p-3 bg-neutral-900/40">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-white text-sm font-semibold">{order.order_number}</p>
+                      <p className="text-xs text-neutral-500 truncate">{customer?.full_name || '-'}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${statusColors[workflowStatus] || 'bg-neutral-500/20 text-neutral-400'}`}>
+                      {statusLabels[workflowStatus] || order.status_display || order.status}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-cyan-400 font-medium">{formatCurrency(order.total)}</span>
+                    <span className="text-neutral-500">{formatDate(order.created_at)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-end gap-1 border-t border-neutral-800 pt-2">
+                    <Link href={`/${locale}/dashboard/pedidos/${order.id}`} className="p-1 text-neutral-400 hover:text-white" title="Ver detalle">
+                      <EyeIcon className="h-5 w-5" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </Card>
 

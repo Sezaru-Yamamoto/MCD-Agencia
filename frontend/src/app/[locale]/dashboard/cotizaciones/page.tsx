@@ -293,7 +293,8 @@ export default function QuotesListPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-neutral-800/50">
                   <tr>
@@ -411,6 +412,49 @@ export default function QuotesListPage() {
                 </tbody>
               </table>
             </div>
+
+            <div className="md:hidden space-y-2 p-3">
+              {quotes.map((quote) => (
+                <div key={quote.id} className="rounded-lg border border-neutral-800 p-3 bg-neutral-900/40">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-white text-sm font-semibold">{quote.quote_number}</p>
+                      <p className="text-xs text-neutral-500">{quote.customer_name}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${statusColors[quote.status] || 'bg-neutral-500/20 text-neutral-400'}`}>
+                      {statusLabels[quote.status] || quote.status}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-cyan-400 font-medium">{formatCurrency(Number(quote.total) || 0)}</span>
+                    <span className="text-neutral-500">{formatDate(quote.created_at)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-end gap-1 border-t border-neutral-800 pt-2">
+                    <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}`} className="p-1 text-neutral-400 hover:text-white" title="Ver detalle">
+                      <EyeIcon className="h-5 w-5" />
+                    </Link>
+                    {quote.status === 'draft' && quote.version > 1 && (
+                      <Link href={`/${locale}/dashboard/cotizaciones/${quote.id}/editar`} className="p-1 text-neutral-400 hover:text-white" title="Editar">
+                        <PencilIcon className="h-5 w-5" />
+                      </Link>
+                    )}
+                    <button
+                      title="Duplicar"
+                      onClick={() => handleDuplicate(quote.id)}
+                      disabled={actionLoading === quote.id}
+                      className="p-1 text-neutral-400 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      {actionLoading === quote.id ? (
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+                      ) : (
+                        <DocumentDuplicateIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </Card>
 

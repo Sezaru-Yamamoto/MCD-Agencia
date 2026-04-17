@@ -224,7 +224,7 @@ export default function AdminUsersPage() {
         </Card>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-neutral-800">
@@ -362,6 +362,90 @@ export default function AdminUsersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="md:hidden space-y-3">
+            {users.map((user: AdminUser) => (
+              <Card key={user.id} padding="sm" className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-magenta-500 flex items-center justify-center text-white font-bold text-xs">
+                    {getInitials(user.full_name || user.email)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-white font-medium text-sm truncate">{user.full_name}</p>
+                    <p className="text-xs text-neutral-400 truncate">{user.email}</p>
+                  </div>
+                  <Badge variant={user.is_active ? 'success' : 'error'}>
+                    {user.is_active ? 'Activo' : 'Inactivo'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <Badge variant={user.role?.name === 'admin' ? 'cyan' : user.role?.name === 'sales' ? 'warning' : 'default'}>
+                    {user.role?.display_name || 'Cliente'}
+                  </Badge>
+                  <span className="text-neutral-500">{user.orders_count} pedidos</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-1 border-t border-neutral-800 pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedUser(user.id)} title="Ver detalles">
+                    <EyeIcon className="h-5 w-5" />
+                  </Button>
+
+                  {['sales', 'admin', 'superadmin'].includes(user.role?.name || '') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setUserToAssignGroup({ id: user.id, name: user.full_name || user.email });
+                        setShowAssignGroupModal(true);
+                      }}
+                      title="Asignar grupo"
+                    >
+                      <ShieldCheckIcon className="h-5 w-5 text-blue-400" />
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setUserToDelete({ id: user.id, name: user.full_name || user.email });
+                      setShowDeleteModal(true);
+                    }}
+                    title="Eliminar"
+                  >
+                    <TrashIcon className="h-5 w-5 text-red-400" />
+                  </Button>
+
+                  {user.role?.name === 'sales' && (
+                    user.is_active ? (
+                      <Button variant="ghost" size="sm" onClick={() => deactivateMutation.mutate(user.id)} title="Desactivar vendedor">
+                        <XCircleIcon className="h-5 w-5 text-red-400" />
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => activateMutation.mutate(user.id)} title="Activar vendedor">
+                        <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                      </Button>
+                    )
+                  )}
+
+                  {user.role?.name === 'customer' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setUserToPromote({ id: user.id, name: user.full_name || user.email });
+                        setShowPromoteModal(true);
+                      }}
+                      title="Promover a vendedor"
+                    >
+                      <ArrowPathIcon className="h-5 w-5 text-yellow-400" />
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
           </div>
 
           {/* Pagination */}

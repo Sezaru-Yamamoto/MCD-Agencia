@@ -634,7 +634,7 @@ export default function QuoteDetailPage() {
             {/* Line Items */}
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Conceptos</h2>
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-neutral-500 text-sm border-b border-neutral-700">
@@ -707,6 +707,71 @@ export default function QuoteDetailPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="md:hidden space-y-2">
+                {quote.lines?.map((line, index) => (
+                  <div key={line.id || index} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-white font-medium truncate">{line.concept}</p>
+                        {line.description && (
+                          <p className="text-neutral-500 text-xs line-clamp-2">{line.description}</p>
+                        )}
+                      </div>
+                      <p className="text-white font-medium text-sm">{formatCurrency(line.line_total)}</p>
+                    </div>
+
+                    {line.delivery_method && line.delivery_method !== 'not_applicable' && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                        <span className="inline-flex items-center gap-1">
+                          <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                          {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
+                        </span>
+                        {line.estimated_delivery_date && (
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            {new Date(line.estimated_delivery_date).toLocaleDateString('es-MX')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <p className="text-neutral-500">Cantidad</p>
+                        <p className="text-white">{line.quantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-500">Unidad</p>
+                        <p className="text-neutral-300">{line.unit}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-500">P. Unit.</p>
+                        <p className="text-white">{formatCurrency(line.unit_price)}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-500">Envío</p>
+                        {editingShippingCosts ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={shippingInputs[line.position] ?? '0'}
+                            onChange={(e) => setShippingInputs(prev => ({ ...prev, [line.position]: e.target.value }))}
+                            className="w-full bg-neutral-800 border border-neutral-600 text-white text-right text-sm rounded px-2 py-1 focus:outline-none focus:border-cmyk-cyan"
+                          />
+                        ) : (
+                          <p className="text-neutral-300">
+                            {parseFloat(line.shipping_cost || '0') > 0
+                              ? formatCurrency(line.shipping_cost || '0')
+                              : '—'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* Inline shipping cost edit controls */}

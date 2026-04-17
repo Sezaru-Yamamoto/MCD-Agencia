@@ -134,7 +134,7 @@ export default function ProductionDashboard() {
 
       {/* Jobs Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-700 bg-neutral-900/50">
@@ -220,6 +220,81 @@ export default function ProductionDashboard() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden space-y-2 p-3">
+          {filteredJobs.length === 0 ? (
+            <div className="text-center text-neutral-400 py-6 text-sm">No hay jobs de producción</div>
+          ) : (
+            filteredJobs.map(job => {
+              const StatusIcon = statusColors[job.status]?.icon || ClockIcon;
+              const nextStates = STATUS_TRANSITIONS[job.status] || [];
+
+              return (
+                <div key={job.id} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/${locale}/dashboard/pedidos/${job.order_id}`}
+                      className="font-medium text-blue-400 hover:text-blue-300"
+                    >
+                      #{job.order_number}
+                    </Link>
+                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full ${statusColors[job.status].bg} ${statusColors[job.status].text}`}>
+                      <StatusIcon className="w-3.5 h-3.5" />
+                      <span className="text-[11px] font-medium">{job.status_display || job.status}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400">
+                    <div>
+                      <p className="text-neutral-500">Inicio</p>
+                      <p>
+                        {job.scheduled_start
+                          ? new Date(job.scheduled_start).toLocaleDateString(locale, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-500">Fin</p>
+                      <p>
+                        {job.scheduled_end
+                          ? new Date(job.scheduled_end).toLocaleDateString(locale, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-neutral-800">
+                    {nextStates.length > 0 ? (
+                      <select
+                        disabled={updating === job.id}
+                        onChange={(e) => handleStatusUpdate(job, e.target.value)}
+                        defaultValue=""
+                        className="w-full text-xs px-2 py-2 rounded bg-neutral-800 text-neutral-300 border border-neutral-700 hover:border-neutral-600 disabled:opacity-50 cursor-pointer"
+                      >
+                        <option value="">Cambiar estado...</option>
+                        {nextStates.map(status => (
+                          <option key={status} value={status}>
+                            → {status.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-neutral-500">No hay transiciones</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </Card>
     </div>

@@ -109,7 +109,7 @@ export default function AdminAuditPage() {
         </Card>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-neutral-800">
@@ -178,6 +178,30 @@ export default function AdminAuditPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="md:hidden space-y-2">
+            {logs.map((log: AuditLog) => (
+              <Card key={log.id} padding="sm" className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-neutral-500">{formatDateTime(log.timestamp)}</p>
+                    <p className="text-sm text-white font-medium truncate">{log.entity_repr || log.entity_type}</p>
+                  </div>
+                  <span className={cn('text-xs font-medium capitalize', getActionColor(log.action))}>
+                    {log.action_display || log.action.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-400 truncate">
+                  {log.actor_name || log.actor_email || 'Sistema'}
+                </p>
+                <div className="flex justify-end border-t border-neutral-800 pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedLog(log)}>
+                    <EyeIcon className="h-5 w-5" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
           </div>
 
           {/* Pagination */}
