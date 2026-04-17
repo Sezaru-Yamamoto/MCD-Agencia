@@ -325,7 +325,7 @@ export default function AdminCatalogPage() {
       sku: '',
       initial_stock: '0',
       low_stock_threshold: '10',
-      is_active: true,
+      is_active: product.is_active,
       is_featured: product.is_featured,
     });
     // Set existing images for preview if editing
