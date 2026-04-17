@@ -31,6 +31,9 @@ python manage.py recalculate_urgency
 echo "=== Seeding service categories ==="
 python manage.py seed_service_categories
 
+echo "=== Cleaning non-canonical service categories ==="
+python manage.py cleanup_service_categories
+
 echo "=== Creating default roles ==="
 python manage.py shell -c "
 from apps.users.models import Role

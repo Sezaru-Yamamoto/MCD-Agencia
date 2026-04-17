@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { getProducts, getCategories, getProductById, type ProductListItem, type Category } from '@/lib/api/catalog';
+import { getAdminServices, type ServiceAdmin } from '@/lib/api/content';
 import {
   createProduct,
   updateProduct,
@@ -42,6 +43,13 @@ const TYPE_OPTIONS = [
 ];
 
 const MAX_IMAGES = 8;
+
+const normalizeText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
 
 const getSaleModeVariant = (mode: string): 'success' | 'warning' | 'info' | 'default' => {
   const variants: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
@@ -147,9 +155,15 @@ export default function AdminCatalogPage() {
     queryFn: () => getCategories(categoryTypeFilter),
   });
 
+  const { data: adminServicesData } = useQuery({
+    queryKey: ['admin-content-services'],
+    queryFn: getAdminServices,
+  });
+
   const products = productsData?.results || [];
   const totalPages = Math.ceil((productsData?.count || 0) / 20);
   const categories = categoriesData?.results || [];
+  const adminServices = adminServicesData || [];
 
   const { data: editingProductDetail } = useQuery({
     queryKey: ['admin-product-detail', editingProduct?.id],
@@ -550,6 +564,40 @@ export default function AdminCatalogPage() {
     ...categories.map((cat: Category) => ({ value: cat.id, label: formatCategoryLabel(cat) })),
   ];
 
+  const activeServiceDefinitions = adminServices.filter((service: ServiceAdmin) => service.is_active !== false);
+
+  const serviceCategoriesBySlug = new Map(
+    categories
+      .filter((cat: Category) => cat.type === 'service' && cat.slug !== 'servicios' && cat.is_active)
+      .map((cat: Category) => [cat.slug, cat])
+  );
+
+  const serviceCategoriesByName = new Map(
+    categories
+      .filter((cat: Category) => cat.type === 'service' && cat.slug !== 'servicios' && cat.is_active)
+      .map((cat: Category) => [normalizeText(cat.name), cat])
+  );
+
+  const serviceCategoryOptions = activeServiceDefinitions
+    .map((service: ServiceAdmin) => {
+      const serviceKey = (service.service_key || '').trim();
+      const bySlug = serviceKey ? serviceCategoriesBySlug.get(serviceKey) : undefined;
+      const byName = serviceCategoriesByName.get(normalizeText(service.name));
+      const category = bySlug || byName;
+
+      if (!category) return null;
+
+      return {
+        value: category.id,
+        label: service.name,
+      };
+    })
+    .filter((option): option is { value: string; label: string } => option !== null);
+
+  const categoryOptionsForForm = formData.type === 'service'
+    ? serviceCategoryOptions
+    : categories.map((cat: Category) => ({ value: cat.id, label: formatCategoryLabel(cat) }));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -916,14 +964,14 @@ export default function AdminCatalogPage() {
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-700 text-white px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               >
                 <option value="">Seleccionar categoría...</option>
-                {categories.map((cat: Category) => (
-                  <option key={cat.id} value={cat.id}>{formatCategoryLabel(cat)}</option>
+                {categoryOptionsForForm.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
                 ))}
                 <option value="__create_new__">+ Crear nueva categoría</option>
               </select>
-              {categories.length === 0 && (
+              {categoryOptionsForForm.length === 0 && (
                 <p className="text-xs text-amber-400 mt-2">
-                  No hay categorías disponibles. Usa "+ Crear nueva categoría".
+                  No hay categorías enlazadas. Crea una categoría con el mismo nombre del servicio en Contenido.
                 </p>
               )}
             </div>
