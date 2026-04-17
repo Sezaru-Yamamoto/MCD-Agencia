@@ -483,82 +483,79 @@ export async function getBranches(): Promise<Branch[]> {
     results: Branch[];
   };
 
-  return cacheFirstFetch(
-    'branches-v7',
-    async () => {
-      const allBranches: Branch[] = [];
-      let endpoint: string | null = '/content/branches/';
+  const allBranches: Branch[] = [];
+  let endpoint: string | null = '/content/branches/';
 
-      const isUuid = (value: string): boolean =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
+  const isUuid = (value: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
 
-      const normalizeText = (value: string): string =>
-        (value || '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase()
-          .replace(/\b(agencia|mcd|sucursal|cp|c\.p\.)\b/g, '')
-          .replace(/[^a-z0-9\s]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+  const normalizeText = (value: string): string =>
+    (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\b(agencia|mcd|sucursal|cp|c\.p\.)\b/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-      const normalizePhone = (value: string): string => {
-        const digits = (value || '').replace(/\D/g, '');
-        return digits.length > 10 ? digits.slice(-10) : digits;
-      };
+  const normalizePhone = (value: string): string => {
+    const digits = (value || '').replace(/\D/g, '');
+    return digits.length > 10 ? digits.slice(-10) : digits;
+  };
 
-      const hasAddressOverlap = (a: string, b: string): boolean => {
-        if (!a || !b) return false;
-        if (a.includes(b) || b.includes(a)) return true;
+  const hasAddressOverlap = (a: string, b: string): boolean => {
+    if (!a || !b) return false;
+    if (a.includes(b) || b.includes(a)) return true;
 
-        const tokensA = new Set(a.split(' ').filter((token) => token.length >= 4));
-        const tokensB = new Set(b.split(' ').filter((token) => token.length >= 4));
-        let overlap = 0;
+    const tokensA = new Set(a.split(' ').filter((token) => token.length >= 4));
+    const tokensB = new Set(b.split(' ').filter((token) => token.length >= 4));
+    let overlap = 0;
 
-        tokensA.forEach((token) => {
-          if (tokensB.has(token)) overlap += 1;
-        });
+    tokensA.forEach((token) => {
+      if (tokensB.has(token)) overlap += 1;
+    });
 
-        return overlap >= 3;
-      };
+    return overlap >= 3;
+  };
 
-      const isSameBranch = (a: Branch, b: Branch): boolean => {
-        const cityA = normalizeText(a.city || '');
-        const cityB = normalizeText(b.city || '');
-        const sameCity = !!cityA && !!cityB && (cityA === cityB || cityA.includes(cityB) || cityB.includes(cityA));
+  const isSameBranch = (a: Branch, b: Branch): boolean => {
+    const cityA = normalizeText(a.city || '');
+    const cityB = normalizeText(b.city || '');
+    const sameCity = !!cityA && !!cityB && (cityA === cityB || cityA.includes(cityB) || cityB.includes(cityA));
 
-        const nameA = normalizeText(a.name || '');
-        const nameB = normalizeText(b.name || '');
-        const sameName = !!nameA && !!nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
+      const nameA = normalizeText(a.name || '');
+      const nameB = normalizeText(b.name || '');
+      const sameName = !!nameA && !!nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
 
-        const phoneA = normalizePhone(a.phone || '');
-        const phoneB = normalizePhone(b.phone || '');
-        const samePhone = !!phoneA && !!phoneB && phoneA === phoneB;
+      const phoneA = normalizePhone(a.phone || '');
+      const phoneB = normalizePhone(b.phone || '');
+      const samePhone = !!phoneA && !!phoneB && phoneA === phoneB;
 
-        const addressA = normalizeText(a.full_address || a.street || '');
-        const addressB = normalizeText(b.full_address || b.street || '');
-        const sameAddress = hasAddressOverlap(addressA, addressB);
+    const addressA = normalizeText(a.full_address || a.street || '');
+    const addressB = normalizeText(b.full_address || b.street || '');
+    const sameAddress = hasAddressOverlap(addressA, addressB);
 
-        return (samePhone && sameCity) || (sameAddress && sameCity) || (sameName && sameCity);
-      };
+    return (samePhone && sameCity) || (sameAddress && sameCity) || (sameName && sameCity);
+  };
 
-      const branchCompletenessScore = (branch: Branch): number => {
-        let score = 0;
-        if (branch.google_maps_url) score += 3;
-        if (branch.latitude && branch.longitude) score += 2;
-        if (branch.full_address) score += 2;
-        if (branch.street) score += 1;
-        if (branch.phone) score += 1;
-        if (branch.email) score += 1;
-        if (branch.hours) score += 1;
-        return score;
-      };
+  const branchCompletenessScore = (branch: Branch): number => {
+    let score = 0;
+    if (branch.google_maps_url) score += 3;
+    if (branch.latitude && branch.longitude) score += 2;
+    if (branch.full_address) score += 2;
+    if (branch.street) score += 1;
+    if (branch.phone) score += 1;
+    if (branch.email) score += 1;
+    if (branch.hours) score += 1;
+    return score;
+  };
 
-      const canonicalBranchConfigs: Array<{
-        key: 'diamante' | 'yamaha' | 'tecoanapa';
-        name: string;
-        matcher: (normalizedName: string, normalizedAddress: string) => boolean;
-      }> = [
+  const canonicalBranchConfigs: Array<{
+    key: 'diamante' | 'yamaha' | 'tecoanapa';
+    name: string;
+    matcher: (normalizedName: string, normalizedAddress: string) => boolean;
+  }> = [
         {
           key: 'diamante',
           name: 'Acapulco Diamante',
@@ -588,85 +585,81 @@ export async function getBranches(): Promise<Branch[]> {
         },
       ];
 
-      const toCanonicalKey = (branch: Branch): 'diamante' | 'yamaha' | 'tecoanapa' | null => {
-        const normalizedName = normalizeText(branch.name || '');
-        const normalizedAddress = normalizeText(branch.full_address || branch.street || '');
+  const toCanonicalKey = (branch: Branch): 'diamante' | 'yamaha' | 'tecoanapa' | null => {
+    const normalizedName = normalizeText(branch.name || '');
+    const normalizedAddress = normalizeText(branch.full_address || branch.street || '');
 
-        const match = canonicalBranchConfigs.find((config) =>
-          config.matcher(normalizedName, normalizedAddress)
-        );
+    const match = canonicalBranchConfigs.find((config) =>
+      config.matcher(normalizedName, normalizedAddress)
+    );
 
-        return match?.key || null;
-      };
+    return match?.key || null;
+  };
 
-      while (endpoint) {
-        const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
-          endpoint,
-          { page_size: 100 }
-        );
+  while (endpoint) {
+    const response: BranchListResponse | Branch[] = await apiClient.get<BranchListResponse | Branch[]>(
+      endpoint,
+      { page_size: 100 }
+    );
 
-        if (Array.isArray(response)) {
-          allBranches.push(...response);
-          break;
-        }
+    if (Array.isArray(response)) {
+      allBranches.push(...response);
+      break;
+    }
 
-        allBranches.push(...(response.results || []));
-        endpoint = response.next || null;
-      }
+    allBranches.push(...(response.results || []));
+    endpoint = response.next || null;
+  }
 
-      // Use only canonical API records with real UUIDs.
-      const uuidApiBranches = allBranches.filter((branch) => isUuid(branch.id));
+  // Use only canonical API records with real UUIDs.
+  const uuidApiBranches = allBranches.filter((branch) => isUuid(branch.id));
 
-      // First dedupe branches returned by API itself (the previous logic only deduped fallback vs API).
-      const dedupedApiBranches: Branch[] = [];
-      for (const apiBranch of uuidApiBranches) {
-        const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
+  // First dedupe branches returned by API itself.
+  const dedupedApiBranches: Branch[] = [];
+  for (const apiBranch of uuidApiBranches) {
+    const existingIndex = dedupedApiBranches.findIndex((entry) => isSameBranch(entry, apiBranch));
 
-        if (existingIndex === -1) {
-          dedupedApiBranches.push(apiBranch);
-          continue;
-        }
+    if (existingIndex === -1) {
+      dedupedApiBranches.push(apiBranch);
+      continue;
+    }
 
-        // If there is a duplicate, keep the richer record.
-        const existing = dedupedApiBranches[existingIndex];
-        if (branchCompletenessScore(apiBranch) > branchCompletenessScore(existing)) {
-          dedupedApiBranches[existingIndex] = apiBranch;
-        }
-      }
+    // If there is a duplicate, keep the richer record.
+    const existing = dedupedApiBranches[existingIndex];
+    if (branchCompletenessScore(apiBranch) > branchCompletenessScore(existing)) {
+      dedupedApiBranches[existingIndex] = apiBranch;
+    }
+  }
 
-      const merged: Array<{ branch: Branch; source: 'api' }> = dedupedApiBranches.map((branch) => ({
-        branch,
-        source: 'api',
-      }));
+  const merged: Array<{ branch: Branch; source: 'api' }> = dedupedApiBranches.map((branch) => ({
+    branch,
+    source: 'api',
+  }));
 
-      // Enforce exactly 3 canonical branches to avoid duplicate/variant records from API data.
-      const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
+  // Enforce exactly 3 canonical branches to avoid duplicate/variant records from API data.
+  const canonicalByKey = new Map<'diamante' | 'yamaha' | 'tecoanapa', Branch>();
 
-      for (const entry of merged.map((item) => item.branch)) {
-        const canonicalKey = toCanonicalKey(entry);
-        if (!canonicalKey) continue;
+  for (const entry of merged.map((item) => item.branch)) {
+    const canonicalKey = toCanonicalKey(entry);
+    if (!canonicalKey) continue;
 
-        const existing = canonicalByKey.get(canonicalKey);
-        if (!existing || branchCompletenessScore(entry) > branchCompletenessScore(existing)) {
-          canonicalByKey.set(canonicalKey, entry);
-        }
-      }
+    const existing = canonicalByKey.get(canonicalKey);
+    if (!existing || branchCompletenessScore(entry) > branchCompletenessScore(existing)) {
+      canonicalByKey.set(canonicalKey, entry);
+    }
+  }
 
-      return canonicalBranchConfigs
-        .map((config, index) => {
-          const branch = canonicalByKey.get(config.key);
-          if (!branch) return null;
-          return {
-            ...branch,
-            name: config.name,
-            position: index,
-          } as Branch;
-        })
-        .filter((branch): branch is Branch => !!branch);
-    },
-    () => [],
-    1800
-  );
+  return canonicalBranchConfigs
+    .map((config, index) => {
+      const branch = canonicalByKey.get(config.key);
+      if (!branch) return null;
+      return {
+        ...branch,
+        name: config.name,
+        position: index,
+      } as Branch;
+    })
+    .filter((branch): branch is Branch => !!branch);
 }
 
 /**
