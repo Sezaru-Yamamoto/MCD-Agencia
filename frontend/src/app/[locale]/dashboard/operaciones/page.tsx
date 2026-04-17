@@ -15,6 +15,8 @@ import {
   TruckIcon,
   UserGroupIcon,
   ListBulletIcon,
+  EyeIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 
 import { Card, LoadingPage, Modal } from '@/components/ui';
@@ -74,6 +76,15 @@ const blockConfig: Record<string, {
   },
 };
 
+const blockRouteMap: Record<keyof typeof blockConfig, string> = {
+  quotes: '/dashboard/solicitudes',
+  assigned: '/dashboard/cotizaciones',
+  to_pay: '/dashboard/pedidos',
+  in_production: '/dashboard/pedidos',
+  ready: '/dashboard/pedidos',
+  done: '/dashboard/pedidos',
+};
+
 const itemToneClasses: Record<string, string> = {
   quote_request_required: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
   quote_request_assigned: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
@@ -126,6 +137,7 @@ export default function OperationsPage() {
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
   const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [previewBlockKey, setPreviewBlockKey] = useState<keyof typeof blockConfig | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -400,6 +412,11 @@ export default function OperationsPage() {
     }) || selectedDateKey;
   }, [selectedDateKey]);
 
+  const previewBlockItems: WorkflowItem[] = useMemo(() => {
+    if (!previewBlockKey || !overview) return [];
+    return (overview.blocks[previewBlockKey as keyof typeof overview.blocks] || []) as WorkflowItem[];
+  }, [previewBlockKey, overview]);
+
   const calendarDays = useMemo(() => {
     const year = monthCursor.getFullYear();
     const month = monthCursor.getMonth();
@@ -439,9 +456,9 @@ export default function OperationsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-2xl md:text-3xl font-bold text-white">Flujo Operativo Unificado</h1>
-        <div className="inline-flex items-center rounded-lg border border-neutral-700 overflow-hidden self-start">
+        <div className="inline-flex items-center rounded-lg border border-neutral-700 overflow-hidden">
           <button
             onClick={() => setViewMode('board')}
             className={`px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${viewMode === 'board' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
@@ -493,15 +510,16 @@ export default function OperationsPage() {
         {blockEntries.map(([key, config]) => {
           const Icon = config.icon;
           const items = overview?.blocks[key as keyof typeof overview.blocks] || [];
+          const moduleHref = `/${locale}${blockRouteMap[key]}`;
           return (
-            <Card key={key} className={`p-4 border ${config.accent} min-h-[24rem] flex flex-col`}>
+            <Card key={key} className={`p-4 border ${config.accent} min-h-[17rem] md:min-h-[20rem] flex flex-col`}>
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <Icon className="h-5 w-5 text-cmyk-cyan" />
                     <h2 className="text-lg font-semibold text-white">{config.title}</h2>
                   </div>
-                  <p className="text-neutral-500 text-sm mt-1">{config.subtitle}</p>
+                  <p className="text-neutral-500 text-xs mt-1">{config.subtitle}</p>
                 </div>
                 <span className="text-xs text-neutral-400">{items.length}</span>
               </div>
@@ -511,25 +529,25 @@ export default function OperationsPage() {
                   {config.empty}
                 </div>
               ) : (
-                <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-                  {items.map((item) => (
+                <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+                  {items.slice(0, 3).map((item) => (
                     <Link
                       key={item.id}
                       href={`/${locale}${item.href}`}
-                      className="block rounded-xl border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-4"
+                      className="block rounded-lg border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-3"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-white font-medium truncate">{item.title}</p>
-                          <p className="text-neutral-400 text-sm truncate">{item.subtitle}</p>
+                          <p className="text-white text-sm font-medium truncate">{item.title}</p>
+                          <p className="text-neutral-400 text-xs truncate">{item.subtitle}</p>
                         </div>
                         {item.amount && (
-                          <span className="text-green-400 text-sm font-medium whitespace-nowrap">
+                          <span className="text-green-400 text-xs font-medium whitespace-nowrap">
                             {formatCurrency(item.amount)}
                           </span>
                         )}
                       </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                         <span className={`px-2 py-1 rounded-full border ${statusToneClasses[item.status] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}>
                           {item.status_display}
                         </span>
@@ -551,8 +569,29 @@ export default function OperationsPage() {
                       </div>
                     </Link>
                   ))}
+                  {items.length > 3 && (
+                    <p className="text-xs text-neutral-500 px-1">+{items.length - 3} más</p>
+                  )}
                 </div>
               )}
+
+              <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewBlockKey(key)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-neutral-700 text-xs text-neutral-300 hover:text-white hover:border-cmyk-cyan hover:bg-neutral-800 transition-colors"
+                >
+                  <EyeIcon className="h-3.5 w-3.5" />
+                  Preview
+                </button>
+                <Link
+                  href={moduleHref}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-cmyk-cyan/40 text-xs text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors"
+                >
+                  <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                  Ir al módulo
+                </Link>
+              </div>
             </Card>
           );
         })}
@@ -773,6 +812,51 @@ export default function OperationsPage() {
                 </div>
               </Link>
             ))}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!previewBlockKey}
+        onClose={() => setPreviewBlockKey(null)}
+        title={previewBlockKey ? blockConfig[previewBlockKey].title : 'Preview'}
+        size="lg"
+      >
+        {previewBlockItems.length === 0 ? (
+          <p className="text-sm text-neutral-400">Sin elementos en esta etapa.</p>
+        ) : (
+          <div className="space-y-2 max-h-[65dvh] overflow-y-auto pr-1">
+            {previewBlockItems.map((item) => (
+              <Link
+                key={`${item.kind}-${item.id}-${item.status}`}
+                href={`/${locale}${item.href}`}
+                className="block p-3 rounded-lg border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800 transition-colors"
+                onClick={() => setPreviewBlockKey(null)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{item.title}</p>
+                    <p className="text-neutral-400 text-xs truncate">{item.subtitle}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full border text-[11px] ${statusToneClasses[item.status] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}>
+                    {item.status_display}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {previewBlockKey && (
+          <div className="mt-4 pt-3 border-t border-neutral-800">
+            <Link
+              href={`/${locale}${blockRouteMap[previewBlockKey]}`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-cmyk-cyan/40 text-sm text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors"
+              onClick={() => setPreviewBlockKey(null)}
+            >
+              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+              Ir al módulo
+            </Link>
           </div>
         )}
       </Modal>
