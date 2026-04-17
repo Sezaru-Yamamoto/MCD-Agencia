@@ -115,9 +115,11 @@ interface ChatWidgetProps {
   externalOpen?: boolean;
   /** Callback when open state changes (for external control) */
   onOpenChange?: (open: boolean) => void;
+  /** Callback for the full chat UI state so other floating elements can reposition */
+  onStateChange?: (state: { open: boolean; minimized: boolean }) => void;
 }
 
-export default function ChatWidget({ externalOpen, onOpenChange }: ChatWidgetProps = {}) {
+export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }: ChatWidgetProps = {}) {
   const [locale, setLocale] = useState('es');
   const [internalOpen, setInternalOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -142,6 +144,16 @@ export default function ChatWidget({ externalOpen, onOpenChange }: ChatWidgetPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const initializedRef = useRef(false);
+
+  useEffect(() => {
+    onStateChange?.({ open: isOpen, minimized: isMinimized });
+  }, [isOpen, isMinimized, onStateChange]);
+
+  useEffect(() => {
+    if (!isOpen && isMinimized) {
+      setIsMinimized(false);
+    }
+  }, [isOpen, isMinimized]);
 
   // ---- Translations ----
   const t = {
@@ -369,7 +381,7 @@ export default function ChatWidget({ externalOpen, onOpenChange }: ChatWidgetPro
               <button onClick={() => setIsMinimized(!isMinimized)} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.minimize}>
                 <Minus className="w-4 h-4" />
               </button>
-              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.close}>
+              <button onClick={() => { setIsMinimized(false); setIsOpen(false); }} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.close}>
                 <X className="w-4 h-4" />
               </button>
             </div>

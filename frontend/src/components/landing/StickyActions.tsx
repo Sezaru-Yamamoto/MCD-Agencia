@@ -25,6 +25,8 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  const bottomOffset = isChatOpen ? '34rem' : '1.5rem';
+
   return (
     <>
       {/* Spinner border animation */}
@@ -67,9 +69,10 @@ export function StickyActions({ onChatToggle, isChatOpen }: {
       `}</style>
 
       {/* Container — fixed right side */}
-      <div className={`sticky-actions-container fixed right-4 sm:right-6 bottom-6 z-[55] flex flex-col items-center gap-4 sm:gap-5 transition-all duration-300 ${
-        isChatOpen ? 'opacity-0 pointer-events-none translate-y-4' : 'opacity-100 pointer-events-auto translate-y-0'
-      }`}>
+      <div
+        className="sticky-actions-container fixed right-4 sm:right-6 z-[55] flex flex-col items-center gap-4 sm:gap-5 transition-all duration-300 opacity-100 pointer-events-auto"
+        style={{ bottom: bottomOffset }}
+      >
 
         {/* ─── Quote button with spinner border ──────────────────────── */}
         <div className="relative flex items-center">

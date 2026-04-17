@@ -212,6 +212,9 @@ export default function HomePage() {
       <ChatWidget
         externalOpen={chatOpen}
         onOpenChange={setChatOpen}
+        onStateChange={({ open }) => {
+          setChatOpen(open);
+        }}
       />
     </div>
   );
