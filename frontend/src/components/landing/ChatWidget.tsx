@@ -39,6 +39,8 @@ interface ChatConfig {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 const STORAGE_KEY = 'mcd_chat_state';
 const MAX_MESSAGE_LENGTH = 1000;
+const DETACH_FROM_BOTTOM_PX = 320;
+const REATTACH_TO_BOTTOM_PX = 120;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -154,7 +156,13 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
     const container = messagesContainerRef.current;
     if (!container) return true;
     const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    return distanceToBottom < 80;
+    return distanceToBottom <= REATTACH_TO_BOTTOM_PX;
+  }, []);
+
+  const getDistanceToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return 0;
+    return container.scrollHeight - container.scrollTop - container.clientHeight;
   }, []);
 
   const shouldAutoScrollToBottom = useCallback(() => {
@@ -380,8 +388,18 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   }, [isOpen, isMinimized, scrollToBottom]);
 
   const handleMessagesScroll = useCallback(() => {
-    userDetachedFromBottomRef.current = !isNearBottom();
-  }, [isNearBottom]);
+    const distanceToBottom = getDistanceToBottom();
+
+    // WhatsApp-like: keep pinned unless the user goes significantly up.
+    if (distanceToBottom >= DETACH_FROM_BOTTOM_PX) {
+      userDetachedFromBottomRef.current = true;
+      return;
+    }
+
+    if (distanceToBottom <= REATTACH_TO_BOTTOM_PX) {
+      userDetachedFromBottomRef.current = false;
+    }
+  }, [getDistanceToBottom]);
 
   // ---- Send message ----
   const sendMessage = useCallback(async (messageText: string) => {

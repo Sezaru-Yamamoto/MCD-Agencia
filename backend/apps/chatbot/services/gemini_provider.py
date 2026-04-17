@@ -33,8 +33,7 @@ def _get_system_prompt(language: str) -> str:
 
 REGLAS IMPORTANTES:
 1. Responde SIEMPRE en español (a menos que el usuario escriba en inglés).
-2. Sé amable, profesional y MUY conciso. Máximo 1-2 oraciones cortas por respuesta.
-3. Prioriza respuestas de 120-220 caracteres cuando sea posible.
+2. Sé amable, profesional y conciso. Máximo 2-3 oraciones por respuesta.
 4. Tu objetivo es ayudar al cliente y dirigirlo a la acción correcta: cotizar, ver el catálogo, o contactar a un asesor.
 5. Si el cliente pregunta por precios específicos, explica que los precios varían según las especificaciones y sugiere solicitar una cotización personalizada.
 6. Si el cliente quiere hablar con un humano o no puedes resolver su duda, sugiere contactar por WhatsApp.
@@ -55,8 +54,7 @@ ACCIONES QUE PUEDES SUGERIR:
 
 IMPORTANT RULES:
 1. ALWAYS respond in English.
-2. Be friendly, professional, and VERY concise. Maximum 1-2 short sentences per response.
-3. Prefer responses around 120-220 characters when possible.
+2. Be friendly, professional, and concise. Maximum 2-3 sentences per response.
 4. Your goal is to help the customer and direct them to the right action: request a quote, browse the catalog, or contact an advisor.
 5. If the customer asks for specific prices, explain that prices vary by specification and suggest requesting a custom quote.
 6. If the customer wants to speak with a human or you can't resolve their question, suggest contacting via WhatsApp.
@@ -135,7 +133,7 @@ class GeminiService(BaseAIService):
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
-                    max_output_tokens=180,
+                    max_output_tokens=500,
                     temperature=0.7,
                     top_p=0.9,
                     safety_settings=[
