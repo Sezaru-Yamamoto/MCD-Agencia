@@ -233,7 +233,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   }, [isOpen, isMinimized]);
 
   useEffect(() => {
-    const shouldLockPage = isOpen && (isMobile || !isMinimized);
+    const shouldLockPage = isOpen && isMobile;
 
     if (!shouldLockPage) {
       if (typeof document !== 'undefined') {
@@ -490,16 +490,6 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       {/* Chat Window */}
       {isOpen && (
         <div className="fixed inset-0 z-[58] flex items-end justify-end p-0 sm:p-6 pointer-events-none">
-          {!isMobile && !isMinimized && (
-            <div
-              className="absolute inset-0 bg-black/20 backdrop-blur-[1px] pointer-events-auto"
-              onClick={() => {
-                setIsMinimized(false);
-                setIsOpen(false);
-              }}
-            />
-          )}
-
           <div
             className={`pointer-events-auto relative flex flex-col overflow-hidden border border-slate-200/70 bg-white shadow-2xl animate-in slide-in-from-bottom-5 duration-300 ${
               isMobile

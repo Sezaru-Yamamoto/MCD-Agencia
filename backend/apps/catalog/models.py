@@ -129,20 +129,7 @@ class Category(MPTTModel, TimeStampedModel, SoftDeleteModel, SEOModel, OrderedMo
     def save(self, *args, **kwargs):
         """Generate a unique slug if not provided."""
         if not self.slug:
-            base_slug = slugify(self.name) or 'item'
-            max_length = self._meta.get_field('slug').max_length
-
-            # Reserve room for the numeric suffix when needed.
-            base_slug = base_slug[:max_length]
-            slug_candidate = base_slug
-            suffix = 2
-
-            while CatalogItem.all_objects.filter(slug=slug_candidate).exclude(pk=self.pk).exists():
-                suffix_str = f"-{suffix}"
-                slug_candidate = f"{base_slug[:max_length - len(suffix_str)]}{suffix_str}"
-                suffix += 1
-
-            self.slug = slug_candidate
+            self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
     def get_localized_name(self, language='es'):
@@ -283,9 +270,20 @@ class Attribute(TimeStampedModel):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Generate slug if not provided."""
+        """Generate a unique slug if not provided."""
         if not self.slug:
-            self.slug = slugify(self.name)
+            base_slug = slugify(self.name) or 'item'
+            max_length = self._meta.get_field('slug').max_length
+            base_slug = base_slug[:max_length]
+            slug_candidate = base_slug
+            suffix = 2
+
+            while CatalogItem.all_objects.filter(slug=slug_candidate).exclude(pk=self.pk).exists():
+                suffix_str = f"-{suffix}"
+                slug_candidate = f"{base_slug[:max_length - len(suffix_str)]}{suffix_str}"
+                suffix += 1
+
+            self.slug = slug_candidate
         super().save(*args, **kwargs)
 
 
@@ -583,9 +581,20 @@ class CatalogItem(TimeStampedModel, SoftDeleteModel, SEOModel, ERPIntegrationMod
         return self.name
 
     def save(self, *args, **kwargs):
-        """Generate slug if not provided."""
+        """Generate a unique slug if not provided."""
         if not self.slug:
-            self.slug = slugify(self.name)
+            base_slug = slugify(self.name) or 'item'
+            max_length = self._meta.get_field('slug').max_length
+            base_slug = base_slug[:max_length]
+            slug_candidate = base_slug
+            suffix = 2
+
+            while CatalogItem.all_objects.filter(slug=slug_candidate).exclude(pk=self.pk).exists():
+                suffix_str = f"-{suffix}"
+                slug_candidate = f"{base_slug[:max_length - len(suffix_str)]}{suffix_str}"
+                suffix += 1
+
+            self.slug = slug_candidate
         super().save(*args, **kwargs)
 
     def get_localized_name(self, language='es'):

@@ -12,6 +12,7 @@ This module provides serializers for catalog operations:
 
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
+from django.utils.text import slugify
 from django.db import transaction, IntegrityError
 import logging
 
@@ -335,14 +336,50 @@ class CatalogItemAdminSerializer(CatalogItemDetailSerializer):
             'initial_sku', 'initial_stock', 'initial_low_stock_threshold'
         ]
 
+    def _build_unique_slug(self, name: str) -> str:
+        """Generate a unique slug including soft-deleted records."""
+        base_slug = slugify(name or '') or 'item'
+        max_length = CatalogItem._meta.get_field('slug').max_length
+        base_slug = base_slug[:max_length]
+        slug_candidate = base_slug
+        suffix = 2
+
+        while CatalogItem.all_objects.filter(slug=slug_candidate).exists():
+            suffix_str = f"-{suffix}"
+            slug_candidate = f"{base_slug[:max_length - len(suffix_str)]}{suffix_str}"
+            suffix += 1
+
+        return slug_candidate
+
     def create(self, validated_data):
         """Create catalog item and initialize inventory variant when required."""
         initial_sku = validated_data.pop('initial_sku', '')
         initial_stock = int(validated_data.pop('initial_stock', 0) or 0)
         initial_low_stock_threshold = int(validated_data.pop('initial_low_stock_threshold', 10) or 10)
 
+        item = None
+        last_integrity_error = None
+        for _ in range(5):
+            create_data = dict(validated_data)
+            create_data['slug'] = self._build_unique_slug(create_data.get('name', ''))
+
+            try:
+                with transaction.atomic():
+                    item = super().create(create_data)
+                break
+            except IntegrityError as exc:
+                # Retry on slug collision race conditions instead of returning 500.
+                if 'catalog_catalogitem_slug_key' not in str(exc):
+                    raise
+                last_integrity_error = exc
+
+        if item is None:
+            logger.error('Failed to create catalog item after slug retries: %s', last_integrity_error)
+            raise serializers.ValidationError({
+                'name': _('No se pudo generar un slug unico para este nombre. Intenta con un nombre diferente.')
+            })
+
         with transaction.atomic():
-            item = super().create(validated_data)
 
             if item.type == 'product' and item.track_inventory:
                 sku = (initial_sku or f"{item.slug}-001").strip().upper()
