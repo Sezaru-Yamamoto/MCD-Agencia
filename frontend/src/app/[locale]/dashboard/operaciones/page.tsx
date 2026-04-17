@@ -123,7 +123,7 @@ export default function OperationsPage() {
   const [overview, setOverview] = useState<Awaited<ReturnType<typeof getWorkflowOverview>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
-  const [viewMode, setViewMode] = useState<'hybrid' | 'board' | 'calendar'>('hybrid');
+  const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -426,18 +426,16 @@ export default function OperationsPage() {
         <h1 className="text-2xl md:text-3xl font-bold text-white">Flujo Operativo Unificado</h1>
         <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
           <button
-            disabled
             onClick={() => setViewMode('board')}
-            className="px-3 py-1.5 text-xs text-neutral-500 cursor-not-allowed"
-            title="Desactivado temporalmente"
+            className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'board' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+            title="Mostrar tablero"
           >
             Tablero
           </button>
           <button
-            disabled
             onClick={() => setViewMode('calendar')}
-            className="px-3 py-1.5 text-xs text-neutral-500 cursor-not-allowed border-l border-neutral-700"
-            title="Desactivado temporalmente"
+            className={`px-3 py-1.5 text-xs transition-colors border-l border-neutral-700 ${viewMode === 'calendar' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+            title="Mostrar calendario"
           >
             Calendario
           </button>
