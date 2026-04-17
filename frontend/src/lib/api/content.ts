@@ -508,15 +508,25 @@ export async function getBranches(): Promise<Branch[]> {
     if (!a || !b) return false;
     if (a.includes(b) || b.includes(a)) return true;
 
-    const tokensA = new Set(a.split(' ').filter((token) => token.length >= 4));
-    const tokensB = new Set(b.split(' ').filter((token) => token.length >= 4));
+    const ignoredTokens = new Set([
+      'acapulco', 'juarez', 'tecoanapa', 'guerrero',
+      'calle', 'avenida', 'av', 'fracc', 'colonia', 'col',
+      'centro', 'estado', 'mexico',
+    ]);
+
+    const tokensA = new Set(
+      a.split(' ').filter((token) => token.length >= 4 && !ignoredTokens.has(token))
+    );
+    const tokensB = new Set(
+      b.split(' ').filter((token) => token.length >= 4 && !ignoredTokens.has(token))
+    );
     let overlap = 0;
 
     tokensA.forEach((token) => {
       if (tokensB.has(token)) overlap += 1;
     });
 
-    return overlap >= 3;
+    return overlap >= 2;
   };
 
   const isSameBranch = (a: Branch, b: Branch): boolean => {
@@ -532,8 +542,8 @@ export async function getBranches(): Promise<Branch[]> {
       const phoneB = normalizePhone(b.phone || '');
       const samePhone = !!phoneA && !!phoneB && phoneA === phoneB;
 
-    const addressA = normalizeText(a.full_address || a.street || '');
-    const addressB = normalizeText(b.full_address || b.street || '');
+    const addressA = normalizeText(a.street || a.full_address || '');
+    const addressB = normalizeText(b.street || b.full_address || '');
     const sameAddress = hasAddressOverlap(addressA, addressB);
 
     return (samePhone && sameCity) || (sameAddress && sameCity) || (sameName && sameCity);
@@ -587,7 +597,7 @@ export async function getBranches(): Promise<Branch[]> {
 
   const toCanonicalKey = (branch: Branch): 'diamante' | 'yamaha' | 'tecoanapa' | null => {
     const normalizedName = normalizeText(branch.name || '');
-    const normalizedAddress = normalizeText(branch.full_address || branch.street || '');
+    const normalizedAddress = normalizeText(branch.street || branch.full_address || '');
 
     const match = canonicalBranchConfigs.find((config) =>
       config.matcher(normalizedName, normalizedAddress)
