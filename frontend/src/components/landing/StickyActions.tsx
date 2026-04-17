@@ -36,12 +36,12 @@ export function StickyActions({ onChatToggle, chatState }: {
 
   const style =
     chatState === 'open' && isMobile
-      ? { top: '1rem' }
+      ? { top: '4.75rem' }
       : {
           bottom: chatState === 'open'
-            ? '40rem'
+            ? '43.5rem'
             : chatState === 'minimized'
-              ? '8.5rem'
+              ? '6.5rem'
               : '1.5rem',
         };
 

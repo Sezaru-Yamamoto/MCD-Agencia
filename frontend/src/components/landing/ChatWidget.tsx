@@ -123,6 +123,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   const [locale, setLocale] = useState('es');
   const [internalOpen, setInternalOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Use external control when props are provided
   const isExternallyControlled = externalOpen !== undefined;
@@ -145,6 +146,14 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   const inputRef = useRef<HTMLInputElement>(null);
   const initializedRef = useRef(false);
   const bodyLockRef = useRef<{ overflow: string; overscrollBehavior: string; htmlOverscrollBehavior: string } | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     onStateChange?.({ open: isOpen, minimized: isMinimized });
@@ -408,7 +417,18 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                   </svg>
                 </button>
               )}
-              <button onClick={() => setIsMinimized(!isMinimized)} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.minimize}>
+              <button
+                onClick={() => {
+                  if (isMobile) {
+                    setIsMinimized(false);
+                    setIsOpen(false);
+                    return;
+                  }
+                  setIsMinimized(!isMinimized);
+                }}
+                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                aria-label={texts.minimize}
+              >
                 <Minus className="w-4 h-4" />
               </button>
               <button onClick={() => { setIsMinimized(false); setIsOpen(false); }} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.close}>
