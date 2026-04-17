@@ -15,6 +15,7 @@ export function StickyActions({ onChatToggle, chatState }: {
   chatState: 'closed' | 'open' | 'minimized';
 }) {
   const [showLabel, setShowLabel] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const handleQuoteClick = () => { trackCTA('quote', 'sticky-actions'); };
   const handleWhatsAppClick = () => { trackCTA('whatsapp', 'sticky-actions'); };
 
@@ -25,11 +26,24 @@ export function StickyActions({ onChatToggle, chatState }: {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const bottomOffset = chatState === 'open'
-    ? '40rem'
-    : chatState === 'minimized'
-      ? '8.5rem'
-      : '1.5rem';
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  const style =
+    chatState === 'open' && isMobile
+      ? { top: '1rem' }
+      : {
+          bottom: chatState === 'open'
+            ? '40rem'
+            : chatState === 'minimized'
+              ? '8.5rem'
+              : '1.5rem',
+        };
 
   return (
     <>
@@ -75,7 +89,7 @@ export function StickyActions({ onChatToggle, chatState }: {
       {/* Container — fixed right side */}
       <div
         className="sticky-actions-container fixed right-4 sm:right-6 z-[55] flex flex-col items-center gap-4 sm:gap-5 transition-all duration-300 opacity-100 pointer-events-auto"
-        style={{ bottom: bottomOffset }}
+        style={style}
       >
 
         {/* ─── Quote button with spinner border ──────────────────────── */}
