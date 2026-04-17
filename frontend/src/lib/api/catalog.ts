@@ -173,6 +173,7 @@ export interface ProductFilters {
   tag?: string;
   type?: 'product' | 'service';
   sale_mode?: 'BUY' | 'QUOTE' | 'HYBRID';
+  is_active?: boolean;
   is_featured?: boolean;
   min_price?: number;
   max_price?: number;

@@ -135,6 +135,7 @@ export default function AdminCatalogPage() {
       sale_mode: filters.sale_mode as 'BUY' | 'QUOTE' | undefined,
       type: filters.type as 'product' | 'service' | undefined,
       search: filters.search || undefined,
+      is_active: true,
       page: filters.page,
       page_size: 20,
     }),
@@ -1011,7 +1012,10 @@ export default function AdminCatalogPage() {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
+        onClose={() => {
+          setDeleteConfirm(null);
+          setDeleteConfirmText('');
+        }}
         title="Confirmar eliminación"
         size="sm"
       >
@@ -1045,6 +1049,7 @@ export default function AdminCatalogPage() {
             Cancelar
           </Button>
           <Button
+            type="button"
             variant="outline"
             onClick={() => deleteConfirm && deactivateMutation.mutate(deleteConfirm)}
             disabled={deactivateMutation.isPending || deleteMutation.isPending}
@@ -1052,6 +1057,7 @@ export default function AdminCatalogPage() {
             {deactivateMutation.isPending ? 'Desactivando...' : 'Desactivar'}
           </Button>
           <Button
+            type="button"
             variant="primary"
             className="bg-red-600 hover:bg-red-700"
             onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
