@@ -124,6 +124,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   const [internalOpen, setInternalOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileViewportHeight, setMobileViewportHeight] = useState<number | null>(null);
 
   // Use external control when props are provided
   const isExternallyControlled = externalOpen !== undefined;
@@ -154,6 +155,33 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile || !isOpen || typeof window === 'undefined') {
+      setMobileViewportHeight(null);
+      return;
+    }
+
+    const vv = window.visualViewport;
+    const update = () => {
+      if (!window.visualViewport) return;
+      setMobileViewportHeight(Math.round(window.visualViewport.height));
+    };
+
+    update();
+
+    if (!vv) return;
+
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [isMobile, isOpen]);
 
   useEffect(() => {
     onStateChange?.({ open: isOpen, minimized: isMinimized });
@@ -410,11 +438,12 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
           <div
             className={`pointer-events-auto relative flex flex-col overflow-hidden border border-slate-200/70 bg-white shadow-2xl animate-in slide-in-from-bottom-5 duration-300 ${
               isMobile
-                ? 'w-full h-[100dvh] rounded-none'
+                ? 'w-full rounded-none'
                 : isMinimized
                   ? 'w-[390px] max-w-[calc(100vw-48px)] rounded-2xl h-auto'
                   : 'w-[390px] max-w-[calc(100vw-48px)] rounded-2xl h-[640px] max-h-[calc(100vh-60px)]'
             }`}
+            style={isMobile ? { height: mobileViewportHeight ? `${mobileViewportHeight}px` : '100dvh' } : undefined}
           >
 
           {/* Header */}
@@ -460,8 +489,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
             <>
               {/* Messages */}
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-slate-50">
-                <div className="flex min-h-full flex-col p-4 gap-4">
-                  <div className="mt-auto flex flex-col gap-4">
+                <div className="flex flex-col p-4 gap-4">
                     {messages.map((message, index) => (
                     <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`flex items-end gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -557,8 +585,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                     </div>
                   )}
 
-                    <div ref={messagesEndRef} />
-                  </div>
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
 
