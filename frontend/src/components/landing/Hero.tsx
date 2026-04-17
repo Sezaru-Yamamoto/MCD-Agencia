@@ -36,6 +36,7 @@ export function Hero() {
   const [mounted, setMounted] = useState(false);
   const [showExpandTooltip, setShowExpandTooltip] = useState(true);
   const [heroVisible, setHeroVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [buttonPosition, setButtonPosition] = useState({ top: 16, right: 16 });
   const sectionRef = useRef<HTMLElement>(null);
   const touchStartX = useRef(0);
@@ -78,6 +79,14 @@ export function Hero() {
       window.removeEventListener('scroll', onScrollOrResize);
       window.removeEventListener('resize', onScrollOrResize);
     };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 639px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
   }, []);
 
   // Hide expand button when hero section scrolls out of view
@@ -191,6 +200,11 @@ export function Hero() {
           <div
             key={index}
             className="absolute inset-0"
+            onClick={() => {
+              if (isMobile && isActive) {
+                handleExpand();
+              }
+            }}
             style={{
               opacity: isActive ? 1 : 0,
               transform: isActive ? 'scale(1)' : 'scale(1.08)',
@@ -330,6 +344,10 @@ export function Hero() {
           pointer-events: none !important;
           transition: opacity 300ms ease;
         }
+        body[data-chat-open='true'] .hero-expand-button {
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
         @keyframes hero-fade-in {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -346,9 +364,10 @@ export function Hero() {
     {mounted && createPortal(
       <>
         {/* Expand button */}
+        {!isMobile && (
         <div
           style={{ position: 'fixed', top: buttonPosition.top, right: buttonPosition.right, zIndex: 9999 }}
-          className={`transition-all duration-500 ${
+          className={`hero-expand-button transition-all duration-500 ${
             isExpanding || isExpanded || !heroVisible
               ? 'opacity-0 pointer-events-none'
               : 'opacity-100'
@@ -374,6 +393,7 @@ export function Hero() {
             Expandir
           </div>
         </div>
+        )}
 
         {/* Fullscreen overlay */}
         {isExpanded && (

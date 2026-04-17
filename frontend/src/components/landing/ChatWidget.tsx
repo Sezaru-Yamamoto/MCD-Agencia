@@ -167,6 +167,9 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
 
   useEffect(() => {
     if (!isOpen) {
+      if (typeof document !== 'undefined') {
+        delete document.body.dataset.chatOpen;
+      }
       if (bodyLockRef.current) {
         document.body.style.overflow = bodyLockRef.current.overflow;
         document.body.style.overscrollBehavior = bodyLockRef.current.overscrollBehavior;
@@ -181,11 +184,17 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       overscrollBehavior: document.body.style.overscrollBehavior,
       htmlOverscrollBehavior: document.documentElement.style.overscrollBehavior,
     };
+    if (typeof document !== 'undefined') {
+      document.body.dataset.chatOpen = 'true';
+    }
     document.body.style.overflow = 'hidden';
     document.body.style.overscrollBehavior = 'none';
     document.documentElement.style.overscrollBehavior = 'none';
 
     return () => {
+      if (typeof document !== 'undefined') {
+        delete document.body.dataset.chatOpen;
+      }
       if (!bodyLockRef.current) return;
       document.body.style.overflow = bodyLockRef.current.overflow;
       document.body.style.overscrollBehavior = bodyLockRef.current.overscrollBehavior;
