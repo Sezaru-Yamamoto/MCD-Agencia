@@ -353,10 +353,6 @@ export function Hero() {
           pointer-events: none !important;
           transition: opacity 300ms ease;
         }
-        body[data-chat-open='true'] .hero-expand-button {
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
         @keyframes hero-fade-in {
           from { opacity: 0; }
           to { opacity: 1; }
