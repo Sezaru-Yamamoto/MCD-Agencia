@@ -195,9 +195,15 @@ export async function getCategoryTree(): Promise<Category[]> {
 /**
  * Get all categories (flat).
  */
-export async function getCategories(type?: 'product' | 'service'): Promise<PaginatedResponse<Category>> {
-  const params: Record<string, string> = {};
+export async function getCategories(
+  type?: 'product' | 'service',
+  options?: { page?: number; page_size?: number; is_active?: boolean }
+): Promise<PaginatedResponse<Category>> {
+  const params: Record<string, string | number | boolean> = {};
   if (type) params.type = type;
+  if (options?.page !== undefined) params.page = options.page;
+  if (options?.page_size !== undefined) params.page_size = options.page_size;
+  if (options?.is_active !== undefined) params.is_active = options.is_active;
   return apiClient.get<PaginatedResponse<Category>>('/catalog/categories/', params);
 }
 

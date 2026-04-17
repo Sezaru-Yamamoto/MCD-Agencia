@@ -151,8 +151,8 @@ export default function AdminCatalogPage() {
   // Fetch categories for select (tree structure with children)
   const categoryTypeFilter = formData.type === 'service' ? undefined : formData.type;
   const { data: categoriesData } = useQuery({
-    queryKey: ['categories', categoryTypeFilter || 'all'],
-    queryFn: () => getCategories(categoryTypeFilter),
+    queryKey: ['categories', categoryTypeFilter || 'all', 'active', 100],
+    queryFn: () => getCategories(categoryTypeFilter, { is_active: true, page_size: 100 }),
   });
 
   const products = productsData?.results || [];
