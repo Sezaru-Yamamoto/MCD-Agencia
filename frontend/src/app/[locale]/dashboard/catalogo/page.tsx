@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { getProducts, getCategories, getProductById, type ProductListItem, type Category } from '@/lib/api/catalog';
-import { getAdminServices, type ServiceAdmin } from '@/lib/api/content';
+import { REAL_SERVICE_IDS, SERVICE_LABELS } from '@/lib/service-ids';
 import {
   createProduct,
   updateProduct,
@@ -155,15 +155,9 @@ export default function AdminCatalogPage() {
     queryFn: () => getCategories(categoryTypeFilter),
   });
 
-  const { data: adminServicesData } = useQuery({
-    queryKey: ['admin-content-services'],
-    queryFn: getAdminServices,
-  });
-
   const products = productsData?.results || [];
   const totalPages = Math.ceil((productsData?.count || 0) / 20);
   const categories = categoriesData?.results || [];
-  const adminServices = adminServicesData || [];
 
   const { data: editingProductDetail } = useQuery({
     queryKey: ['admin-product-detail', editingProduct?.id],
@@ -564,8 +558,6 @@ export default function AdminCatalogPage() {
     ...categories.map((cat: Category) => ({ value: cat.id, label: formatCategoryLabel(cat) })),
   ];
 
-  const activeServiceDefinitions = adminServices.filter((service: ServiceAdmin) => service.is_active !== false);
-
   const serviceCategoriesBySlug = new Map(
     categories
       .filter((cat: Category) => cat.type === 'service' && cat.slug !== 'servicios' && cat.is_active)
@@ -578,18 +570,18 @@ export default function AdminCatalogPage() {
       .map((cat: Category) => [normalizeText(cat.name), cat])
   );
 
-  const serviceCategoryOptions = activeServiceDefinitions
-    .map((service: ServiceAdmin) => {
-      const serviceKey = (service.service_key || '').trim();
-      const bySlug = serviceKey ? serviceCategoriesBySlug.get(serviceKey) : undefined;
-      const byName = serviceCategoriesByName.get(normalizeText(service.name));
+  const serviceCategoryOptions = REAL_SERVICE_IDS
+    .map((serviceId) => {
+      const serviceName = SERVICE_LABELS[serviceId];
+      const bySlug = serviceCategoriesBySlug.get(serviceId);
+      const byName = serviceCategoriesByName.get(normalizeText(serviceName));
       const category = bySlug || byName;
 
       if (!category) return null;
 
       return {
         value: category.id,
-        label: service.name,
+        label: serviceName,
       };
     })
     .filter((option): option is { value: string; label: string } => option !== null);
