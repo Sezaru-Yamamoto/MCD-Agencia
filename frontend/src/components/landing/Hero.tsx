@@ -170,6 +170,19 @@ export function Hero() {
     setTimeout(() => setIsExpanding(false), 760);
   }, [isExpanded, isExpanding, currentIndex]);
 
+  const handleMobileHeroClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!isMobile || isExpanded || isExpanding) return;
+
+    const target = event.target as HTMLElement;
+    if (
+      target.closest('button, a, input, textarea, select, label, [role="button"], [data-no-hero-expand="true"]')
+    ) {
+      return;
+    }
+
+    handleExpand();
+  }, [isMobile, isExpanded, isExpanding, handleExpand]);
+
   // ─── Touch/swipe ───────────────────────────────────────────────────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; touchDeltaX.current = 0; }, []);
   const handleTouchMove = useCallback((e: React.TouchEvent) => { touchDeltaX.current = e.touches[0].clientX - touchStartX.current; }, []);
@@ -190,6 +203,7 @@ export function Hero() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onClick={handleMobileHeroClick}
       onMouseEnter={() => setIsAutoPlaying(false)}
       onMouseLeave={() => setIsAutoPlaying(true)}
     >
@@ -200,11 +214,6 @@ export function Hero() {
           <div
             key={index}
             className="absolute inset-0"
-            onClick={() => {
-              if (isMobile && isActive) {
-                handleExpand();
-              }
-            }}
             style={{
               opacity: isActive ? 1 : 0,
               transform: isActive ? 'scale(1)' : 'scale(1.08)',

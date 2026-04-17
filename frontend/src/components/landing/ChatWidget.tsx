@@ -53,9 +53,10 @@ function getLocaleFromPath(): string {
 /** Convert plain-text URLs into clickable <a> elements. */
 function renderContent(text: string) {
   const urlRegex = /(https?:\/\/[^\s,)]+)/g;
+  const singleUrlRegex = /^https?:\/\/[^\s,)]+$/i;
   const parts = text.split(urlRegex);
   return parts.map((part, i) =>
-    urlRegex.test(part) ? (
+    singleUrlRegex.test(part) ? (
       <a
         key={i}
         href={part}
@@ -206,7 +207,8 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   // ---- Translations ----
   const t = {
     es: {
-      title: 'Chat de Ayuda',
+      title: 'Asistente Virtual',
+      subtitle: 'En linea ahora',
       placeholder: 'Escribe tu mensaje...',
       send: 'Enviar',
       whatsappTitle: 'Continuar por WhatsApp',
@@ -221,7 +223,8 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       newChat: 'Nueva conversación',
     },
     en: {
-      title: 'Help Chat',
+      title: 'Virtual Assistant',
+      subtitle: 'Online now',
       placeholder: 'Type your message...',
       send: 'Send',
       whatsappTitle: 'Continue on WhatsApp',
@@ -405,22 +408,41 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
 
       {/* Chat Window */}
       {isOpen && (
-        <div className={`fixed inset-0 z-[58] flex flex-col overflow-hidden bg-gray-900 shadow-2xl animate-in slide-in-from-bottom-5 duration-300 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-48px)] sm:rounded-2xl ${isMinimized ? 'h-auto sm:h-auto' : 'h-[100dvh] sm:h-[550px] sm:max-h-[calc(100vh-100px)]'} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`}>
+        <div className="fixed inset-0 z-[58] flex items-end justify-end p-0 sm:p-6 pointer-events-none">
+          {!isMobile && !isMinimized && (
+            <div
+              className="absolute inset-0 bg-black/20 backdrop-blur-[1px] pointer-events-auto"
+              onClick={() => {
+                setIsMinimized(false);
+                setIsOpen(false);
+              }}
+            />
+          )}
+
+          <div
+            className={`pointer-events-auto relative flex flex-col overflow-hidden border border-slate-200/70 bg-white shadow-2xl animate-in slide-in-from-bottom-5 duration-300 ${
+              isMobile
+                ? 'w-full h-[100dvh] rounded-none'
+                : isMinimized
+                  ? 'w-[390px] max-w-[calc(100vw-48px)] rounded-2xl h-auto'
+                  : 'w-[390px] max-w-[calc(100vw-48px)] rounded-2xl h-[640px] max-h-[calc(100vh-60px)]'
+            }`}
+          >
 
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex items-center justify-between flex-shrink-0">
+          <div className="bg-slate-950 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 border-b border-slate-800" style={{ paddingTop: isMobile ? 'max(0.75rem, env(safe-area-inset-top))' : undefined }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
-                <ChatBubbleLeftRightIcon className="w-9 h-9 text-white" />
+              <div className="w-10 h-10 bg-cmyk-cyan/20 rounded-full flex items-center justify-center overflow-hidden ring-1 ring-cmyk-cyan/40">
+                <ChatBubbleLeftRightIcon className="w-8 h-8 text-cmyk-cyan" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm">{texts.title}</h3>
-                <p className="text-[11px] text-white/80">{texts.poweredBy}</p>
+                <p className="text-[11px] text-emerald-300">{texts.subtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               {messages.length > 1 && (
-                <button onClick={handleNewChat} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.newChat} title={texts.newChat}>
+                <button onClick={handleNewChat} className="p-2 hover:bg-white/15 rounded-full transition-colors" aria-label={texts.newChat} title={texts.newChat}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
@@ -440,7 +462,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
               >
                 <Minus className="w-4 h-4" />
               </button>
-              <button onClick={() => { setIsMinimized(false); setIsOpen(false); }} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label={texts.close}>
+              <button onClick={() => { setIsMinimized(false); setIsOpen(false); }} className="p-2 hover:bg-white/15 rounded-full transition-colors" aria-label={texts.close}>
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -449,20 +471,21 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
           {!isMinimized && (
             <>
               {/* Messages */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-gray-800">
-                <div className="flex min-h-full flex-col justify-end p-4 gap-4">
-                  {messages.map((message, index) => (
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-slate-50">
+                <div className="flex min-h-full flex-col p-4 gap-4">
+                  <div className="mt-auto flex flex-col gap-4">
+                    {messages.map((message, index) => (
                     <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`flex items-end gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${message.role === 'user' ? 'bg-cmyk-cyan text-white' : 'bg-gray-600'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${message.role === 'user' ? 'bg-cmyk-cyan text-white' : 'bg-slate-900 text-white'}`}>
                           {message.role === 'user' ? <User className="w-4 h-4" /> : <ChatBubbleLeftRightIcon className="w-7 h-7 text-white" />}
                         </div>
                         <div className="flex flex-col gap-1">
-                          <div className={`rounded-2xl px-4 py-2.5 ${message.role === 'user' ? 'bg-cmyk-cyan text-white rounded-br-sm' : 'bg-gray-700 text-gray-100 shadow-sm rounded-bl-sm'}`}>
+                          <div className={`rounded-2xl px-4 py-2.5 ${message.role === 'user' ? 'bg-cmyk-cyan text-white rounded-br-sm' : 'bg-white text-slate-800 shadow-sm border border-slate-200 rounded-bl-sm'}`}>
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">
                               {message.role === 'assistant' ? renderContent(message.content) : message.content}
                             </p>
-                            <p className={`text-[10px] mt-1 ${message.role === 'user' ? 'text-white/60' : 'text-gray-500'}`}>
+                            <p className={`text-[10px] mt-1 ${message.role === 'user' ? 'text-white/70' : 'text-slate-500'}`}>
                               {formatTime(message.timestamp)}
                             </p>
                           </div>
@@ -470,13 +493,13 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                           {message.role === 'assistant' && message.messageId && message.source === 'ai' && (
                             <div className="flex items-center gap-1 ml-1">
                               {message.feedbackGiven ? (
-                                <span className="text-[10px] text-gray-500">{texts.feedbackThanks}</span>
+                                <span className="text-[10px] text-slate-500">{texts.feedbackThanks}</span>
                               ) : (
                                 <>
-                                  <button onClick={() => handleFeedback(index, 'positive')} className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-green-400 transition-colors" aria-label="Good response">
+                                  <button onClick={() => handleFeedback(index, 'positive')} className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-green-600 transition-colors" aria-label="Good response">
                                     <ThumbsUp className="w-3.5 h-3.5" />
                                   </button>
-                                  <button onClick={() => handleFeedback(index, 'negative')} className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-red-400 transition-colors" aria-label="Bad response">
+                                  <button onClick={() => handleFeedback(index, 'negative')} className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-red-500 transition-colors" aria-label="Bad response">
                                     <ThumbsDown className="w-3.5 h-3.5" />
                                   </button>
                                 </>
@@ -492,14 +515,14 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                   {isLoading && (
                     <div className="flex justify-start">
                       <div className="flex items-end gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center overflow-hidden">
                           <ChatBubbleLeftRightIcon className="w-7 h-7 text-white" />
                         </div>
-                        <div className="bg-gray-700 rounded-2xl px-4 py-3 shadow-sm rounded-bl-sm">
+                        <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm rounded-bl-sm">
                           <div className="flex gap-1">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                           </div>
                         </div>
                       </div>
@@ -522,16 +545,17 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                     </div>
                   )}
 
-                  <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} />
+                  </div>
                 </div>
               </div>
 
               {/* Suggestion Chips (after each AI response) */}
               {showSuggestions && lastBotMsg && (
-                <div className="px-4 py-2 bg-gray-800 border-t border-gray-700 flex-shrink-0">
+                <div className="px-4 py-2 bg-white border-t border-slate-200 flex-shrink-0">
                   <div className="flex flex-wrap gap-1.5">
                     {lastBotMsg.suggestions!.map((s, i) => (
-                      <button key={i} onClick={() => handleSuggestion(s)} className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-full text-xs text-gray-200 hover:bg-gray-600 hover:border-primary-400 transition-colors">
+                      <button key={i} onClick={() => handleSuggestion(s)} className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors">
                         {s}
                       </button>
                     ))}
@@ -541,10 +565,10 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
 
               {/* Quick Actions — only at start */}
               {messages.length <= 1 && config?.quick_actions && !showSuggestions && (
-                <div className="px-4 py-2 bg-gray-800 border-t border-gray-700 flex-shrink-0">
+                <div className="px-4 py-2 bg-white border-t border-slate-200 flex-shrink-0">
                   <div className="flex flex-wrap gap-1.5">
                     {config.quick_actions.map((action) => (
-                      <button key={action.id} onClick={() => handleQuickAction(action)} className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-full text-xs text-gray-200 hover:bg-gray-600 hover:border-primary-400 transition-colors">
+                      <button key={action.id} onClick={() => handleQuickAction(action)} className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors">
                         {action.label}
                       </button>
                     ))}
@@ -553,7 +577,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
               )}
 
               {/* Input */}
-              <form onSubmit={handleSubmit} className="p-3 bg-gray-900 border-t border-gray-700 flex-shrink-0">
+              <form onSubmit={handleSubmit} className="p-3 bg-white border-t border-slate-200 flex-shrink-0" style={{ paddingBottom: isMobile ? 'max(0.75rem, env(safe-area-inset-bottom))' : undefined }}>
                 <div className="flex gap-2 items-center">
                   <input
                     ref={inputRef}
@@ -562,21 +586,22 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                     onChange={(e) => setInputValue(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
                     placeholder={texts.placeholder}
                     maxLength={MAX_MESSAGE_LENGTH}
-                    className="flex-1 px-4 py-2.5 bg-gray-700 text-gray-100 placeholder-gray-400 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-gray-600 transition-all"
+                    className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-900 placeholder-slate-400 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cmyk-cyan focus:bg-white border border-slate-200 transition-all"
                     disabled={isLoading}
                   />
-                  <button type="submit" disabled={!inputValue.trim() || isLoading} className="p-2.5 bg-primary-600 text-white rounded-full hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" aria-label={texts.send}>
+                  <button type="submit" disabled={!inputValue.trim() || isLoading} className="p-2.5 bg-slate-900 text-white rounded-full hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" aria-label={texts.send}>
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
                 {inputValue.length > MAX_MESSAGE_LENGTH * 0.8 && (
-                  <p className={`text-[10px] mt-1 text-right ${inputValue.length >= MAX_MESSAGE_LENGTH ? 'text-red-400' : 'text-gray-500'}`}>
+                  <p className={`text-[10px] mt-1 text-right ${inputValue.length >= MAX_MESSAGE_LENGTH ? 'text-red-500' : 'text-slate-500'}`}>
                     {texts.charCount(inputValue.length)}
                   </p>
                 )}
               </form>
             </>
           )}
+          </div>
         </div>
       )}
     </>
