@@ -123,6 +123,7 @@ export default function AdminCatalogPage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>(initialCategoryFormData);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
   const [inventoryWarning, setInventoryWarning] = useState<string>('');
@@ -244,6 +245,26 @@ export default function AdminCatalogPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       setDeleteConfirm(null);
+      setDeleteConfirmText('');
+      toast.success('Producto eliminado del catálogo e inventario');
+    },
+    onError: (error: { message?: string; data?: Record<string, unknown> }) => {
+      const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
+      toast.error(`Error al eliminar producto: ${error?.message || 'Solicitud inválida'}${detail}`);
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (id: string) => updateProduct(id, { is_active: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      setDeleteConfirm(null);
+      setDeleteConfirmText('');
+      toast.success('Producto desactivado. Permanece en inventario y se oculta del catálogo.');
+    },
+    onError: (error: { message?: string; data?: Record<string, unknown> }) => {
+      const detail = error?.data ? ` ${JSON.stringify(error.data)}` : '';
+      toast.error(`Error al desactivar producto: ${error?.message || 'Solicitud inválida'}${detail}`);
     },
   });
 
@@ -449,8 +470,16 @@ export default function AdminCatalogPage() {
   };
 
   const handleDelete = (id: string) => {
+    if (deleteConfirmText.trim().toLowerCase() !== 'eliminar') {
+      toast.error('Escribe "eliminar" para confirmar.');
+      return;
+    }
     deleteMutation.mutate(id);
   };
+
+  const selectedDeleteProduct = deleteConfirm
+    ? products.find((product) => product.id === deleteConfirm) || null
+    : null;
 
   // Build flat options from tree for filter Select component
   const categoryOptions = [
@@ -986,18 +1015,47 @@ export default function AdminCatalogPage() {
         title="Confirmar eliminación"
         size="sm"
       >
-        <p className="text-neutral-300 mb-6">
-          ¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.
-        </p>
-        <div className="flex justify-end gap-3">
+        <div className="space-y-4">
+          <p className="text-neutral-300">
+            Esta acción eliminará el producto del catálogo y también lo quitará del inventario.
+          </p>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            Si quieres conservarlo en inventario y solo ocultarlo del catálogo, usa la opción <strong>Desactivar</strong>.
+          </div>
+
+          {selectedDeleteProduct && (
+            <p className="text-xs text-neutral-400">
+              Producto seleccionado: <span className="text-neutral-200 font-medium">{selectedDeleteProduct.name}</span>
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs text-neutral-400 mb-1">
+              Escribe <span className="text-red-400 font-semibold">eliminar</span> para confirmar
+            </label>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="eliminar"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-end gap-3 mt-6">
           <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
             Cancelar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => deleteConfirm && deactivateMutation.mutate(deleteConfirm)}
+            disabled={deactivateMutation.isPending || deleteMutation.isPending}
+          >
+            {deactivateMutation.isPending ? 'Desactivando...' : 'Desactivar'}
           </Button>
           <Button
             variant="primary"
             className="bg-red-600 hover:bg-red-700"
             onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-            disabled={deleteMutation.isPending}
+            disabled={deleteMutation.isPending || deleteConfirmText.trim().toLowerCase() !== 'eliminar'}
           >
             {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
           </Button>

@@ -520,8 +520,8 @@ function InventoryItemModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          <form onSubmit={submitChanges} className="xl:col-span-3 rounded-lg border border-neutral-700 p-4 space-y-4 h-fit">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+          <form onSubmit={submitChanges} className="xl:col-span-8 rounded-lg border border-neutral-700 p-4 space-y-4 h-fit">
             <h4 className="text-sm font-semibold text-neutral-200">Modificar inventario</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
@@ -604,7 +604,7 @@ function InventoryItemModal({
           </div>
           </form>
 
-          <div className="xl:col-span-2 rounded-lg border border-neutral-700 p-4 h-fit">
+          <div className="xl:col-span-4 rounded-lg border border-neutral-700 p-4 h-fit">
             <h4 className="text-sm font-semibold text-neutral-200 mb-2">Últimos movimientos</h4>
             {movementsLoading ? (
               <p className="text-sm text-neutral-400">Cargando movimientos...</p>

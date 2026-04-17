@@ -10,6 +10,7 @@ This module provides ViewSets for catalog operations:
     - Images
 """
 
+from django.db import transaction
 from django.db.models import Q, Prefetch
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, permissions, status, filters
@@ -282,15 +283,32 @@ class CatalogItemViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
-        """Soft delete item."""
+        """Soft delete item and hide related inventory variants."""
+        before_state = CatalogItemAdminSerializer(instance).data
+
+        with transaction.atomic():
+            # Keep inventory consistent with deletion intent.
+            variants = instance.variants.filter(is_deleted=False)
+            for variant in variants:
+                if variant.is_active:
+                    variant.is_active = False
+                    variant.save(update_fields=['is_active', 'updated_at'])
+                variant.delete()
+
+            if instance.is_active:
+                instance.is_active = False
+                instance.save(update_fields=['is_active', 'updated_at'])
+
+            instance.delete()
+
         AuditLog.log(
             entity=instance,
             action=AuditLog.ACTION_DELETED,
             actor=self.request.user,
-            before_state=CatalogItemAdminSerializer(instance).data,
-            request=self.request
+            before_state=before_state,
+            request=self.request,
+            metadata={'inventory_removed': True}
         )
-        instance.soft_delete()
 
     @action(detail=False, methods=['get'], url_path='slug/(?P<slug>[^/.]+)')
     def by_slug(self, request, slug=None):
