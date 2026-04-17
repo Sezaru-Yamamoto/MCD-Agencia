@@ -14,8 +14,6 @@ import {
   ArrowPathIcon,
   TruckIcon,
   UserGroupIcon,
-  SparklesIcon,
-  Squares2X2Icon,
 } from '@heroicons/react/24/outline';
 
 import { Card, LoadingPage } from '@/components/ui';
@@ -31,47 +29,47 @@ const blockConfig: Record<string, {
   empty: string;
   icon: ComponentType<{ className?: string }>;
 }> = {
+  quotes: {
+    title: 'Solicitudes por asignar',
+    subtitle: 'Solicitudes sin priorizar',
+    accent: 'border-neutral-700',
+    empty: 'No hay solicitudes pendientes.',
+    icon: DocumentTextIcon,
+  },
   assigned: {
-    title: 'Asignadas',
+    title: 'Solicitudes por cotizar',
     subtitle: 'Solicitudes y cotizaciones activas',
     accent: 'border-blue-500/30',
     empty: 'No hay solicitudes asignadas.',
     icon: UserGroupIcon,
   },
   to_pay: {
-    title: 'Por validar',
+    title: 'Validar pagos',
     subtitle: 'Pedidos manuales pendientes',
     accent: 'border-amber-500/30',
     empty: 'No hay pagos manuales pendientes.',
     icon: ExclamationTriangleIcon,
   },
   in_production: {
-    title: 'En proceso',
+    title: 'En producción',
     subtitle: 'Trabajo activo en producción',
     accent: 'border-purple-500/30',
     empty: 'No hay pedidos en producción.',
     icon: ArrowPathIcon,
   },
   ready: {
-    title: 'Listo',
+    title: 'Para enviar',
     subtitle: 'Preparados para salida o entrega',
     accent: 'border-cmyk-cyan/30',
     empty: 'No hay pedidos listos.',
     icon: TruckIcon,
   },
   done: {
-    title: 'Realizadas',
+    title: 'Entregados',
     subtitle: 'Pedidos finalizados',
     accent: 'border-green-500/30',
     empty: 'No hay pedidos finalizados.',
     icon: CheckCircleIcon,
-  },
-  quotes: {
-    title: 'Por hacer',
-    subtitle: 'Solicitudes sin priorizar',
-    accent: 'border-neutral-700',
-    empty: 'No hay solicitudes pendientes.',
-    icon: DocumentTextIcon,
   },
 };
 
@@ -125,7 +123,6 @@ export default function OperationsPage() {
   const [overview, setOverview] = useState<Awaited<ReturnType<typeof getWorkflowOverview>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
-  const [boardDensity, setBoardDensity] = useState<'compact' | 'comfortable'>('comfortable');
   const [viewMode, setViewMode] = useState<'hybrid' | 'board' | 'calendar'>('hybrid');
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
@@ -425,119 +422,52 @@ export default function OperationsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-2xl border border-cmyk-cyan/30 bg-gradient-to-br from-neutral-900 via-neutral-900 to-cyan-950/30 p-6">
-        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-cmyk-cyan/10 blur-3xl" />
-        <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-          <div>
-            <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cmyk-cyan/30 bg-cmyk-cyan/10 text-cmyk-cyan text-xs uppercase tracking-wide mb-3">
-              <SparklesIcon className="h-3.5 w-3.5" />
-              Centro Operativo
-            </p>
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Flujo Operativo Unificado</h1>
-            <p className="text-neutral-300 max-w-3xl">
-              Controla solicitudes, produccion, logistica e instalaciones desde una sola vista, y baja al detalle por rama cuando lo necesites.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
-              <button
-                onClick={() => setBoardDensity('comfortable')}
-                className={`px-3 py-1.5 text-xs transition-colors ${boardDensity === 'comfortable' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-              >
-                Comoda
-              </button>
-              <button
-                onClick={() => setBoardDensity('compact')}
-                className={`px-3 py-1.5 text-xs transition-colors ${boardDensity === 'compact' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-              >
-                Compacta
-              </button>
-            </div>
-            <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
-              <button
-                onClick={() => setViewMode('board')}
-                className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'board' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-                title="Mostrar solo tablero"
-              >
-                Tablero
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'calendar' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-                title="Mostrar solo calendario"
-              >
-                Calendario
-              </button>
-              <button
-                onClick={() => setViewMode('hybrid')}
-                className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'hybrid' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
-                title="Mostrar ambos"
-              >
-                Ambos
-              </button>
-            </div>
-            <span className="inline-flex items-center gap-2 text-xs text-neutral-300 border border-neutral-700 rounded-lg px-3 py-1.5 bg-neutral-900/70">
-              <Squares2X2Icon className="h-4 w-4 text-cmyk-cyan" />
-              Vista {viewMode}
-            </span>
-          </div>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-white">Flujo Operativo Unificado</h1>
+        <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
+          <button
+            disabled
+            onClick={() => setViewMode('board')}
+            className="px-3 py-1.5 text-xs text-neutral-500 cursor-not-allowed"
+            title="Desactivado temporalmente"
+          >
+            Tablero
+          </button>
+          <button
+            disabled
+            onClick={() => setViewMode('calendar')}
+            className="px-3 py-1.5 text-xs text-neutral-500 cursor-not-allowed border-l border-neutral-700"
+            title="Desactivado temporalmente"
+          >
+            Calendario
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Link
-          href={`/${locale}/dashboard/solicitudes`}
-          className="rounded-xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-colors p-4"
-        >
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Rama</p>
-          <p className="text-white font-semibold mt-1">Solicitudes</p>
-          <p className="text-sm text-neutral-400 mt-1">Gestiona requerimientos de clientes y asignaciones.</p>
-          <p className="text-cmyk-cyan text-sm mt-3">Ir al detalle</p>
-        </Link>
-        <Link
-          href={`/${locale}/dashboard/cotizaciones`}
-          className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors p-4"
-        >
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Rama</p>
-          <p className="text-white font-semibold mt-1">Cotizaciones</p>
-          <p className="text-sm text-neutral-400 mt-1">Revisa propuestas, envíos y aprobaciones.</p>
-          <p className="text-cmyk-cyan text-sm mt-3">Ir al detalle</p>
-        </Link>
-        <Link
-          href={`/${locale}/dashboard/pedidos`}
-          className="rounded-xl border border-cmyk-cyan/30 bg-cmyk-cyan/5 hover:bg-cmyk-cyan/10 transition-colors p-4"
-        >
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Rama</p>
-          <p className="text-white font-semibold mt-1">Pedidos</p>
-          <p className="text-sm text-neutral-400 mt-1">Da seguimiento a producción, entrega y cierre.</p>
-          <p className="text-cmyk-cyan text-sm mt-3">Ir al detalle</p>
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 xl:grid-cols-6 gap-4">
-        <Card className="p-4">
-          <p className="text-neutral-500 text-xs uppercase tracking-wide">Asignadas</p>
-          <p className="text-2xl font-bold text-white mt-2">{overview?.stats.assigned_requests ?? 0}</p>
+      <div className="flex flex-wrap gap-2">
+        <Card className="px-3 py-2 w-[9.5rem]">
+          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Por asignar</p>
+          <p className="text-lg font-bold text-white mt-1">{overview?.stats.pending_requests ?? 0}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-neutral-500 text-xs uppercase tracking-wide">Pago manual</p>
-          <p className="text-2xl font-bold text-white mt-2">{overview?.stats.manual_payment_orders ?? 0}</p>
+        <Card className="px-3 py-2 w-[9.5rem]">
+          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Por cotizar</p>
+          <p className="text-lg font-bold text-white mt-1">{overview?.stats.assigned_requests ?? 0}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-neutral-500 text-xs uppercase tracking-wide">En producción</p>
-          <p className="text-2xl font-bold text-white mt-2">{overview?.stats.in_production_orders ?? 0}</p>
+        <Card className="px-3 py-2 w-[9.5rem]">
+          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Validar pagos</p>
+          <p className="text-lg font-bold text-white mt-1">{overview?.stats.manual_payment_orders ?? 0}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-neutral-500 text-xs uppercase tracking-wide">Listo</p>
-          <p className="text-2xl font-bold text-white mt-2">{overview?.stats.ready_orders ?? 0}</p>
+        <Card className="px-3 py-2 w-[9.5rem]">
+          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">En producción</p>
+          <p className="text-lg font-bold text-white mt-1">{overview?.stats.in_production_orders ?? 0}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-neutral-500 text-xs uppercase tracking-wide">Realizadas</p>
-          <p className="text-2xl font-bold text-white mt-2">{overview?.stats.completed_orders ?? 0}</p>
+        <Card className="px-3 py-2 w-[9.5rem]">
+          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Para enviar</p>
+          <p className="text-lg font-bold text-white mt-1">{overview?.stats.ready_orders ?? 0}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-neutral-500 text-xs uppercase tracking-wide">Calendario</p>
-          <p className="text-2xl font-bold text-white mt-2">{calendarItemsCount}</p>
+        <Card className="px-3 py-2 w-[9.5rem]">
+          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Entregados</p>
+          <p className="text-lg font-bold text-white mt-1">{overview?.stats.completed_orders ?? 0}</p>
         </Card>
       </div>
 
@@ -547,7 +477,7 @@ export default function OperationsPage() {
           const Icon = config.icon;
           const items = overview?.blocks[key as keyof typeof overview.blocks] || [];
           return (
-            <Card key={key} className={`p-4 border ${config.accent} ${boardDensity === 'compact' ? 'min-h-[18rem]' : 'min-h-[24rem]'} flex flex-col`}>
+            <Card key={key} className={`p-4 border ${config.accent} min-h-[24rem] flex flex-col`}>
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <div className="flex items-center gap-2">
@@ -564,12 +494,12 @@ export default function OperationsPage() {
                   {config.empty}
                 </div>
               ) : (
-                <div className={`${boardDensity === 'compact' ? 'space-y-2' : 'space-y-3'} flex-1 overflow-y-auto pr-1`}>
+                <div className="space-y-3 flex-1 overflow-y-auto pr-1">
                   {items.map((item) => (
                     <Link
                       key={item.id}
                       href={`/${locale}${item.href}`}
-                      className={`block rounded-xl border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors ${boardDensity === 'compact' ? 'p-3' : 'p-4'}`}
+                      className="block rounded-xl border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
