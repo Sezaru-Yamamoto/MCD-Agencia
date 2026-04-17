@@ -137,7 +137,7 @@ class Category(MPTTModel, TimeStampedModel, SoftDeleteModel, SEOModel, OrderedMo
             slug_candidate = base_slug
             suffix = 2
 
-            while CatalogItem.objects.filter(slug=slug_candidate).exclude(pk=self.pk).exists():
+            while CatalogItem.all_objects.filter(slug=slug_candidate).exclude(pk=self.pk).exists():
                 suffix_str = f"-{suffix}"
                 slug_candidate = f"{base_slug[:max_length - len(suffix_str)]}{suffix_str}"
                 suffix += 1

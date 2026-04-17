@@ -233,7 +233,9 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   }, [isOpen, isMinimized]);
 
   useEffect(() => {
-    if (!isOpen) {
+    const shouldLockPage = isOpen && (isMobile || !isMinimized);
+
+    if (!shouldLockPage) {
       if (typeof document !== 'undefined') {
         delete document.body.dataset.chatOpen;
       }
@@ -268,7 +270,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       document.documentElement.style.overscrollBehavior = bodyLockRef.current.htmlOverscrollBehavior;
       bodyLockRef.current = null;
     };
-  }, [isOpen]);
+  }, [isOpen, isMobile, isMinimized]);
 
   // ---- Translations ----
   const t = {
