@@ -139,11 +139,14 @@ export default function OperationsPage() {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [previewBlockKey, setPreviewBlockKey] = useState<keyof typeof blockConfig | null>(null);
   const [activeBoardIndex, setActiveBoardIndex] = useState(0);
+  const [isCalendarNavigatorOpen, setIsCalendarNavigatorOpen] = useState(false);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [weekCursor, setWeekCursor] = useState(() => new Date());
+  const [calendarPickerYear, setCalendarPickerYear] = useState(() => new Date().getFullYear());
+  const [calendarPickerMonth, setCalendarPickerMonth] = useState(() => new Date().getMonth());
   const mobileBoardRef = useRef<HTMLDivElement | null>(null);
   const mobileBoardCardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const mobileBoardTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -373,6 +376,29 @@ export default function OperationsPage() {
     return `${startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
   };
 
+  const getWeekStart = (sourceDate: Date) => {
+    const start = new Date(sourceDate);
+    start.setHours(0, 0, 0, 0);
+    const weekday = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - weekday);
+    return start;
+  };
+
+  const getWeekRangesForMonth = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const cursor = getWeekStart(firstDay);
+    const weeks: Date[] = [];
+
+    while (cursor <= lastDay || weeks.length < 4) {
+      weeks.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 7);
+      if (weeks.length > 6) break;
+    }
+
+    return weeks;
+  };
+
   const effectiveCalendarEvents = useMemo(() => {
     const directEvents = overview?.calendar_events || [];
     if (directEvents.length > 0) {
@@ -438,10 +464,7 @@ export default function OperationsPage() {
   }, [monthCursor]);
 
   const weekDays = useMemo(() => {
-    const start = new Date(weekCursor);
-    start.setHours(0, 0, 0, 0);
-    const weekday = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - weekday);
+    const start = getWeekStart(weekCursor);
 
     const days: Date[] = [];
     for (let index = 0; index < 7; index += 1) {
@@ -451,6 +474,26 @@ export default function OperationsPage() {
     }
     return days;
   }, [weekCursor]);
+
+  const monthLabel = monthCursor.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+  const weekLabel = `${weekDays[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDays[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+  const navigatorWeeks = useMemo(
+    () => getWeekRangesForMonth(calendarPickerYear, calendarPickerMonth),
+    [calendarPickerYear, calendarPickerMonth],
+  );
+
+  const openCalendarNavigator = () => {
+    if (calendarMode === 'month') {
+      setCalendarPickerYear(monthCursor.getFullYear());
+      setCalendarPickerMonth(monthCursor.getMonth());
+    } else {
+      setCalendarPickerYear(weekCursor.getFullYear());
+      setCalendarPickerMonth(weekCursor.getMonth());
+    }
+    setIsCalendarNavigatorOpen(true);
+  };
 
   if (isLoading) {
     return <LoadingPage message="Cargando flujo operativo..." />;
@@ -616,7 +659,12 @@ export default function OperationsPage() {
                 onClick={() => goToBoardIndex(index)}
                 className={`relative px-3 py-1.5 text-xs rounded-md whitespace-nowrap transition-colors ${activeBoardIndex === index ? 'text-cmyk-cyan bg-cmyk-cyan/10' : 'text-neutral-300 hover:bg-neutral-800'}`}
               >
-                {config.title}
+                <span className="inline-flex items-center gap-2">
+                  <span>{config.title}</span>
+                  <span className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold ${activeBoardIndex === index ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'bg-neutral-800 text-neutral-300'}`}>
+                    {(overview?.blocks[key as keyof typeof overview.blocks] || []).length}
+                  </span>
+                </span>
                 {activeBoardIndex === index && (
                   <span className="absolute left-2 right-2 -bottom-0.5 h-0.5 bg-cmyk-cyan rounded-full" />
                 )}
@@ -669,7 +717,7 @@ export default function OperationsPage() {
               Calendario
             </h2>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-2">
             <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
               <button
                 onClick={() => setCalendarMode('month')}
@@ -684,7 +732,7 @@ export default function OperationsPage() {
                 Semana
               </button>
             </div>
-            <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
+            <div className="flex items-center gap-2 w-full rounded-xl border border-neutral-800 bg-neutral-950/50 p-2">
             <button
               onClick={() => {
                 if (calendarMode === 'month') {
@@ -702,11 +750,14 @@ export default function OperationsPage() {
             >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
-            <div className="text-center text-white font-medium text-sm px-1 flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
-              {calendarMode === 'month'
-                ? monthCursor.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
-                : `${weekDays[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDays[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-            </div>
+            <button
+              type="button"
+              onClick={openCalendarNavigator}
+              className="flex-1 min-w-0 rounded-lg border border-neutral-800 bg-neutral-900/70 px-3 py-2 text-center text-white font-medium text-sm hover:border-cmyk-cyan/40 hover:bg-neutral-900 transition-colors"
+            >
+              <span className="block truncate">{calendarMode === 'month' ? monthLabel : weekLabel}</span>
+              <span className="block text-[10px] text-neutral-400 mt-0.5">Tocar para navegar rápido</span>
+            </button>
             <button
               onClick={() => {
                 if (calendarMode === 'month') {
@@ -765,12 +816,7 @@ export default function OperationsPage() {
             </div>
           ) : (
             <div>
-              <div className="grid grid-cols-7 gap-2 text-xs text-neutral-500 mb-2">
-                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
-                  <div key={day} className="text-center py-2 uppercase tracking-wide">{day}</div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-2">
+              <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {weekDays.map((day) => {
                   const key = toDateKey(day);
                   const events = calendarEventsByDate.get(key) || [];
@@ -780,19 +826,26 @@ export default function OperationsPage() {
                       type="button"
                       onClick={() => setSelectedDateKey(key)}
                       key={key}
-                      className="aspect-square rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 overflow-hidden text-left hover:bg-neutral-800/80 transition-colors"
+                      className="w-[11.5rem] md:w-[12.5rem] shrink-0 rounded-xl border border-neutral-800 bg-neutral-900/70 p-3 text-left hover:bg-neutral-800/80 transition-colors"
                     >
-                      <div className="mb-2">
-                        <p className="text-[11px] text-neutral-500 uppercase">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] text-neutral-500 uppercase tracking-wide">
                           {day.toLocaleDateString('es-MX', { weekday: 'short' })}
-                        </p>
-                        <p className="text-sm text-white font-medium">
+                          </p>
+                          <p className="text-base text-white font-semibold">
                           {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                        </p>
+                          </p>
+                        </div>
+                        {events.length > 0 && <span className="inline-block h-2.5 w-2.5 rounded-full bg-cmyk-cyan mt-1" />}
                       </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-neutral-500">{events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}</span>
-                        {events.length > 0 && <span className="inline-block h-2 w-2 rounded-full bg-cmyk-cyan" />}
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] text-neutral-400">{events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}</p>
+                        {events.slice(0, 2).map((event) => (
+                          <p key={`${event.kind}-${event.id}-mini`} className="text-xs text-neutral-300 truncate">
+                            {event.title}
+                          </p>
+                        ))}
                       </div>
                     </button>
                   );
@@ -921,6 +974,84 @@ export default function OperationsPage() {
             </Link>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={isCalendarNavigatorOpen}
+        onClose={() => setIsCalendarNavigatorOpen(false)}
+        title={calendarMode === 'month' ? 'Navegar por año y mes' : 'Navegar por semana'}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-950/50 p-2">
+            <button
+              type="button"
+              onClick={() => setCalendarPickerYear((year) => year - 1)}
+              className="p-2 rounded-md border border-neutral-700 text-neutral-300 hover:text-white hover:border-cmyk-cyan transition-colors"
+              aria-label="Año anterior"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </button>
+            <span className="text-white font-semibold">{calendarPickerYear}</span>
+            <button
+              type="button"
+              onClick={() => setCalendarPickerYear((year) => year + 1)}
+              className="p-2 rounded-md border border-neutral-700 text-neutral-300 hover:text-white hover:border-cmyk-cyan transition-colors"
+              aria-label="Año siguiente"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {Array.from({ length: 12 }).map((_, monthIndex) => {
+              const monthName = new Date(calendarPickerYear, monthIndex, 1).toLocaleDateString('es-MX', { month: 'short' });
+              const isActive = monthIndex === calendarPickerMonth;
+              return (
+                <button
+                  key={`month-picker-${monthIndex}`}
+                  type="button"
+                  onClick={() => {
+                    setCalendarPickerMonth(monthIndex);
+                    if (calendarMode === 'month') {
+                      setMonthCursor(new Date(calendarPickerYear, monthIndex, 1));
+                      setIsCalendarNavigatorOpen(false);
+                    }
+                  }}
+                  className={`rounded-md border px-2 py-2 text-xs uppercase transition-colors ${isActive ? 'border-cmyk-cyan/50 bg-cmyk-cyan/15 text-cmyk-cyan' : 'border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-600 hover:text-white'}`}
+                >
+                  {monthName}
+                </button>
+              );
+            })}
+          </div>
+
+          {calendarMode === 'week' && (
+            <div className="space-y-2">
+              <p className="text-xs text-neutral-400">Selecciona la semana dentro del mes:</p>
+              <div className="space-y-2 max-h-[38dvh] overflow-y-auto pr-1">
+                {navigatorWeeks.map((weekStart) => {
+                  const weekEnd = new Date(weekStart);
+                  weekEnd.setDate(weekStart.getDate() + 6);
+                  const isCurrent = toDateKey(getWeekStart(weekCursor)) === toDateKey(weekStart);
+                  return (
+                    <button
+                      key={`week-picker-${toDateKey(weekStart)}`}
+                      type="button"
+                      onClick={() => {
+                        setWeekCursor(new Date(weekStart));
+                        setIsCalendarNavigatorOpen(false);
+                      }}
+                      className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${isCurrent ? 'border-cmyk-cyan/50 bg-cmyk-cyan/10 text-cmyk-cyan' : 'border-neutral-800 bg-neutral-900/80 text-neutral-200 hover:border-neutral-600 hover:text-white'}`}
+                    >
+                      {weekStart.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - {weekEnd.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );
