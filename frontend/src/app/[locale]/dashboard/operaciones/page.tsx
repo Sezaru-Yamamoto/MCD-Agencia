@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import {
@@ -138,11 +138,15 @@ export default function OperationsPage() {
   const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [previewBlockKey, setPreviewBlockKey] = useState<keyof typeof blockConfig | null>(null);
+  const [activeBoardIndex, setActiveBoardIndex] = useState(0);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [weekCursor, setWeekCursor] = useState(() => new Date());
+  const mobileBoardRef = useRef<HTMLDivElement | null>(null);
+  const mobileBoardCardRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const mobileBoardTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const getErrorStatus = (error: unknown): number | null => {
     if (!error || typeof error !== 'object' || !('status' in error)) return null;
@@ -454,6 +458,128 @@ export default function OperationsPage() {
 
   const blockEntries = Object.entries(blockConfig) as Array<[keyof typeof blockConfig, (typeof blockConfig)[keyof typeof blockConfig]]>;
 
+  const goToBoardIndex = (index: number) => {
+    setActiveBoardIndex(index);
+    mobileBoardTabRefs.current[index]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    mobileBoardCardRefs.current[index]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  };
+
+  const handleMobileBoardScroll = () => {
+    const container = mobileBoardRef.current;
+    if (!container) return;
+    const children = Array.from(container.children) as HTMLElement[];
+    if (children.length === 0) return;
+
+    let nextIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    children.forEach((child, index) => {
+      const distance = Math.abs(child.offsetLeft - container.scrollLeft);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nextIndex = index;
+      }
+    });
+
+    if (nextIndex !== activeBoardIndex) {
+      setActiveBoardIndex(nextIndex);
+      mobileBoardTabRefs.current[nextIndex]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  };
+
+  const renderBlockCard = (
+    key: keyof typeof blockConfig,
+    config: (typeof blockConfig)[keyof typeof blockConfig],
+    items: WorkflowItem[],
+    moduleHref: string,
+  ) => {
+    const Icon = config.icon;
+
+    return (
+      <Card className={`p-4 border ${config.accent} min-h-[17rem] md:min-h-[20rem] flex flex-col`}>
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Icon className="h-5 w-5 text-cmyk-cyan" />
+              <h2 className="text-lg font-semibold text-white">{config.title}</h2>
+            </div>
+            <p className="text-neutral-500 text-xs mt-1">{config.subtitle}</p>
+          </div>
+          <span className="text-xs text-neutral-400">{items.length}</span>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-neutral-500 text-sm text-center px-4">
+            {config.empty}
+          </div>
+        ) : (
+          <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+            {items.slice(0, 3).map((item) => (
+              <Link
+                key={item.id}
+                href={`/${locale}${item.href}`}
+                className="block rounded-lg border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{item.title}</p>
+                    <p className="text-neutral-400 text-xs truncate">{item.subtitle}</p>
+                  </div>
+                  {item.amount && (
+                    <span className="text-green-400 text-xs font-medium whitespace-nowrap">
+                      {formatCurrency(item.amount)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className={`px-2 py-1 rounded-full border ${statusToneClasses[item.status] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}>
+                    {item.status_display}
+                  </span>
+                  {item.date && (
+                    <span className="px-2 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                      {item.date_label || 'Fecha'}: {formatDate(item.date)}
+                    </span>
+                  )}
+                  {item.is_range && (
+                    <span className="px-2 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                      Rango: {formatDateRange(item.start, item.end)}
+                    </span>
+                  )}
+                  {item.payment_method && requiresManualPayment(item.payment_method) && (
+                    <span className="px-2 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                      {getPaymentMethodLabel(item.payment_method)}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+            {items.length > 3 && (
+              <p className="text-xs text-neutral-500 px-1">+{items.length - 3} más</p>
+            )}
+          </div>
+        )}
+
+        <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPreviewBlockKey(key)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-neutral-700 text-xs text-neutral-300 hover:text-white hover:border-cmyk-cyan hover:bg-neutral-800 transition-colors"
+          >
+            <EyeIcon className="h-3.5 w-3.5" />
+            Preview
+          </button>
+          <Link
+            href={moduleHref}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-cmyk-cyan/40 text-xs text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors"
+          >
+            <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+            Ir al módulo
+          </Link>
+        </div>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -478,124 +604,60 @@ export default function OperationsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-center lg:justify-start gap-2">
-        <Card className="px-3 py-2 w-[9.5rem]">
-          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Por asignar</p>
-          <p className="text-lg font-bold text-white mt-1">{overview?.stats.pending_requests ?? 0}</p>
-        </Card>
-        <Card className="px-3 py-2 w-[9.5rem]">
-          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Por cotizar</p>
-          <p className="text-lg font-bold text-white mt-1">{overview?.stats.assigned_requests ?? 0}</p>
-        </Card>
-        <Card className="px-3 py-2 w-[9.5rem]">
-          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Validar pagos</p>
-          <p className="text-lg font-bold text-white mt-1">{overview?.stats.manual_payment_orders ?? 0}</p>
-        </Card>
-        <Card className="px-3 py-2 w-[9.5rem]">
-          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">En producción</p>
-          <p className="text-lg font-bold text-white mt-1">{overview?.stats.in_production_orders ?? 0}</p>
-        </Card>
-        <Card className="px-3 py-2 w-[9.5rem]">
-          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Para enviar</p>
-          <p className="text-lg font-bold text-white mt-1">{overview?.stats.ready_orders ?? 0}</p>
-        </Card>
-        <Card className="px-3 py-2 w-[9.5rem]">
-          <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Entregados</p>
-          <p className="text-lg font-bold text-white mt-1">{overview?.stats.completed_orders ?? 0}</p>
-        </Card>
+      {viewMode !== 'calendar' && (
+      <>
+      <div className="xl:hidden space-y-3">
+        <div className="overflow-x-auto">
+          <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-neutral-700 p-1 bg-neutral-900/70">
+            {blockEntries.map(([key, config], index) => (
+              <button
+                key={key}
+                ref={(el) => { mobileBoardTabRefs.current[index] = el; }}
+                onClick={() => goToBoardIndex(index)}
+                className={`relative px-3 py-1.5 text-xs rounded-md whitespace-nowrap transition-colors ${activeBoardIndex === index ? 'text-cmyk-cyan bg-cmyk-cyan/10' : 'text-neutral-300 hover:bg-neutral-800'}`}
+              >
+                {config.title}
+                {activeBoardIndex === index && (
+                  <span className="absolute left-2 right-2 -bottom-0.5 h-0.5 bg-cmyk-cyan rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div
+          ref={mobileBoardRef}
+          onScroll={handleMobileBoardScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3"
+        >
+          {blockEntries.map(([key, config], index) => {
+            const items = overview?.blocks[key as keyof typeof overview.blocks] || [];
+            const moduleHref = `/${locale}${blockRouteMap[key]}`;
+            return (
+              <div
+                key={key}
+                ref={(el) => { mobileBoardCardRefs.current[index] = el; }}
+                className="min-w-full snap-start"
+              >
+                {renderBlockCard(key, config, items as WorkflowItem[], moduleHref)}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {viewMode !== 'calendar' && (
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="hidden xl:grid grid-cols-3 gap-4">
         {blockEntries.map(([key, config]) => {
-          const Icon = config.icon;
           const items = overview?.blocks[key as keyof typeof overview.blocks] || [];
           const moduleHref = `/${locale}${blockRouteMap[key]}`;
           return (
-            <Card key={key} className={`p-4 border ${config.accent} min-h-[17rem] md:min-h-[20rem] flex flex-col`}>
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-5 w-5 text-cmyk-cyan" />
-                    <h2 className="text-lg font-semibold text-white">{config.title}</h2>
-                  </div>
-                  <p className="text-neutral-500 text-xs mt-1">{config.subtitle}</p>
-                </div>
-                <span className="text-xs text-neutral-400">{items.length}</span>
-              </div>
-
-              {items.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-neutral-500 text-sm text-center px-4">
-                  {config.empty}
-                </div>
-              ) : (
-                <div className="space-y-2 flex-1 overflow-y-auto pr-1">
-                  {items.slice(0, 3).map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/${locale}${item.href}`}
-                      className="block rounded-lg border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80 transition-colors p-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{item.title}</p>
-                          <p className="text-neutral-400 text-xs truncate">{item.subtitle}</p>
-                        </div>
-                        {item.amount && (
-                          <span className="text-green-400 text-xs font-medium whitespace-nowrap">
-                            {formatCurrency(item.amount)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                        <span className={`px-2 py-1 rounded-full border ${statusToneClasses[item.status] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}>
-                          {item.status_display}
-                        </span>
-                        {item.date && (
-                          <span className="px-2 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
-                            {item.date_label || 'Fecha'}: {formatDate(item.date)}
-                          </span>
-                        )}
-                        {item.is_range && (
-                          <span className="px-2 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
-                            Rango: {formatDateRange(item.start, item.end)}
-                          </span>
-                        )}
-                        {item.payment_method && requiresManualPayment(item.payment_method) && (
-                          <span className="px-2 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                            {getPaymentMethodLabel(item.payment_method)}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                  {items.length > 3 && (
-                    <p className="text-xs text-neutral-500 px-1">+{items.length - 3} más</p>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreviewBlockKey(key)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-neutral-700 text-xs text-neutral-300 hover:text-white hover:border-cmyk-cyan hover:bg-neutral-800 transition-colors"
-                >
-                  <EyeIcon className="h-3.5 w-3.5" />
-                  Preview
-                </button>
-                <Link
-                  href={moduleHref}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-cmyk-cyan/40 text-xs text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors"
-                >
-                  <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-                  Ir al módulo
-                </Link>
-              </div>
-            </Card>
+            <div key={key}>
+              {renderBlockCard(key, config, items as WorkflowItem[], moduleHref)}
+            </div>
           );
         })}
       </div>
+      </>
       )}
 
       {viewMode !== 'board' && (
