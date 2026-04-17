@@ -496,7 +496,7 @@ export default function OperationsPage() {
     const Icon = config.icon;
 
     return (
-      <Card className={`p-4 border ${config.accent} min-h-[17rem] md:min-h-[20rem] flex flex-col`}>
+      <Card className={`p-4 border ${config.accent} min-h-[22rem] md:min-h-[20rem] flex flex-col`}>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -513,7 +513,7 @@ export default function OperationsPage() {
             {config.empty}
           </div>
         ) : (
-          <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+          <div className="space-y-2 flex-1 md:overflow-y-auto pr-1">
             {items.slice(0, 3).map((item) => (
               <Link
                 key={item.id}
@@ -607,19 +607,16 @@ export default function OperationsPage() {
       {viewMode !== 'calendar' && (
       <>
       <div className="xl:hidden space-y-3">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-1">
           <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-neutral-700 p-1 bg-neutral-900/70">
             {blockEntries.map(([key, config], index) => (
               <button
                 key={key}
                 ref={(el) => { mobileBoardTabRefs.current[index] = el; }}
                 onClick={() => goToBoardIndex(index)}
-                className={`relative px-3 py-1.5 text-xs rounded-md whitespace-nowrap transition-colors ${activeBoardIndex === index ? 'text-cmyk-cyan bg-cmyk-cyan/10' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                className={`px-3 py-1.5 text-xs rounded-md whitespace-nowrap transition-colors ${activeBoardIndex === index ? 'text-cmyk-cyan bg-cmyk-cyan/10' : 'text-neutral-300 hover:bg-neutral-800'}`}
               >
                 {config.title}
-                {activeBoardIndex === index && (
-                  <span className="absolute left-2 right-2 -bottom-0.5 h-0.5 bg-cmyk-cyan rounded-full" />
-                )}
               </button>
             ))}
           </div>
