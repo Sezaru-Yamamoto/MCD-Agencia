@@ -246,6 +246,7 @@ export default function AdminCatalogPage() {
 
       // Close immediately to improve perceived response time.
       closeModal();
+      toast.success('Cambios aplicados');
 
       // Return a context with the snapshot for rollback
       return { previousData, pendingImages };
@@ -255,12 +256,10 @@ export default function AdminCatalogPage() {
 
       if (context?.pendingImages?.length) {
         void uploadProductImages(variables.id, context.pendingImages)
-          .then(() => toast.success('Producto e imágenes actualizados'))
+          .then(() => undefined)
           .catch(() => toast.error('Producto actualizado, pero hubo error al subir imágenes'));
         return;
       }
-
-      toast.success('Producto actualizado');
     },
     onError: (_, __, context: any) => {
       // Rollback on error
