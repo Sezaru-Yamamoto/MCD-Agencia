@@ -148,6 +148,24 @@ export function UnifiedHeader() {
     pathname?.startsWith(`/${locale}/dashboard`) ||
     pathname?.startsWith(`/${locale}/mi-cuenta`);
 
+  const desktopNavClassName = hasDesktopSidebarOffset
+    ? 'hidden xl:flex items-center space-x-2 2xl:space-x-4 flex-1 ml-4'
+    : 'hidden lg:flex items-center space-x-3 xl:space-x-6 flex-1 ml-4';
+
+  const desktopActionsClassName = hasDesktopSidebarOffset
+    ? 'hidden xl:flex items-center space-x-2'
+    : 'hidden lg:flex items-center space-x-2 xl:space-x-3';
+
+  const mobileControlsClassName = hasDesktopSidebarOffset
+    ? 'flex items-center gap-1 xl:hidden'
+    : 'flex items-center gap-1 lg:hidden';
+
+  const mobileMenuPanelClassName = hasDesktopSidebarOffset
+    ? 'xl:hidden fixed inset-x-0 bottom-0 z-[60] bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain'
+    : 'lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain';
+
+  const logoMetaClassName = hasDesktopSidebarOffset ? 'hidden 2xl:block' : 'hidden xl:block';
+
   return (
     <>
     <header
@@ -177,19 +195,19 @@ export function UnifiedHeader() {
                 priority
               />
             </div>
-            <div className="hidden xl:block">
+            <div className={logoMetaClassName}>
               <span className="text-lg font-bold text-white">Agencia MCD</span>
               <p className="text-xs text-gray-400">Acapulco</p>
             </div>
           </Link>
 
           {/* Navigation Desktop */}
-          <nav className="hidden lg:flex items-center space-x-3 xl:space-x-6 flex-1 ml-4">
+          <nav className={desktopNavClassName}>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={`/${locale}${link.href}`}
-                className={`text-base lg:text-lg font-medium transition-colors ${
+                className={`text-sm xl:text-base font-medium whitespace-nowrap transition-colors ${
                   isActive(link.href)
                     ? 'text-cmyk-cyan'
                     : 'text-white hover:text-cmyk-cyan'
@@ -201,7 +219,7 @@ export function UnifiedHeader() {
           </nav>
 
           {/* CTAs Desktop */}
-          <div className="hidden lg:flex items-center space-x-2 xl:space-x-3">
+          <div className={desktopActionsClassName}>
             {/* WhatsApp */}
             <a
               href={CONTACT_INFO.whatsapp.url}
@@ -380,7 +398,7 @@ export function UnifiedHeader() {
           </div>
 
           {/* Mobile: Notification Bell + Hamburger */}
-          <div className="flex items-center gap-1 lg:hidden">
+          <div className={mobileControlsClassName}>
             {isStaff && <NotificationBell />}
             <button
               type="button"
@@ -404,7 +422,7 @@ export function UnifiedHeader() {
     {/* Mobile Menu — rendered outside <header> so it's in the root stacking context */}
     {isMobileMenuOpen && (
       <div
-        className="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overscroll-contain"
+        className={mobileMenuPanelClassName}
         style={{ top: 'var(--app-header-height, 4rem)' }}
       >
         <div className="px-4 py-4 border-t border-cmyk-cyan/10">
