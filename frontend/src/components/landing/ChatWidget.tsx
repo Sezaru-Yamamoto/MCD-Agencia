@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, User, ExternalLink, ThumbsUp, ThumbsDown, Minus } from 'lucide-react';
+import { X, Send, User, ExternalLink, Minus } from 'lucide-react';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,6 @@ interface Message {
   messageId?: string;          // backend UUID for feedback
   source?: 'predefined' | 'ai' | 'fallback' | 'error_fallback';
   suggestions?: string[];
-  feedbackGiven?: 'positive' | 'negative' | null;
   whatsappLinks?: { acapulco: string; tecoanapa: string };
 }
 
@@ -219,8 +218,10 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       poweredBy: 'Asistente IA · MCD',
       welcomeDefault: '¡Hola! 👋 Soy el asistente virtual de Agencia MCD. ¿En qué puedo ayudarte?',
       charCount: (n: number) => `${n}/${MAX_MESSAGE_LENGTH}`,
-      feedbackThanks: '¡Gracias por tu opinión!',
       newChat: 'Nueva conversación',
+      quickActionsTitle: 'Acciones frecuentes',
+      quickActionsHint: 'Toca una opción para comenzar más rápido',
+      suggestionsTitle: 'Sugerencias',
     },
     en: {
       title: 'Virtual Assistant',
@@ -235,8 +236,10 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       poweredBy: 'AI Assistant · MCD',
       welcomeDefault: "Hello! 👋 I'm the virtual assistant of Agencia MCD. How can I help you?",
       charCount: (n: number) => `${n}/${MAX_MESSAGE_LENGTH}`,
-      feedbackThanks: 'Thanks for your feedback!',
       newChat: 'New conversation',
+      quickActionsTitle: 'Common actions',
+      quickActionsHint: 'Tap an option to get started faster',
+      suggestionsTitle: 'Suggestions',
     },
   };
   const texts = t[locale as keyof typeof t] || t.es;
@@ -338,7 +341,7 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
       setMessages(prev => [...prev, {
         id: `assistant_${Date.now()}`, role: 'assistant', content: data.message,
         messageId: data.message_id, timestamp: new Date(), source: data.source,
-        suggestions: data.suggestions || [], feedbackGiven: null,
+        suggestions: data.suggestions || [],
         whatsappLinks: data.whatsapp_links,
       }]);
       if (data.should_escalate) setShowWhatsAppOptions(true);
@@ -358,22 +361,6 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
     }
   }, [isLoading, messages, sessionId, locale]);
 
-  // ---- Feedback handler ----
-  const handleFeedback = useCallback(async (msgIndex: number, rating: 'positive' | 'negative') => {
-    const msg = messages[msgIndex];
-    if (!msg?.messageId || msg.feedbackGiven) return;
-    setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, feedbackGiven: rating } : m));
-    try {
-      await fetch(`${API_BASE_URL}/chatbot/web-chat/feedback/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message_id: msg.messageId, rating, session_id: sessionId }),
-      });
-    } catch {
-      setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, feedbackGiven: null } : m));
-    }
-  }, [messages, sessionId]);
-
   // ---- New conversation ----
   const handleNewChat = useCallback(() => {
     setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
@@ -387,7 +374,8 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
   const formatTime = (d: Date) => d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   const lastBotMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.suggestions && m.suggestions.length > 0);
-  const showSuggestions = !isLoading && lastBotMsg && messages.length > 1;
+  const showSuggestions = !isLoading && !!lastBotMsg && messages.length > 1;
+  const showQuickActionsInThread = messages.length <= 1 && !!config?.quick_actions?.length;
 
   return (
     <>
@@ -489,23 +477,6 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                               {formatTime(message.timestamp)}
                             </p>
                           </div>
-                          {/* Feedback */}
-                          {message.role === 'assistant' && message.messageId && message.source === 'ai' && (
-                            <div className="flex items-center gap-1 ml-1">
-                              {message.feedbackGiven ? (
-                                <span className="text-[10px] text-slate-500">{texts.feedbackThanks}</span>
-                              ) : (
-                                <>
-                                  <button onClick={() => handleFeedback(index, 'positive')} className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-green-600 transition-colors" aria-label="Good response">
-                                    <ThumbsUp className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button onClick={() => handleFeedback(index, 'negative')} className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-red-500 transition-colors" aria-label="Bad response">
-                                    <ThumbsDown className="w-3.5 h-3.5" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -545,36 +516,51 @@ export default function ChatWidget({ externalOpen, onOpenChange, onStateChange }
                     </div>
                   )}
 
+                  {showQuickActionsInThread && config?.quick_actions && (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                        {texts.quickActionsTitle}
+                      </p>
+                      <p className="text-xs text-slate-500 mb-3">
+                        {texts.quickActionsHint}
+                      </p>
+                      <div className="grid grid-cols-1 gap-2">
+                        {config.quick_actions.slice(0, 5).map((action) => (
+                          <button
+                            key={action.id}
+                            onClick={() => handleQuickAction(action)}
+                            className="w-full text-left px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {showSuggestions && lastBotMsg && (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                        {texts.suggestionsTitle}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {lastBotMsg.suggestions!.slice(0, 4).map((s, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSuggestion(s)}
+                            className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                     <div ref={messagesEndRef} />
                   </div>
                 </div>
               </div>
-
-              {/* Suggestion Chips (after each AI response) */}
-              {showSuggestions && lastBotMsg && (
-                <div className="px-4 py-2 bg-white border-t border-slate-200 flex-shrink-0">
-                  <div className="flex flex-wrap gap-1.5">
-                    {lastBotMsg.suggestions!.map((s, i) => (
-                      <button key={i} onClick={() => handleSuggestion(s)} className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors">
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions — only at start */}
-              {messages.length <= 1 && config?.quick_actions && !showSuggestions && (
-                <div className="px-4 py-2 bg-white border-t border-slate-200 flex-shrink-0">
-                  <div className="flex flex-wrap gap-1.5">
-                    {config.quick_actions.map((action) => (
-                      <button key={action.id} onClick={() => handleQuickAction(action)} className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors">
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Input */}
               <form onSubmit={handleSubmit} className="p-3 bg-white border-t border-slate-200 flex-shrink-0" style={{ paddingBottom: isMobile ? 'max(0.75rem, env(safe-area-inset-bottom))' : undefined }}>
