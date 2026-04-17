@@ -14,9 +14,10 @@ import {
   ArrowPathIcon,
   TruckIcon,
   UserGroupIcon,
+  ListBulletIcon,
 } from '@heroicons/react/24/outline';
 
-import { Card, LoadingPage } from '@/components/ui';
+import { Card, LoadingPage, Modal } from '@/components/ui';
 import { getWorkflowOverview, type WorkflowItem } from '@/lib/api/admin';
 import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
 import { getAdminQuoteRequests, getAdminQuotes, type Quote, type QuoteRequest } from '@/lib/api/quotes';
@@ -124,6 +125,7 @@ export default function OperationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
   const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -383,6 +385,21 @@ export default function OperationsPage() {
 
   const calendarItemsCount = Math.max(overview?.stats.calendar_items ?? 0, effectiveCalendarEvents.length);
 
+  const selectedDateEvents = useMemo(() => {
+    if (!selectedDateKey) return [] as WorkflowItem[];
+    return calendarEventsByDate.get(selectedDateKey) || [];
+  }, [selectedDateKey, calendarEventsByDate]);
+
+  const selectedDateLabel = useMemo(() => {
+    if (!selectedDateKey) return '';
+    return parseDateSafe(selectedDateKey)?.toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }) || selectedDateKey;
+  }, [selectedDateKey]);
+
   const calendarDays = useMemo(() => {
     const year = monthCursor.getFullYear();
     const month = monthCursor.getMonth();
@@ -424,25 +441,27 @@ export default function OperationsPage() {
     <div className="space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <h1 className="text-2xl md:text-3xl font-bold text-white">Flujo Operativo Unificado</h1>
-        <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
+        <div className="inline-flex items-center rounded-lg border border-neutral-700 overflow-hidden self-start">
           <button
             onClick={() => setViewMode('board')}
-            className={`px-3 py-1.5 text-xs transition-colors ${viewMode === 'board' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+            className={`px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${viewMode === 'board' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
             title="Mostrar tablero"
           >
+            <ListBulletIcon className="h-3.5 w-3.5" />
             Tablero
           </button>
           <button
             onClick={() => setViewMode('calendar')}
-            className={`px-3 py-1.5 text-xs transition-colors border-l border-neutral-700 ${viewMode === 'calendar' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
+            className={`px-2.5 py-1.5 text-xs transition-colors border-l border-neutral-700 flex items-center gap-1.5 ${viewMode === 'calendar' ? 'bg-cmyk-cyan/20 text-cmyk-cyan' : 'text-neutral-300 hover:bg-neutral-800'}`}
             title="Mostrar calendario"
           >
+            <CalendarDaysIcon className="h-3.5 w-3.5" />
             Calendario
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center lg:justify-start gap-2">
         <Card className="px-3 py-2 w-[9.5rem]">
           <p className="text-neutral-500 text-[10px] uppercase tracking-wide">Por asignar</p>
           <p className="text-lg font-bold text-white mt-1">{overview?.stats.pending_requests ?? 0}</p>
@@ -542,17 +561,14 @@ export default function OperationsPage() {
 
       {viewMode !== 'board' && (
       <Card className="p-5">
-        <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="space-y-3 mb-5">
           <div>
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <CalendarDaysIcon className="h-5 w-5 text-cmyk-cyan" />
               Calendario
             </h2>
-            <p className="text-neutral-500 text-sm">
-              Fechas requeridas, entregas estimadas y programación de pedidos.
-            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center rounded-lg border border-neutral-700 overflow-hidden">
               <button
                 onClick={() => setCalendarMode('month')}
@@ -567,6 +583,7 @@ export default function OperationsPage() {
                 Semana
               </button>
             </div>
+            <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
             <button
               onClick={() => {
                 if (calendarMode === 'month') {
@@ -584,7 +601,7 @@ export default function OperationsPage() {
             >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
-            <div className="min-w-[12rem] text-center text-white font-medium">
+            <div className="text-center text-white font-medium text-sm px-1 flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
               {calendarMode === 'month'
                 ? monthCursor.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
                 : `${weekDays[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDays[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
@@ -606,6 +623,7 @@ export default function OperationsPage() {
             >
               <ChevronRightIcon className="h-4 w-4" />
             </button>
+            </div>
           </div>
         </div>
 
@@ -617,41 +635,29 @@ export default function OperationsPage() {
                   <div key={day} className="text-center py-2 uppercase tracking-wide">{day}</div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(6.5rem,1fr)]">
+              <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day) => {
                   const key = toDateKey(day);
                   const events = calendarEventsByDate.get(key) || [];
                   const inMonth = day.getMonth() === monthCursor.getMonth();
 
                   return (
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDateKey(key)}
                       key={key}
-                      className={`rounded-xl border p-2 overflow-hidden ${inMonth ? 'border-neutral-800 bg-neutral-900/70' : 'border-neutral-800/40 bg-neutral-950/40 opacity-50'}`}
+                      className={`aspect-square rounded-xl border p-2 overflow-hidden text-left transition-colors ${inMonth ? 'border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800/80' : 'border-neutral-800/40 bg-neutral-950/40 opacity-50 hover:opacity-80'}`}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between">
                         <span className={`text-xs font-medium ${inMonth ? 'text-white' : 'text-neutral-500'}`}>{day.getDate()}</span>
                         {events.length > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20">
-                            {events.length}
-                          </span>
+                          <span className="inline-block h-2 w-2 rounded-full bg-cmyk-cyan" aria-label={`${events.length} evento(s)`} />
                         )}
                       </div>
-                      <div className="space-y-1 max-h-[4.6rem] overflow-hidden">
-                        {events.slice(0, 3).map((event) => (
-                          <Link
-                            key={event.id + event.kind}
-                            href={`/${locale}${event.href}`}
-                            className={`block text-[11px] leading-tight rounded-md border px-2 py-1 truncate ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
-                            title={`${event.title} · ${event.subtitle}`}
-                          >
-                            {event.title}
-                          </Link>
-                        ))}
-                        {events.length > 3 && (
-                          <div className="text-[10px] text-neutral-500 px-1">+{events.length - 3} más</div>
-                        )}
+                      <div className="mt-2 text-[10px] text-neutral-500">
+                        {events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -663,13 +669,18 @@ export default function OperationsPage() {
                   <div key={day} className="text-center py-2 uppercase tracking-wide">{day}</div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-2 auto-rows-[minmax(13rem,1fr)]">
+              <div className="grid grid-cols-7 gap-2">
                 {weekDays.map((day) => {
                   const key = toDateKey(day);
                   const events = calendarEventsByDate.get(key) || [];
 
                   return (
-                    <div key={key} className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDateKey(key)}
+                      key={key}
+                      className="aspect-square rounded-xl border border-neutral-800 bg-neutral-900/70 p-2 overflow-hidden text-left hover:bg-neutral-800/80 transition-colors"
+                    >
                       <div className="mb-2">
                         <p className="text-[11px] text-neutral-500 uppercase">
                           {day.toLocaleDateString('es-MX', { weekday: 'short' })}
@@ -678,23 +689,11 @@ export default function OperationsPage() {
                           {day.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                         </p>
                       </div>
-                      <div className="space-y-1 max-h-[10rem] overflow-y-auto pr-1">
-                        {events.length === 0 ? (
-                          <p className="text-[11px] text-neutral-600">Sin eventos</p>
-                        ) : (
-                          events.map((event) => (
-                            <Link
-                              key={event.id + event.kind}
-                              href={`/${locale}${event.href}`}
-                              className={`block text-[11px] leading-tight rounded-md border px-2 py-1 ${itemToneClasses[event.kind] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}
-                              title={`${event.title} · ${event.subtitle}`}
-                            >
-                              {event.title}
-                            </Link>
-                          ))
-                        )}
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[10px] text-neutral-500">{events.length > 0 ? `${events.length} evento(s)` : 'Sin evento'}</span>
+                        {events.length > 0 && <span className="inline-block h-2 w-2 rounded-full bg-cmyk-cyan" />}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -745,6 +744,38 @@ export default function OperationsPage() {
         </div>
       </Card>
       )}
+
+      <Modal
+        isOpen={!!selectedDateKey}
+        onClose={() => setSelectedDateKey(null)}
+        title={selectedDateLabel ? `Eventos - ${selectedDateLabel}` : 'Eventos del día'}
+        size="lg"
+      >
+        {selectedDateEvents.length === 0 ? (
+          <p className="text-sm text-neutral-400">No hay tareas registradas para este día.</p>
+        ) : (
+          <div className="space-y-2 max-h-[65dvh] overflow-y-auto pr-1">
+            {selectedDateEvents.map((event) => (
+              <Link
+                key={`${event.kind}-${event.id}-${event.date}-${event.status}`}
+                href={`/${locale}${event.href}`}
+                className="block p-3 rounded-lg border border-neutral-800 bg-neutral-900/70 hover:bg-neutral-800 transition-colors"
+                onClick={() => setSelectedDateKey(null)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{event.title}</p>
+                    <p className="text-neutral-400 text-xs truncate">{event.subtitle}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full border text-[11px] ${statusToneClasses[event.status] || 'bg-neutral-800 text-neutral-300 border-neutral-700'}`}>
+                    {event.status_display}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
