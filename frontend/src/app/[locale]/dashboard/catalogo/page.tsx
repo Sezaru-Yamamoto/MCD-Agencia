@@ -148,16 +148,24 @@ export default function AdminCatalogPage() {
     }),
   });
 
-  // Fetch categories for select (tree structure with children)
-  const categoryTypeFilter = formData.type === 'service' ? undefined : formData.type;
-  const { data: categoriesData } = useQuery({
-    queryKey: ['categories', categoryTypeFilter || 'all', 'active', 100],
-    queryFn: () => getCategories(categoryTypeFilter, { is_active: true, page_size: 100 }),
+  // Preload categories by type so switching Producto/Servicio is instant.
+  const { data: productCategoriesData } = useQuery({
+    queryKey: ['categories', 'product', 'active', 100],
+    queryFn: () => getCategories('product', { is_active: true, page_size: 100 }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: serviceCategoriesData } = useQuery({
+    queryKey: ['categories', 'service', 'active', 100],
+    queryFn: () => getCategories('service', { is_active: true, page_size: 100 }),
+    staleTime: 5 * 60 * 1000,
   });
 
   const products = productsData?.results || [];
   const totalPages = Math.ceil((productsData?.count || 0) / 20);
-  const categories = categoriesData?.results || [];
+  const categories = formData.type === 'service'
+    ? (serviceCategoriesData?.results || [])
+    : (productCategoriesData?.results || []);
 
   const { data: editingProductDetail } = useQuery({
     queryKey: ['admin-product-detail', editingProduct?.id],
