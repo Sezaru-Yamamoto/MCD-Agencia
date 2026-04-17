@@ -216,27 +216,14 @@ export default function AdminCatalogPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CreateProductData> }) => {
-      const product = await updateProduct(id, data);
-      // Upload new images if any
-      if (selectedImages.length > 0) {
-        try {
-          await uploadProductImages(id, selectedImages);
-          toast.success('Producto e imágenes actualizados');
-        } catch {
-          toast.error('Producto actualizado, pero hubo error al subir imágenes');
-        }
-      } else {
-        toast.success('Producto actualizado');
-      }
-      return product;
-    },
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateProductData> }) => updateProduct(id, data),
     onMutate: async ({ id, data }) => {
       // Cancel any ongoing refetches
       await queryClient.cancelQueries({ queryKey: ['admin-products', filters] });
 
       // Snapshot the previous data
       const previousData = queryClient.getQueryData(['admin-products', filters]);
+      const pendingImages = [...selectedImages];
 
       // Optimistically update the cache
       queryClient.setQueryData(['admin-products', filters], (old: any) => {
@@ -257,17 +244,30 @@ export default function AdminCatalogPage() {
         };
       });
 
-      // Return a context with the snapshot for rollback
-      return { previousData };
-    },
-    onSuccess: () => {
+      // Close immediately to improve perceived response time.
       closeModal();
+
+      // Return a context with the snapshot for rollback
+      return { previousData, pendingImages };
+    },
+    onSuccess: (_, variables, context) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products', filters] });
+
+      if (context?.pendingImages?.length) {
+        void uploadProductImages(variables.id, context.pendingImages)
+          .then(() => toast.success('Producto e imágenes actualizados'))
+          .catch(() => toast.error('Producto actualizado, pero hubo error al subir imágenes'));
+        return;
+      }
+
+      toast.success('Producto actualizado');
     },
     onError: (_, __, context: any) => {
       // Rollback on error
       if (context?.previousData) {
         queryClient.setQueryData(['admin-products', filters], context.previousData);
       }
+      queryClient.invalidateQueries({ queryKey: ['admin-products', filters] });
       toast.error('Error al actualizar producto');
     },
   });
