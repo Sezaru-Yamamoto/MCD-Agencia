@@ -602,12 +602,61 @@ export default function CustomerChangeRequestDetailPage() {
             </Card>
           )}
 
-          {/* Attachments */}
+          {/* Original Quote Attachments */}
+          {quote && quote.attachments && quote.attachments.length > 0 && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <PaperClipIcon className="h-5 w-5 text-neutral-400" />
+                Archivos de la Cotización Original ({quote.attachments.length})
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {quote.attachments.map((attachment) => {
+                  const isImage = attachment.file_type?.startsWith('image/');
+                  const fileSize = attachment.file_size
+                    ? attachment.file_size < 1024 * 1024
+                      ? `${(attachment.file_size / 1024).toFixed(0)} KB`
+                      : `${(attachment.file_size / (1024 * 1024)).toFixed(1)} MB`
+                    : '';
+
+                  return (
+                    <a
+                      key={attachment.id}
+                      href={attachment.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative block rounded-lg border border-neutral-700 bg-neutral-800/50 overflow-hidden hover:border-neutral-500/50 transition-colors"
+                    >
+                      {isImage ? (
+                        <div className="aspect-square">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={attachment.file} alt={attachment.filename} className="w-full h-full object-cover opacity-75 hover:opacity-100 transition-opacity" />
+                        </div>
+                      ) : (
+                        <div className="aspect-square flex flex-col items-center justify-center p-3">
+                          <PhotoIcon className="h-8 w-8 text-neutral-500 mb-1" />
+                          <span className="text-[10px] text-neutral-500 text-center truncate w-full">{attachment.filename}</span>
+                        </div>
+                      )}
+                      <div className="p-2 border-t border-neutral-700">
+                        <p className="text-xs text-neutral-300 truncate" title={attachment.filename}>{attachment.filename}</p>
+                        {fileSize && <p className="text-[10px] text-neutral-500">{fileSize}</p>}
+                      </div>
+                      <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowTopRightOnSquareIcon className="h-4 w-4 text-white bg-black/50 rounded p-0.5" />
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Attachments from Change Request */}
           {changeRequest.attachments && changeRequest.attachments.length > 0 && (
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <PaperClipIcon className="h-5 w-5 text-cmyk-cyan" />
-                Archivos Adjuntos ({changeRequest.attachments.length})
+                Tus Archivos Adjuntos ({changeRequest.attachments.length})
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {changeRequest.attachments.map((attachment) => {
@@ -624,7 +673,7 @@ export default function CustomerChangeRequestDetailPage() {
                       href={attachment.file}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group relative block rounded-lg border border-neutral-700 bg-neutral-800 overflow-hidden hover:border-cmyk-cyan/50 transition-colors"
+                      className="group relative block rounded-lg border border-cmyk-cyan/50 bg-cmyk-cyan/5 overflow-hidden hover:border-cmyk-cyan/80 transition-colors"
                     >
                       {isImage ? (
                         <div className="aspect-square">
@@ -637,22 +686,20 @@ export default function CustomerChangeRequestDetailPage() {
                         </div>
                       ) : (
                         <div className="aspect-square flex flex-col items-center justify-center p-3">
-                          <PhotoIcon className="h-8 w-8 text-neutral-500 mb-1" />
-                          <span className="text-[10px] text-neutral-500 text-center truncate w-full">
+                          <PhotoIcon className="h-8 w-8 text-cmyk-cyan/60 mb-1" />
+                          <span className="text-[10px] text-cmyk-cyan/60 text-center truncate w-full">
                             {attachment.filename}
                           </span>
                         </div>
                       )}
-                      <div className="p-2 border-t border-neutral-700">
-                        <p className="text-xs text-neutral-300 truncate" title={attachment.filename}>
+                      <div className="p-2 border-t border-cmyk-cyan/30">
+                        <p className="text-xs text-cmyk-cyan truncate" title={attachment.filename}>
                           {attachment.filename}
                         </p>
-                        {fileSize && (
-                          <p className="text-[10px] text-neutral-500">{fileSize}</p>
-                        )}
+                        {fileSize && <p className="text-[10px] text-cmyk-cyan/60">{fileSize}</p>}
                       </div>
                       <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ArrowTopRightOnSquareIcon className="h-4 w-4 text-white bg-black/50 rounded p-0.5" />
+                        <ArrowTopRightOnSquareIcon className="h-4 w-4 text-cmyk-cyan bg-black/50 rounded p-0.5" />
                       </div>
                     </a>
                   );
