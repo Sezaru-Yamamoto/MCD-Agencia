@@ -83,7 +83,6 @@ export default function NewQuotePage() {
   const [validDays, setValidDays] = useState(15);
   // Payment mode is always FULL (deposit removed)
   const paymentMode = 'FULL' as const;
-  const [paymentConditions, setPaymentConditions] = useState('');
   const [terms, setTerms] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -381,7 +380,6 @@ export default function NewQuotePage() {
         payment_mode: 'FULL',
         terms: terms || undefined,
         internal_notes: internalNotes || undefined,
-        payment_conditions: paymentConditions || undefined,
         lines: items.flatMap((item) => {
           // Auto-generate concept from service details if it's a service item
           let concept = item.concept;
@@ -1621,17 +1619,6 @@ export default function NewQuotePage() {
                     Pago completo
                   </div>
                 </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-neutral-400 text-sm mb-2">Condiciones de Pago</label>
-                <input
-                  type="text"
-                  value={paymentConditions}
-                  onChange={(e) => setPaymentConditions(e.target.value)}
-                  placeholder="Ej: Transferencia, tarjeta"
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-cmyk-cyan"
-                />
               </div>
 
               <div className="mb-4">
