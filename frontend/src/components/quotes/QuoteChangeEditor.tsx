@@ -15,7 +15,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { Button, Card } from '@/components/ui';
-import { QuoteLine, ProposedLine, SubmitChangeRequestData } from '@/lib/api/quotes';
+import { QuoteLine, ProposedLine, SubmitChangeRequestData, QuoteAttachment } from '@/lib/api/quotes';
 import {
   ServiceFormFields,
   type ServiceDetailsData,
@@ -42,6 +42,7 @@ interface EditingLine extends QuoteLine {
   dimensions?: string;
   serviceDetails?: ServiceDetailsData;
   attachments?: File[];
+  existingAttachments?: QuoteAttachment[];
 }
 
 interface NewItemForm {
@@ -70,6 +71,7 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif
 
 interface QuoteChangeEditorProps {
   lines: QuoteLine[];
+  existingAttachmentsByLineId?: Record<string, QuoteAttachment[]>;
   onSubmit: (data: SubmitChangeRequestData) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -77,6 +79,7 @@ interface QuoteChangeEditorProps {
 
 export default function QuoteChangeEditor({
   lines,
+  existingAttachmentsByLineId,
   onSubmit,
   onCancel,
   isSubmitting,
@@ -95,6 +98,7 @@ export default function QuoteChangeEditor({
           editLine.subtype = (sd.subtipo as string) || '';
         }
       }
+      editLine.existingAttachments = existingAttachmentsByLineId?.[line.id] || [];
       return editLine;
     })
   );
@@ -299,7 +303,8 @@ export default function QuoteChangeEditor({
         prev.map(l => {
           if (l.id !== target.id) return l;
           const current = l.attachments || [];
-          if (current.length + valid.length > 5) {
+          const existingCount = l.existingAttachments?.length || 0;
+          if (current.length + existingCount + valid.length > 5) {
             toast.error('Máximo 5 archivos por elemento');
             return l;
           }
@@ -521,6 +526,7 @@ export default function QuoteChangeEditor({
   /** Inline image upload UI — reused per element */
   const renderImageUpload = (
     files: File[],
+    existingFiles: QuoteAttachment[],
     target: { type: 'editing' | 'newItem' | 'newLine'; id?: string },
   ) => (
     <div className="pt-3 border-t border-neutral-700/50">
@@ -528,8 +534,32 @@ export default function QuoteChangeEditor({
         <PhotoIcon className="h-3.5 w-3.5" />
         Imágenes de referencia (opcional, máx. 5)
       </p>
-      {files.length > 0 && (
+      {(existingFiles.length > 0 || files.length > 0) && (
         <div className="flex flex-wrap gap-2 mb-2">
+          {existingFiles.map((file) => {
+            const isImage = (file.file_type || '').startsWith('image/');
+            return (
+              <div
+                key={`existing-${file.id}`}
+                className="relative group w-16 h-16 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800"
+                title={file.filename}
+              >
+                {isImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={file.file}
+                    alt={file.filename}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-1">
+                    <PhotoIcon className="h-4 w-4 text-neutral-500" />
+                    <span className="text-[9px] text-neutral-500 text-center truncate w-full">{file.filename}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {files.map((file, index) => (
             <div
               key={`${file.name}-${index}`}
@@ -559,7 +589,7 @@ export default function QuoteChangeEditor({
           ))}
         </div>
       )}
-      {files.length < 5 && (
+      {existingFiles.length + files.length < 5 && (
         <button
           type="button"
           onClick={() => openFilePickerFor(target)}
@@ -684,7 +714,7 @@ export default function QuoteChangeEditor({
                         )}
 
                         {/* Imágenes por elemento */}
-                        {renderImageUpload(line.attachments || [], { type: 'editing', id: line.id })}
+                        {renderImageUpload(line.attachments || [], line.existingAttachments || [], { type: 'editing', id: line.id })}
 
                         {/* Cambios solicitados — debajo de imágenes */}
                         <div>
@@ -767,8 +797,23 @@ export default function QuoteChangeEditor({
                           </div>
                         )}
                         {/* Thumbnails de imágenes adjuntas */}
-                        {(line.attachments && line.attachments.length > 0) && (
+                        {((line.existingAttachments && line.existingAttachments.length > 0) || (line.attachments && line.attachments.length > 0)) && (
                           <div className="flex flex-wrap gap-1.5 mt-1">
+                            {(line.existingAttachments || []).map((file) => {
+                              const isImage = (file.file_type || '').startsWith('image/');
+                              return (
+                                <div key={`existing-thumb-${file.id}`} className="w-10 h-10 rounded overflow-hidden border border-neutral-700 bg-neutral-800">
+                                  {isImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={file.file} alt={file.filename} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <PhotoIcon className="h-3 w-3 text-neutral-500" />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                             {line.attachments.map((file, idx) => (
                               <div key={`${file.name}-${idx}`} className="w-10 h-10 rounded overflow-hidden border border-neutral-700 bg-neutral-800">
                                 {file.type.startsWith('image/') ? (
@@ -1043,7 +1088,7 @@ export default function QuoteChangeEditor({
             )}
 
             {/* Imágenes por elemento */}
-            {renderImageUpload(newItemForm.attachments || [], { type: 'newItem' })}
+                    {renderImageUpload(newItemForm.attachments || [], [], { type: 'newItem' })}
 
             {/* Actions */}
             <div className="flex gap-2 pt-1">

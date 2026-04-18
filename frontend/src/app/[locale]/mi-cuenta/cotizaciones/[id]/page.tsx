@@ -46,6 +46,7 @@ import {
   Quote,
   QuoteResponse as QuoteResponseType,
   QuoteLine,
+  QuoteAttachment,
   QuoteChangeRequest,
   SubmitChangeRequestData,
   ProposedLine,
@@ -281,6 +282,34 @@ export default function CustomerQuoteDetailPage() {
     }
     return map;
   }, [quote, lineGroups]);
+
+  // Prefill existing request attachments into the change editor per matched line
+  const existingAttachmentsByLineId = useMemo<Record<string, QuoteAttachment[]>>(() => {
+    const byLineId: Record<string, QuoteAttachment[]> = {};
+    if (!quote?.quote_request) return byLineId;
+
+    const requestServices = quote.quote_request.services;
+    if (requestServices && requestServices.length > 0) {
+      requestServices.forEach((svc, idx) => {
+        const attachments = Array.isArray(svc.attachments) ? svc.attachments : [];
+        if (attachments.length === 0) return;
+        const matchedLines = serviceToLinesMap.get(idx) || [];
+        const primaryLine = matchedLines[0];
+        if (!primaryLine?.id) return;
+        byLineId[primaryLine.id] = attachments;
+      });
+      return byLineId;
+    }
+
+    const globalAttachments = Array.isArray(quote.quote_request.attachments)
+      ? quote.quote_request.attachments
+      : [];
+    if (globalAttachments.length > 0 && quote.lines && quote.lines.length > 0) {
+      byLineId[quote.lines[0].id] = globalAttachments;
+    }
+
+    return byLineId;
+  }, [quote, serviceToLinesMap]);
 
   // ── Identify vendor-added lines (not from the original request) ──
   const vendorAddedLines = useMemo<QuoteLine[]>(() => {
@@ -2372,6 +2401,7 @@ export default function CustomerQuoteDetailPage() {
               </div>
               <QuoteChangeEditor
                 lines={quote.lines}
+                existingAttachmentsByLineId={existingAttachmentsByLineId}
                 onSubmit={handleRequestChanges}
                 onCancel={() => setShowChangeEditor(false)}
                 isSubmitting={isSubmitting}
