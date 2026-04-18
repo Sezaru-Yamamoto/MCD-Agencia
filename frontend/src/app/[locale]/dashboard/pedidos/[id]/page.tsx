@@ -198,16 +198,29 @@ export default function StaffOrderDetailPage() {
     }
   };
 
-  const formatCurrency = (amount: number | string) => {
+  const toSafeText = (value: unknown, fallback = ''): string => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    return fallback;
+  };
+
+  const formatCurrency = (amount: unknown) => {
+    const numericValue = typeof amount === 'number' || typeof amount === 'string'
+      ? Number(amount)
+      : 0;
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'MXN',
-    }).format(Number(amount) || 0);
+    }).format(Number.isFinite(numericValue) ? numericValue : 0);
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDate = (dateString?: unknown) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('es-MX', {
+    const parsedDate = new Date(toSafeText(dateString));
+    if (Number.isNaN(parsedDate.getTime())) return '-';
+    return parsedDate.toLocaleString('es-MX', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -216,9 +229,11 @@ export default function StaffOrderDetailPage() {
     });
   };
 
-  const formatDateTime = (dateString?: string) => {
+  const formatDateTime = (dateString?: unknown) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-MX', {
+    const parsedDate = new Date(toSafeText(dateString));
+    if (Number.isNaN(parsedDate.getTime())) return '-';
+    return parsedDate.toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -261,10 +276,10 @@ export default function StaffOrderDetailPage() {
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">Pedido #{order.order_number}</h1>
+              <h1 className="text-2xl font-bold text-white">Pedido #{toSafeText(order.order_number, '-')}</h1>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${statusColors[workflowStatus] || 'bg-neutral-500/20 text-neutral-400 border-neutral-500'}`}>
                 <StatusIcon className="h-4 w-4" />
-                {statusLabels[workflowStatus] || order.status_display}
+                {statusLabels[workflowStatus] || toSafeText(order.status_display, workflowStatus)}
               </span>
             </div>
             <p className="text-neutral-400 mt-1">
@@ -295,13 +310,13 @@ export default function StaffOrderDetailPage() {
                   {order.lines?.map((line) => (
                     <tr key={line.id}>
                       <td className="py-3 pr-4">
-                        <p className="text-white font-medium">{line.name}</p>
+                        <p className="text-white font-medium">{toSafeText(line.name, '-')}</p>
                         {line.variant_name && (
-                          <p className="text-neutral-500 text-sm">{line.variant_name}</p>
+                          <p className="text-neutral-500 text-sm">{toSafeText(line.variant_name)}</p>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-neutral-400 text-sm font-mono">{line.sku}</td>
-                      <td className="py-3 pr-4 text-right text-white">{line.quantity}</td>
+                      <td className="py-3 pr-4 text-neutral-400 text-sm font-mono">{toSafeText(line.sku, '-')}</td>
+                      <td className="py-3 pr-4 text-right text-white">{toSafeText(line.quantity, '-')}</td>
                       <td className="py-3 pr-4 text-right text-white">{formatCurrency(line.unit_price)}</td>
                       <td className="py-3 text-right text-white font-medium">{formatCurrency(line.line_total)}</td>
                     </tr>
@@ -315,9 +330,9 @@ export default function StaffOrderDetailPage() {
                 <div key={line.id} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-white font-medium truncate">{line.name}</p>
+                      <p className="text-white font-medium truncate">{toSafeText(line.name, '-')}</p>
                       {line.variant_name && (
-                        <p className="text-neutral-500 text-xs truncate">{line.variant_name}</p>
+                        <p className="text-neutral-500 text-xs truncate">{toSafeText(line.variant_name)}</p>
                       )}
                     </div>
                     <p className="text-white font-medium text-sm">{formatCurrency(line.line_total)}</p>
@@ -325,11 +340,11 @@ export default function StaffOrderDetailPage() {
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <p className="text-neutral-500">SKU</p>
-                      <p className="text-neutral-300 font-mono truncate">{line.sku}</p>
+                      <p className="text-neutral-300 font-mono truncate">{toSafeText(line.sku, '-')}</p>
                     </div>
                     <div>
                       <p className="text-neutral-500">Cantidad</p>
-                      <p className="text-white">{line.quantity}</p>
+                      <p className="text-white">{toSafeText(line.quantity, '-')}</p>
                     </div>
                     <div>
                       <p className="text-neutral-500">P. Unit.</p>
@@ -391,7 +406,7 @@ export default function StaffOrderDetailPage() {
               ))}
             </div>
             <div className="mt-4 text-sm text-neutral-400">
-              <span className="text-white font-medium">Método de pago:</span> {getPaymentMethodLabel(order.payment_method)}
+              <span className="text-white font-medium">Método de pago:</span> {getPaymentMethodLabel(toSafeText(order.payment_method))}
             </div>
           </Card>
 
@@ -415,11 +430,11 @@ export default function StaffOrderDetailPage() {
                     <div className="pb-4 flex-1">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[history.to_status] || 'bg-neutral-500/20 text-neutral-400'}`}>
-                          {statusLabels[history.to_status] || history.to_status}
+                          {statusLabels[history.to_status] || toSafeText(history.to_status, '-')}
                         </span>
                         {history.from_status && (
                           <span className="text-neutral-600 text-xs">
-                            ← {statusLabels[history.from_status] || history.from_status}
+                            ← {statusLabels[history.from_status] || toSafeText(history.from_status, '-')}
                           </span>
                         )}
                       </div>
@@ -428,7 +443,7 @@ export default function StaffOrderDetailPage() {
                         {history.changed_by_name && ` • ${history.changed_by_name}`}
                       </p>
                       {history.notes && (
-                        <p className="text-sm text-neutral-500 mt-1 italic">&ldquo;{history.notes}&rdquo;</p>
+                        <p className="text-sm text-neutral-500 mt-1 italic">&ldquo;{toSafeText(history.notes)}&rdquo;</p>
                       )}
                     </div>
                   </div>
@@ -487,7 +502,7 @@ export default function StaffOrderDetailPage() {
             <div className="space-y-3">
               <div>
                 <p className="text-neutral-500 text-sm">Método de pago</p>
-                <p className="text-white capitalize">{order.payment_method || 'No especificado'}</p>
+                <p className="text-white capitalize">{toSafeText(order.payment_method, 'No especificado')}</p>
               </div>
               <div>
                 <p className="text-neutral-500 text-sm">Estado de pago</p>
@@ -518,7 +533,7 @@ export default function StaffOrderDetailPage() {
                 {order.pickup_branch_detail && (
                   <div>
                     <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                    <p className="text-white">{order.pickup_branch_detail.name} — {order.pickup_branch_detail.city}, {order.pickup_branch_detail.state}</p>
+                    <p className="text-white">{toSafeText(order.pickup_branch_detail.name)} — {toSafeText(order.pickup_branch_detail.city)}, {toSafeText(order.pickup_branch_detail.state)}</p>
                   </div>
                 )}
                 {order.delivery_address && Object.keys(order.delivery_address).length > 0 && (
@@ -545,7 +560,7 @@ export default function StaffOrderDetailPage() {
           {order.shipping_address && (
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Dirección de Envío</h2>
-              <p className="text-neutral-300 whitespace-pre-line">{order.shipping_address}</p>
+              <p className="text-neutral-300 whitespace-pre-line">{toSafeText(order.shipping_address)}</p>
             </Card>
           )}
 
@@ -554,7 +569,7 @@ export default function StaffOrderDetailPage() {
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Seguimiento</h2>
               <p className="text-neutral-400 text-sm">Número de guía</p>
-              <p className="text-white font-mono">{order.tracking_number}</p>
+              <p className="text-white font-mono">{toSafeText(order.tracking_number, '-')}</p>
               {order.tracking_url && (
                 <a
                   href={order.tracking_url}
@@ -574,7 +589,7 @@ export default function StaffOrderDetailPage() {
           {order.notes && (
             <Card className="p-6 border-yellow-500/30">
               <h2 className="text-lg font-semibold text-yellow-400 mb-4">Notas</h2>
-              <p className="text-neutral-300 whitespace-pre-wrap">{order.notes}</p>
+              <p className="text-neutral-300 whitespace-pre-wrap">{toSafeText(order.notes)}</p>
             </Card>
           )}
 
