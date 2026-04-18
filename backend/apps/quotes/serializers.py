@@ -520,6 +520,8 @@ class QuoteLineSerializer(serializers.ModelSerializer):
     """Serializer for QuoteLine model."""
 
     pickup_branch_detail = serializers.SerializerMethodField()
+    delivery_address = serializers.SerializerMethodField()
+    service_details = serializers.SerializerMethodField()
 
     class Meta:
         model = QuoteLine
@@ -545,6 +547,22 @@ class QuoteLineSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def get_delivery_address(self, obj):
+        """Convert delivery_address JSONField to formatted string or None."""
+        addr = obj.delivery_address
+        if not addr or not isinstance(addr, dict) or not addr:
+            return None
+        # Return the dict only if it has content
+        return addr
+
+    def get_service_details(self, obj):
+        """Convert service_details JSONField to serializable format or None."""
+        details = obj.service_details
+        if not details or not isinstance(details, dict) or not details:
+            return None
+        # Return the dict only if it has content
+        return details
+
 
 class QuoteSerializer(serializers.ModelSerializer):
     """Serializer for Quote model (public view via token)."""
@@ -562,6 +580,9 @@ class QuoteSerializer(serializers.ModelSerializer):
     delivery_method_display = serializers.CharField(
         source='get_delivery_method_display', read_only=True
     )
+    delivery_address = serializers.SerializerMethodField()
+    payment_methods = serializers.SerializerMethodField()
+    included_services = serializers.SerializerMethodField()
 
     class Meta:
         model = Quote
@@ -599,6 +620,30 @@ class QuoteSerializer(serializers.ModelSerializer):
                 'full_address': getattr(branch, 'full_address', ''),
             }
         return None
+
+    def get_delivery_address(self, obj):
+        """Convert delivery_address JSONField to formatted string or None."""
+        addr = obj.delivery_address
+        if not addr or not isinstance(addr, dict) or not addr:
+            return None
+        # Return the dict only if it has content
+        return addr
+
+    def get_payment_methods(self, obj):
+        """Convert payment_methods list to None if empty."""
+        methods = obj.payment_methods
+        if not methods or not isinstance(methods, list) or not methods:
+            return None
+        # Return the list only if it has content
+        return methods
+
+    def get_included_services(self, obj):
+        """Convert included_services list to None if empty."""
+        services = obj.included_services
+        if not services or not isinstance(services, list) or not services:
+            return None
+        # Return the list only if it has content
+        return services
 
 
 class QuoteAdminSerializer(QuoteSerializer):
