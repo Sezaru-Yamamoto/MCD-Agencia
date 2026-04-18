@@ -7,6 +7,8 @@ import { useLocale } from 'next-intl';
 import {
   ArrowLeftIcon,
   CheckCircleIcon,
+  CalendarIcon,
+  MapPinIcon,
   XCircleIcon,
   ClockIcon,
   TruckIcon,
@@ -17,7 +19,8 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Button, LoadingPage } from '@/components/ui';
-import { getStaffOrderById, updateOrderStatus, Order } from '@/lib/api/orders';
+import { ServiceDetailsDisplay } from '@/components/quotes/ServiceDetailsDisplay';
+import { getStaffOrderById, updateOrderLineEstimatedDelivery, updateOrderStatus, Order } from '@/lib/api/orders';
 import { DELIVERY_METHOD_LABELS, DELIVERY_METHOD_ICONS, type DeliveryMethod } from '@/lib/service-ids';
 import { getWorkflowStatus, requiresManualPayment, getPaymentMethodLabel, isOnlinePayment } from '@/lib/workflow';
 
@@ -107,8 +110,8 @@ export default function StaffOrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [statusNotes, setStatusNotes] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
+  const [estimatedDateByLineId, setEstimatedDateByLineId] = useState<Record<string, string>>({});
+  const [savingLineId, setSavingLineId] = useState<string | null>(null);
 
   const orderId = params.id as string;
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
@@ -143,6 +146,40 @@ export default function StaffOrderDetailPage() {
     fetchOrder();
   }, [orderId, isAuthenticated, isSalesOrAdmin, router, locale]);
 
+  useEffect(() => {
+    if (!order?.lines) return;
+    const next: Record<string, string> = {};
+    for (const line of order.lines) {
+      const meta = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
+        ? (line.metadata as Record<string, unknown>)
+        : {};
+      const rawDate = toSafeText(meta.estimated_delivery_date);
+      next[line.id] = rawDate ? rawDate.split('T')[0] : '';
+    }
+    setEstimatedDateByLineId(next);
+  }, [order]);
+
+  const refreshOrder = async () => {
+    const data = await getStaffOrderById(orderId);
+    setOrder(data);
+  };
+
+  const handleSaveEstimatedDate = async (lineId: string) => {
+    if (!order) return;
+    setSavingLineId(lineId);
+    try {
+      const value = estimatedDateByLineId[lineId] || null;
+      await updateOrderLineEstimatedDelivery(order.id, lineId, value);
+      await refreshOrder();
+      toast.success('Fecha estimada actualizada');
+    } catch (error) {
+      console.error('Error updating estimated delivery date:', error);
+      toast.error('No se pudo actualizar la fecha estimada');
+    } finally {
+      setSavingLineId(null);
+    }
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     if (!order) return;
 
@@ -161,17 +198,15 @@ export default function StaffOrderDetailPage() {
           order.id,
           'paid',
           'UI: confirmar pago online antes de enviar a producción',
-          scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+          undefined,
         );
         const movedToProduction = await updateOrderStatus(
           order.id,
           'in_production',
-          statusNotes || 'UI: enviar a producción tras confirmar pago online',
-          scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+          'UI: enviar a producción tras confirmar pago online',
+          undefined,
         );
         setOrder(movedToProduction);
-        setStatusNotes('');
-        setScheduledDate('');
         toast.success('Pedido enviado a producción (flujo online aplicado)');
         return;
       }
@@ -179,12 +214,10 @@ export default function StaffOrderDetailPage() {
       const updated = await updateOrderStatus(
         order.id,
         newStatus,
-        statusNotes || undefined,
-        scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+        undefined,
+        undefined,
       );
       setOrder(updated);
-      setStatusNotes('');
-      setScheduledDate('');
       toast.success(`Estado actualizado a "${statusLabel}"`);
     } catch (error: unknown) {
       const errMsg = error && typeof error === 'object' && 'message' in error
@@ -239,6 +272,38 @@ export default function StaffOrderDetailPage() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+    });
+  };
+
+  const getLineMetadata = (line: Order['lines'][number]): Record<string, unknown> => {
+    if (line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)) {
+      return line.metadata as Record<string, unknown>;
+    }
+    return {};
+  };
+
+  const formatAddressText = (address: unknown): string => {
+    if (!address || typeof address !== 'object' || Array.isArray(address)) return '';
+    const addr = address as Record<string, unknown>;
+    return [
+      toSafeText(addr.street) || toSafeText(addr.calle),
+      toSafeText(addr.exterior_number) || toSafeText(addr.numero_exterior),
+      toSafeText(addr.neighborhood) || toSafeText(addr.colonia),
+      toSafeText(addr.city) || toSafeText(addr.ciudad),
+      toSafeText(addr.state) || toSafeText(addr.estado),
+      toSafeText(addr.postal_code) || toSafeText(addr.codigo_postal),
+    ].filter(Boolean).join(', ');
+  };
+
+  const formatDateOnly = (dateString?: unknown) => {
+    if (!dateString) return '-';
+    const rawDate = toSafeText(dateString);
+    const parsedDate = new Date(rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`);
+    if (Number.isNaN(parsedDate.getTime())) return '-';
+    return parsedDate.toLocaleDateString('es-MX', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -314,6 +379,81 @@ export default function StaffOrderDetailPage() {
                         {line.variant_name && (
                           <p className="text-neutral-500 text-sm">{toSafeText(line.variant_name)}</p>
                         )}
+                        {(() => {
+                          const meta = getLineMetadata(line);
+                          const deliveryMethod = toSafeText(meta.delivery_method || order.delivery_method);
+                          const deliveryAddress = formatAddressText(meta.delivery_address);
+                          const requiredDate = toSafeText(meta.required_date || meta.quote_request_required_date);
+                          const estimatedDate = estimatedDateByLineId[line.id] ?? '';
+                          const serviceType = toSafeText(meta.service_type || meta.quote_request_service_type);
+                          const serviceDetails = (
+                            meta.service_details && typeof meta.service_details === 'object' && !Array.isArray(meta.service_details)
+                              ? (meta.service_details as Record<string, unknown>)
+                              : meta.quote_request_service_details && typeof meta.quote_request_service_details === 'object' && !Array.isArray(meta.quote_request_service_details)
+                                ? (meta.quote_request_service_details as Record<string, unknown>)
+                                : null
+                          );
+                          const pickupBranchName = toSafeText(
+                            (meta.pickup_branch_detail as Record<string, unknown> | undefined)?.name || order.pickup_branch_detail?.name
+                          );
+
+                          if (!deliveryMethod && !deliveryAddress && !requiredDate && !pickupBranchName) {
+                            return null;
+                          }
+
+                          return (
+                            <div className="mt-2 rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 space-y-2">
+                              {deliveryMethod && (
+                                <p className="text-xs text-neutral-300 flex items-center gap-1">
+                                  <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                  {DELIVERY_METHOD_LABELS[deliveryMethod as DeliveryMethod]?.es || deliveryMethod}
+                                </p>
+                              )}
+                              {pickupBranchName && (
+                                <p className="text-xs text-neutral-300 flex items-center gap-1">
+                                  <MapPinIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                  Sucursal: {pickupBranchName}
+                                </p>
+                              )}
+                              {deliveryAddress && (
+                                <p className="text-xs text-neutral-300">
+                                  {deliveryMethod === 'installation' ? 'Dirección de instalación:' : 'Dirección de entrega:'} {deliveryAddress}
+                                </p>
+                              )}
+                              {requiredDate && (
+                                <p className="text-xs text-neutral-300 flex items-center gap-1">
+                                  <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                                  Fecha requerida: {formatDateOnly(requiredDate)}
+                                </p>
+                              )}
+                              {serviceType && serviceDetails && Object.keys(serviceDetails).length > 0 && (
+                                <div className="pt-2 border-t border-neutral-800">
+                                  <ServiceDetailsDisplay
+                                    serviceType={serviceType}
+                                    serviceDetails={serviceDetails}
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-neutral-400">Fecha estimada:</label>
+                                <input
+                                  type="date"
+                                  value={estimatedDate}
+                                  onChange={(e) => setEstimatedDateByLineId((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white [color-scheme:dark]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEstimatedDate(line.id)}
+                                  disabled={savingLineId === line.id}
+                                  className="px-2 py-1 text-xs rounded border border-cmyk-cyan/40 text-cmyk-cyan hover:bg-cmyk-cyan/10 disabled:opacity-50"
+                                >
+                                  {savingLineId === line.id ? 'Guardando...' : 'Guardar'}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 pr-4 text-neutral-400 text-sm font-mono">{toSafeText(line.sku, '-')}</td>
                       <td className="py-3 pr-4 text-right text-white">{toSafeText(line.quantity, '-')}</td>
@@ -337,6 +477,80 @@ export default function StaffOrderDetailPage() {
                     </div>
                     <p className="text-white font-medium text-sm">{formatCurrency(line.line_total)}</p>
                   </div>
+                  {(() => {
+                    const meta = getLineMetadata(line);
+                    const deliveryMethod = toSafeText(meta.delivery_method || order.delivery_method);
+                    const deliveryAddress = formatAddressText(meta.delivery_address);
+                    const requiredDate = toSafeText(meta.required_date || meta.quote_request_required_date);
+                    const estimatedDate = estimatedDateByLineId[line.id] ?? '';
+                    const serviceType = toSafeText(meta.service_type || meta.quote_request_service_type);
+                    const serviceDetails = (
+                      meta.service_details && typeof meta.service_details === 'object' && !Array.isArray(meta.service_details)
+                        ? (meta.service_details as Record<string, unknown>)
+                        : meta.quote_request_service_details && typeof meta.quote_request_service_details === 'object' && !Array.isArray(meta.quote_request_service_details)
+                          ? (meta.quote_request_service_details as Record<string, unknown>)
+                          : null
+                    );
+                    const pickupBranchName = toSafeText(
+                      (meta.pickup_branch_detail as Record<string, unknown> | undefined)?.name || order.pickup_branch_detail?.name
+                    );
+
+                    if (!deliveryMethod && !deliveryAddress && !requiredDate && !pickupBranchName) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="mt-2 rounded-lg border border-neutral-800 bg-neutral-900/50 p-2 space-y-1.5">
+                        {deliveryMethod && (
+                          <p className="text-xs text-neutral-300 flex items-center gap-1">
+                            <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            {DELIVERY_METHOD_LABELS[deliveryMethod as DeliveryMethod]?.es || deliveryMethod}
+                          </p>
+                        )}
+                        {pickupBranchName && (
+                          <p className="text-xs text-neutral-300 flex items-center gap-1">
+                            <MapPinIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            Sucursal: {pickupBranchName}
+                          </p>
+                        )}
+                        {deliveryAddress && (
+                          <p className="text-xs text-neutral-300">
+                            {deliveryMethod === 'installation' ? 'Dirección de instalación:' : 'Dirección de entrega:'} {deliveryAddress}
+                          </p>
+                        )}
+                        {requiredDate && (
+                          <p className="text-xs text-neutral-300 flex items-center gap-1">
+                            <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
+                            Fecha requerida: {formatDateOnly(requiredDate)}
+                          </p>
+                        )}
+                        {serviceType && serviceDetails && Object.keys(serviceDetails).length > 0 && (
+                          <div className="pt-2 border-t border-neutral-800">
+                            <ServiceDetailsDisplay
+                              serviceType={serviceType}
+                              serviceDetails={serviceDetails}
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 pt-1">
+                          <input
+                            type="date"
+                            value={estimatedDate}
+                            onChange={(e) => setEstimatedDateByLineId((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                            className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white [color-scheme:dark]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEstimatedDate(line.id)}
+                            disabled={savingLineId === line.id}
+                            className="px-2 py-1 text-xs rounded border border-cmyk-cyan/40 text-cmyk-cyan hover:bg-cmyk-cyan/10 disabled:opacity-50"
+                          >
+                            {savingLineId === line.id ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <p className="text-neutral-500">SKU</p>
@@ -462,20 +676,6 @@ export default function StaffOrderDetailPage() {
             <Card className="p-6 border-cmyk-cyan/30">
               <h2 className="text-lg font-semibold text-white mb-4">Cambiar Estado</h2>
               <div className="space-y-3">
-                <textarea
-                  value={statusNotes}
-                  onChange={(e) => setStatusNotes(e.target.value)}
-                  placeholder="Notas del cambio (opcional)..."
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 text-sm focus:border-cmyk-cyan focus:outline-none resize-none"
-                  rows={2}
-                />
-                <input
-                  type="datetime-local"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm focus:border-cmyk-cyan focus:outline-none [color-scheme:dark]"
-                  aria-label="Fecha programada"
-                />
                 <div className="space-y-2">
                   {availableTransitions.map((option) => (
                     <button
@@ -518,51 +718,6 @@ export default function StaffOrderDetailPage() {
               )}
             </div>
           </Card>
-
-          {/* Delivery Method */}
-          {order.delivery_method && (
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Método de Entrega</h2>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-white flex items-center gap-2">
-                    <span>{DELIVERY_METHOD_ICONS[order.delivery_method as DeliveryMethod]}</span>
-                    {DELIVERY_METHOD_LABELS[order.delivery_method as DeliveryMethod]?.es || order.delivery_method}
-                  </p>
-                </div>
-                {order.pickup_branch_detail && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                    <p className="text-white">{toSafeText(order.pickup_branch_detail.name)} — {toSafeText(order.pickup_branch_detail.city)}, {toSafeText(order.pickup_branch_detail.state)}</p>
-                  </div>
-                )}
-                {order.delivery_address && Object.keys(order.delivery_address).length > 0 && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">
-                      {order.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
-                    </p>
-                    <p className="text-white text-sm">
-                      {[order.delivery_address.street || order.delivery_address.calle, order.delivery_address.exterior_number || order.delivery_address.numero_exterior, order.delivery_address.neighborhood || order.delivery_address.colonia, order.delivery_address.city || order.delivery_address.ciudad, order.delivery_address.state || order.delivery_address.estado, order.delivery_address.postal_code || order.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                    </p>
-                  </div>
-                )}
-                {order.scheduled_date && (
-                  <div>
-                    <p className="text-neutral-500 text-sm">Fecha programada</p>
-                    <p className="text-white">{formatDate(order.scheduled_date)}</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
-
-          {/* Shipping */}
-          {order.shipping_address && (
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Dirección de Envío</h2>
-              <p className="text-neutral-300 whitespace-pre-line">{toSafeText(order.shipping_address)}</p>
-            </Card>
-          )}
 
           {/* Tracking */}
           {order.tracking_number && (

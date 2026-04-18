@@ -8,6 +8,7 @@ This module provides ViewSets for order operations:
     - Order status updates (admin)
 """
 
+from datetime import datetime, time
 from decimal import Decimal
 
 from django.conf import settings
@@ -816,6 +817,102 @@ class OrderAdminViewSet(viewsets.ModelViewSet):
             sync_operational_rollup(order)
 
         return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['post'], url_path='lines/(?P<line_id>[^/.]+)/estimated-delivery')
+    def update_line_estimated_delivery(self, request, pk=None, line_id=None):
+        """Update seller estimated delivery date for one order line."""
+        order = self.get_object()
+        line = order.lines.filter(id=line_id).first()
+        if not line:
+            return Response(
+                {'error': _('Order line not found for this order.')},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        raw_date = request.data.get('estimated_delivery_date')
+        normalized_date: str | None = None
+        scheduled_dt = None
+
+        if raw_date not in (None, '', 'null'):
+            try:
+                parsed = datetime.fromisoformat(str(raw_date).replace('Z', '+00:00'))
+                normalized_date = parsed.date().isoformat()
+            except ValueError:
+                try:
+                    normalized_date = datetime.strptime(str(raw_date), '%Y-%m-%d').date().isoformat()
+                except ValueError:
+                    return Response(
+                        {'error': _('Invalid date format. Use YYYY-MM-DD.')},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            scheduled_dt = timezone.make_aware(datetime.combine(datetime.fromisoformat(normalized_date).date(), time(hour=12)))
+
+        with transaction.atomic():
+            metadata = line.metadata or {}
+            old_value = metadata.get('estimated_delivery_date')
+
+            if normalized_date:
+                metadata['estimated_delivery_date'] = normalized_date
+            else:
+                metadata.pop('estimated_delivery_date', None)
+
+            line.metadata = metadata
+            line.save(update_fields=['metadata', 'updated_at'])
+
+            # Keep operation snapshot aligned with line metadata.
+            service_snapshot = order.service_snapshot or []
+            snapshot_updated = False
+            for item in service_snapshot:
+                if str(item.get('line_id')) == str(line.id):
+                    item['estimated_date'] = scheduled_dt.isoformat() if scheduled_dt else None
+                    meta = item.get('metadata') if isinstance(item.get('metadata'), dict) else {}
+                    if normalized_date:
+                        meta['estimated_delivery_date'] = normalized_date
+                    else:
+                        meta.pop('estimated_delivery_date', None)
+                    item['metadata'] = meta
+                    snapshot_updated = True
+
+            if snapshot_updated:
+                order.service_snapshot = service_snapshot
+                order.save(update_fields=['service_snapshot', 'updated_at'])
+
+            # Propagate schedule to operation tracks tied to this line.
+            production_jobs = order.production_jobs.filter(order_line=line)
+            for job in production_jobs:
+                job.planned_end = scheduled_dt
+                job.save(update_fields=['planned_end', 'updated_at'])
+
+            logistics_jobs = order.logistics_jobs.filter(metadata__line_id=str(line.id))
+            for job in logistics_jobs:
+                job.window_end = scheduled_dt
+                job.save(update_fields=['window_end', 'updated_at'])
+
+            field_ops_jobs = order.field_ops_jobs.filter(metadata__line_id=str(line.id))
+            for job in field_ops_jobs:
+                job.scheduled_start = scheduled_dt
+                job.save(update_fields=['scheduled_start', 'updated_at'])
+
+            AuditLog.log(
+                entity=line,
+                action=AuditLog.ACTION_UPDATED,
+                actor=request.user,
+                before_state={'estimated_delivery_date': old_value},
+                after_state={'estimated_delivery_date': normalized_date},
+                request=request,
+                metadata={
+                    'order_id': str(order.id),
+                    'order_number': order.order_number,
+                },
+            )
+
+            sync_operational_rollup(order)
+
+        return Response({
+            'order_id': str(order.id),
+            'line_id': str(line.id),
+            'estimated_delivery_date': normalized_date,
+        })
 
     @action(detail=True, methods=['get'])
     def operational_tracks(self, request, pk=None):

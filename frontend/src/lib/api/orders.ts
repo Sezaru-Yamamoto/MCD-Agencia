@@ -303,6 +303,19 @@ export async function updateOrderStatus(
 }
 
 /**
+ * Update estimated delivery date for one order line (staff).
+ */
+export async function updateOrderLineEstimatedDelivery(
+  orderId: string,
+  lineId: string,
+  estimatedDeliveryDate: string | null,
+): Promise<{ order_id: string; line_id: string; estimated_delivery_date: string | null }> {
+  return apiClient.post(`/admin/orders/${orderId}/lines/${lineId}/estimated-delivery/`, {
+    estimated_delivery_date: estimatedDeliveryDate,
+  });
+}
+
+/**
  * Customer selects payment method for a pending order.
  */
 export async function setOrderPaymentMethod(
