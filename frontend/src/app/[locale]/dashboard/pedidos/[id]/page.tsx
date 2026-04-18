@@ -153,7 +153,10 @@ export default function StaffOrderDetailPage() {
       const meta = line.metadata && typeof line.metadata === 'object' && !Array.isArray(line.metadata)
         ? (line.metadata as Record<string, unknown>)
         : {};
-      const rawDate = toSafeText(meta.estimated_delivery_date);
+      const rawDate =
+        toSafeText(meta.estimated_delivery_date) ||
+        toSafeText(meta.fecha_entrega_estimada) ||
+        toSafeText(line.estimated_delivery_date);
       next[line.id] = rawDate ? rawDate.split('T')[0] : '';
     }
     setEstimatedDateByLineId(next);

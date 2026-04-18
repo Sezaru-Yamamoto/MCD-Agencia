@@ -62,6 +62,7 @@ export interface OrderLine {
   quantity: number;
   unit_price: string;
   line_total: string;
+  estimated_delivery_date?: string | null;
   metadata?: Record<string, unknown>;
 }
 

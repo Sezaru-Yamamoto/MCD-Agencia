@@ -1099,6 +1099,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
                     'service_details': line.service_details or {},
                     'delivery_method': line.delivery_method or quote.delivery_method or '',
                     'delivery_address': line.delivery_address or quote.delivery_address or {},
+                    'estimated_delivery_date': line.estimated_delivery_date.isoformat() if line.estimated_delivery_date else '',
                     'pickup_branch_id': str(line.pickup_branch_id) if line.pickup_branch_id else '',
                     'unit': line.unit,
                     'original_quantity': str(line.quantity),

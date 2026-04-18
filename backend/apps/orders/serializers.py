@@ -224,12 +224,13 @@ class OrderLineSerializer(serializers.ModelSerializer):
     """Serializer for OrderLine model."""
 
     metadata = serializers.SerializerMethodField()
+    estimated_delivery_date = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderLine
         fields = [
             'id', 'sku', 'name', 'variant_name', 'quantity',
-            'unit_price', 'line_total', 'metadata'
+            'unit_price', 'line_total', 'metadata', 'estimated_delivery_date'
         ]
         read_only_fields = ['id']
 
@@ -240,6 +241,37 @@ class OrderLineSerializer(serializers.ModelSerializer):
             return None
         # Return as-is if it has content, otherwise None
         return meta if meta else None
+
+    def get_estimated_delivery_date(self, obj):
+        """Return seller estimated delivery date (YYYY-MM-DD) with legacy fallbacks."""
+        meta = obj.metadata if isinstance(obj.metadata, dict) else {}
+
+        # Primary source for new orders/edits.
+        raw_date = meta.get('estimated_delivery_date') or meta.get('fecha_entrega_estimada')
+
+        # Legacy fallback: recover from original quote line when not persisted in order metadata.
+        if not raw_date:
+            quote_line_id = meta.get('quote_line_id')
+            quote = getattr(getattr(obj, 'order', None), 'quote', None)
+            if quote and quote_line_id:
+                raw_date = quote.lines.filter(id=quote_line_id).values_list('estimated_delivery_date', flat=True).first()
+
+        # Last fallback: operation snapshot mirror.
+        if not raw_date:
+            snapshot = getattr(getattr(obj, 'order', None), 'service_snapshot', None) or []
+            if isinstance(snapshot, list):
+                for item in snapshot:
+                    if isinstance(item, dict) and str(item.get('line_id')) == str(obj.id):
+                        raw_date = item.get('estimated_date') or (item.get('metadata') or {}).get('estimated_delivery_date')
+                        if raw_date:
+                            break
+
+        if not raw_date:
+            return None
+
+        text = str(raw_date)
+        # Normalize ISO datetime/date into YYYY-MM-DD for date inputs.
+        return text.split('T')[0]
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
