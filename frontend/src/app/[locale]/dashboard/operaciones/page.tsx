@@ -202,7 +202,7 @@ export default function OperationsPage() {
       delivery_method: request.delivery_method,
       date: request.required_date || null,
       date_label: request.required_date ? 'Fecha requerida' : undefined,
-      href: `/dashboard/cotizaciones/solicitudes/${request.id}`,
+      href: `/dashboard/solicitudes/${request.id}`,
     });
 
     const quoteToItem = (quote: Quote): WorkflowItem => ({
