@@ -9,6 +9,7 @@ This module provides serializers for e-commerce operations:
 """
 
 import re
+from datetime import date, datetime
 from decimal import Decimal
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -269,9 +270,24 @@ class OrderLineSerializer(serializers.ModelSerializer):
         if not raw_date:
             return None
 
-        text = str(raw_date)
-        # Normalize ISO datetime/date into YYYY-MM-DD for date inputs.
-        return text.split('T')[0]
+        if isinstance(raw_date, date):
+            return raw_date.isoformat()
+
+        text = str(raw_date).strip()
+        if not text:
+            return None
+
+        # Fast-path for common serialized datetime/date shapes.
+        candidate = text.split('T')[0].split(' ')[0]
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', candidate):
+            return candidate
+
+        # Parse broader datetime formats (e.g. with timezone offsets).
+        try:
+            parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+            return parsed.date().isoformat()
+        except ValueError:
+            return None
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):

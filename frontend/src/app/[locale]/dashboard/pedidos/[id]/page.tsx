@@ -157,7 +157,7 @@ export default function StaffOrderDetailPage() {
         toSafeText(meta.estimated_delivery_date) ||
         toSafeText(meta.fecha_entrega_estimada) ||
         toSafeText(line.estimated_delivery_date);
-      next[line.id] = rawDate ? rawDate.split('T')[0] : '';
+      next[line.id] = normalizeDateForInput(rawDate);
     }
     setEstimatedDateByLineId(next);
   }, [order]);
@@ -308,6 +308,20 @@ export default function StaffOrderDetailPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const normalizeDateForInput = (value: unknown): string => {
+    const raw = toSafeText(value).trim();
+    if (!raw) return '';
+
+    const candidate = raw.split('T')[0].split(' ')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+      return candidate;
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().slice(0, 10);
   };
 
   if (authLoading || isLoading) {
