@@ -223,6 +223,8 @@ class AddressSerializer(serializers.ModelSerializer):
 class OrderLineSerializer(serializers.ModelSerializer):
     """Serializer for OrderLine model."""
 
+    metadata = serializers.SerializerMethodField()
+
     class Meta:
         model = OrderLine
         fields = [
@@ -230,6 +232,14 @@ class OrderLineSerializer(serializers.ModelSerializer):
             'unit_price', 'line_total', 'metadata'
         ]
         read_only_fields = ['id']
+
+    def get_metadata(self, obj):
+        """Convert metadata JSONField to serializable format."""
+        meta = obj.metadata
+        if not meta or not isinstance(meta, dict):
+            return None
+        # Return as-is if it has content, otherwise None
+        return meta if meta else None
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
@@ -268,6 +278,9 @@ class OrderSerializer(serializers.ModelSerializer):
     operational_rollup_display = serializers.CharField(source='get_operational_rollup_display', read_only=True)
     shipping_address = serializers.SerializerMethodField()
     billing_address = serializers.SerializerMethodField()
+    delivery_address = serializers.SerializerMethodField()
+    operation_plan = serializers.SerializerMethodField()
+    service_snapshot = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -349,6 +362,30 @@ class OrderSerializer(serializers.ModelSerializer):
             addr.get('postal_code') or addr.get('codigo_postal'),
         ]
         return ', '.join(str(p) for p in parts if p)
+
+    def get_delivery_address(self, obj):
+        """Convert delivery_address JSONField to formatted string or None."""
+        addr = obj.delivery_address
+        if not addr or not isinstance(addr, dict) or not addr:
+            return None
+        # Return the dict only if it has content
+        return addr
+
+    def get_operation_plan(self, obj):
+        """Convert operation_plan JSONField to serializable format or None."""
+        plan = obj.operation_plan
+        if not plan or not isinstance(plan, dict) or not plan:
+            return None
+        # Return the dict only if it has content
+        return plan
+
+    def get_service_snapshot(self, obj):
+        """Convert service_snapshot JSONField to serializable format or None."""
+        snapshot = obj.service_snapshot
+        if not snapshot or not isinstance(snapshot, list) or not snapshot:
+            return None
+        # Return the list only if it has content
+        return snapshot
 
 
 class OrderListSerializer(serializers.ModelSerializer):
