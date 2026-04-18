@@ -266,6 +266,8 @@ class OrderSerializer(serializers.ModelSerializer):
     pickup_branch_detail = serializers.SerializerMethodField()
     quote = serializers.SerializerMethodField()
     operational_rollup_display = serializers.CharField(source='get_operational_rollup_display', read_only=True)
+    shipping_address = serializers.SerializerMethodField()
+    billing_address = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -317,6 +319,36 @@ class OrderSerializer(serializers.ModelSerializer):
                 'full_address': getattr(branch, 'full_address', ''),
             }
         return None
+
+    def get_shipping_address(self, obj):
+        """Convert shipping_address JSONField to formatted string."""
+        addr = obj.shipping_address
+        if not addr or not isinstance(addr, dict):
+            return ''
+        parts = [
+            addr.get('street') or addr.get('calle'),
+            addr.get('exterior_number') or addr.get('numero_exterior'),
+            addr.get('neighborhood') or addr.get('colonia'),
+            addr.get('city') or addr.get('ciudad'),
+            addr.get('state') or addr.get('estado'),
+            addr.get('postal_code') or addr.get('codigo_postal'),
+        ]
+        return ', '.join(str(p) for p in parts if p)
+
+    def get_billing_address(self, obj):
+        """Convert billing_address JSONField to formatted string."""
+        addr = obj.billing_address
+        if not addr or not isinstance(addr, dict):
+            return ''
+        parts = [
+            addr.get('street') or addr.get('calle'),
+            addr.get('exterior_number') or addr.get('numero_exterior'),
+            addr.get('neighborhood') or addr.get('colonia'),
+            addr.get('city') or addr.get('ciudad'),
+            addr.get('state') or addr.get('estado'),
+            addr.get('postal_code') or addr.get('codigo_postal'),
+        ]
+        return ', '.join(str(p) for p in parts if p)
 
 
 class OrderListSerializer(serializers.ModelSerializer):
