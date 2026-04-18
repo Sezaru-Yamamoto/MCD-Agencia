@@ -22,7 +22,7 @@ import {
 import { Card, LoadingPage, Modal } from '@/components/ui';
 import { getWorkflowOverview, type WorkflowItem } from '@/lib/api/admin';
 import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
-import { getAdminQuoteRequests, getAdminQuotes, type Quote, type QuoteRequest } from '@/lib/api/quotes';
+import { getAdminQuoteRequests, getAdminQuotes, getAdminChangeRequests, type Quote, type QuoteRequest, type QuoteChangeRequest } from '@/lib/api/quotes';
 import { getPaymentMethodLabel, requiresManualPayment } from '@/lib/workflow';
 
 const blockConfig: Record<string, {
@@ -167,6 +167,7 @@ export default function OperationsPage() {
     orders: OrderListItem[],
     quoteRequests: QuoteRequest[],
     quotes: Quote[],
+    changeRequests: QuoteChangeRequest[] = [],
   ): Awaited<ReturnType<typeof getWorkflowOverview>> => {
     const getOrderExtraDate = (order: OrderListItem, field: 'scheduled_date' | 'completed_at'): string | null => {
       const value = (order as unknown as Record<string, unknown>)[field];
@@ -218,12 +219,25 @@ export default function OperationsPage() {
       href: `/dashboard/cotizaciones/${quote.id}`,
     });
 
+    const changeRequestToItem = (request: QuoteChangeRequest, kind: string): WorkflowItem => ({
+      id: request.id,
+      kind,
+      title: `Solicitud de cambio ${request.quote_number}`,
+      subtitle: request.customer_name || request.customer_email,
+      status: request.status,
+      status_display: request.status_display || request.status,
+      date: request.created_at || null,
+      date_label: request.created_at ? 'Solicitado' : undefined,
+      href: `/dashboard/cotizaciones/${request.quote}/cambios/${request.id}`,
+    });
+
     const manualPendingOrders = orders.filter((order) => order.status === 'pending_payment' && requiresManualPayment(order.payment_method));
     const inProductionOrders = orders.filter((order) => order.status === 'in_production');
     const readyOrders = orders.filter((order) => ['ready', 'in_delivery'].includes(order.status));
     const doneOrders = orders.filter((order) => order.status === 'completed');
     const assignedRequests = quoteRequests.filter((request) => ['assigned', 'in_review', 'quoted'].includes(request.status));
     const pendingRequests = quoteRequests.filter((request) => ['pending', 'info_requested'].includes(request.status));
+    const pendingChangeRequests = changeRequests.filter((request) => request.status === 'pending');
 
     const calendarEvents: WorkflowItem[] = [
       ...quoteRequests
@@ -264,7 +278,10 @@ export default function OperationsPage() {
         calendar_items: calendarEvents.length,
       },
       blocks: {
-        assigned: assignedRequests.map((request) => quoteRequestToItem(request, 'quote_request_assigned')),
+        assigned: [
+          ...assignedRequests.map((request) => quoteRequestToItem(request, 'quote_request_assigned')),
+          ...pendingChangeRequests.map((request) => changeRequestToItem(request, 'quote_change_request_pending')),
+        ],
         to_pay: manualPendingOrders.map((order) => orderToItem(order, 'order_pending_payment', order.created_at, 'Alta')),
         in_production: inProductionOrders.map((order) => orderToItem(order, 'order_in_production', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Producción')),
         ready: readyOrders.map((order) => orderToItem(order, 'order_ready', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Entrega')),
@@ -289,17 +306,19 @@ export default function OperationsPage() {
       setIsLoading(true);
 
       const fetchFallbackOverview = async () => {
-        const [ordersResult, quoteRequestsResult, quotesResult] = await Promise.allSettled([
+        const [ordersResult, quoteRequestsResult, quotesResult, changeRequestsResult] = await Promise.allSettled([
           getStaffOrders({ page: 1 }),
           getAdminQuoteRequests({ page: 1 }),
           getAdminQuotes({ page: 1 }),
+          getAdminChangeRequests({ page: 1 }),
         ]);
 
         const orders = ordersResult.status === 'fulfilled' ? (ordersResult.value.results || []) : [];
         const quoteRequests = quoteRequestsResult.status === 'fulfilled' ? (quoteRequestsResult.value.results || []) : [];
         const quotes = quotesResult.status === 'fulfilled' ? (quotesResult.value.results || []) : [];
+        const changeRequests = changeRequestsResult.status === 'fulfilled' ? (changeRequestsResult.value.results || []) : [];
 
-        return buildFallbackWorkflowOverview(orders, quoteRequests, quotes);
+        return buildFallbackWorkflowOverview(orders, quoteRequests, quotes, changeRequests);
       };
 
       try {
