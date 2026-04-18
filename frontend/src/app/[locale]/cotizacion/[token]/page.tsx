@@ -583,34 +583,6 @@ export default function QuoteViewPage() {
                           {line.description && (
                             <p className="text-neutral-500 text-xs">{line.description}</p>
                           )}
-                          {line.delivery_method && line.delivery_method !== 'not_applicable' && (
-                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
-                              <span className="inline-flex items-center gap-1">
-                                <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                                {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
-                              </span>
-                              {line.estimated_delivery_date && (
-                                <span className="inline-flex items-center gap-1">
-                                  <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                                  {new Date(line.estimated_delivery_date).toLocaleDateString('es-MX')}
-                                </span>
-                              )}
-                              {line.delivery_address && Object.keys(line.delivery_address).length > 0 && (
-                                <span className="inline-flex items-center gap-1">
-                                  <MapPinIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                                  <span className="truncate max-w-[200px]">
-                                    {[line.delivery_address.street || line.delivery_address.calle, line.delivery_address.city || line.delivery_address.ciudad, line.delivery_address.state || line.delivery_address.estado].filter(Boolean).join(', ')}
-                                  </span>
-                                </span>
-                              )}
-                              {line.pickup_branch_detail && (
-                                <span className="inline-flex items-center gap-1">
-                                  <MapPinIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                                  {line.pickup_branch_detail.name}
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </td>
                         <td className="py-2 pr-4 text-right text-white text-sm">{line.quantity}</td>
                         <td className="py-2 pr-4 text-neutral-400 text-sm">{line.unit}</td>
@@ -661,20 +633,6 @@ export default function QuoteViewPage() {
                         </p>
                       </div>
                     </div>
-                    {line.delivery_method && line.delivery_method !== 'not_applicable' && (
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
-                        <span className="inline-flex items-center gap-1">
-                          <TruckIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                          {DELIVERY_METHOD_LABELS[line.delivery_method as DeliveryMethod]?.es || line.delivery_method}
-                        </span>
-                        {line.estimated_delivery_date && (
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                            {new Date(line.estimated_delivery_date).toLocaleDateString('es-MX')}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -816,28 +774,6 @@ export default function QuoteViewPage() {
                                 <p className="text-neutral-500 text-xs">Instalación</p>
                                 <p className="text-white">{quote.quote_request.includes_installation ? 'Sí' : 'No'}</p>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Delivery Method from Request */}
-                          {quote.quote_request.delivery_method && (
-                            <div className="p-3 bg-neutral-800/50 rounded-lg">
-                              <p className="text-neutral-500 text-xs mb-2">Método de entrega solicitado</p>
-                              <p className="text-white flex items-center gap-2">
-                                <span>{DELIVERY_METHOD_ICONS[quote.quote_request.delivery_method as DeliveryMethod]}</span>
-                                {DELIVERY_METHOD_LABELS[quote.quote_request.delivery_method as DeliveryMethod]?.es || quote.quote_request.delivery_method}
-                              </p>
-                              {quote.quote_request.pickup_branch_detail && (
-                                <p className="text-neutral-300 text-sm mt-1">
-                                  Sucursal: {quote.quote_request.pickup_branch_detail.name} — {quote.quote_request.pickup_branch_detail.city}, {quote.quote_request.pickup_branch_detail.state}
-                                </p>
-                              )}
-                              {quote.quote_request.delivery_address && typeof quote.quote_request.delivery_address === 'object' && Object.keys(quote.quote_request.delivery_address).length > 0 && (
-                                <p className="text-neutral-300 text-sm mt-1">
-                                  {quote.quote_request.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}:{' '}
-                                  {[quote.quote_request.delivery_address.street || quote.quote_request.delivery_address.calle, quote.quote_request.delivery_address.exterior_number || quote.quote_request.delivery_address.numero_exterior, quote.quote_request.delivery_address.neighborhood || quote.quote_request.delivery_address.colonia, quote.quote_request.delivery_address.city || quote.quote_request.delivery_address.ciudad, quote.quote_request.delivery_address.state || quote.quote_request.delivery_address.estado, quote.quote_request.delivery_address.postal_code || quote.quote_request.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                                </p>
-                              )}
                             </div>
                           )}
 
