@@ -267,6 +267,38 @@ class OrderLineSerializer(serializers.ModelSerializer):
                         if raw_date:
                             break
 
+        # Operational fallback: recover from generated jobs for this line.
+        if not raw_date:
+            order = getattr(obj, 'order', None)
+            if order:
+                raw_date = (
+                    order.production_jobs
+                    .filter(order_line=obj)
+                    .exclude(planned_end__isnull=True)
+                    .values_list('planned_end', flat=True)
+                    .first()
+                )
+                if not raw_date:
+                    raw_date = (
+                        order.logistics_jobs
+                        .filter(metadata__line_id=str(obj.id))
+                        .exclude(window_end__isnull=True)
+                        .values_list('window_end', flat=True)
+                        .first()
+                    )
+                if not raw_date:
+                    raw_date = (
+                        order.field_ops_jobs
+                        .filter(metadata__line_id=str(obj.id))
+                        .exclude(scheduled_start__isnull=True)
+                        .values_list('scheduled_start', flat=True)
+                        .first()
+                    )
+
+        # Global scheduled fallback for legacy single-line orders.
+        if not raw_date:
+            raw_date = getattr(getattr(obj, 'order', None), 'scheduled_date', None)
+
         if not raw_date:
             return None
 

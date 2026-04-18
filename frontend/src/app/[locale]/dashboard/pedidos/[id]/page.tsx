@@ -156,7 +156,8 @@ export default function StaffOrderDetailPage() {
       const rawDate =
         toSafeText(meta.estimated_delivery_date) ||
         toSafeText(meta.fecha_entrega_estimada) ||
-        toSafeText(line.estimated_delivery_date);
+        toSafeText(line.estimated_delivery_date) ||
+        toSafeText(order.scheduled_date);
       next[line.id] = normalizeDateForInput(rawDate);
     }
     setEstimatedDateByLineId(next);
