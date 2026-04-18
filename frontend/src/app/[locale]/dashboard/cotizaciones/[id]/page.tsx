@@ -663,7 +663,7 @@ export default function QuoteDetailPage() {
                               {line.estimated_delivery_date && (
                                 <span className="inline-flex items-center gap-1">
                                   <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                                  {new Date(line.estimated_delivery_date).toLocaleDateString('es-MX')}
+                                  {new Date(`${line.estimated_delivery_date}T12:00:00`).toLocaleDateString('es-MX')}
                                 </span>
                               )}
                               {line.delivery_address && Object.keys(line.delivery_address).length > 0 && (
@@ -731,7 +731,7 @@ export default function QuoteDetailPage() {
                         {line.estimated_delivery_date && (
                           <span className="inline-flex items-center gap-1">
                             <CalendarIcon className="h-3.5 w-3.5 text-cmyk-cyan" />
-                            {new Date(line.estimated_delivery_date).toLocaleDateString('es-MX')}
+                            {new Date(`${line.estimated_delivery_date}T12:00:00`).toLocaleDateString('es-MX')}
                           </span>
                         )}
                       </div>
@@ -2053,46 +2053,6 @@ export default function QuoteDetailPage() {
                 )}
               </div>
             </Card>
-
-            {/* Delivery */}
-            {(quote.estimated_delivery_date || quote.delivery_method) && (
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-white mb-4">Entrega</h2>
-                <div className="space-y-4">
-                  {quote.delivery_method && (
-                    <div>
-                      <p className="text-neutral-500 text-sm">Método de entrega</p>
-                      <p className="text-white flex items-center gap-2">
-                        <span>{DELIVERY_METHOD_ICONS[quote.delivery_method as DeliveryMethod]}</span>
-                        {DELIVERY_METHOD_LABELS[quote.delivery_method as DeliveryMethod]?.es || quote.delivery_method}
-                      </p>
-                    </div>
-                  )}
-                  {quote.pickup_branch_detail && (
-                    <div>
-                      <p className="text-neutral-500 text-sm">Sucursal de recolección</p>
-                      <p className="text-white">{quote.pickup_branch_detail.name} — {quote.pickup_branch_detail.city}, {quote.pickup_branch_detail.state}</p>
-                    </div>
-                  )}
-                  {quote.delivery_address && Object.keys(quote.delivery_address).length > 0 && (
-                    <div>
-                      <p className="text-neutral-500 text-sm">
-                        {quote.delivery_method === 'installation' ? 'Dirección de instalación' : 'Dirección de envío'}
-                      </p>
-                      <p className="text-white text-sm">
-                        {[quote.delivery_address.street || quote.delivery_address.calle, quote.delivery_address.exterior_number || quote.delivery_address.numero_exterior, quote.delivery_address.neighborhood || quote.delivery_address.colonia, quote.delivery_address.city || quote.delivery_address.ciudad, quote.delivery_address.state || quote.delivery_address.estado, quote.delivery_address.postal_code || quote.delivery_address.codigo_postal].filter(Boolean).join(', ')}
-                      </p>
-                    </div>
-                  )}
-                  {quote.estimated_delivery_date && (
-                    <div>
-                      <p className="text-neutral-500 text-sm">Fecha estimada</p>
-                      <p className="text-white">{formatDate(quote.estimated_delivery_date)}</p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
 
             {/* Internal Notes - Editable */}
             <Card className="p-6 border-yellow-500/30">
