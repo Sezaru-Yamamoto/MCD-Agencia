@@ -814,7 +814,7 @@ export default function QuoteChangeEditor({
                                 </div>
                               );
                             })}
-                            {line.attachments.map((file, idx) => (
+                            {(line.attachments || []).map((file, idx) => (
                               <div key={`${file.name}-${idx}`} className="w-10 h-10 rounded overflow-hidden border border-neutral-700 bg-neutral-800">
                                 {file.type.startsWith('image/') ? (
                                   // eslint-disable-next-line @next/next/no-img-element
