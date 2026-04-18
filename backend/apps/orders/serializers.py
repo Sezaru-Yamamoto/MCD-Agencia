@@ -509,6 +509,7 @@ class CreateOrderSerializer(serializers.Serializer):
 
 class ProductionJobSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    metadata = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductionJob
@@ -518,10 +519,19 @@ class ProductionJobSerializer(serializers.ModelSerializer):
             'requires_quality_check', 'metadata', 'created_at', 'updated_at',
         ]
 
+    def get_metadata(self, obj):
+        """Convert metadata JSONField to serializable format or None."""
+        meta = obj.metadata
+        if not meta or not isinstance(meta, dict) or not meta:
+            return None
+        return meta
+
 
 class LogisticsJobSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     logistics_type_display = serializers.CharField(source='get_logistics_type_display', read_only=True)
+    address_snapshot = serializers.SerializerMethodField()
+    metadata = serializers.SerializerMethodField()
 
     class Meta:
         model = LogisticsJob
@@ -532,10 +542,26 @@ class LogisticsJobSerializer(serializers.ModelSerializer):
             'address_snapshot', 'metadata', 'created_at', 'updated_at',
         ]
 
+    def get_address_snapshot(self, obj):
+        """Convert address_snapshot JSONField to serializable format or None."""
+        addr = obj.address_snapshot
+        if not addr or not isinstance(addr, dict) or not addr:
+            return None
+        return addr
+
+    def get_metadata(self, obj):
+        """Convert metadata JSONField to serializable format or None."""
+        meta = obj.metadata
+        if not meta or not isinstance(meta, dict) or not meta:
+            return None
+        return meta
+
 
 class FieldOperationJobSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     operation_type_display = serializers.CharField(source='get_operation_type_display', read_only=True)
+    location_snapshot = serializers.SerializerMethodField()
+    metadata = serializers.SerializerMethodField()
 
     class Meta:
         model = FieldOperationJob
@@ -545,6 +571,20 @@ class FieldOperationJobSerializer(serializers.ModelSerializer):
             'scheduled_start', 'scheduled_end', 'actual_start', 'actual_end',
             'location_snapshot', 'metadata', 'created_at', 'updated_at',
         ]
+
+    def get_location_snapshot(self, obj):
+        """Convert location_snapshot JSONField to serializable format or None."""
+        loc = obj.location_snapshot
+        if not loc or not isinstance(loc, dict) or not loc:
+            return None
+        return loc
+
+    def get_metadata(self, obj):
+        """Convert metadata JSONField to serializable format or None."""
+        meta = obj.metadata
+        if not meta or not isinstance(meta, dict) or not meta:
+            return None
+        return meta
 
 
 class UpdateOrderStatusSerializer(serializers.Serializer):
