@@ -22,6 +22,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsRoleAdmin
 from .models import Lead, Conversation, Message, MessageFeedback
 from .throttles import ChatMessageThrottle, ChatConfigThrottle
 from .serializers import (
@@ -55,7 +56,7 @@ class LeadViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Lead.objects.select_related('assigned_to', 'user')
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'source', 'assigned_to']
@@ -223,7 +224,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.select_related(
         'lead', 'user', 'escalated_to'
     ).prefetch_related('messages')
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'channel']
@@ -582,7 +583,7 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
 
     def get_queryset(self):
@@ -660,7 +661,7 @@ class ChatAnalyticsView(APIView):
     messages per day, busiest hours.
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get chatbot analytics."""

@@ -24,6 +24,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsRoleAdmin
 from apps.core.views import is_internal_user
 from .models import Payment, PaymentWebhookLog, Refund
 from .serializers import (
@@ -928,7 +929,7 @@ class RefundViewSet(viewsets.ModelViewSet):
 
     queryset = Refund.objects.select_related('payment', 'processed_by')
     serializer_class = RefundSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'reason']
@@ -990,7 +991,7 @@ class PaymentSummaryView(APIView):
     GET /api/v1/admin/payments/summary/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get payment summary."""

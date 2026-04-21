@@ -116,11 +116,11 @@ if settings.DEBUG:
         path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     ]
 else:
-    from rest_framework.permissions import IsAdminUser
+    from apps.core.permissions import IsRoleAdmin
     docs_patterns = [
-        path('schema/', SpectacularAPIView.as_view(permission_classes=[IsAdminUser]), name='schema'),
-        path('swagger/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[IsAdminUser]), name='swagger-ui'),
-        path('redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=[IsAdminUser]), name='redoc'),
+        path('schema/', SpectacularAPIView.as_view(permission_classes=[IsRoleAdmin]), name='schema'),
+        path('swagger/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[IsRoleAdmin]), name='swagger-ui'),
+        path('redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=[IsRoleAdmin]), name='redoc'),
     ]
 
 

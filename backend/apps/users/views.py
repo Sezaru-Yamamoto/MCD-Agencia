@@ -29,6 +29,7 @@ from urllib.parse import urlencode
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardResultsSetPagination
+from apps.core.permissions import IsRoleAdmin
 from .models import Role, UserConsent, FiscalData, UserAddress
 from .tasks import send_verification_email
 from .serializers import (
@@ -321,7 +322,7 @@ class RoleViewSet(viewsets.ModelViewSet):
 
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardResultsSetPagination
 
     def perform_create(self, serializer):
@@ -973,7 +974,7 @@ class SalesRepsView(APIView):
     GET /api/v1/users/sales-reps/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get list of sales reps for assignment."""
