@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from apps.audit.models import AuditLog
 from apps.chatbot.models import Lead
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsRoleAdmin
 from .models import (
     CarouselSlide,
     Testimonial,
@@ -196,7 +197,7 @@ class CarouselSlideViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         """Log slide creation."""
@@ -245,7 +246,7 @@ class TestimonialViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
 
 class ClientLogoViewSet(viewsets.ModelViewSet):
@@ -270,7 +271,7 @@ class ClientLogoViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -301,7 +302,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     @action(detail=False, methods=['get'])
     def featured(self, request):
@@ -394,7 +395,7 @@ class ServiceImageViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         image = serializer.save()
@@ -444,7 +445,7 @@ class PortfolioVideoViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         video = serializer.save()
@@ -484,7 +485,7 @@ class FAQViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     @action(detail=False, methods=['get'])
     def categories(self, request):
@@ -517,7 +518,7 @@ class BranchViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
 
 class LegalPageViewSet(viewsets.ModelViewSet):
@@ -543,7 +544,7 @@ class LegalPageViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     @action(detail=False, methods=['get'], url_path='by-type/(?P<page_type>[^/.]+)')
     def by_type(self, request, page_type=None):
@@ -580,7 +581,7 @@ class SiteConfigurationView(APIView):
         """Set permissions based on method."""
         if self.request.method == 'GET':
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def get(self, request):
         """Get site configuration."""
@@ -695,7 +696,7 @@ class PortfolioItemViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         """Log portfolio item creation."""

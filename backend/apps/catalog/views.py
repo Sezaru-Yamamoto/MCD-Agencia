@@ -20,6 +20,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.audit.models import AuditLog
 from apps.core.pagination import StandardPagination, LargePagination
+from apps.core.permissions import IsRoleAdmin
 from .models import (
     Category,
     Tag,
@@ -74,7 +75,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve', 'tree']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         """Log category creation."""
@@ -141,7 +142,7 @@ class TagViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
 
 class AttributeViewSet(viewsets.ModelViewSet):
@@ -165,7 +166,7 @@ class AttributeViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
 
 class AttributeValueViewSet(viewsets.ModelViewSet):
@@ -181,7 +182,7 @@ class AttributeValueViewSet(viewsets.ModelViewSet):
     queryset = AttributeValue.objects.all()
     serializer_class = AttributeValueSerializer
     pagination_class = StandardPagination
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     filterset_fields = ['attribute']
 
 
@@ -256,7 +257,7 @@ class CatalogItemViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve', 'by_slug']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         """Log item creation."""
@@ -436,7 +437,7 @@ class ProductVariantViewSet(viewsets.ModelViewSet):
         """Set permissions based on action."""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [IsRoleAdmin()]
 
     def perform_create(self, serializer):
         """Log variant creation."""
@@ -495,7 +496,7 @@ class CatalogImageViewSet(viewsets.ModelViewSet):
 
     queryset = CatalogImage.objects.all()
     serializer_class = CatalogImageSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     @action(detail=True, methods=['post'])
     def set_primary(self, request, pk=None):

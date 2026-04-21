@@ -20,6 +20,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.audit.models import AuditLog
 from apps.catalog.models import ProductVariant
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsRoleAdmin
 from .models import InventoryMovement, StockAlert
 from .serializers import (
     InventoryMovementSerializer,
@@ -42,7 +43,7 @@ class InventoryMovementViewSet(viewsets.ModelViewSet):
         'variant__catalog_item', 'created_by'
     )
     serializer_class = InventoryMovementSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['movement_type', 'reason', 'variant']
@@ -163,7 +164,7 @@ class StockAlertViewSet(viewsets.ModelViewSet):
         'variant__catalog_item', 'acknowledged_by'
     )
     serializer_class = StockAlertSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status']
@@ -237,7 +238,7 @@ class StockSummaryView(APIView):
     GET /api/v1/inventory/summary/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get stock summary."""
@@ -282,7 +283,7 @@ class LowStockReportView(APIView):
     GET /api/v1/inventory/low-stock/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get low stock items."""
@@ -316,7 +317,7 @@ class InventoryValueReportView(APIView):
     Get inventory value report.
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get inventory value."""

@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.pagination import StandardPagination, LargePagination
+from apps.core.permissions import IsRoleAdmin
 from .models import AuditLog
 from .serializers import (
     AuditLogSerializer,
@@ -43,7 +44,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     queryset = AuditLog.objects.select_related('actor')
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['entity_type', 'action', 'actor']
@@ -225,7 +226,7 @@ class AuditLogStatsView(APIView):
     GET /api/v1/admin/audit/stats/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get audit statistics."""
@@ -289,7 +290,7 @@ class RecentActivityView(APIView):
     GET /api/v1/admin/audit/recent/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get recent activity."""
@@ -308,7 +309,7 @@ class SecurityEventsView(APIView):
     GET /api/v1/admin/audit/security/
     """
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsRoleAdmin]
 
     def get(self, request):
         """Get security events (logins, password changes, permission changes)."""
