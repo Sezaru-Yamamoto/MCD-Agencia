@@ -6,8 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import {
   CubeIcon,
-  ShoppingBagIcon,
-  DocumentTextIcon,
   UsersIcon,
   ClipboardDocumentListIcon,
   ChartBarIcon,
@@ -16,8 +14,6 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowLeftOnRectangleIcon,
-  LockClosedIcon,
-  Cog6ToothIcon,
   ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 
@@ -58,7 +54,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/inventario', label: 'Inventario', icon: ArchiveBoxIcon, permission: 'canEditCatalog' },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UsersIcon, permission: 'canEditUsers' },
   { href: '/dashboard/contenido', label: 'Contenido', icon: PhotoIcon, permission: 'canEditContent' },
-  { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon, permission: 'canViewLeads' },
+  { href: '/dashboard/analytics', label: 'Analítica', icon: ChartBarIcon, permission: 'isAdmin' },
   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon, permission: 'canViewAudit' },
 ];
 
@@ -66,6 +62,15 @@ const OPERATION_BRANCHES: OperationBranchItem[] = [
   { href: '/dashboard/solicitudes', label: 'Solicitudes', permission: 'canViewAllQuotes' },
   { href: '/dashboard/cotizaciones', label: 'Cotizaciones', permission: 'canViewAllQuotes' },
   { href: '/dashboard/pedidos', label: 'Pedidos', permission: 'canViewAllOrders' },
+];
+
+const ADMIN_ONLY_PATHS = [
+  '/dashboard/catalogo',
+  '/dashboard/inventario',
+  '/dashboard/usuarios',
+  '/dashboard/contenido',
+  '/dashboard/analytics',
+  '/dashboard/auditoria',
 ];
 
 // ---------------------------------------------------------------------------
@@ -111,12 +116,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [pathname, locale, router]);
 
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && permissions.canAccessAdmin && !permissions.isAdmin) {
+      const isAdminOnlyPath = ADMIN_ONLY_PATHS.some((path) => pathname.startsWith(`/${locale}${path}`));
+      if (isAdminOnlyPath) {
+        router.replace(`/${locale}/dashboard/operaciones`);
+      }
+    }
+  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, permissions.isAdmin, pathname, router, locale]);
+
   if (isLoading) {
     return <LoadingPage message="Cargando..." />;
   }
 
   if (!isAuthenticated || !permissions.canAccessAdmin) {
     return null;
+  }
+
+  const isBlockedAdminPath = !permissions.isAdmin
+    && ADMIN_ONLY_PATHS.some((path) => pathname.startsWith(`/${locale}${path}`));
+
+  if (isBlockedAdminPath) {
+    return <LoadingPage message="Redirigiendo..." />;
   }
 
   const handleLogout = () => {
@@ -181,6 +202,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             const hasPermission = permissions[item.permission] as boolean;
 
+            if (!hasPermission) {
+              return null;
+            }
+
             return (
               <div key={item.href}>
                 {/* Group separator */}
@@ -188,67 +213,51 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="my-3 border-t border-neutral-800" />
                 )}
 
-                {hasPermission ? (
-                  <>
-                    <Link
-                      href={fullHref}
-                      onClick={() => setSidebarOpen(false)}
-                      className={cn(
-                        'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
-                        isActive
-                          ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
-                          : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.label}
-                    </Link>
-
-                    {isOperationsParent && (
-                      <div className="ml-6 mt-1 space-y-1 border-l border-neutral-800 pl-3">
-                        {OPERATION_BRANCHES.map((branch) => {
-                          const branchHref = `/${locale}${branch.href}`;
-                          const branchActive = pathname.startsWith(branchHref);
-                          const branchAllowed = permissions[branch.permission] as boolean;
-
-                          if (!branchAllowed) {
-                            return (
-                              <div
-                                key={branch.href}
-                                className="flex items-center justify-between px-3 py-2 rounded-md text-xs text-neutral-600 cursor-not-allowed"
-                              >
-                                <span>{branch.label}</span>
-                                <LockClosedIcon className="h-3.5 w-3.5" />
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <Link
-                              key={branch.href}
-                              href={branchHref}
-                              onClick={() => setSidebarOpen(false)}
-                              className={cn(
-                                'block px-3 py-2 rounded-md text-xs transition-colors',
-                                branchActive
-                                  ? 'bg-cmyk-cyan/15 text-cmyk-cyan'
-                                  : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                              )}
-                            >
-                              {branch.label}
-                            </Link>
-                          );
-                        })}
-                      </div>
+                <>
+                  <Link
+                    href={fullHref}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                      isActive
+                        ? 'bg-cmyk-cyan/20 text-cmyk-cyan'
+                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                     )}
-                  </>
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-neutral-600 cursor-not-allowed">
+                  >
                     <item.icon className="h-5 w-5" />
-                    <span className="flex-1">{item.label}</span>
-                    <LockClosedIcon className="h-4 w-4" />
-                  </div>
-                )}
+                    {item.label}
+                  </Link>
+
+                  {isOperationsParent && (
+                    <div className="ml-6 mt-1 space-y-1 border-l border-neutral-800 pl-3">
+                      {OPERATION_BRANCHES.map((branch) => {
+                        const branchHref = `/${locale}${branch.href}`;
+                        const branchActive = pathname.startsWith(branchHref);
+                        const branchAllowed = permissions[branch.permission] as boolean;
+
+                        if (!branchAllowed) {
+                          return null;
+                        }
+
+                        return (
+                          <Link
+                            key={branch.href}
+                            href={branchHref}
+                            onClick={() => setSidebarOpen(false)}
+                            className={cn(
+                              'block px-3 py-2 rounded-md text-xs transition-colors',
+                              branchActive
+                                ? 'bg-cmyk-cyan/15 text-cmyk-cyan'
+                                : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                            )}
+                          >
+                            {branch.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               </div>
             );
           })}
