@@ -289,8 +289,175 @@ class AddressViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
 
+    @staticmethod
+    def _user_display_name(user) -> str:
+        full_name = (getattr(user, 'full_name', '') or '').strip()
+        if full_name:
+            return full_name
+        combined = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+        return combined or getattr(user, 'email', '') or 'Cliente'
+
+    @staticmethod
+    def _to_profile_address(address: Address) -> dict:
+        return {
+            'calle': (address.street or '').strip(),
+            'numero_exterior': (address.exterior_number or '').strip(),
+            'numero_interior': (address.interior_number or '').strip(),
+            'colonia': (address.neighborhood or '').strip(),
+            'ciudad': (address.city or '').strip(),
+            'estado': (address.state or '').strip(),
+            'codigo_postal': (address.postal_code or '').strip(),
+            'referencia': (address.reference or '').strip(),
+        }
+
+    def _sync_profile_from_order_address(self, address: Address) -> None:
+        """Mirror order shipping addresses into user profile addresses."""
+        if not address.user or address.type != 'shipping':
+            return
+
+        from apps.users.models import UserAddress
+
+        user = address.user
+        profile_addr = self._to_profile_address(address)
+        required = {
+            'calle': profile_addr['calle'],
+            'numero_exterior': profile_addr['numero_exterior'],
+            'colonia': profile_addr['colonia'],
+            'ciudad': profile_addr['ciudad'],
+            'estado': profile_addr['estado'],
+            'codigo_postal': profile_addr['codigo_postal'],
+        }
+        if not all(required.values()):
+            return
+
+        profile_obj = UserAddress.objects.filter(user=user, **required).first()
+        if profile_obj:
+            update_fields = []
+            if profile_addr['numero_interior'] and profile_obj.numero_interior != profile_addr['numero_interior']:
+                profile_obj.numero_interior = profile_addr['numero_interior']
+                update_fields.append('numero_interior')
+            if profile_addr['referencia'] and profile_obj.referencia != profile_addr['referencia']:
+                profile_obj.referencia = profile_addr['referencia']
+                update_fields.append('referencia')
+            if address.is_default and not profile_obj.is_default:
+                profile_obj.is_default = True
+                update_fields.append('is_default')
+            if update_fields:
+                profile_obj.save(update_fields=update_fields + ['updated_at'])
+        else:
+            UserAddress.objects.create(
+                user=user,
+                label='',
+                numero_interior=profile_addr['numero_interior'],
+                referencia=profile_addr['referencia'],
+                is_default=address.is_default,
+                **required,
+            )
+
+        if address.is_default:
+            user.default_delivery_address = profile_addr
+            user.save(update_fields=['default_delivery_address', 'updated_at'])
+
+    def _sync_order_addresses_from_profile(self):
+        """Ensure checkout addresses include profile-saved addresses."""
+        user = self.request.user
+        from apps.users.models import UserAddress
+
+        profile_addresses = list(UserAddress.objects.filter(user=user).order_by('-is_default', '-created_at'))
+        existing = Address.objects.filter(user=user, type='shipping')
+
+        for profile in profile_addresses:
+            required = {
+                'street': (profile.calle or '').strip(),
+                'exterior_number': (profile.numero_exterior or '').strip(),
+                'neighborhood': (profile.colonia or '').strip(),
+                'city': (profile.ciudad or '').strip(),
+                'state': (profile.estado or '').strip(),
+                'postal_code': (profile.codigo_postal or '').strip(),
+            }
+            if not all(required.values()):
+                continue
+
+            addr = existing.filter(
+                street__iexact=required['street'],
+                exterior_number__iexact=required['exterior_number'],
+                neighborhood__iexact=required['neighborhood'],
+                city__iexact=required['city'],
+                state__iexact=required['state'],
+                postal_code__iexact=required['postal_code'],
+            ).first()
+
+            if not addr:
+                addr = Address.objects.create(
+                    user=user,
+                    type='shipping',
+                    is_default=profile.is_default,
+                    name=self._user_display_name(user),
+                    phone=(getattr(user, 'phone', '') or '').strip(),
+                    street=required['street'],
+                    exterior_number=required['exterior_number'],
+                    interior_number=(profile.numero_interior or '').strip(),
+                    neighborhood=required['neighborhood'],
+                    city=required['city'],
+                    state=required['state'],
+                    postal_code=required['postal_code'],
+                    country='MEX',
+                    reference=(profile.referencia or '').strip(),
+                )
+            else:
+                update_fields = []
+                if (profile.numero_interior or '').strip() and addr.interior_number != (profile.numero_interior or '').strip():
+                    addr.interior_number = (profile.numero_interior or '').strip()
+                    update_fields.append('interior_number')
+                if (profile.referencia or '').strip() and addr.reference != (profile.referencia or '').strip():
+                    addr.reference = (profile.referencia or '').strip()
+                    update_fields.append('reference')
+                if profile.is_default and not addr.is_default:
+                    addr.is_default = True
+                    update_fields.append('is_default')
+                if update_fields:
+                    addr.save(update_fields=update_fields + ['updated_at'])
+
+        # Backfill from user.default_delivery_address for older records without UserAddress rows.
+        if not profile_addresses:
+            fallback = getattr(user, 'default_delivery_address', None)
+            if isinstance(fallback, dict):
+                street = (fallback.get('street') or fallback.get('calle') or '').strip()
+                exterior = (fallback.get('exterior_number') or fallback.get('numero_exterior') or '').strip()
+                neighborhood = (fallback.get('neighborhood') or fallback.get('colonia') or '').strip()
+                city = (fallback.get('city') or fallback.get('ciudad') or '').strip()
+                state = (fallback.get('state') or fallback.get('estado') or '').strip()
+                postal = (fallback.get('postal_code') or fallback.get('codigo_postal') or '').strip()
+                if all([street, exterior, neighborhood, city, state, postal]):
+                    exists = existing.filter(
+                        street__iexact=street,
+                        exterior_number__iexact=exterior,
+                        neighborhood__iexact=neighborhood,
+                        city__iexact=city,
+                        state__iexact=state,
+                        postal_code__iexact=postal,
+                    ).exists()
+                    if not exists:
+                        Address.objects.create(
+                            user=user,
+                            type='shipping',
+                            is_default=True,
+                            name=self._user_display_name(user),
+                            phone=(getattr(user, 'phone', '') or '').strip(),
+                            street=street,
+                            exterior_number=exterior,
+                            interior_number=(fallback.get('interior_number') or fallback.get('numero_interior') or '').strip(),
+                            neighborhood=neighborhood,
+                            city=city,
+                            state=state,
+                            postal_code=postal,
+                            country='MEX',
+                            reference=(fallback.get('reference') or fallback.get('referencia') or '').strip(),
+                        )
+
     def get_queryset(self):
         """Return addresses for current user."""
+        self._sync_order_addresses_from_profile()
         return Address.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
@@ -305,6 +472,19 @@ class AddressViewSet(viewsets.ModelViewSet):
                 is_default=True
             ).exclude(id=address.id).update(is_default=False)
 
+        self._sync_profile_from_order_address(address)
+
+    def perform_update(self, serializer):
+        """Update address for current user and keep profile addresses in sync."""
+        address = serializer.save()
+        if address.is_default:
+            Address.objects.filter(
+                user=self.request.user,
+                type=address.type,
+                is_default=True,
+            ).exclude(id=address.id).update(is_default=False)
+        self._sync_profile_from_order_address(address)
+
     @action(detail=True, methods=['post'])
     def set_default(self, request, pk=None):
         """Set address as default."""
@@ -316,6 +496,7 @@ class AddressViewSet(viewsets.ModelViewSet):
         ).update(is_default=False)
         address.is_default = True
         address.save(update_fields=['is_default', 'updated_at'])
+        self._sync_profile_from_order_address(address)
         return Response(AddressSerializer(address).data)
 
 

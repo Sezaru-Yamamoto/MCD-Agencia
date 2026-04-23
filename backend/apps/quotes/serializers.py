@@ -195,8 +195,29 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
             if validated_data.get('customer_company'):
                 user.company = validated_data['customer_company']
                 update_fields.append('company')
+
+            # For multi-service requests, address may come per-service rather than
+            # request-level delivery_address. Pick the first service address that
+            # actually requires physical delivery.
+            service_level_address = None
+            service_level_delivery_method = None
+            if isinstance(services_data, list):
+                for svc in services_data:
+                    if not isinstance(svc, dict):
+                        continue
+                    svc_method = svc.get('delivery_method')
+                    svc_addr = svc.get('delivery_address')
+                    if (
+                        svc_method in [QuoteRequest.DELIVERY_SHIPPING, QuoteRequest.DELIVERY_INSTALLATION]
+                        and isinstance(svc_addr, dict)
+                        and any(str(v).strip() for v in svc_addr.values())
+                    ):
+                        service_level_address = svc_addr
+                        service_level_delivery_method = svc_method
+                        break
+
             delivery_method = validated_data.get('delivery_method')
-            delivery_addr = validated_data.get('delivery_address')
+            delivery_addr = validated_data.get('delivery_address') or service_level_address
 
             def _to_spanish_address(addr: dict) -> dict:
                 if not isinstance(addr, dict):
@@ -213,7 +234,7 @@ class QuoteRequestCreateSerializer(serializers.ModelSerializer):
                 }
 
             profile_addr = _to_spanish_address(delivery_addr)
-            should_persist_profile_address = delivery_method in [
+            should_persist_profile_address = (delivery_method or service_level_delivery_method) in [
                 QuoteRequest.DELIVERY_SHIPPING,
                 QuoteRequest.DELIVERY_INSTALLATION,
             ]

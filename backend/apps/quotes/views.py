@@ -1015,6 +1015,22 @@ class QuoteViewSet(viewsets.ModelViewSet):
             return
 
         source_address = quote.delivery_address or (quote.quote_request.delivery_address if quote.quote_request else {})
+        if not source_address:
+            # Fallback for multi-service quotes where address can live per line.
+            line_with_address = quote.lines.filter(
+                delivery_method__in=[QuoteRequest.DELIVERY_SHIPPING, QuoteRequest.DELIVERY_INSTALLATION]
+            ).exclude(delivery_address={}).first()
+            if line_with_address and isinstance(line_with_address.delivery_address, dict):
+                source_address = line_with_address.delivery_address
+
+        if not source_address and quote.quote_request:
+            # Final fallback from request services.
+            svc_with_address = quote.quote_request.services.filter(
+                delivery_method__in=[QuoteRequest.DELIVERY_SHIPPING, QuoteRequest.DELIVERY_INSTALLATION]
+            ).exclude(delivery_address={}).order_by('position').first()
+            if svc_with_address and isinstance(svc_with_address.delivery_address, dict):
+                source_address = svc_with_address.delivery_address
+
         profile_addr = self._normalize_address_for_user_profile(source_address)
         if not profile_addr or not any(profile_addr.values()):
             if user_update_fields:
