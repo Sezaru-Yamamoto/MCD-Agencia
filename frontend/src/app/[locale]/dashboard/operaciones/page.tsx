@@ -1,5 +1,378 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowTopRightOnSquareIcon,
+  BanknotesIcon,
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  CreditCardIcon,
+  CubeIcon,
+  ExclamationTriangleIcon,
+  TruckIcon,
+  WrenchScrewdriverIcon,
+} from '@heroicons/react/24/outline';
+
+import { Card, LoadingPage } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getOperationsJobs, getProductionJobs, type LogisticsJob, type ProductionJob } from '@/lib/api/admin';
+import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
+import { getAdminChangeRequests, getAdminQuoteRequests, getAdminQuotes, type Quote, type QuoteChangeRequest, type QuoteRequest } from '@/lib/api/quotes';
+
+interface HubModule {
+  key: 'requests' | 'quotes' | 'orders' | 'production' | 'logistics';
+  title: string;
+  subtitle: string;
+  href: string;
+  count: number;
+  tone: string;
+  icon: React.ComponentType<{ className?: string }>;
+  highlights: string[];
+}
+
+const FLOW_STEPS = [
+  {
+    title: 'Solicitudes',
+    summary: 'Primer contacto del cliente.',
+  },
+  {
+    title: 'Cotizaciones',
+    summary: 'Respuesta del vendedor y cambios del cliente.',
+  },
+  {
+    title: 'Pedidos',
+    summary: 'PayPal/MP = automático. Transferencia/Efectivo = validación manual.',
+  },
+  {
+    title: 'Producción',
+    summary: 'En proceso -> Control de calidad -> Listo para entrega.',
+  },
+  {
+    title: 'Logística',
+    summary: 'Despacho, entrega/recolección e instalación.',
+  },
+] as const;
+
+export default function OperationsPage() {
+  const router = useRouter();
+  const locale = useLocale();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const permissions = usePermissions();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [requests, setRequests] = useState<QuoteRequest[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [changeRequests, setChangeRequests] = useState<QuoteChangeRequest[]>([]);
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [productionJobs, setProductionJobs] = useState<ProductionJob[]>([]);
+  const [logisticsJobs, setLogisticsJobs] = useState<LogisticsJob[]>([]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.replace(`/${locale}/login?redirect=/${locale}/dashboard/operaciones`);
+      return;
+    }
+
+    if (!permissions.canViewOperationsPanel) {
+      if (permissions.canViewProductionPanel) {
+        router.replace(`/${locale}/dashboard/produccion`);
+      } else if (permissions.canViewLogisticsPanel) {
+        router.replace(`/${locale}/dashboard/logistica`);
+      } else {
+        router.replace(`/${locale}/dashboard`);
+      }
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated, locale, permissions.canViewLogisticsPanel, permissions.canViewOperationsPanel, permissions.canViewProductionPanel, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !permissions.canViewOperationsPanel) return;
+
+    const loadHub = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const baseCalls = await Promise.allSettled([
+          getAdminQuoteRequests({ page: 1 }),
+          getAdminQuotes({ page: 1 }),
+          getAdminChangeRequests({ status: 'pending', page: 1 }),
+          getStaffOrders({ page: 1 }),
+        ]);
+
+        const requestsResult = baseCalls[0];
+        const quotesResult = baseCalls[1];
+        const changesResult = baseCalls[2];
+        const ordersResult = baseCalls[3];
+
+        setRequests(requestsResult.status === 'fulfilled' ? (requestsResult.value.results || []) : []);
+        setQuotes(quotesResult.status === 'fulfilled' ? (quotesResult.value.results || []) : []);
+        setChangeRequests(changesResult.status === 'fulfilled' ? (changesResult.value.results || []) : []);
+        setOrders(ordersResult.status === 'fulfilled' ? (ordersResult.value.results || []) : []);
+
+        if (permissions.isAdmin) {
+          const opsCalls = await Promise.allSettled([
+            getProductionJobs({ page: 1 }),
+            getOperationsJobs({ job_type: 'logistics', page: 1 }),
+          ]);
+
+          const prodResult = opsCalls[0];
+          const logisticsResult = opsCalls[1];
+
+          setProductionJobs(prodResult.status === 'fulfilled' ? (prodResult.value.results || []) : []);
+          setLogisticsJobs(logisticsResult.status === 'fulfilled' ? ((logisticsResult.value.results || []) as LogisticsJob[]) : []);
+        } else {
+          setProductionJobs([]);
+          setLogisticsJobs([]);
+        }
+      } catch (err) {
+        console.error('Error loading operations hub:', err);
+        setError('No se pudo cargar el hub operativo. Intenta de nuevo en unos segundos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHub();
+  }, [isAuthenticated, permissions.canViewOperationsPanel, permissions.isAdmin]);
+
+  const urgentRequestsCount = useMemo(() => {
+    return requests.filter((request) => request.urgency === 'high').length;
+  }, [requests]);
+
+  const manualPaymentPending = useMemo(() => {
+    return orders.filter((order) => ['bank_transfer', 'cash'].includes((order.payment_method || '').toLowerCase()) && order.status === 'pending_payment').length;
+  }, [orders]);
+
+  const modules = useMemo<HubModule[]>(() => {
+    const base: HubModule[] = [
+      {
+        key: 'requests',
+        title: 'Solicitudes',
+        subtitle: 'Nuevas solicitudes iniciales del cliente.',
+        href: `/${locale}/dashboard/solicitudes`,
+        count: requests.length,
+        tone: 'border-blue-500/30',
+        icon: ClipboardDocumentListIcon,
+        highlights: [
+          `${urgentRequestsCount} urgentes`,
+          `${requests.filter((r) => r.status === 'pending').length} pendientes`,
+        ],
+      },
+      {
+        key: 'quotes',
+        title: 'Cotizaciones',
+        subtitle: 'Respuesta comercial, revisiones y cambios del cliente.',
+        href: `/${locale}/dashboard/cotizaciones`,
+        count: quotes.length,
+        tone: 'border-purple-500/30',
+        icon: CalendarDaysIcon,
+        highlights: [
+          `${changeRequests.length} solicitudes de cambio`,
+          `${quotes.filter((q) => ['sent', 'viewed', 'changes_requested'].includes(q.status)).length} activas`,
+        ],
+      },
+      {
+        key: 'orders',
+        title: 'Pedidos',
+        subtitle: 'Seguimiento de pago y paso hacia producción.',
+        href: `/${locale}/dashboard/pedidos`,
+        count: orders.length,
+        tone: 'border-cmyk-cyan/30',
+        icon: CubeIcon,
+        highlights: [
+          `${manualPaymentPending} por validar (Transferencia/Efectivo)`,
+          `${orders.filter((o) => o.status === 'in_production').length} en producción`,
+        ],
+      },
+    ];
+
+    if (permissions.isAdmin) {
+      base.push(
+        {
+          key: 'production',
+          title: 'Producción',
+          subtitle: 'Ejecución interna hasta liberar a logística.',
+          href: `/${locale}/dashboard/produccion`,
+          count: productionJobs.length,
+          tone: 'border-amber-500/30',
+          icon: WrenchScrewdriverIcon,
+          highlights: [
+            `${productionJobs.filter((j) => j.status === 'in_production').length} en proceso`,
+            `${productionJobs.filter((j) => j.status === 'quality_check').length} en calidad`,
+          ],
+        },
+        {
+          key: 'logistics',
+          title: 'Logística',
+          subtitle: 'Despacho, entrega/recolección e instalación.',
+          href: `/${locale}/dashboard/logistica`,
+          count: logisticsJobs.length,
+          tone: 'border-green-500/30',
+          icon: TruckIcon,
+          highlights: [
+            `${logisticsJobs.filter((j) => j.status === 'in_transit').length} en tránsito`,
+            `${logisticsJobs.filter((j) => ['ready_for_pickup', 'delivered'].includes(j.status)).length} listas/entregadas`,
+          ],
+        }
+      );
+    }
+
+    return base;
+  }, [changeRequests.length, locale, logisticsJobs, manualPaymentPending, orders, permissions.isAdmin, productionJobs, quotes, requests, urgentRequestsCount]);
+
+  if (authLoading || loading) {
+    return <LoadingPage message="Cargando operaciones..." />;
+  }
+
+  if (!isAuthenticated || !permissions.canViewOperationsPanel) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-white">Operaciones</h1>
+        <p className="text-sm text-neutral-400 max-w-4xl">
+          Vista integral del flujo comercial y operativo. Admin visualiza los cinco apartados completos;
+          ventas se enfoca en Solicitudes, Cotizaciones y Pedidos.
+        </p>
+      </div>
+
+      {error && (
+        <Card className="border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {error}
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        {FLOW_STEPS.map((step, index) => (
+          <Card key={step.title} className="p-3 border border-neutral-800 bg-neutral-900/50">
+            <p className="text-[11px] text-cmyk-cyan font-semibold">Paso {index + 1}</p>
+            <p className="text-sm font-semibold text-white mt-1">{step.title}</p>
+            <p className="text-xs text-neutral-400 mt-1">{step.summary}</p>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="p-4 border border-neutral-800">
+          <div className="flex items-center gap-3">
+            <CreditCardIcon className="h-5 w-5 text-cmyk-cyan" />
+            <div>
+              <p className="text-xs text-neutral-400">Pago automático</p>
+              <p className="text-sm font-semibold text-white">Mercado Pago / PayPal</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border border-neutral-800">
+          <div className="flex items-center gap-3">
+            <BanknotesIcon className="h-5 w-5 text-amber-300" />
+            <div>
+              <p className="text-xs text-neutral-400">Validación manual</p>
+              <p className="text-sm font-semibold text-white">Transferencia / Efectivo</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border border-neutral-800">
+          <div className="flex items-center gap-3">
+            <ExclamationTriangleIcon className="h-5 w-5 text-red-300" />
+            <div>
+              <p className="text-xs text-neutral-400">Urgencia comercial</p>
+              <p className="text-sm font-semibold text-white">{urgentRequestsCount} solicitudes urgentes</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border border-neutral-800">
+          <div className="flex items-center gap-3">
+            <ClipboardDocumentCheckIcon className="h-5 w-5 text-green-300" />
+            <div>
+              <p className="text-xs text-neutral-400">Pendiente por cobrar</p>
+              <p className="text-sm font-semibold text-white">{manualPaymentPending} pedidos manuales</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {modules.map((module) => {
+          const Icon = module.icon;
+          return (
+            <Card key={module.key} className={`p-4 border ${module.tone} bg-neutral-900/60`}> 
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-5 w-5 text-cmyk-cyan" />
+                    <h2 className="text-lg font-semibold text-white">{module.title}</h2>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-1">{module.subtitle}</p>
+                </div>
+                <span className="rounded-full border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200">
+                  {module.count}
+                </span>
+              </div>
+
+              <div className="mt-3 space-y-1.5">
+                {module.highlights.map((highlight) => (
+                  <p key={highlight} className="text-xs text-neutral-300 flex items-center gap-2">
+                    <ClockIcon className="h-3.5 w-3.5 text-neutral-500" />
+                    {highlight}
+                  </p>
+                ))}
+              </div>
+
+              <div className="mt-4">
+                <Link
+                  href={module.href}
+                  className="inline-flex items-center gap-2 rounded-lg border border-cmyk-cyan/40 px-3 py-1.5 text-xs font-medium text-cmyk-cyan hover:bg-cmyk-cyan/10 transition-colors"
+                >
+                  Abrir módulo
+                  <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {permissions.isAdmin && (
+        <Card className="p-4 border border-neutral-800 bg-neutral-900/50">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <CheckCircleIcon className="h-4 w-4 text-cmyk-cyan" />
+            Alcance por rol
+          </h3>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+              <p className="font-semibold text-white">Admin</p>
+              <p className="text-neutral-400 mt-1">Solicitudes, Cotizaciones, Pedidos, Producción y Logística.</p>
+            </div>
+            <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+              <p className="font-semibold text-white">Ventas</p>
+              <p className="text-neutral-400 mt-1">Solicitudes, Cotizaciones y Pedidos del flujo comercial asignado.</p>
+            </div>
+            <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+              <p className="font-semibold text-white">Producción/Logística</p>
+              <p className="text-neutral-400 mt-1">Panel especializado de su etapa, sin ruido de módulos ajenos.</p>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+'use client';
+
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
