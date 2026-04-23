@@ -202,7 +202,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                               {/* Image */}
                               <div className="relative h-24 w-24 rounded-lg overflow-hidden bg-neutral-900 flex-shrink-0">
                                 <Image
-                                  src={item.variant.images?.[0]?.image || '/images/logo.png'}
+                                  src={item.product_image || item.variant.images?.[0]?.image || '/images/logo.png'}
                                   alt={item.product_name}
                                   fill
                                   className="object-cover"

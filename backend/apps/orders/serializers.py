@@ -105,10 +105,23 @@ class CartItemSerializer(serializers.ModelSerializer):
         return obj.variant.catalog_item.slug
 
     def get_product_image(self, obj):
-        """Get catalog item's primary image URL (or first image)."""
+        """Get catalog item's primary image URL (or first available image)."""
         catalog_item = obj.variant.catalog_item
-        primary = catalog_item.images.filter(is_primary=True).first() or catalog_item.images.first()
-        return primary.image.url if primary and primary.image else None
+        primary = catalog_item.images.filter(is_primary=True).first()
+        image_obj = primary or catalog_item.images.filter(image__isnull=False).first()
+
+        if not image_obj or not image_obj.image:
+            return None
+
+        try:
+            image_url = image_obj.image.url
+        except Exception:
+            return None
+
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        if request:
+            return request.build_absolute_uri(image_url)
+        return image_url
 
     def get_variant_display_name(self, obj):
         """Friendly variant label for UI."""
