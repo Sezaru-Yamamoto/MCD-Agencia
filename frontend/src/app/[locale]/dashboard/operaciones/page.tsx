@@ -681,31 +681,6 @@ export default function OperationsPage() {
   );
 }
 
-  ChevronRightIcon,
-  ClockIcon,
-  DocumentTextIcon,
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  TruckIcon,
-  UserGroupIcon,
-  ListBulletIcon,
-  EyeIcon,
-  ArrowTopRightOnSquareIcon,
-} from '@heroicons/react/24/outline';
-
-import { Card, LoadingPage, Modal } from '@/components/ui';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
-import { getWorkflowOverview, type WorkflowItem } from '@/lib/api/admin';
-import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
-import { getAdminQuoteRequests, getAdminQuotes, getAdminChangeRequests, type Quote, type QuoteRequest, type QuoteChangeRequest } from '@/lib/api/quotes';
-import { getPaymentMethodLabel, requiresManualPayment } from '@/lib/workflow';
-
-const blockConfig: Record<string, {
-  title: string;
-  subtitle: string;
-  accent: string;
-  empty: string;
   icon: ComponentType<{ className?: string }>;
 }> = {
   quotes: {
