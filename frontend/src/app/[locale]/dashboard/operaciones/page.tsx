@@ -369,69 +369,7 @@ export default function OperationsPage() {
     </div>
   );
 }
-'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import {
-  ArrowTopRightOnSquareIcon,
-  BanknotesIcon,
-  CalendarDaysIcon,
-  CheckCircleIcon,
-  ClipboardDocumentCheckIcon,
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  CreditCardIcon,
-  CubeIcon,
-  ExclamationTriangleIcon,
-  TruckIcon,
-  WrenchScrewdriverIcon,
-} from '@heroicons/react/24/outline';
-
-import { Card, LoadingPage } from '@/components/ui';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
-import { getOperationsJobs, getProductionJobs, type LogisticsJob, type ProductionJob } from '@/lib/api/admin';
-import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
-import { getAdminChangeRequests, getAdminQuoteRequests, getAdminQuotes, type Quote, type QuoteChangeRequest, type QuoteRequest } from '@/lib/api/quotes';
-
-interface HubModule {
-  key: 'requests' | 'quotes' | 'orders' | 'production' | 'logistics';
-  title: string;
-  subtitle: string;
-  href: string;
-  count: number;
-  tone: string;
-  icon: React.ComponentType<{ className?: string }>;
-  highlights: string[];
-}
-
-const FLOW_STEPS = [
-  {
-    title: 'Solicitudes',
-    summary: 'Primer contacto del cliente.',
-  },
-  {
-    title: 'Cotizaciones',
-    summary: 'Respuesta del vendedor y cambios del cliente.',
-  },
-  {
-    title: 'Pedidos',
-    summary: 'PayPal/MP = automático. Transferencia/Efectivo = validación manual.',
-  },
-  {
-    title: 'Producción',
-    summary: 'En proceso -> Control de calidad -> Listo para entrega.',
-  },
-  {
-    title: 'Logística',
-    summary: 'Despacho, entrega/recolección e instalación.',
-  },
-] as const;
-
-export default function OperationsPage() {
   const router = useRouter();
   const locale = useLocale();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -742,16 +680,7 @@ export default function OperationsPage() {
     </div>
   );
 }
-'use client';
 
-import { useEffect, useRef, useState, type ComponentType } from 'react';
-import Link from 'next/link';
-import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import {
-  CalendarDaysIcon,
-  CheckCircleIcon,
-  ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
   DocumentTextIcon,
