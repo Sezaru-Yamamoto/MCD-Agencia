@@ -157,7 +157,7 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<CarouselSlideAdmin | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [form, setForm] = useState({ service_key: '', title: '', title_en: '', position: 0, is_active: true });
+  const [form, setForm] = useState({ service_key: '', title: '', title_en: '', subtitle: '', subtitle_en: '', position: 0, is_active: true });
 
   const createMut = useMutation({
     mutationFn: createCarouselSlideWithFile,
@@ -181,12 +181,20 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
 
   const openCreate = () => {
     setEditing(null); setImageFile(null);
-    setForm({ service_key: '', title: '', title_en: '', position: slides.length, is_active: true });
+    setForm({ service_key: '', title: '', title_en: '', subtitle: '', subtitle_en: '', position: slides.length, is_active: true });
     setShowModal(true);
   };
   const openEdit = (s: CarouselSlideAdmin) => {
     setEditing(s); setImageFile(null);
-    setForm({ service_key: s.service_key || '', title: s.title, title_en: s.title_en, position: s.position, is_active: s.is_active });
+    setForm({
+      service_key: s.service_key || '',
+      title: s.title,
+      title_en: s.title_en,
+      subtitle: s.subtitle || '',
+      subtitle_en: s.subtitle_en || '',
+      position: s.position,
+      is_active: s.is_active,
+    });
     setShowModal(true);
   };
   const closeModal = () => { setShowModal(false); setEditing(null); setImageFile(null); };
@@ -200,7 +208,6 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
     e.preventDefault();
     const payload = {
       ...form,
-      subtitle: '', subtitle_en: '',
       cta_text: 'Cotizar', cta_text_en: 'Quote',
       cta_url: form.service_key ? `#cotizar?servicio=${form.service_key}` : '#cotizar',
     };
@@ -244,6 +251,7 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
                     <h3 className="font-medium text-white text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{slide.title || 'Sin título'}</h3>
                     <Badge variant={slide.is_active ? 'success' : 'default'} className="text-[10px] sm:text-xs">{slide.is_active ? 'Activo' : 'Inactivo'}</Badge>
                   </div>
+                  {slide.subtitle && <p className="text-xs text-neutral-400 truncate">{slide.subtitle}</p>}
                   {slide.service_key && <p className="text-[11px] sm:text-xs text-cyan-400">Servicio: {SERVICE_LABELS[slide.service_key as ServiceId] || slide.service_key}</p>}
                   <p className="text-[11px] sm:text-xs text-neutral-500 mt-0.5">Pos: {slide.position}</p>
                 </div>
@@ -277,6 +285,23 @@ function CarouselTab({ slides, queryClient }: { slides: CarouselSlideAdmin[]; qu
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Título (ES)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
             <Input label="Título (EN)" value={form.title_en} onChange={(e) => setForm({ ...form, title_en: e.target.value })} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Textarea
+              label="Descripción bajo título (ES)"
+              value={form.subtitle}
+              onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+              rows={3}
+              placeholder="Describe este servicio para el hero"
+            />
+            <Textarea
+              label="Descripción bajo título (EN)"
+              value={form.subtitle_en}
+              onChange={(e) => setForm({ ...form, subtitle_en: e.target.value })}
+              rows={3}
+              placeholder="Describe this service for the hero"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
