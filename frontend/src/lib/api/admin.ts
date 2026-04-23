@@ -124,6 +124,8 @@ export interface ProductionJob {
   variant_name?: string;
   status: string;
   status_display: string;
+  planned_start?: string | null;
+  planned_end?: string | null;
   scheduled_start?: string | null;
   scheduled_end?: string | null;
   actual_start?: string | null;
