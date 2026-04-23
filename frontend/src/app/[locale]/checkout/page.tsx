@@ -110,6 +110,16 @@ export default function CheckoutPage() {
     enabled: isAuthenticated,
   });
 
+  const normalizeAddressPart = (value: string): string => {
+    return (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const toAddressKey = (addr: {
     street: string;
     exterior_number: string;
@@ -124,7 +134,7 @@ export default function CheckoutPage() {
     addr.city,
     addr.state,
     addr.postal_code,
-  ].map((v) => (v || '').trim().toLowerCase()).join('|');
+  ].map((v) => normalizeAddressPart(v)).join('|');
 
   const profileToCheckoutAddress = (addr: UserAddress): Address => {
     const name = user?.full_name?.trim() || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || 'Cliente';
@@ -315,7 +325,7 @@ export default function CheckoutPage() {
       const created = await createAddress({
         type: 'shipping',
         is_default: addresses.length === 0,
-        name: user?.full_name?.trim() || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || 'Cliente',
+        name: (profileAddr.label || '').trim() || user?.full_name?.trim() || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || 'Cliente',
         phone: (user?.phone || '').trim(),
         street: (profileAddr.calle || '').trim(),
         exterior_number: (profileAddr.numero_exterior || '').trim(),
