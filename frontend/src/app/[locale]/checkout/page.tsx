@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLegalModal } from '@/contexts/LegalModalContext';
 import { getAddresses, createAddress, createOrder, Address } from '@/lib/api/orders';
+import { getUserAddresses, type UserAddress } from '@/lib/api/auth';
 import { getBranches, type Branch } from '@/lib/api/content';
 import { Button, Input, Card, LoadingPage, Modal } from '@/components/ui';
 import { formatPrice, cn } from '@/lib/utils';
@@ -79,7 +80,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const locale = useLocale();
   const { cart, isLoading: isCartLoading, refreshCart } = useCart();
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const { openPrivacy, openTerms } = useLegalModal();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -103,16 +104,89 @@ export default function CheckoutPage() {
 
   const addresses = addressesData?.results || [];
 
+  const { data: profileAddresses = [] } = useQuery({
+    queryKey: ['user-addresses-checkout'],
+    queryFn: getUserAddresses,
+    enabled: isAuthenticated,
+  });
+
+  const toAddressKey = (addr: {
+    street: string;
+    exterior_number: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }) => [
+    addr.street,
+    addr.exterior_number,
+    addr.neighborhood,
+    addr.city,
+    addr.state,
+    addr.postal_code,
+  ].map((v) => (v || '').trim().toLowerCase()).join('|');
+
+  const profileToCheckoutAddress = (addr: UserAddress): Address => {
+    const name = user?.full_name?.trim() || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || 'Cliente';
+    const phone = (user?.phone || '').trim();
+    const street = (addr.calle || '').trim();
+    const exterior = (addr.numero_exterior || '').trim();
+    const interior = (addr.numero_interior || '').trim();
+    const neighborhood = (addr.colonia || '').trim();
+    const city = (addr.ciudad || '').trim();
+    const state = (addr.estado || '').trim();
+    const postal = (addr.codigo_postal || '').trim();
+    const reference = (addr.referencia || '').trim();
+
+    const fullAddress = `${street} ${exterior}${interior ? `, Int. ${interior}` : ''}, ${neighborhood}, ${city}, ${state}, CP ${postal}`.trim();
+
+    return {
+      id: `profile-${addr.id}`,
+      type: 'shipping',
+      is_default: Boolean(addr.is_default),
+      name,
+      phone,
+      street,
+      exterior_number: exterior,
+      interior_number: interior,
+      neighborhood,
+      city,
+      state,
+      postal_code: postal,
+      country: 'MX',
+      reference,
+      full_address: fullAddress,
+    };
+  };
+
+  const checkoutAddresses = useMemo(() => {
+    const merged = [...addresses];
+    const existingKeys = new Set(
+      addresses.map((addr) => toAddressKey(addr))
+    );
+
+    for (const profileAddr of profileAddresses) {
+      const mapped = profileToCheckoutAddress(profileAddr);
+      if (!mapped.street || !mapped.exterior_number || !mapped.neighborhood || !mapped.city || !mapped.state || !mapped.postal_code) {
+        continue;
+      }
+      const key = toAddressKey(mapped);
+      if (!existingKeys.has(key)) {
+        merged.push(mapped);
+        existingKeys.add(key);
+      }
+    }
+
+    return merged;
+  }, [addresses, profileAddresses, user]);
+
   const { data: branches = [] } = useQuery({
     queryKey: ['branches-checkout'],
     queryFn: getBranches,
     enabled: isAuthenticated,
   });
 
-  const checkoutBranches = branches.filter((branch) => {
-    const normalizedName = (branch.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    return normalizedName !== 'acapulco diamante';
-  });
+  const checkoutBranches = branches;
 
   const {
     register,
@@ -132,11 +206,11 @@ export default function CheckoutPage() {
 
   // Set default address
   useEffect(() => {
-    if (addresses.length > 0 && !selectedAddressId) {
-      const defaultAddress = addresses.find((a) => a.is_default) || addresses[0];
+    if (checkoutAddresses.length > 0 && !selectedAddressId) {
+      const defaultAddress = checkoutAddresses.find((a) => a.is_default) || checkoutAddresses[0];
       setSelectedAddressId(defaultAddress.id);
     }
-  }, [addresses, selectedAddressId]);
+  }, [checkoutAddresses, selectedAddressId]);
 
   // Default pickup branch when user switches to pickup and no branch is selected yet.
   useEffect(() => {
@@ -145,7 +219,7 @@ export default function CheckoutPage() {
     }
   }, [deliveryMethod, selectedPickupBranchId, checkoutBranches]);
 
-  const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
+  const selectedAddress = checkoutAddresses.find((address) => address.id === selectedAddressId) || null;
 
   const isLocalShipping =
     !!selectedAddress &&
@@ -178,7 +252,52 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
-    const resolvedShippingAddressId = selectedAddressId || addresses[0]?.id || null;
+    const findOrderAddressByProfile = (profileAddressId: string): Address | null => {
+      const profileAddr = profileAddresses.find((a) => a.id === profileAddressId);
+      if (!profileAddr) return null;
+      const key = toAddressKey({
+        street: profileAddr.calle,
+        exterior_number: profileAddr.numero_exterior,
+        neighborhood: profileAddr.colonia,
+        city: profileAddr.ciudad,
+        state: profileAddr.estado,
+        postal_code: profileAddr.codigo_postal,
+      });
+      return addresses.find((addr) => toAddressKey(addr) === key) || null;
+    };
+
+    const ensureOrderAddressId = async (rawSelectedAddressId: string | null): Promise<string | null> => {
+      if (!rawSelectedAddressId) return addresses[0]?.id || null;
+      if (!rawSelectedAddressId.startsWith('profile-')) return rawSelectedAddressId;
+
+      const profileAddressId = rawSelectedAddressId.replace('profile-', '');
+      const profileAddr = profileAddresses.find((a) => a.id === profileAddressId);
+      if (!profileAddr) return addresses[0]?.id || null;
+
+      const existingOrderAddr = findOrderAddressByProfile(profileAddressId);
+      if (existingOrderAddr) return existingOrderAddr.id;
+
+      const created = await createAddress({
+        type: 'shipping',
+        is_default: addresses.length === 0,
+        name: user?.full_name?.trim() || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || 'Cliente',
+        phone: (user?.phone || '').trim(),
+        street: (profileAddr.calle || '').trim(),
+        exterior_number: (profileAddr.numero_exterior || '').trim(),
+        interior_number: (profileAddr.numero_interior || '').trim(),
+        neighborhood: (profileAddr.colonia || '').trim(),
+        city: (profileAddr.ciudad || '').trim(),
+        state: (profileAddr.estado || '').trim(),
+        postal_code: (profileAddr.codigo_postal || '').trim(),
+        country: 'MX',
+        reference: (profileAddr.referencia || '').trim(),
+      });
+
+      await refetchAddresses();
+      return created.id;
+    };
+
+    const resolvedShippingAddressId = await ensureOrderAddressId(selectedAddressId || checkoutAddresses[0]?.id || null);
 
     if (deliveryMethod === 'shipping' && !resolvedShippingAddressId) {
       toast.error('Selecciona una dirección de envío');
@@ -370,7 +489,7 @@ export default function CheckoutPage() {
                     </Button>
                   </div>
 
-                  {addresses.length === 0 ? (
+                  {checkoutAddresses.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-neutral-400 mb-4">No tienes direcciones guardadas</p>
                       <Button onClick={() => setIsAddressModalOpen(true)}>
@@ -379,7 +498,7 @@ export default function CheckoutPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {addresses.map((address) => (
+                      {checkoutAddresses.map((address) => (
                         <button
                           key={address.id}
                           onClick={() => setSelectedAddressId(address.id)}
