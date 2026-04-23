@@ -2621,6 +2621,11 @@ export function QuoteForm() {
                                   <p className="text-xs text-gray-400 mt-0.5">
                                     {addr.calle} {addr.numero_exterior}{addr.numero_interior ? ` Int. ${addr.numero_interior}` : ''}, {addr.colonia}, {addr.ciudad}, {addr.estado} C.P. {addr.codigo_postal}
                                   </p>
+                                  {addr.referencia && (
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      Referencia: {addr.referencia}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </button>

@@ -180,6 +180,41 @@ export default function CheckoutPage() {
     return merged;
   }, [addresses, profileAddresses, user]);
 
+  const profileAddressById = useMemo(() => {
+    return new Map(profileAddresses.map((addr) => [addr.id, addr]));
+  }, [profileAddresses]);
+
+  const getProfileAddressForCheckoutAddress = (address: Address): UserAddress | undefined => {
+    if (address.id.startsWith('profile-')) {
+      const profileId = address.id.replace('profile-', '');
+      return profileAddressById.get(profileId);
+    }
+
+    const key = toAddressKey(address);
+    return profileAddresses.find((profileAddr) =>
+      toAddressKey({
+        street: profileAddr.calle,
+        exterior_number: profileAddr.numero_exterior,
+        neighborhood: profileAddr.colonia,
+        city: profileAddr.ciudad,
+        state: profileAddr.estado,
+        postal_code: profileAddr.codigo_postal,
+      }) === key
+    );
+  };
+
+  const getAddressCardTitle = (address: Address): string => {
+    const profileAddr = getProfileAddressForCheckoutAddress(address);
+    const tag = (profileAddr?.label || '').trim();
+    if (tag) return tag;
+    return address.name || 'Direccion';
+  };
+
+  const getAddressCardReference = (address: Address): string => {
+    const profileAddr = getProfileAddressForCheckoutAddress(address);
+    return (address.reference || profileAddr?.referencia || '').trim();
+  };
+
   const { data: branches = [] } = useQuery({
     queryKey: ['branches-checkout'],
     queryFn: getBranches,
@@ -509,7 +544,7 @@ export default function CheckoutPage() {
                               : 'border-neutral-700 hover:border-neutral-600'
                           )}
                         >
-                          <p className="text-white font-medium">{address.name}</p>
+                          <p className="text-white font-medium">{getAddressCardTitle(address)}</p>
                           <p className="text-sm text-neutral-400 mt-1">
                             {address.street} {address.exterior_number}
                             {address.interior_number && `, Int. ${address.interior_number}`}
@@ -520,6 +555,11 @@ export default function CheckoutPage() {
                           <p className="text-sm text-neutral-400">
                             {address.state}, CP {address.postal_code}
                           </p>
+                          {getAddressCardReference(address) && (
+                            <p className="text-sm text-neutral-400 mt-1">
+                              Referencia: {getAddressCardReference(address)}
+                            </p>
+                          )}
                           <p className="text-sm text-neutral-400 mt-1">{address.phone}</p>
                         </button>
                       ))}
