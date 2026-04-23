@@ -314,12 +314,20 @@ export default function OperationsPage() {
       return;
     }
     if (!permissions.canViewOperationsPanel) {
-      router.push(`/${locale}`);
+      setIsLoading(false);
+      if (permissions.canViewProductionPanel) {
+        router.replace(`/${locale}/dashboard/produccion`);
+      } else if (permissions.canViewLogisticsPanel) {
+        router.replace(`/${locale}/dashboard/logistica`);
+      } else {
+        router.replace(`/${locale}/dashboard`);
+      }
     }
   }, [authLoading, isAuthenticated, permissions.canViewOperationsPanel, router, locale]);
 
   useEffect(() => {
     if (!isAuthenticated || !permissions.canViewOperationsPanel) {
+      setIsLoading(false);
       return;
     }
 
