@@ -603,14 +603,62 @@ class CreateOrderSerializer(serializers.Serializer):
 class ProductionJobSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     metadata = serializers.SerializerMethodField()
+    order_id = serializers.SerializerMethodField()
+    order_number = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    variant_name = serializers.SerializerMethodField()
+    delivery_method = serializers.SerializerMethodField()
+    estimated_delivery_date = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductionJob
         fields = [
-            'id', 'order_line', 'status', 'status_display',
+            'id', 'order_id', 'order_number', 'customer', 'product_name', 'variant_name',
+            'order_line', 'status', 'status_display',
             'planned_start', 'planned_end', 'actual_start', 'actual_end',
-            'requires_quality_check', 'metadata', 'created_at', 'updated_at',
+            'requires_quality_check', 'delivery_method', 'estimated_delivery_date',
+            'metadata', 'created_at', 'updated_at',
         ]
+
+    def get_order_id(self, obj):
+        return str(obj.order_id)
+
+    def get_order_number(self, obj):
+        return obj.order.order_number if obj.order else ''
+
+    def get_customer(self, obj):
+        user = getattr(obj.order, 'user', None)
+        if not user:
+            return None
+        return {
+            'id': str(user.id),
+            'full_name': user.full_name or user.email,
+            'email': user.email,
+        }
+
+    def get_product_name(self, obj):
+        if obj.order_line:
+            return obj.order_line.name
+        return (obj.metadata or {}).get('product_name') or ''
+
+    def get_variant_name(self, obj):
+        if obj.order_line:
+            return obj.order_line.variant_name or ''
+        return (obj.metadata or {}).get('variant_name') or ''
+
+    def get_delivery_method(self, obj):
+        return obj.order.delivery_method if obj.order else ''
+
+    def get_estimated_delivery_date(self, obj):
+        if obj.planned_end:
+            return obj.planned_end.isoformat()
+        if obj.order_line:
+            meta = obj.order_line.metadata if isinstance(obj.order_line.metadata, dict) else {}
+            raw_date = meta.get('estimated_delivery_date') or meta.get('fecha_entrega_estimada')
+            if raw_date:
+                return str(raw_date)
+        return (obj.metadata or {}).get('estimated_delivery_date') or None
 
     def get_metadata(self, obj):
         """Convert metadata JSONField to serializable format or None."""
@@ -625,15 +673,92 @@ class LogisticsJobSerializer(serializers.ModelSerializer):
     logistics_type_display = serializers.CharField(source='get_logistics_type_display', read_only=True)
     address_snapshot = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
+    order_id = serializers.SerializerMethodField()
+    order_number = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
+    delivery_method = serializers.SerializerMethodField()
+    delivery_method_display = serializers.SerializerMethodField()
+    tracking_number = serializers.SerializerMethodField()
+    pickup_branch_detail = serializers.SerializerMethodField()
+    shipping_address = serializers.SerializerMethodField()
+    scheduled_date = serializers.SerializerMethodField()
 
     class Meta:
         model = LogisticsJob
         fields = [
-            'id', 'status', 'status_display',
+            'id', 'order_id', 'order_number', 'customer',
+            'status', 'status_display',
             'logistics_type', 'logistics_type_display',
-            'window_start', 'window_end', 'delivered_at',
+            'delivery_method', 'delivery_method_display',
+            'tracking_number', 'pickup_branch_detail', 'shipping_address',
+            'window_start', 'window_end', 'scheduled_date', 'delivered_at',
             'address_snapshot', 'metadata', 'created_at', 'updated_at',
         ]
+
+    def get_order_id(self, obj):
+        return str(obj.order_id)
+
+    def get_order_number(self, obj):
+        return obj.order.order_number if obj.order else ''
+
+    def get_customer(self, obj):
+        user = getattr(obj.order, 'user', None)
+        if not user:
+            return None
+        return {
+            'id': str(user.id),
+            'full_name': user.full_name or user.email,
+            'email': user.email,
+        }
+
+    def get_delivery_method(self, obj):
+        return obj.order.delivery_method if obj.order else ''
+
+    def get_delivery_method_display(self, obj):
+        order = getattr(obj, 'order', None)
+        if not order:
+            return ''
+        return order.get_delivery_method_display() if hasattr(order, 'get_delivery_method_display') else (order.delivery_method or '')
+
+    def get_tracking_number(self, obj):
+        return obj.order.tracking_number if obj.order else ''
+
+    def get_pickup_branch_detail(self, obj):
+        order = getattr(obj, 'order', None)
+        if not order or not order.pickup_branch:
+            return None
+        branch = order.pickup_branch
+        return {
+            'id': str(branch.id),
+            'name': branch.name,
+            'city': branch.city,
+            'state': branch.state,
+            'full_address': getattr(branch, 'full_address', ''),
+        }
+
+    def get_shipping_address(self, obj):
+        order = getattr(obj, 'order', None)
+        if not order or not isinstance(order.delivery_address, dict):
+            return None
+        addr = order.delivery_address
+        return {
+            'street': addr.get('street') or addr.get('calle') or '',
+            'exterior_number': addr.get('exterior_number') or addr.get('numero_exterior') or '',
+            'interior_number': addr.get('interior_number') or addr.get('numero_interior') or '',
+            'neighborhood': addr.get('neighborhood') or addr.get('colonia') or '',
+            'city': addr.get('city') or addr.get('ciudad') or '',
+            'state': addr.get('state') or addr.get('estado') or '',
+            'postal_code': addr.get('postal_code') or addr.get('codigo_postal') or '',
+            'reference': addr.get('reference') or addr.get('referencia') or '',
+        }
+
+    def get_scheduled_date(self, obj):
+        if obj.window_start:
+            return obj.window_start.isoformat()
+        order = getattr(obj, 'order', None)
+        if order and order.scheduled_date:
+            return order.scheduled_date.isoformat()
+        return None
 
     def get_address_snapshot(self, obj):
         """Convert address_snapshot JSONField to serializable format or None."""

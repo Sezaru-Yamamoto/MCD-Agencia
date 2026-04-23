@@ -26,6 +26,7 @@ export interface User {
     name: string;
     display_name: string;
   };
+  groups?: string[];
   preferred_language: string;
   avatar?: string;
   marketing_consent: boolean;

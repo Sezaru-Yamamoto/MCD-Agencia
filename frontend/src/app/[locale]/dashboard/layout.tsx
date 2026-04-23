@@ -45,8 +45,8 @@ interface OperationBranchItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  // ── Common (admin + sales) ──────────────────────────────────────────────
-  { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon, permission: 'canAccessAdmin' },
+  // ── Common dashboard access ──────────────────────────────────────────────
+  { href: '/dashboard/operaciones', label: 'Operaciones', icon: CalendarDaysIcon, permission: 'canAccessDashboard' },
   { href: '/dashboard/clientes', label: 'Clientes', icon: UsersIcon, permission: 'canViewAllOrders' },
 
   // ── Admin-only ──────────────────────────────────────────────────────────
@@ -62,6 +62,8 @@ const OPERATION_BRANCHES: OperationBranchItem[] = [
   { href: '/dashboard/solicitudes', label: 'Solicitudes', permission: 'canViewAllQuotes' },
   { href: '/dashboard/cotizaciones', label: 'Cotizaciones', permission: 'canViewAllQuotes' },
   { href: '/dashboard/pedidos', label: 'Pedidos', permission: 'canViewAllOrders' },
+  { href: '/dashboard/produccion', label: 'Producción', permission: 'canViewProductionPanel' },
+  { href: '/dashboard/logistica', label: 'Logística', permission: 'canViewLogisticsPanel' },
 ];
 
 const ADMIN_ONLY_PATHS = [
@@ -99,37 +101,43 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
-  // Only staff (admin + sales) can access the dashboard
+  // Staff, production supervisors, and operations supervisors can access the dashboard
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
         router.push(`/${locale}/login?redirect=/${locale}/dashboard`);
-      } else if (!permissions.canAccessAdmin) {
+      } else if (!permissions.canAccessDashboard) {
         router.push(`/${locale}`);
       }
     }
-  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, router, locale]);
+  }, [isLoading, isAuthenticated, permissions.canAccessDashboard, router, locale]);
 
   useEffect(() => {
     if (pathname === `/${locale}/dashboard` || pathname === `/${locale}/dashboard/`) {
-      router.replace(`/${locale}/dashboard/operaciones`);
+      if (permissions.canViewOperationsPanel) {
+        router.replace(`/${locale}/dashboard/operaciones`);
+      } else if (permissions.canViewProductionPanel) {
+        router.replace(`/${locale}/dashboard/produccion`);
+      } else if (permissions.canViewLogisticsPanel) {
+        router.replace(`/${locale}/dashboard/logistica`);
+      }
     }
-  }, [pathname, locale, router]);
+  }, [pathname, locale, router, permissions.canViewOperationsPanel, permissions.canViewProductionPanel, permissions.canViewLogisticsPanel]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && permissions.canAccessAdmin && !permissions.isAdmin) {
+    if (!isLoading && isAuthenticated && permissions.canAccessDashboard && !permissions.isAdmin) {
       const isAdminOnlyPath = ADMIN_ONLY_PATHS.some((path) => pathname.startsWith(`/${locale}${path}`));
       if (isAdminOnlyPath) {
         router.replace(`/${locale}/dashboard/operaciones`);
       }
     }
-  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, permissions.isAdmin, pathname, router, locale]);
+  }, [isLoading, isAuthenticated, permissions.canAccessDashboard, permissions.isAdmin, pathname, router, locale]);
 
   if (isLoading) {
     return <LoadingPage message="Cargando..." />;
   }
 
-  if (!isAuthenticated || !permissions.canAccessAdmin) {
+  if (!isAuthenticated || !permissions.canAccessDashboard) {
     return null;
   }
 
@@ -193,8 +201,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Navigation */}
         <nav className="p-4 space-y-1 overflow-y-auto flex-1 min-h-0">
           {MENU_ITEMS.map((item) => {
-            const fullHref = `/${locale}${item.href}`;
             const isOperationsParent = item.href === '/dashboard/operaciones';
+            const operationsRootHref = permissions.canViewOperationsPanel
+              ? `/${locale}/dashboard/operaciones`
+              : permissions.canViewProductionPanel
+                ? `/${locale}/dashboard/produccion`
+                : permissions.canViewLogisticsPanel
+                  ? `/${locale}/dashboard/logistica`
+                  : `/${locale}/dashboard`;
+            const fullHref = isOperationsParent ? operationsRootHref : `/${locale}${item.href}`;
             const operationBranchActive = OPERATION_BRANCHES.some((branch) => pathname.startsWith(`/${locale}${branch.href}`));
             const isActive = item.exact
               ? pathname === fullHref || pathname === `${fullHref}/`

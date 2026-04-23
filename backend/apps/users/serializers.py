@@ -149,6 +149,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     role = RoleSerializer(read_only=True)
     full_name = serializers.CharField(read_only=True)
+    groups = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -163,6 +164,7 @@ class UserSerializer(serializers.ModelSerializer):
             'default_delivery_address',
             'date_of_birth',
             'role',
+            'groups',
             'preferred_language',
             'avatar',
             'marketing_consent',
@@ -170,6 +172,9 @@ class UserSerializer(serializers.ModelSerializer):
             'created_at',
         ]
         read_only_fields = ['id', 'email', 'is_email_verified', 'created_at']
+
+        def get_groups(self, obj):
+            return list(obj.groups.values_list('name', flat=True))
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -20,6 +21,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { Card, LoadingPage, Modal } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { getWorkflowOverview, type WorkflowItem } from '@/lib/api/admin';
 import { getStaffOrders, type OrderListItem } from '@/lib/api/orders';
 import { getAdminQuoteRequests, getAdminQuotes, getAdminChangeRequests, type Quote, type QuoteRequest, type QuoteChangeRequest } from '@/lib/api/quotes';
@@ -131,7 +134,10 @@ const statusToneClasses: Record<string, string> = {
 };
 
 export default function OperationsPage() {
+  const router = useRouter();
   const locale = useLocale();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const permissions = usePermissions();
   const [overview, setOverview] = useState<Awaited<ReturnType<typeof getWorkflowOverview>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
@@ -302,6 +308,21 @@ export default function OperationsPage() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push(`/${locale}/login?redirect=/${locale}/dashboard/operaciones`);
+      return;
+    }
+    if (!permissions.canViewOperationsPanel) {
+      router.push(`/${locale}`);
+    }
+  }, [authLoading, isAuthenticated, permissions.canViewOperationsPanel, router, locale]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !permissions.canViewOperationsPanel) {
+      return;
+    }
+
     const fetchOverview = async () => {
       setIsLoading(true);
 
@@ -348,7 +369,13 @@ export default function OperationsPage() {
     };
 
     fetchOverview();
-  }, []);
+  }, [isAuthenticated, permissions.canViewOperationsPanel]);
+
+  if (authLoading || isLoading) return <LoadingPage />;
+
+  if (!isAuthenticated || !permissions.canViewOperationsPanel) {
+    return null;
+  }
 
   const formatCurrency = (amount?: string | null) => {
     if (!amount) return '-';

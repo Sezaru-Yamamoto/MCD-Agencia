@@ -47,18 +47,29 @@ export default function DashboardPage() {
   const [pendingChangeRequests, setPendingChangeRequests] = useState<QuoteChangeRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Only admin and sales can access sales panel
+  const groups = user?.groups || [];
   const isSalesOrAdmin = user?.role?.name && ['admin', 'sales'].includes(user.role.name);
+  const isProduction = groups.includes('production_supervisors');
+  const isLogistics = groups.includes('operations_supervisors');
+  const dashboardTarget = isSalesOrAdmin
+    ? `/${locale}/dashboard/operaciones`
+    : isProduction
+      ? `/${locale}/dashboard/produccion`
+      : isLogistics
+        ? `/${locale}/dashboard/logistica`
+        : `/${locale}`;
 
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
         router.push(`/${locale}/login?redirect=/${locale}/dashboard`);
-      } else if (!isSalesOrAdmin) {
+      } else if (dashboardTarget !== `/${locale}`) {
+        router.replace(dashboardTarget);
+      } else {
         router.push(`/${locale}`);
       }
     }
-  }, [authLoading, isAuthenticated, isSalesOrAdmin, router, locale]);
+  }, [authLoading, isAuthenticated, dashboardTarget, router, locale]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {

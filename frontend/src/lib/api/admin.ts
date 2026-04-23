@@ -115,12 +115,21 @@ export interface ProductionJob {
   id: string;
   order_id: string;
   order_number: string;
+  customer?: {
+    id: string;
+    full_name: string;
+    email: string;
+  } | null;
+  product_name?: string;
+  variant_name?: string;
   status: string;
   status_display: string;
   scheduled_start?: string | null;
   scheduled_end?: string | null;
   actual_start?: string | null;
   actual_end?: string | null;
+  delivery_method?: string;
+  estimated_delivery_date?: string | null;
   assigned_to?: string | null;
   notes?: string;
   created_at: string;
@@ -131,14 +140,37 @@ export interface LogisticsJob {
   id: string;
   order_id: string;
   order_number: string;
+  customer?: {
+    id: string;
+    full_name: string;
+    email: string;
+  } | null;
   status: string;
   status_display: string;
   delivery_method: string;
   delivery_method_display: string;
   scheduled_start?: string | null;
   scheduled_end?: string | null;
+  scheduled_date?: string | null;
   delivered_at?: string | null;
   tracking_number?: string | null;
+  pickup_branch_detail?: {
+    id: string;
+    name: string;
+    city: string;
+    state: string;
+    full_address: string;
+  } | null;
+  shipping_address?: {
+    street: string;
+    exterior_number: string;
+    interior_number?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    reference?: string;
+  } | null;
   assigned_to?: string | null;
   notes?: string;
   created_at: string;

@@ -19,11 +19,17 @@ export interface Permissions {
   role: RoleName | null;
   isAdmin: boolean;
   isSales: boolean;
+  isProduction: boolean;
+  isLogistics: boolean;
   isCustomer: boolean;
   isStaff: boolean; // admin or sales
 
   // Admin panel access
+  canAccessDashboard: boolean;
   canAccessAdmin: boolean;
+  canViewOperationsPanel: boolean;
+  canViewProductionPanel: boolean;
+  canViewLogisticsPanel: boolean;
 
   // Catalog permissions
   canViewCatalog: boolean;
@@ -71,9 +77,12 @@ export function usePermissions(): Permissions {
   const { user } = useAuth();
 
   const role = (user?.role?.name as RoleName) || null;
+  const groups = user?.groups || [];
 
   const isAdmin = role === 'admin';
   const isSales = role === 'sales';
+  const isProduction = groups.includes('production_supervisors');
+  const isLogistics = groups.includes('operations_supervisors');
   const isCustomer = role === 'customer';
   const isStaff = isAdmin || isSales;
 
@@ -82,11 +91,17 @@ export function usePermissions(): Permissions {
     role,
     isAdmin,
     isSales,
+    isProduction,
+    isLogistics,
     isCustomer,
     isStaff,
 
     // Admin panel access - staff only
+    canAccessDashboard: isStaff || isProduction || isLogistics,
     canAccessAdmin: isStaff,
+    canViewOperationsPanel: isStaff,
+    canViewProductionPanel: isAdmin || isProduction,
+    canViewLogisticsPanel: isAdmin || isLogistics,
 
     // Catalog - admin can edit, sales can view
     canViewCatalog: true, // Everyone can view public catalog
