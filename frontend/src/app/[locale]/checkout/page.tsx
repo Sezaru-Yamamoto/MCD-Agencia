@@ -190,6 +190,25 @@ export default function CheckoutPage() {
     return merged;
   }, [addresses, profileAddresses, user]);
 
+  const profileMetaByAddressKey = useMemo(() => {
+    const map = new Map<string, { label: string; reference: string }>();
+    for (const addr of profileAddresses) {
+      const key = toAddressKey({
+        street: addr.calle,
+        exterior_number: addr.numero_exterior,
+        neighborhood: addr.colonia,
+        city: addr.ciudad,
+        state: addr.estado,
+        postal_code: addr.codigo_postal,
+      });
+      map.set(key, {
+        label: (addr.label || '').trim(),
+        reference: (addr.referencia || '').trim(),
+      });
+    }
+    return map;
+  }, [profileAddresses]);
+
   const profileAddressById = useMemo(() => {
     return new Map(profileAddresses.map((addr) => [addr.id, addr]));
   }, [profileAddresses]);
@@ -215,14 +234,19 @@ export default function CheckoutPage() {
 
   const getAddressCardTitle = (address: Address): string => {
     const profileAddr = getProfileAddressForCheckoutAddress(address);
-    const tag = (profileAddr?.label || '').trim();
+    const byIdTag = (profileAddr?.label || '').trim();
+    if (byIdTag) return byIdTag;
+
+    const byKeyTag = profileMetaByAddressKey.get(toAddressKey(address))?.label || '';
+    const tag = byKeyTag.trim();
     if (tag) return tag;
     return address.name || 'Direccion';
   };
 
   const getAddressCardReference = (address: Address): string => {
     const profileAddr = getProfileAddressForCheckoutAddress(address);
-    return (address.reference || profileAddr?.referencia || '').trim();
+    const byKeyReference = profileMetaByAddressKey.get(toAddressKey(address))?.reference || '';
+    return (address.reference || profileAddr?.referencia || byKeyReference || '').trim();
   };
 
   const { data: branches = [] } = useQuery({
