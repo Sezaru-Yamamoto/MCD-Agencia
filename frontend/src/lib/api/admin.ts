@@ -149,6 +149,8 @@ export interface LogisticsJob {
   status_display: string;
   delivery_method: string;
   delivery_method_display: string;
+  window_start?: string | null;
+  window_end?: string | null;
   scheduled_start?: string | null;
   scheduled_end?: string | null;
   scheduled_date?: string | null;
