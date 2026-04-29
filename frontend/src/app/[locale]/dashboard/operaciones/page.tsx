@@ -681,10 +681,6 @@ export default function OperationsPage() {
   );
 }
 
-  icon: ComponentType<{ className?: string }>;
-}> = {
-  quotes: {
-    title: 'Solicitudes por asignar',
     subtitle: 'Solicitudes sin priorizar',
     accent: 'border-neutral-700',
     empty: 'No hay solicitudes pendientes.',
