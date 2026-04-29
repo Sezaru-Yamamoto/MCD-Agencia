@@ -680,11 +680,6 @@ export default function OperationsPage() {
     </div>
   );
 }
-    empty: 'No hay pedidos finalizados.',
-    icon: CheckCircleIcon,
-  },
-}
-  assigned: '/dashboard/cotizaciones',
   to_pay: '/dashboard/pedidos',
   in_production: '/dashboard/pedidos',
   ready: '/dashboard/pedidos',
