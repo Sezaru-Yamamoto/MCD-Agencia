@@ -680,51 +680,10 @@ export default function OperationsPage() {
     </div>
   );
 }
-
-    subtitle: 'Solicitudes sin priorizar',
-    accent: 'border-neutral-700',
-    empty: 'No hay solicitudes pendientes.',
-    icon: DocumentTextIcon,
-  },
-  assigned: {
-    title: 'Solicitudes por cotizar',
-    subtitle: 'Solicitudes y cotizaciones activas',
-    accent: 'border-blue-500/30',
-    empty: 'No hay solicitudes asignadas.',
-    icon: UserGroupIcon,
-  },
-  to_pay: {
-    title: 'Validar pagos',
-    subtitle: 'Pedidos manuales pendientes',
-    accent: 'border-amber-500/30',
-    empty: 'No hay pagos manuales pendientes.',
-    icon: ExclamationTriangleIcon,
-  },
-  in_production: {
-    title: 'En producción',
-    subtitle: 'Trabajo activo en producción',
-    accent: 'border-purple-500/30',
-    empty: 'No hay pedidos en producción.',
-    icon: ArrowPathIcon,
-  },
-  ready: {
-    title: 'Para enviar',
-    subtitle: 'Preparados para salida o entrega',
-    accent: 'border-cmyk-cyan/30',
-    empty: 'No hay pedidos listos.',
-    icon: TruckIcon,
-  },
-  done: {
-    title: 'Entregados',
-    subtitle: 'Pedidos finalizados',
-    accent: 'border-green-500/30',
     empty: 'No hay pedidos finalizados.',
     icon: CheckCircleIcon,
   },
-};
-
-const blockRouteMap: Record<keyof typeof blockConfig, string> = {
-  quotes: '/dashboard/solicitudes',
+}
   assigned: '/dashboard/cotizaciones',
   to_pay: '/dashboard/pedidos',
   in_production: '/dashboard/pedidos',
