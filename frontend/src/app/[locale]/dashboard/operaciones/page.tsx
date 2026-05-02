@@ -462,7 +462,7 @@ export default function OperationsPage() {
     };
 
     fetchOverview();
-  }, [isAuthenticated, permissions.canViewOperationsPanel]);
+  }, [isAuthenticated]);
 
   if (authLoading || isLoading) return <LoadingPage />;
 
