@@ -409,7 +409,7 @@ export default function OperationsPage() {
     if (!permissions.canViewOperationsPanel) {
       router.push(`/${locale}`);
     }
-  }, [authLoading, isAuthenticated, router, locale]);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || !permissions.canViewOperationsPanel) {
