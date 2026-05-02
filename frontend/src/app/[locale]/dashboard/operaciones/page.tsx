@@ -476,37 +476,31 @@ export default function OperationsPage() {
   }
 
   const effectiveCalendarEvents = useMemo(() => {
-    const directEvents = overview?.calendar_events || [];
+    if (!overview) return [];
+    const directEvents = overview.calendar_events || [];
     if (directEvents.length > 0) {
       return directEvents;
     }
 
-    const blockEvents = Object.values(overview?.blocks || {})
+    const blockEvents = Object.values(overview.blocks || {})
       .flat()
       .filter((item) => !!item.date)
       .slice(0, 150);
 
     return blockEvents;
-  }, [overview]);
-
-  const calendarEventsByDate = useMemo(() => {
-    const map = new Map<string, WorkflowItem[]>();
-    for (const item of effectiveCalendarEvents) {
-      if (!item.date) continue;
-      const key = item.date.slice(0, 10);
-      const current = map.get(key) || [];
-      current.push(item);
-      map.set(key, current);
-    }
-    return map;
-  }, [effectiveCalendarEvents]);
-
-  const calendarItemsCount = Math.max(overview?.stats.calendar_items ?? 0, effectiveCalendarEvents.length);
+  }, [overview?.calendar_events, overview?.blocks]);
 
   const selectedDateEvents = useMemo(() => {
-    if (!selectedDateKey) return [] as WorkflowItem[];
-    return calendarEventsByDate.get(selectedDateKey) || [];
-  }, [selectedDateKey, calendarEventsByDate]);
+    if (!selectedDateKey || !overview) return [];
+    
+    // Instead of relying on a Map dependency, compute directly from overview
+    const allItems = [
+      ...(overview.calendar_events || []),
+      ...Object.values(overview.blocks || {}).flat(),
+    ];
+    
+    return allItems.filter((item) => item.date?.startsWith(selectedDateKey));
+  }, [selectedDateKey, overview?.calendar_events, overview?.blocks]);
 
   const selectedDateLabel = useMemo(() => {
     if (!selectedDateKey) return '';
