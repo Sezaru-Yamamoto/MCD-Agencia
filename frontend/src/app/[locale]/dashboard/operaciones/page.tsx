@@ -98,10 +98,82 @@ const itemToneClasses: Record<string, string> = {
   order_completed: 'bg-green-500/10 text-green-300 border-green-500/20',
   quote_estimated_delivery: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20',
   order_scheduled: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
-  production_job: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
-  logistics_job: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
-  field_operation_job: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-  mobile_campaign: 'bg-orange-500/10 text-orange-300 border-orange-500/20',
+};
+
+// Helper functions outside component to prevent recreation on every render
+const formatCurrency = (amount?: string | null) => {
+  if (!amount) return '-';
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+  }).format(Number(amount) || 0);
+};
+
+const parseDateSafe = (dateString?: string | null) => {
+  if (!dateString) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return new Date(`${dateString}T12:00:00`);
+  }
+  return new Date(dateString);
+};
+
+const formatDate = (dateString?: string | null) => {
+  const parsed = parseDateSafe(dateString);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+  });
+};
+
+const formatCalendarDate = (dateString?: string | null) => {
+  const parsed = parseDateSafe(dateString);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+};
+
+const formatDateRange = (start?: string | null, end?: string | null) => {
+  const startDate = parseDateSafe(start);
+  const endDate = parseDateSafe(end);
+  if (!startDate && !endDate) return '-';
+  if (startDate && !endDate) return formatCalendarDate(start);
+  if (!startDate && endDate) return formatCalendarDate(end);
+  if (!startDate || !endDate) return '-';
+  return `${startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
+};
+
+const getWeekStart = (sourceDate: Date) => {
+  const start = new Date(sourceDate);
+  start.setHours(0, 0, 0, 0);
+  const weekday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - weekday);
+  return start;
+};
+
+const getWeekRangesForMonth = (year: number, month: number) => {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const cursor = getWeekStart(firstDay);
+  const weeks: Date[] = [];
+
+  while (cursor <= lastDay || weeks.length < 4) {
+    weeks.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+    if (weeks.length > 6) break;
+  }
+
+  return weeks;
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const statusToneClasses: Record<string, string> = {
@@ -300,13 +372,6 @@ export default function OperationsPage() {
     };
   };
 
-  const toDateKey = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
@@ -376,74 +441,6 @@ export default function OperationsPage() {
   if (!isAuthenticated || !permissions.canViewOperationsPanel) {
     return null;
   }
-
-  const formatCurrency = (amount?: string | null) => {
-    if (!amount) return '-';
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(Number(amount) || 0);
-  };
-
-  const parseDateSafe = (dateString?: string | null) => {
-    if (!dateString) return null;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      return new Date(`${dateString}T12:00:00`);
-    }
-    return new Date(dateString);
-  };
-
-  const formatDate = (dateString?: string | null) => {
-    const parsed = parseDateSafe(dateString);
-    if (!parsed) return '-';
-    return parsed.toLocaleDateString('es-MX', {
-      day: '2-digit',
-      month: 'short',
-    });
-  };
-
-  const formatCalendarDate = (dateString?: string | null) => {
-    const parsed = parseDateSafe(dateString);
-    if (!parsed) return '-';
-    return parsed.toLocaleDateString('es-MX', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    });
-  };
-
-  const formatDateRange = (start?: string | null, end?: string | null) => {
-    const startDate = parseDateSafe(start);
-    const endDate = parseDateSafe(end);
-    if (!startDate && !endDate) return '-';
-    if (startDate && !endDate) return formatCalendarDate(start);
-    if (!startDate && endDate) return formatCalendarDate(end);
-    if (!startDate || !endDate) return '-';
-    return `${startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
-  };
-
-  const getWeekStart = (sourceDate: Date) => {
-    const start = new Date(sourceDate);
-    start.setHours(0, 0, 0, 0);
-    const weekday = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - weekday);
-    return start;
-  };
-
-  const getWeekRangesForMonth = (year: number, month: number) => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const cursor = getWeekStart(firstDay);
-    const weeks: Date[] = [];
-
-    while (cursor <= lastDay || weeks.length < 4) {
-      weeks.push(new Date(cursor));
-      cursor.setDate(cursor.getDate() + 7);
-      if (weeks.length > 6) break;
-    }
-
-    return weeks;
-  };
 
   const effectiveCalendarEvents = useMemo(() => {
     const directEvents = overview?.calendar_events || [];
