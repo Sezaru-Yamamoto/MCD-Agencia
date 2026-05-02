@@ -400,19 +400,24 @@ export default function OperationsPage() {
   const mobileBoardCardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const mobileBoardTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
+  // Check if user has operations panel permission
+  const canAccessOperations = permissions?.canViewOperationsPanel === true;
+
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
       router.push(`/${locale}/login?redirect=/${locale}/dashboard/operaciones`);
       return;
     }
-    if (!permissions.canViewOperationsPanel) {
+    // Only redirect if permissions loaded AND explicitly denied
+    if (!authLoading && !canAccessOperations) {
+      console.warn('User does not have canViewOperationsPanel permission');
       router.push(`/${locale}`);
     }
   }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || !permissions.canViewOperationsPanel) {
+    if (!isAuthenticated || !canAccessOperations) {
       return;
     }
 
@@ -466,7 +471,7 @@ export default function OperationsPage() {
 
   if (authLoading || isLoading) return <LoadingPage />;
 
-  if (!isAuthenticated || !permissions.canViewOperationsPanel) {
+  if (!isAuthenticated || !canAccessOperations) {
     return null;
   }
 
