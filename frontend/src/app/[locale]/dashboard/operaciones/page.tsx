@@ -571,6 +571,16 @@ export default function OperationsPage() {
 
   const blockEntries = Object.entries(blockConfig) as Array<[keyof typeof blockConfig, (typeof blockConfig)[keyof typeof blockConfig]]>;
 
+  // Helper to get events for a specific date key
+  const getEventsForDateKey = (dateKey: string): WorkflowItem[] => {
+    if (!overview) return [];
+    const allItems = [
+      ...(overview.calendar_events || []),
+      ...Object.values(overview.blocks || {}).flat(),
+    ];
+    return allItems.filter((item) => item.date?.startsWith(dateKey)) || [];
+  };
+
   const goToBoardIndex = (index: number) => {
     setActiveBoardIndex(index);
     mobileBoardTabRefs.current[index]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
@@ -861,7 +871,7 @@ export default function OperationsPage() {
               <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day) => {
                   const key = toDateKey(day);
-                  const events = calendarEventsByDate.get(key) || [];
+                  const events = getEventsForDateKey(key);
                   const inMonth = day.getMonth() === monthCursor.getMonth();
 
                   return (
@@ -895,7 +905,7 @@ export default function OperationsPage() {
               <div className="grid grid-cols-7 gap-1.5">
                 {weekDays.map((day) => {
                   const key = toDateKey(day);
-                  const events = calendarEventsByDate.get(key) || [];
+                  const events = getEventsForDateKey(key);
 
                   return (
                     <button
