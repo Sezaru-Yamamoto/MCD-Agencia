@@ -176,6 +176,177 @@ const toDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getErrorStatus = (error: unknown): number | null => {
+  if (!error || typeof error !== 'object' || !('status' in error)) return null;
+  const status = (error as { status?: unknown }).status;
+  return typeof status === 'number' ? status : null;
+};
+
+const hasOverviewData = (data: unknown): boolean => {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  const blockItems = Object.values(obj.blocks || {}).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
+  return blockItems > 0 || (Array.isArray(obj.calendar_events) ? obj.calendar_events.length > 0 : false);
+};
+
+// Initial empty overview structure to prevent null reference issues
+const emptyOverview = {
+  generated_at: new Date().toISOString(),
+  window_start: new Date().toISOString(),
+  window_end: new Date().toISOString(),
+  stats: {
+    manual_payment_orders: 0,
+    in_production_orders: 0,
+    ready_orders: 0,
+    completed_orders: 0,
+    assigned_requests: 0,
+    pending_requests: 0,
+    calendar_items: 0,
+  },
+  blocks: {
+    assigned: [],
+    to_pay: [],
+    in_production: [],
+    ready: [],
+    done: [],
+    quotes: [],
+  },
+  calendar_events: [],
+  quotes: [],
+  quote_requests: [],
+};
+
+const buildFallbackWorkflowOverview = (
+  orders: OrderListItem[],
+  quoteRequests: QuoteRequest[],
+  quotes: Quote[],
+  changeRequests: QuoteChangeRequest[] = [],
+) => {
+  const getOrderExtraDate = (order: OrderListItem, field: 'scheduled_date' | 'completed_at'): string | null => {
+    const value = (order as unknown as Record<string, unknown>)[field];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  };
+
+  const getOrderCustomerName = (order: OrderListItem) => {
+    const customer = (order as unknown as { customer?: { full_name?: string; email?: string } }).customer;
+    return customer?.full_name || customer?.email || 'Cliente';
+  };
+
+  const orderToItem = (order: OrderListItem, kind: string, date?: string | null, dateLabel?: string): WorkflowItem => ({
+    id: order.id,
+    kind,
+    title: `Pedido ${order.order_number}`,
+    subtitle: getOrderCustomerName(order),
+    status: order.status,
+    status_display: order.status_display || order.status,
+    payment_method: order.payment_method,
+    date: date || null,
+    date_label: dateLabel,
+    amount: order.total,
+    href: `/dashboard/pedidos/${order.id}`,
+  });
+
+  const quoteRequestToItem = (request: QuoteRequest, kind: string): WorkflowItem => ({
+    id: request.id,
+    kind,
+    title: request.request_number,
+    subtitle: request.customer_name || request.customer_email,
+    status: request.status,
+    status_display: request.status_display || request.status,
+    delivery_method: request.delivery_method,
+    date: request.required_date || null,
+    date_label: request.required_date ? 'Fecha requerida' : undefined,
+    href: `/dashboard/solicitudes/${request.id}`,
+  });
+
+  const quoteToItem = (quote: Quote): WorkflowItem => ({
+    id: quote.id,
+    kind: 'quote_estimated_delivery',
+    title: quote.quote_number,
+    subtitle: quote.customer_name || quote.customer_email,
+    status: quote.status,
+    status_display: quote.status_display || quote.status,
+    date: quote.estimated_delivery_date || null,
+    date_label: quote.estimated_delivery_date ? 'Entrega estimada' : undefined,
+    amount: quote.total,
+    href: `/dashboard/cotizaciones/${quote.id}`,
+  });
+
+  const changeRequestToItem = (request: QuoteChangeRequest, kind: string): WorkflowItem => ({
+    id: request.id,
+    kind,
+    title: `Solicitud de cambio ${request.quote_number}`,
+    subtitle: request.customer_name || request.customer_email,
+    status: request.status,
+    status_display: request.status_display || request.status,
+    date: request.created_at || null,
+    date_label: request.created_at ? 'Solicitado' : undefined,
+    href: `/dashboard/cotizaciones/${request.quote}/cambios/${request.id}`,
+  });
+
+  const manualPendingOrders = orders.filter((order) => order.status === 'pending_payment' && requiresManualPayment(order.payment_method));
+  const inProductionOrders = orders.filter((order) => order.status === 'in_production');
+  const readyOrders = orders.filter((order) => ['ready', 'in_delivery'].includes(order.status));
+  const doneOrders = orders.filter((order) => order.status === 'completed');
+  const assignedRequests = quoteRequests.filter((request) => ['assigned', 'in_review', 'quoted'].includes(request.status));
+  const pendingRequests = quoteRequests.filter((request) => ['pending', 'info_requested'].includes(request.status));
+  const pendingChangeRequests = changeRequests.filter((request) => request.status === 'pending');
+
+  const calendarEvents: WorkflowItem[] = [
+    ...quoteRequests
+      .filter((request) => !!request.required_date)
+      .map((request) => quoteRequestToItem(request, 'quote_request_required')),
+    ...quotes
+      .filter((quote) => !!quote.estimated_delivery_date)
+      .map(quoteToItem),
+    ...orders
+      .map((order) => ({ order, scheduledDate: getOrderExtraDate(order, 'scheduled_date') }))
+      .filter(({ scheduledDate }) => !!scheduledDate)
+      .map(({ order, scheduledDate }) => orderToItem(order, 'order_scheduled', scheduledDate, 'Programado')),
+    ...orders
+      .map((order) => ({ order, completedAt: getOrderExtraDate(order, 'completed_at') }))
+      .filter(({ completedAt }) => !!completedAt)
+      .map(({ order, completedAt }) => orderToItem(order, 'order_completed', completedAt, 'Completado')),
+  ].sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0;
+    const dateB = b.date ? new Date(b.date).getTime() : 0;
+    return dateA - dateB;
+  });
+
+  const now = new Date();
+  const windowStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const windowEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
+  return {
+    generated_at: now.toISOString(),
+    window_start: windowStart,
+    window_end: windowEnd,
+    stats: {
+      manual_payment_orders: manualPendingOrders.length,
+      in_production_orders: inProductionOrders.length,
+      ready_orders: readyOrders.length,
+      completed_orders: doneOrders.length,
+      assigned_requests: assignedRequests.length,
+      pending_requests: pendingRequests.length,
+      calendar_items: calendarEvents.length,
+    },
+    blocks: {
+      assigned: [
+        ...assignedRequests.map((request) => quoteRequestToItem(request, 'quote_request_assigned')),
+        ...pendingChangeRequests.map((request) => changeRequestToItem(request, 'quote_change_request_pending')),
+      ],
+      to_pay: manualPendingOrders.map((order) => orderToItem(order, 'order_pending_payment', order.created_at, 'Alta')),
+      in_production: inProductionOrders.map((order) => orderToItem(order, 'order_in_production', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Producción')),
+      ready: readyOrders.map((order) => orderToItem(order, 'order_ready', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Entrega')),
+      done: doneOrders.map((order) => orderToItem(order, 'order_completed', getOrderExtraDate(order, 'completed_at') || order.created_at, 'Completado')),
+      quotes: pendingRequests.map((request) => quoteRequestToItem(request, 'quote_request_pending')),
+    },
+    calendar_events: calendarEvents,
+    quotes,
+    quote_requests: quoteRequests,
+  };
+};
+
 const statusToneClasses: Record<string, string> = {
   pending_payment: 'bg-amber-500/15 text-amber-300 border-amber-500/20',
   paid: 'bg-green-500/15 text-green-300 border-green-500/20',
@@ -210,7 +381,7 @@ export default function OperationsPage() {
   const locale = useLocale();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const permissions = usePermissions();
-  const [overview, setOverview] = useState<Awaited<ReturnType<typeof getWorkflowOverview>> | null>(null);
+  const [overview, setOverview] = useState(emptyOverview as unknown as Awaited<ReturnType<typeof getWorkflowOverview>>);
   const [isLoading, setIsLoading] = useState(true);
   const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
   const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
@@ -228,149 +399,6 @@ export default function OperationsPage() {
   const mobileBoardRef = useRef<HTMLDivElement | null>(null);
   const mobileBoardCardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const mobileBoardTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  const getErrorStatus = (error: unknown): number | null => {
-    if (!error || typeof error !== 'object' || !('status' in error)) return null;
-    const status = (error as { status?: unknown }).status;
-    return typeof status === 'number' ? status : null;
-  };
-
-  const hasOverviewData = (data: Awaited<ReturnType<typeof getWorkflowOverview>> | null): boolean => {
-    if (!data) return false;
-    const blockItems = Object.values(data.blocks || {}).reduce((sum, items) => sum + (items?.length || 0), 0);
-    return blockItems > 0 || (data.calendar_events?.length || 0) > 0;
-  };
-
-  const buildFallbackWorkflowOverview = (
-    orders: OrderListItem[],
-    quoteRequests: QuoteRequest[],
-    quotes: Quote[],
-    changeRequests: QuoteChangeRequest[] = [],
-  ): Awaited<ReturnType<typeof getWorkflowOverview>> => {
-    const getOrderExtraDate = (order: OrderListItem, field: 'scheduled_date' | 'completed_at'): string | null => {
-      const value = (order as unknown as Record<string, unknown>)[field];
-      return typeof value === 'string' && value.length > 0 ? value : null;
-    };
-
-    const getOrderCustomerName = (order: OrderListItem) => {
-      const customer = (order as unknown as { customer?: { full_name?: string; email?: string } }).customer;
-      return customer?.full_name || customer?.email || 'Cliente';
-    };
-
-    const orderToItem = (order: OrderListItem, kind: string, date?: string | null, dateLabel?: string): WorkflowItem => ({
-      id: order.id,
-      kind,
-      title: `Pedido ${order.order_number}`,
-      subtitle: getOrderCustomerName(order),
-      status: order.status,
-      status_display: order.status_display || order.status,
-      payment_method: order.payment_method,
-      date: date || null,
-      date_label: dateLabel,
-      amount: order.total,
-      href: `/dashboard/pedidos/${order.id}`,
-    });
-
-    const quoteRequestToItem = (request: QuoteRequest, kind: string): WorkflowItem => ({
-      id: request.id,
-      kind,
-      title: request.request_number,
-      subtitle: request.customer_name || request.customer_email,
-      status: request.status,
-      status_display: request.status_display || request.status,
-      delivery_method: request.delivery_method,
-      date: request.required_date || null,
-      date_label: request.required_date ? 'Fecha requerida' : undefined,
-      href: `/dashboard/solicitudes/${request.id}`,
-    });
-
-    const quoteToItem = (quote: Quote): WorkflowItem => ({
-      id: quote.id,
-      kind: 'quote_estimated_delivery',
-      title: quote.quote_number,
-      subtitle: quote.customer_name || quote.customer_email,
-      status: quote.status,
-      status_display: quote.status_display || quote.status,
-      date: quote.estimated_delivery_date || null,
-      date_label: quote.estimated_delivery_date ? 'Entrega estimada' : undefined,
-      amount: quote.total,
-      href: `/dashboard/cotizaciones/${quote.id}`,
-    });
-
-    const changeRequestToItem = (request: QuoteChangeRequest, kind: string): WorkflowItem => ({
-      id: request.id,
-      kind,
-      title: `Solicitud de cambio ${request.quote_number}`,
-      subtitle: request.customer_name || request.customer_email,
-      status: request.status,
-      status_display: request.status_display || request.status,
-      date: request.created_at || null,
-      date_label: request.created_at ? 'Solicitado' : undefined,
-      href: `/dashboard/cotizaciones/${request.quote}/cambios/${request.id}`,
-    });
-
-    const manualPendingOrders = orders.filter((order) => order.status === 'pending_payment' && requiresManualPayment(order.payment_method));
-    const inProductionOrders = orders.filter((order) => order.status === 'in_production');
-    const readyOrders = orders.filter((order) => ['ready', 'in_delivery'].includes(order.status));
-    const doneOrders = orders.filter((order) => order.status === 'completed');
-    const assignedRequests = quoteRequests.filter((request) => ['assigned', 'in_review', 'quoted'].includes(request.status));
-    const pendingRequests = quoteRequests.filter((request) => ['pending', 'info_requested'].includes(request.status));
-    const pendingChangeRequests = changeRequests.filter((request) => request.status === 'pending');
-
-    const calendarEvents: WorkflowItem[] = [
-      ...quoteRequests
-        .filter((request) => !!request.required_date)
-        .map((request) => quoteRequestToItem(request, 'quote_request_required')),
-      ...quotes
-        .filter((quote) => !!quote.estimated_delivery_date)
-        .map(quoteToItem),
-      ...orders
-        .map((order) => ({ order, scheduledDate: getOrderExtraDate(order, 'scheduled_date') }))
-        .filter(({ scheduledDate }) => !!scheduledDate)
-        .map(({ order, scheduledDate }) => orderToItem(order, 'order_scheduled', scheduledDate, 'Programado')),
-      ...orders
-        .map((order) => ({ order, completedAt: getOrderExtraDate(order, 'completed_at') }))
-        .filter(({ completedAt }) => !!completedAt)
-        .map(({ order, completedAt }) => orderToItem(order, 'order_completed', completedAt, 'Completado')),
-    ].sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0;
-      const dateB = b.date ? new Date(b.date).getTime() : 0;
-      return dateA - dateB;
-    });
-
-    const now = new Date();
-    const windowStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const windowEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
-
-    return {
-      generated_at: now.toISOString(),
-      window_start: windowStart,
-      window_end: windowEnd,
-      stats: {
-        manual_payment_orders: manualPendingOrders.length,
-        in_production_orders: inProductionOrders.length,
-        ready_orders: readyOrders.length,
-        completed_orders: doneOrders.length,
-        assigned_requests: assignedRequests.length,
-        pending_requests: pendingRequests.length,
-        calendar_items: calendarEvents.length,
-      },
-      blocks: {
-        assigned: [
-          ...assignedRequests.map((request) => quoteRequestToItem(request, 'quote_request_assigned')),
-          ...pendingChangeRequests.map((request) => changeRequestToItem(request, 'quote_change_request_pending')),
-        ],
-        to_pay: manualPendingOrders.map((order) => orderToItem(order, 'order_pending_payment', order.created_at, 'Alta')),
-        in_production: inProductionOrders.map((order) => orderToItem(order, 'order_in_production', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Producción')),
-        ready: readyOrders.map((order) => orderToItem(order, 'order_ready', getOrderExtraDate(order, 'scheduled_date') || order.created_at, 'Entrega')),
-        done: doneOrders.map((order) => orderToItem(order, 'order_completed', getOrderExtraDate(order, 'completed_at') || order.created_at, 'Completado')),
-        quotes: pendingRequests.map((request) => quoteRequestToItem(request, 'quote_request_pending')),
-      },
-      calendar_events: calendarEvents,
-      quotes,
-      quote_requests: quoteRequests,
-    };
-  };
 
   useEffect(() => {
     if (authLoading) return;
