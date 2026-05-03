@@ -682,6 +682,8 @@ class LogisticsJobSerializer(serializers.ModelSerializer):
     pickup_branch_detail = serializers.SerializerMethodField()
     shipping_address = serializers.SerializerMethodField()
     scheduled_date = serializers.SerializerMethodField()
+    scheduled_start = serializers.SerializerMethodField()
+    scheduled_end = serializers.SerializerMethodField()
 
     class Meta:
         model = LogisticsJob
@@ -691,7 +693,7 @@ class LogisticsJobSerializer(serializers.ModelSerializer):
             'logistics_type', 'logistics_type_display',
             'delivery_method', 'delivery_method_display',
             'tracking_number', 'pickup_branch_detail', 'shipping_address',
-            'window_start', 'window_end', 'scheduled_date', 'delivered_at',
+            'window_start', 'window_end', 'scheduled_start', 'scheduled_end', 'scheduled_date', 'delivered_at',
             'address_snapshot', 'metadata', 'created_at', 'updated_at',
         ]
 
@@ -760,6 +762,18 @@ class LogisticsJobSerializer(serializers.ModelSerializer):
             return order.scheduled_date.isoformat()
         return None
 
+    def get_scheduled_start(self, obj):
+        """Alias for window_start for frontend compatibility."""
+        if obj.window_start:
+            return obj.window_start.isoformat()
+        return None
+
+    def get_scheduled_end(self, obj):
+        """Alias for window_end for frontend compatibility."""
+        if obj.window_end:
+            return obj.window_end.isoformat()
+        return None
+
     def get_address_snapshot(self, obj):
         """Convert address_snapshot JSONField to serializable format or None."""
         addr = obj.address_snapshot
@@ -780,15 +794,35 @@ class FieldOperationJobSerializer(serializers.ModelSerializer):
     operation_type_display = serializers.CharField(source='get_operation_type_display', read_only=True)
     location_snapshot = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
+    order_id = serializers.SerializerMethodField()
+    order_number = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
 
     class Meta:
         model = FieldOperationJob
         fields = [
-            'id', 'status', 'status_display',
+            'id', 'order_id', 'order_number', 'customer',
+            'status', 'status_display',
             'operation_type', 'operation_type_display',
             'scheduled_start', 'scheduled_end', 'actual_start', 'actual_end',
             'location_snapshot', 'metadata', 'created_at', 'updated_at',
         ]
+
+    def get_order_id(self, obj):
+        return str(obj.order_id)
+
+    def get_order_number(self, obj):
+        return obj.order.order_number if obj.order else ''
+
+    def get_customer(self, obj):
+        user = getattr(obj.order, 'user', None) if obj.order else None
+        if not user:
+            return None
+        return {
+            'id': str(user.id),
+            'full_name': user.full_name or user.email,
+            'email': user.email,
+        }
 
     def get_location_snapshot(self, obj):
         """Convert location_snapshot JSONField to serializable format or None."""

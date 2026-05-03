@@ -237,7 +237,7 @@ export default function OperationsFieldDashboard() {
                           href={`/${locale}/dashboard/pedidos/${job.order_id}`}
                           className="font-medium text-blue-400 hover:text-blue-300"
                         >
-                          #{job.order_number}
+                          #{job.order_number || job.order_id || 'N/A'}
                         </Link>
                       </td>
                       <td className="px-6 py-4">
@@ -318,7 +318,7 @@ export default function OperationsFieldDashboard() {
                       href={`/${locale}/dashboard/pedidos/${job.order_id}`}
                       className="font-medium text-blue-400 hover:text-blue-300"
                     >
-                      #{job.order_number}
+                      #{job.order_number || job.order_id || 'N/A'}
                     </Link>
                     <span className="text-xs text-neutral-500">{isLogistics ? 'Logística' : 'Instalación'}</span>
                   </div>
