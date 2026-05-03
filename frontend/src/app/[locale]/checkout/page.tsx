@@ -43,7 +43,7 @@ const addressSchema = z.object({
 
 type AddressFormData = z.infer<typeof addressSchema>;
 
-type CheckoutPaymentMethod = 'mercadopago' | 'paypal' | 'bank_transfer' | 'cash';
+type CheckoutPaymentMethod = 'mercadopago' | 'paypal';
 
 const PAYMENT_METHODS = [
   {
@@ -59,20 +59,6 @@ const PAYMENT_METHODS = [
     description: 'Pago seguro con PayPal',
     icon: BuildingLibraryIcon,
     badge: 'PP',
-  },
-  {
-    id: 'bank_transfer',
-    name: 'Transferencia',
-    description: 'Validación manual por administrador',
-    icon: BuildingLibraryIcon,
-    badge: 'CLABE',
-  },
-  {
-    id: 'cash',
-    name: 'Efectivo',
-    description: 'Pago presencial y validación manual',
-    icon: BanknotesIcon,
-    badge: 'Cash',
   },
 ];
 
@@ -90,8 +76,6 @@ export default function CheckoutPage() {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [transferReference, setTransferReference] = useState('');
-  const [transferFiles, setTransferFiles] = useState<File[]>([]);
 
   const LOCAL_SHIPPING_FEE = 120;
   const OUTSIDE_SHIPPING_FEE = 260;
@@ -388,15 +372,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (selectedPaymentMethod === 'bank_transfer') {
-      const hasReference = Boolean(transferReference.trim());
-      const hasReceiptImage = transferFiles.length > 0;
-      if (!hasReference && !hasReceiptImage) {
-        toast.error('Ingresa una referencia o sube una imagen del comprobante para continuar.');
-        return;
-      }
-    }
-
     setIsSubmitting(true);
     try {
       const normalizedPaymentMethod = selectedPaymentMethod;
@@ -405,13 +380,6 @@ export default function CheckoutPage() {
         `Metodo de pago: ${normalizedPaymentMethod}`,
         `Metodo de entrega: ${deliveryMethod}`,
       ];
-
-      if (selectedPaymentMethod === 'bank_transfer') {
-        noteParts.push(`Referencia transferencia: ${transferReference.trim() || 'sin referencia'}`);
-        if (transferFiles.length > 0) {
-          noteParts.push(`Comprobante(s): ${transferFiles.map((file) => file.name).join(', ')}`);
-        }
-      }
 
       // Create the order first
       const order = await createOrder({
@@ -428,13 +396,7 @@ export default function CheckoutPage() {
       // Refresh cart (should be empty now)
       await refreshCart();
 
-      if (normalizedPaymentMethod === 'mercadopago' || normalizedPaymentMethod === 'paypal') {
-        toast.success('Pago confirmado correctamente. Tu pedido ya está en proceso.');
-      } else if (normalizedPaymentMethod === 'bank_transfer') {
-        toast.success('Orden creada. Completa tu transferencia desde el detalle del pedido.');
-      } else {
-        toast.success('Orden creada. Realiza tu pago en efectivo en sucursal para confirmarla.');
-      }
+      toast.success('Pago confirmado correctamente. Tu pedido ya está en proceso.');
 
       router.push(`/${locale}/mi-cuenta/pedidos/${order.id}`);
     } catch (error: unknown) {
@@ -635,76 +597,7 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              {selectedPaymentMethod === 'bank_transfer' && (
-                <div className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
-                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-xs text-neutral-300 space-y-1">
-                    <p><span className="text-neutral-500">Beneficiario:</span> MCD Agencia Publicitaria SA de CV</p>
-                    <p><span className="text-neutral-500">Banco:</span> BBVA México</p>
-                    <p><span className="text-neutral-500">Cuenta:</span> 012345678901234567</p>
-                    <p><span className="text-neutral-500">CLABE:</span> 012345678901234567</p>
-                  </div>
 
-                  <div>
-                    <p className="text-sm text-neutral-300 font-medium">Referencia:</p>
-                    <input
-                      type="text"
-                      value={transferReference}
-                      onChange={(e) => setTransferReference(e.target.value)}
-                      placeholder="Ejemplo: SPEI-58294011 (opcional si subes imagen)"
-                      className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-cmyk-cyan focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-neutral-300 font-medium">Comprobante de transferencia (imagen)</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files || []);
-                        setTransferFiles(files);
-                      }}
-                      className="mt-1 w-full text-sm text-neutral-300 file:mr-3 file:rounded file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-white hover:file:bg-neutral-600"
-                    />
-                  </div>
-
-                  <div className="text-xs text-neutral-400 space-y-1">
-                    <p>Instrucciones:</p>
-                    <p>1) Realiza la transferencia desde tu banco.</p>
-                    <p>2) Captura la referencia exacta o sube imagen del comprobante.</p>
-                    <p>3) Debes proporcionar al menos uno: referencia o comprobante.</p>
-                    <p>4) Un administrador validará tu pago para continuar el proceso.</p>
-                  </div>
-                </div>
-              )}
-
-              {selectedPaymentMethod === 'cash' && (
-                <div className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/60 p-3 space-y-3">
-                  <p className="text-sm text-neutral-300">
-                    Debes acercarte a cualquiera de nuestras sucursales para realizar el pago en efectivo.
-                  </p>
-                  <div className="space-y-2">
-                    {checkoutBranches.length > 0 ? checkoutBranches.map((branch) => (
-                      <div key={`cash-${branch.id}`} className="rounded border border-neutral-800 p-2">
-                        <p className="text-sm text-white font-medium">{branch.name}</p>
-                        <p className="text-xs text-neutral-400">{branch.full_address || `${branch.city || ''}`}</p>
-                        <p className="text-xs text-neutral-500">{branch.phone}</p>
-                      </div>
-                    )) : (
-                      <p className="text-xs text-neutral-400">Cargando sucursales disponibles...</p>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-neutral-400 space-y-1">
-                    <p>Instrucciones:</p>
-                    <p>1) Acude a la sucursal de tu preferencia.</p>
-                    <p>2) Indica tu número de pedido al asesor.</p>
-                    <p>3) Realiza el pago en caja.</p>
-                    <p>4) El equipo administrativo confirmará el pago para iniciar producción.</p>
-                  </div>
-                </div>
-              )}
             </Card>
 
             {/* Terms */}

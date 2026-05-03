@@ -73,10 +73,15 @@ def _extract_routing(order: Order, line: OrderLine) -> LineRouting:
         order,
     )
 
-    requires_production = _parse_bool(
-        metadata.get('requires_production'),
-        default=delivery_method not in {Order.DELIVERY_DIGITAL, Order.DELIVERY_NOT_APPLICABLE},
-    )
+    # Direct catalog purchases skip production - go straight to logistics
+    # Quote-based orders require production workflow
+    if order.origin == Order.ORIGIN_DIRECT_PURCHASE:
+        requires_production = False
+    else:
+        requires_production = _parse_bool(
+            metadata.get('requires_production'),
+            default=delivery_method not in {Order.DELIVERY_DIGITAL, Order.DELIVERY_NOT_APPLICABLE},
+        )
 
     required_date = _as_datetime(metadata.get('required_date'))
     estimated_date = _as_datetime(metadata.get('estimated_delivery_date'))
