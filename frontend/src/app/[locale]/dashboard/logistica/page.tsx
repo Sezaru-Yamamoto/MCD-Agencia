@@ -106,7 +106,7 @@ export default function LogisticsDashboardPage() {
 
       return {
         id: job.id,
-        title: `#${job.order_number}`,
+        title: `#${job.order_number || job.order_id || 'N/A'}`,
         subtitle: `${customer} · ${addressLabel}`,
         status: job.status,
         status_display: job.status_display || job.status,

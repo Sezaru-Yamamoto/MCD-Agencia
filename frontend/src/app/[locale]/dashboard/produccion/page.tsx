@@ -95,7 +95,7 @@ export default function ProductionDashboardPage() {
 
       return {
         id: job.id,
-        title: `#${job.order_number}`,
+        title: `#${job.order_number || job.order_id || 'N/A'}`,
         subtitle: `${productBits.join(' · ') || 'Trabajo de producción'} · ${customer}`,
         status: job.status,
         status_display: job.status_display || job.status,
